@@ -21,6 +21,12 @@ export type SignUpParams = {
   lastName: string;
 };
 
+export type SignUpResult = {
+  requiresVerification: true;
+  email: string;
+  expiresInMinutes: number;
+};
+
 export type AppUser = {
   id: string;
   username: string;
@@ -98,9 +104,24 @@ export const signUp = async ({
   email,
   firstName,
   lastName,
-}: SignUpParams): Promise<void> => {
-  await postJson('/api/auth/sign-up', { username, password, email, firstName, lastName });
+}: SignUpParams): Promise<SignUpResult> => (await postJson('/api/auth/sign-up', {
+    username,
+    password,
+    email,
+    firstName,
+    lastName,
+  })) as SignUpResult;
+
+export const verifyEmailCode = async (params: {
+  email: string;
+  code: string;
+}): Promise<AppUser> => {
+  const { user } = await postJson('/api/auth/verify-email', params);
+  return user;
 };
+
+export const resendVerificationCode = async (email: string): Promise<{ message: string }> =>
+  (await postJson('/api/auth/resend-verification', { email })) as { message: string };
 
 /** **************************************
  * Change password (forced on first login for auto-generated accounts)
@@ -140,5 +161,12 @@ export const acceptLegal = async (): Promise<AppUser> => {
  * Sign out
  *************************************** */
 export const signOut = async (): Promise<void> => {
-  await fetch('/api/auth/sign-out', { method: 'POST' });
+  const response = await fetch('/api/auth/sign-out', {
+    method: 'POST',
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    throw new Error('ไม่สามารถออกจากระบบได้');
+  }
 };

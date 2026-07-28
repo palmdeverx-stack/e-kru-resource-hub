@@ -40,6 +40,7 @@ export type MainLayoutProps = LayoutBaseProps & {
     };
     main?: MainSectionProps;
     footer?: FooterProps;
+    footerContent?: React.ReactNode;
   };
 };
 
@@ -137,8 +138,14 @@ export function MainLayout({
     mobileBottom && { display: { xs: 'none', md: 'block' } },
   ];
 
-  const renderFooter = () =>
-    isHomePage ? <HomeFooter sx={footerSx} /> : <Footer sx={footerSx} layoutQuery={layoutQuery} />;
+  const renderFooter = () => {
+    if (slotProps?.footerContent) return slotProps.footerContent;
+    return isHomePage ? (
+      <HomeFooter sx={footerSx} />
+    ) : (
+      <Footer sx={footerSx} layoutQuery={layoutQuery} />
+    );
+  };
 
   const renderMain = () => (
     <MainSection

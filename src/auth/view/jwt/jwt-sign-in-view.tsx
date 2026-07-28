@@ -14,7 +14,7 @@ import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import InputAdornment from '@mui/material/InputAdornment';
 
-import { useRouter } from 'src/routes/hooks';
+import { useRouter, useSearchParams } from 'src/routes/hooks';
 
 import { CONFIG } from 'src/global-config';
 
@@ -46,6 +46,12 @@ export const SignInSchema = z.object({
 
 export function JwtSignInView() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const requestedReturnTo = searchParams.get('returnTo');
+  const returnTo =
+    requestedReturnTo?.startsWith('/') && !requestedReturnTo.startsWith('//')
+      ? requestedReturnTo
+      : null;
 
   const showPassword = useBoolean();
   const [pinChallenge, setPinChallenge] = useState<{
@@ -79,7 +85,7 @@ export function JwtSignInView() {
 
       await checkUserSession?.();
 
-      router.replace(getHomePathForRole(result.role));
+      router.replace(returnTo ?? getHomePathForRole(result.role));
     },
   });
 
@@ -88,7 +94,7 @@ export function JwtSignInView() {
     onSuccess: async (user) => {
       await checkUserSession?.();
 
-      router.replace(getHomePathForRole(user.role));
+      router.replace(returnTo ?? getHomePathForRole(user.role));
     },
   });
 

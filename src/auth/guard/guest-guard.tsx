@@ -3,14 +3,12 @@
 import { useState, useEffect } from 'react';
 import { safeReturnUrl } from 'minimal-shared/utils';
 
-import { paths } from 'src/routes/paths';
 import { useRouter, useSearchParams } from 'src/routes/hooks';
-
-import { CONFIG } from 'src/global-config';
 
 import { SplashScreen } from 'src/components/loading-screen';
 
 import { useAuthContext } from '../hooks';
+import { getHomePathForRole } from '../utils/role-home-path';
 
 // ----------------------------------------------------------------------
 
@@ -26,7 +24,7 @@ export function GuestGuard({ children }: GuestGuardProps) {
   const [isChecking, setIsChecking] = useState(true);
 
   const searchParams = useSearchParams();
-  const defaultRedirect = user?.role === 'student' ? paths.student.root : CONFIG.auth.redirectPath;
+  const defaultRedirect = getHomePathForRole(user?.role);
   const redirectUrl = safeReturnUrl(searchParams.get('returnTo'), defaultRedirect);
 
   const checkPermissions = async (): Promise<void> => {

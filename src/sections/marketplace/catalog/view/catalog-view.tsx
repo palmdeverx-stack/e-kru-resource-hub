@@ -1,13 +1,12 @@
 'use client';
 
-import type { MarketplaceProduct } from 'src/types/marketplace';
+import type { MarketplaceProduct } from '../../shared/types';
 
 import { useState, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import Chip from '@mui/material/Chip';
-import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Container from '@mui/material/Container';
@@ -27,77 +26,41 @@ import {
   RiGraduationCapLine,
 } from 'src/components/remix-icon';
 
-const CATEGORIES = ['all', 'แผนการสอน', 'ใบงาน', 'สื่อประกอบ', 'แบบทดสอบ', 'คอร์สเรียน'];
+import { getProducts, getCategories } from '../../shared/api';
+import { MarketplaceProductCard } from '../../shared/product-card';
+import { SAMPLE_PRODUCTS, MARKETPLACE_CATEGORIES } from '../../shared/constants';
 
-const FALLBACK_PRODUCTS: MarketplaceProduct[] = [
-  {
-    id: 'sample-1',
-    seller_id: 'sample',
-    title: 'ชุดใบงานคณิตศาสตร์ ป.4',
-    description: 'ใบงานพร้อมเฉลย ใช้ได้ทั้งในห้องเรียนและการบ้าน',
-    category: 'ใบงาน',
-    resource_type: 'digital',
-    price: 129,
-    currency: 'THB',
-    cover_url: null,
-    status: 'published',
-    created_at: new Date().toISOString(),
-    seller: { id: 'sample', display_name: 'ครูมินตรา', seller_type: 'teacher' },
-  },
-  {
-    id: 'sample-2',
-    seller_id: 'sample',
-    title: 'แผนการสอนวิทยาศาสตร์ Active Learning',
-    description: 'แผนการสอน 10 คาบ พร้อมกิจกรรมและเกณฑ์ประเมิน',
-    category: 'แผนการสอน',
-    resource_type: 'digital',
-    price: 249,
-    currency: 'THB',
-    cover_url: null,
-    status: 'published',
-    created_at: new Date().toISOString(),
-    seller: { id: 'sample', display_name: 'Science Lab', seller_type: 'external' },
-  },
-  {
-    id: 'sample-3',
-    seller_id: 'sample',
-    title: 'เกมคำศัพท์ภาษาอังกฤษในห้องเรียน',
-    description: 'สไลด์เกมพร้อมเล่น 5 รูปแบบ สำหรับประถมศึกษา',
-    category: 'สื่อประกอบ',
-    resource_type: 'digital',
-    price: 89,
-    currency: 'THB',
-    cover_url: null,
-    status: 'published',
-    created_at: new Date().toISOString(),
-    seller: { id: 'sample', display_name: 'Happy English', seller_type: 'teacher' },
-  },
-];
-
-export function MarketplaceHomeView() {
+export function MarketplaceCatalogView() {
   const [products, setProducts] = useState<MarketplaceProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('all');
+  const [categories, setCategories] = useState<string[]>([...MARKETPLACE_CATEGORIES]);
 
   useEffect(() => {
-    const params = new URLSearchParams();
-    if (search) params.set('q', search);
-    if (category !== 'all') params.set('category', category);
+    getCategories()
+      .then(({ categories: categoryRows }) => {
+        if (categoryRows.length) {
+          setCategories(['all', ...categoryRows.map((item) => item.name)]);
+        }
+      })
+      .catch(() => {
+        // Keep the built-in category fallback while the master schema is being installed.
+      });
+  }, []);
 
+  useEffect(() => {
     const timer = window.setTimeout(async () => {
       setLoading(true);
       try {
-        const response = await fetch(`/api/marketplace/products?${params}`);
-        const result = await response.json();
-        setProducts(result.products?.length ? result.products : FALLBACK_PRODUCTS);
+        const result = await getProducts({ q: search, category });
+        setProducts(result.products.length ? result.products : SAMPLE_PRODUCTS);
       } catch {
-        setProducts(FALLBACK_PRODUCTS);
+        setProducts(SAMPLE_PRODUCTS);
       } finally {
         setLoading(false);
       }
     }, 250);
-
     return () => window.clearTimeout(timer);
   }, [category, search]);
 
@@ -111,10 +74,9 @@ export function MarketplaceHomeView() {
     <>
       <Box
         sx={(theme) => ({
-          py: { xs: 8, md: 12 },
-          borderBottom: `1px solid ${theme.vars.palette.divider}`,
+          py: { xs: 7, md: 11 },
           background:
-            'radial-gradient(circle at 85% 20%, rgba(0, 167, 111, 0.16), transparent 34%), linear-gradient(180deg, #F7FFF9 0%, #FFFFFF 100%)',
+            'radial-gradient(circle at 85% 20%, rgba(21, 101, 245, 0.16), transparent 34%), linear-gradient(180deg, #F5F9FF 0%, #FFFFFF 100%)',
         })}
       >
         <Container maxWidth="lg">
@@ -123,6 +85,7 @@ export function MarketplaceHomeView() {
               <Stack spacing={3} alignItems={{ xs: 'center', md: 'flex-start' }}>
                 <Chip icon={<RiGraduationCapLine />} label="จากครู เพื่อการเรียนรู้ที่ดีขึ้น" />
                 <Typography
+                  component="h1"
                   variant="h1"
                   sx={{ fontSize: { xs: 42, md: 68 }, textAlign: { xs: 'center', md: 'left' } }}
                 >
@@ -141,13 +104,12 @@ export function MarketplaceHomeView() {
                     textAlign: { xs: 'center', md: 'left' },
                   }}
                 >
-                  ค้นหาสื่อ แผนการสอน ใบงาน และคอร์สคุณภาพจากครู eKru
-                  และนักสร้างสรรค์การศึกษาทั่วประเทศ
+                  ค้นหา ซื้อ และขายแผนการสอน ใบงาน แบบทดสอบ และสื่อคุณภาพจากชุมชนการศึกษา eKru
                 </Typography>
                 <TextField
                   fullWidth
                   value={search}
-                  placeholder="ค้นหาสื่อการสอน..."
+                  placeholder="ค้นหาสื่อ วิชา หรือระดับชั้น..."
                   onChange={(event) => setSearch(event.target.value)}
                   slotProps={{
                     input: {
@@ -173,7 +135,7 @@ export function MarketplaceHomeView() {
                     size="large"
                     variant="outlined"
                     component={RouterLink}
-                    href={paths.marketplace.dashboard}
+                    href={paths.marketplace.seller}
                     startIcon={<RiStore2Line />}
                   >
                     เปิดร้านขายสื่อ
@@ -188,14 +150,14 @@ export function MarketplaceHomeView() {
                   borderRadius: 5,
                   color: 'common.white',
                   bgcolor: 'primary.darker',
-                  boxShadow: '0 32px 80px rgba(0, 75, 60, 0.24)',
+                  boxShadow: '0 32px 80px rgba(13, 63, 156, 0.24)',
                 }}
               >
                 <Stack spacing={3}>
                   <RiShieldCheckLine size={48} />
                   <Typography variant="h3">บัญชีเดียวกับ eKru</Typography>
                   <Typography sx={{ color: 'rgba(255,255,255,0.76)' }}>
-                    ครูเข้าสู่ระบบด้วยบัญชีเดิมได้ทันที บุคคลทั่วไปสมัครใหม่ได้
+                    ครูใช้บัญชีเดิมได้ทันที บุคคลทั่วไปสมัครใหม่ได้
                     และทุกคนสามารถเปิดร้านขายผลงานของตัวเอง
                   </Typography>
                   <Stack direction="row" spacing={4}>
@@ -225,7 +187,7 @@ export function MarketplaceHomeView() {
           </Box>
 
           <Stack direction="row" spacing={1} sx={{ overflowX: 'auto', pb: 1 }}>
-            {CATEGORIES.map((item) => (
+            {categories.map((item) => (
               <Chip
                 key={item}
                 clickable
@@ -240,55 +202,22 @@ export function MarketplaceHomeView() {
             <Box sx={{ py: 10, textAlign: 'center' }}>
               <CircularProgress />
             </Box>
-          ) : (
+          ) : visibleProducts.length ? (
             <Grid container spacing={3}>
               {visibleProducts.map((product, index) => (
                 <Grid key={product.id} size={{ xs: 12, sm: 6, md: 4 }}>
-                  <ProductCard product={product} colorIndex={index} />
+                  <MarketplaceProductCard product={product} colorIndex={index} />
                 </Grid>
               ))}
             </Grid>
+          ) : (
+            <Box sx={{ py: 10, textAlign: 'center' }}>
+              <Typography variant="h5">ไม่พบสื่อที่ค้นหา</Typography>
+              <Typography color="text.secondary">ลองเปลี่ยนคำค้นหรือเลือกหมวดหมู่อื่น</Typography>
+            </Box>
           )}
         </Stack>
       </Container>
     </>
-  );
-}
-
-function ProductCard({ product, colorIndex }: { product: MarketplaceProduct; colorIndex: number }) {
-  const colors = ['#E8F8EF', '#FFF4DE', '#E9F2FF'];
-
-  return (
-    <Card sx={{ height: 1, overflow: 'hidden', border: '1px solid', borderColor: 'divider' }}>
-      <Box
-        sx={{
-          height: 210,
-          p: 3,
-          display: 'grid',
-          placeItems: 'center',
-          bgcolor: colors[colorIndex % colors.length],
-          backgroundImage: product.cover_url ? `url(${product.cover_url})` : undefined,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        }}
-      >
-        {!product.cover_url && <RiBookOpenLine size={64} color="#007B55" />}
-      </Box>
-      <Stack spacing={1.5} sx={{ p: 3 }}>
-        <Stack direction="row" justifyContent="space-between" alignItems="center">
-          <Chip size="small" label={product.category} />
-          <Typography variant="h5" color="primary.main">
-            {product.price === 0 ? 'ฟรี' : `฿${Number(product.price).toLocaleString('th-TH')}`}
-          </Typography>
-        </Stack>
-        <Typography variant="h6">{product.title}</Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ minHeight: 44 }}>
-          {product.description}
-        </Typography>
-        <Typography variant="caption" color="text.secondary">
-          โดย {product.seller?.display_name ?? 'ผู้ขาย eKru'}
-        </Typography>
-      </Stack>
-    </Card>
   );
 }

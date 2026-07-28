@@ -112,6 +112,7 @@
     "server-only": "^0.0.1",
     "simplebar-react": "^3.3.2",
     "sonner": "^2.0.7",
+    "stripe": "^22.3.2",
     "stylis": "^4.3.6",
     "swr": "^2.3.7",
     "turndown": "^7.2.2",

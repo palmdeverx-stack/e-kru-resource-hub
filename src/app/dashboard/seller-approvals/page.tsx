@@ -1,0 +1,11 @@
+import type { Metadata } from 'next';
+
+import { MarketplaceSellerApprovalView } from 'src/sections/marketplace/admin/view/seller-approval-view';
+
+export const metadata: Metadata = {
+  title: 'คำขอเปิดร้าน | eKru Marketplace',
+};
+
+export default function Page() {
+  return <MarketplaceSellerApprovalView />;
+}

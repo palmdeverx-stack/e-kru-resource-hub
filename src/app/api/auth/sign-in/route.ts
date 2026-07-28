@@ -58,15 +58,23 @@ async function handleSignIn(request: Request) {
       .ilike('username', username)
       .maybeSingle();
 
-    if (
-      !marketplaceUser ||
-      marketplaceUser.is_active === false ||
-      !(await verifyMarketplacePassword(marketplaceUser.email, password))
-    ) {
+    if (!marketplaceUser) {
+      return NextResponse.json({ message: 'ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง' }, { status: 401 });
+    }
+
+    if (marketplaceUser.is_active === false) {
       return NextResponse.json(
-        { message: 'ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง' },
-        { status: 401 }
+        {
+          message: 'บัญชียังไม่ได้ยืนยันอีเมล กรุณากรอกรหัสที่ส่งไปยังอีเมลของคุณ',
+          requiresVerification: true,
+          email: marketplaceUser.email,
+        },
+        { status: 403 }
       );
+    }
+
+    if (!(await verifyMarketplacePassword(marketplaceUser.email, password))) {
+      return NextResponse.json({ message: 'ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง' }, { status: 401 });
     }
 
     const accessToken = signAppToken({
@@ -112,6 +120,9 @@ async function handleSignIn(request: Request) {
             {
               message:
                 'ยืนยันรหัสผ่านสำเร็จ แต่ยังย้ายบัญชีไป Supabase Auth ไม่ได้ กรุณาติดต่อผู้ดูแลระบบ',
+              ...(process.env.NODE_ENV !== 'production' && {
+                migrationError: linked.message,
+              }),
             },
             { status: 503 }
           );

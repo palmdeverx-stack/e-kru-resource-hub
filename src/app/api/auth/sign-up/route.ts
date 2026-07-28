@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 
 import { supabaseAdmin } from 'src/lib/supabase-admin';
+
 import {
-  signAppToken,
-  toPublicUser,
-  ACCESS_TOKEN_COOKIE,
-  accessTokenCookieOptions,
-} from 'src/lib/auth-token';
+  verificationExpiry,
+  hashVerificationCode,
+  createVerificationCode,
+  sendMarketplaceVerificationEmail,
+} from 'src/sections/marketplace/auth/server/email-verification';
 
 // ----------------------------------------------------------------------
 
@@ -36,11 +37,7 @@ export async function POST(request: Request) {
 
   const [{ data: appUser }, { data: marketplaceUser }] = await Promise.all([
     supabaseAdmin.from('app_users').select('id').ilike('username', username).maybeSingle(),
-    supabaseAdmin
-      .from('marketplace_users')
-      .select('id')
-      .ilike('username', username)
-      .maybeSingle(),
+    supabaseAdmin.from('marketplace_users').select('id').ilike('username', username).maybeSingle(),
   ]);
 
   if (appUser || marketplaceUser) {
@@ -50,7 +47,7 @@ export async function POST(request: Request) {
   const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
     email,
     password,
-    email_confirm: true,
+    email_confirm: false,
     app_metadata: { role: 'marketplace_user' },
     user_metadata: { username, first_name: firstName, last_name: lastName },
   });
@@ -70,6 +67,7 @@ export async function POST(request: Request) {
       email,
       first_name: firstName,
       last_name: lastName,
+      is_active: false,
     })
     .select('*')
     .single();
@@ -87,14 +85,46 @@ export async function POST(request: Request) {
     );
   }
 
-  const accessToken = signAppToken({
-    sub: user.id,
-    username: user.username,
-    role: 'marketplace_user',
-    schoolId: null,
-  });
+  const code = createVerificationCode();
+  const { error: verificationError } = await supabaseAdmin
+    .from('marketplace_email_verifications')
+    .insert({
+      user_id: user.id,
+      email,
+      code_hash: hashVerificationCode(user.id, code),
+      expires_at: verificationExpiry(),
+      last_sent_at: new Date().toISOString(),
+    });
 
-  const response = NextResponse.json({ user: toPublicUser({ ...user, school_id: null }) });
-  response.cookies.set(ACCESS_TOKEN_COOKIE, accessToken, accessTokenCookieOptions);
-  return response;
+  if (verificationError) {
+    await supabaseAdmin.from('marketplace_users').delete().eq('id', user.id);
+    await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+    return NextResponse.json(
+      {
+        message:
+          verificationError.code === '42P01'
+            ? 'กรุณารัน Marketplace schema เวอร์ชันล่าสุดใน Supabase'
+            : verificationError.message,
+      },
+      { status: 500 }
+    );
+  }
+
+  try {
+    await sendMarketplaceVerificationEmail({ to: email, firstName, code });
+  } catch (emailError) {
+    await supabaseAdmin.from('marketplace_users').delete().eq('id', user.id);
+    await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+    console.error('Failed to send marketplace verification email', emailError);
+    return NextResponse.json(
+      { message: 'ไม่สามารถส่งอีเมลยืนยันได้ กรุณาตรวจสอบการตั้งค่า Resend' },
+      { status: 503 }
+    );
+  }
+
+  return NextResponse.json({
+    requiresVerification: true,
+    email,
+    expiresInMinutes: 10,
+  });
 }

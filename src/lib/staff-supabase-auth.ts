@@ -62,20 +62,45 @@ function isEmail(value: string | null | undefined): value is string {
 }
 
 function internalAuthEmail(userId: string): string {
-  return `${userId}@users.i-scores.local`;
+  const configuredDomain = process.env.SUPABASE_INTERNAL_AUTH_EMAIL_DOMAIN?.trim().toLowerCase();
+  const domain =
+    configuredDomain && /^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\.[a-z]{2,}$/.test(configuredDomain)
+      ? configuredDomain
+      : 'users.ekru.app';
+
+  return `${userId}@${domain}`;
+}
+
+function isAuthRoleCompatibilityError(message: string | undefined): boolean {
+  if (!message) return false;
+
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes('auth_role') ||
+    (normalized.includes('check constraint') && normalized.includes('app_users'))
+  );
 }
 
 async function createAuthIdentity(
   user: StaffAuthUser,
   password: string,
-  email: string
+  email: string,
+  omitProfileUsername = false
 ) {
+  const metadata = metadataFor(user);
+
   return supabaseAdmin.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
     ...(user.is_active === false && { ban_duration: '876000h' }),
-    ...metadataFor(user),
+    ...metadata,
+    ...(omitProfileUsername && {
+      // The shared Supabase project has an auth.users trigger that copies this
+      // value into profiles.username, where legacy usernames may already exist.
+      // Restore the real Auth metadata after the insert trigger has completed.
+      user_metadata: { ...metadata.user_metadata, username: null },
+    }),
   });
 }
 
@@ -99,42 +124,99 @@ export async function linkStaffToSupabaseAuth(
     };
   }
 
-  const preferredEmail = isEmail(user.email) ? user.email.toLowerCase() : internalAuthEmail(user.id);
-  let authResult = await createAuthIdentity(user, password, preferredEmail);
+  const fallbackEmail = internalAuthEmail(user.id);
+  const preferredEmail = isEmail(user.email) ? user.email.toLowerCase() : fallbackEmail;
+  let usesInternalEmail = preferredEmail === fallbackEmail;
+  let authResult = await createAuthIdentity(user, password, preferredEmail, usesInternalEmail);
   let authLoginEmail = preferredEmail;
 
-  if (authResult.error && preferredEmail !== internalAuthEmail(user.id)) {
-    authLoginEmail = internalAuthEmail(user.id);
-    authResult = await createAuthIdentity(user, password, authLoginEmail);
+  if (authResult.error && preferredEmail !== fallbackEmail) {
+    authLoginEmail = fallbackEmail;
+    usesInternalEmail = true;
+    authResult = await createAuthIdentity(user, password, authLoginEmail, true);
   }
 
   const authUser = authResult.data.user;
   if (authResult.error || !authUser) {
     return {
       ok: false,
-      message: authResult.error?.message ?? 'ไม่สามารถสร้างบัญชี Supabase Auth ได้',
+      message: `สร้าง Supabase Auth identity ไม่สำเร็จ: ${
+        authResult.error?.message ?? 'ไม่พบข้อมูลผู้ใช้ที่สร้าง'
+      }`,
     };
   }
 
-  const { data: linkedUser, error: linkError } = await supabaseAdmin
+  if (usesInternalEmail) {
+    const { error: metadataError } = await supabaseAdmin.auth.admin.updateUserById(
+      authUser.id,
+      metadataFor(user)
+    );
+
+    if (metadataError) {
+      await supabaseAdmin.auth.admin.deleteUser(authUser.id);
+      return {
+        ok: false,
+        message: `อัปเดต Supabase Auth metadata ไม่สำเร็จ: ${metadataError.message}`,
+      };
+    }
+  }
+
+  const migratedAt = new Date().toISOString();
+  const linkPayload = {
+    auth_user_id: authUser.id,
+    auth_login_email: authLoginEmail,
+    auth_migrated_at: migratedAt,
+    password_ciphertext: null,
+  };
+  let linkResult = await supabaseAdmin
     .from('app_users')
     .update({
-      auth_user_id: authUser.id,
-      auth_login_email: authLoginEmail,
+      ...linkPayload,
       auth_role: user.auth_role ?? defaultStaffAuthRole(user.role),
-      auth_migrated_at: new Date().toISOString(),
-      password_ciphertext: null,
     })
     .eq('id', user.id)
     .is('auth_user_id', null)
-    .select('id')
+    .select('id, auth_user_id, auth_login_email')
     .maybeSingle();
 
-  if (linkError || !linkedUser) {
+  // Some older e-Kru databases have an auth_role check constraint that was
+  // created before super_admin existed. The role is still carried safely in
+  // Supabase app_metadata; omitting this compatibility column lets the shared
+  // identity migration complete until that schema is upgraded.
+  if (linkResult.error && isAuthRoleCompatibilityError(linkResult.error.message)) {
+    linkResult = await supabaseAdmin
+      .from('app_users')
+      .update(linkPayload)
+      .eq('id', user.id)
+      .is('auth_user_id', null)
+      .select('id, auth_user_id, auth_login_email')
+      .maybeSingle();
+  }
+
+  if (linkResult.error || !linkResult.data) {
+    // Another request may have linked the account while this identity was
+    // being created. Prefer the existing link and remove only our orphan.
+    const { data: existingLink } = await supabaseAdmin
+      .from('app_users')
+      .select('auth_user_id, auth_login_email')
+      .eq('id', user.id)
+      .maybeSingle();
+
     await supabaseAdmin.auth.admin.deleteUser(authUser.id);
+
+    if (existingLink?.auth_user_id && existingLink.auth_login_email) {
+      return {
+        ok: true,
+        authUserId: existingLink.auth_user_id,
+        authLoginEmail: existingLink.auth_login_email,
+      };
+    }
+
     return {
       ok: false,
-      message: linkError?.message ?? 'บัญชีนี้ถูกเชื่อมกับ Supabase Auth แล้ว',
+      message: `บันทึก auth_user_id ลง app_users ไม่สำเร็จ: ${
+        linkResult.error?.message ?? 'ไม่พบแถวบัญชีสำหรับเชื่อมโยง'
+      }`,
     };
   }
 

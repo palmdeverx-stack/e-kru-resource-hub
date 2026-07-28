@@ -19,6 +19,8 @@ import { MotionLazy } from 'src/components/animate/motion-lazy';
 import { detectSettings } from 'src/components/settings/server';
 import { defaultSettings, SettingsProvider, LazySettingsDrawer } from 'src/components/settings';
 
+import { MarketplaceCartProvider } from 'src/sections/marketplace/cart/cart-context';
+
 import { AuthProvider } from 'src/auth/context/jwt';
 
 // ----------------------------------------------------------------------
@@ -89,28 +91,30 @@ export default async function RootLayout({ children }: RootLayoutProps) {
         <I18nProvider lang={appConfig.i18nLang}>
           <ReactQueryProvider>
             <AuthProvider>
-              <SettingsProvider
-                defaultSettings={defaultSettings}
-                cookieSettings={appConfig.cookieSettings}
-              >
-                <LocalizationProvider>
-                  <AppRouterCacheProvider options={{ key: 'css' }}>
-                    <ThemeProvider
-                      modeStorageKey={themeConfig.modeStorageKey}
-                      defaultMode={themeConfig.defaultMode}
-                    >
-                      <MotionLazy>
-                        <UiTranslationBridge />
-                        <LocatorJS />
-                        <Snackbar />
-                        <ProgressBar />
-                        <LazySettingsDrawer defaultSettings={defaultSettings} />
-                        {children}
-                      </MotionLazy>
-                    </ThemeProvider>
-                  </AppRouterCacheProvider>
-                </LocalizationProvider>
-              </SettingsProvider>
+              <MarketplaceCartProvider>
+                <SettingsProvider
+                  defaultSettings={defaultSettings}
+                  cookieSettings={appConfig.cookieSettings}
+                >
+                  <LocalizationProvider>
+                    <AppRouterCacheProvider options={{ key: 'css' }}>
+                      <ThemeProvider
+                        modeStorageKey={themeConfig.modeStorageKey}
+                        defaultMode={themeConfig.defaultMode}
+                      >
+                        <MotionLazy>
+                          <UiTranslationBridge />
+                          <LocatorJS />
+                          <Snackbar />
+                          <ProgressBar />
+                          <LazySettingsDrawer defaultSettings={defaultSettings} />
+                          {children}
+                        </MotionLazy>
+                      </ThemeProvider>
+                    </AppRouterCacheProvider>
+                  </LocalizationProvider>
+                </SettingsProvider>
+              </MarketplaceCartProvider>
             </AuthProvider>
           </ReactQueryProvider>
         </I18nProvider>

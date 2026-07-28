@@ -7,7 +7,7 @@ import { supabaseAdmin } from 'src/lib/supabase-admin';
 export async function createNotifications(
   notifications: Array<{
     userId: string;
-    schoolId: string;
+    schoolId: string | null;
     type: string;
     title: string;
     body?: string;

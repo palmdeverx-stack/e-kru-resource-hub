@@ -21,7 +21,6 @@ import { RemixIcon } from 'src/components/remix-icon';
 import { Form, Field } from 'src/components/hook-form';
 
 import { signUp } from '../../context/jwt';
-import { useAuthContext } from '../../hooks';
 import { getErrorMessage } from '../../utils';
 import { FormHead } from '../../components/form-head';
 import { SignUpTerms } from '../../components/sign-up-terms';
@@ -48,8 +47,6 @@ export function JwtSignUpView() {
 
   const showPassword = useBoolean();
 
-  const { checkUserSession } = useAuthContext();
-
   const defaultValues: SignUpSchemaType = {
     firstName: '',
     lastName: '',
@@ -67,9 +64,8 @@ export function JwtSignUpView() {
 
   const signUpMutation = useMutation({
     mutationFn: signUp,
-    onSuccess: async () => {
-      await checkUserSession?.();
-      router.replace(paths.marketplace.dashboard);
+    onSuccess: async (result) => {
+      router.replace(`/auth/verify-email?email=${encodeURIComponent(result.email)}`);
     },
   });
 

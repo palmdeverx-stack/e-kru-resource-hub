@@ -28,7 +28,7 @@ export const CONFIG: ConfigValue = {
    * Auth
    */
   auth: {
-    redirectPath: paths.admin.root,
+    redirectPath: paths.marketplace.dashboard,
   },
   /**
    * Supabase

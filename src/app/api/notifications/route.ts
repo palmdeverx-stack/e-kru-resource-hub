@@ -6,7 +6,13 @@ import { supabaseAdmin } from 'src/lib/supabase-admin';
 // ----------------------------------------------------------------------
 
 export async function GET(request: Request) {
-  const caller = requireRole(request, ['master_admin', 'school_admin', 'teacher', 'student']);
+  const caller = requireRole(request, [
+    'master_admin',
+    'school_admin',
+    'teacher',
+    'student',
+    'marketplace_user',
+  ]);
 
   if (!caller) {
     return NextResponse.json({ message: 'ไม่มีสิทธิ์เข้าถึง' }, { status: 403 });
