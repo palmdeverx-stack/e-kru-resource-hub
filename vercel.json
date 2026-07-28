@@ -1,0 +1,16 @@
+{
+  "crons": [
+    {
+      "path": "/api/internal/line-notifications/process",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/internal/grade-reminders/process",
+      "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/internal/school-holiday-announcements/process",
+      "schedule": "0 2 * * *"
+    }
+  ]
+}

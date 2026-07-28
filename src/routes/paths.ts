@@ -1,0 +1,210 @@
+const ROOTS = {
+  AUTH: '/auth',
+  MASTER: '/master',
+  ADMIN: '/admin',
+  TEACHER: '/teacher',
+  STUDENT: '/student',
+};
+
+// ----------------------------------------------------------------------
+
+export const paths = {
+  legal: {
+    privacyPolicy: '/privacy-policy',
+    termsOfService: '/terms-of-service',
+    serviceAgreement: '/service-agreement',
+  },
+  page403: '/error/403',
+  page404: '/error/404',
+  page500: '/error/500',
+  components: '/components',
+  docs: 'https://docs.minimals.cc/',
+  // AUTH
+  auth: {
+    jwt: {
+      signIn: `${ROOTS.AUTH}/sign-in`,
+      signUp: `${ROOTS.AUTH}/sign-up`,
+      changePassword: `${ROOTS.AUTH}/jwt/change-password`,
+      acceptLegal: `${ROOTS.AUTH}/jwt/accept-legal`,
+    },
+  },
+  marketplace: {
+    root: '/',
+    dashboard: '/dashboard',
+  },
+  // STUDENT
+  student: {
+    root: ROOTS.STUDENT,
+    profile: `${ROOTS.STUDENT}/profile`,
+    classroom: `${ROOTS.STUDENT}/classroom`,
+    subjects: `${ROOTS.STUDENT}/subjects`,
+    timetable: `${ROOTS.STUDENT}/timetable`,
+    subjectDetails: (teacherAssignmentId: string) =>
+      `${ROOTS.STUDENT}/subjects/${teacherAssignmentId}`,
+    assignments: `${ROOTS.STUDENT}/assignments`,
+    quiz: (assignmentId: string) => `${ROOTS.STUDENT}/assignments/${assignmentId}/quiz`,
+    attendance: `${ROOTS.STUDENT}/attendance`,
+    qr: `${ROOTS.STUDENT}/qr`,
+  },
+  // TEACHER
+  teacher: {
+    root: ROOTS.TEACHER,
+    school: `${ROOTS.TEACHER}/school`,
+    profile: `${ROOTS.TEACHER}/profile`,
+    guide: `${ROOTS.TEACHER}/guide`,
+    announcements: `${ROOTS.TEACHER}/announcements`,
+    assignments: `${ROOTS.TEACHER}/assignments`,
+    students: `${ROOTS.TEACHER}/students`,
+    attendanceHistory: `${ROOTS.TEACHER}/students/attendance-history`,
+    attendanceScan: `${ROOTS.TEACHER}/attendance-scan`,
+    attendanceScanSession: (id: string) => `${ROOTS.TEACHER}/attendance-scan/session/${id}`,
+    assignmentAttendanceHistory: (id: string) =>
+      `${ROOTS.TEACHER}/assignments/${id}/attendance-history`,
+    assignmentDetail: (id: string) => `${ROOTS.TEACHER}/assignments/${id}`,
+    assignmentNew: (id: string) => `${ROOTS.TEACHER}/assignments/${id}/new`,
+    quizNew: (id: string) => `${ROOTS.TEACHER}/assignments/${id}/quiz/new`,
+    gradebook: (assignmentId: string) => `${ROOTS.TEACHER}/gradebook/${assignmentId}`,
+    subjectNew: `${ROOTS.TEACHER}/subject/new`,
+    classroomNew: `${ROOTS.TEACHER}/classroom/new`,
+    enrollmentNew: `${ROOTS.TEACHER}/enrollment/new`,
+    timetable: `${ROOTS.TEACHER}/timetable`,
+    department: `${ROOTS.TEACHER}/department`,
+    departmentMember: (id: string) => `${ROOTS.TEACHER}/department/member/${id}`,
+    scheduleBuilder: `${ROOTS.TEACHER}/schedule-builder`,
+    scheduleSubmission: (classroomId: string, semesterId: string) =>
+      `${ROOTS.TEACHER}/schedule-builder/${classroomId}/${semesterId}/sign`,
+    scheduleSubmissions: `${ROOTS.TEACHER}/schedule-submissions`,
+    scheduleSubmissionDetail: (id: string) => `${ROOTS.TEACHER}/schedule-submissions/${id}`,
+    scheduleApprovals: `${ROOTS.TEACHER}/schedule-approvals`,
+    scheduleApprovalDetail: (id: string) => `${ROOTS.TEACHER}/schedule-approvals/${id}`,
+    gradeReviews: `${ROOTS.TEACHER}/grade-reviews`,
+    gradeReviewGrade: (gradeLevel: string) =>
+      `${ROOTS.TEACHER}/grade-reviews/grade/${encodeURIComponent(gradeLevel)}`,
+    gradeReviewDetail: (id: string) => `${ROOTS.TEACHER}/grade-reviews/${id}`,
+    gradeResults: `${ROOTS.TEACHER}/grade-results`,
+    gradeResultClassroom: (classroomId: string, semesterId: string) =>
+      `${ROOTS.TEACHER}/grade-results/classroom/${classroomId}/${semesterId}`,
+    gradeResultDetail: (id: string) => `${ROOTS.TEACHER}/grade-results/${id}`,
+    documents: {
+      root: `${ROOTS.TEACHER}/documents`,
+      my: `${ROOTS.TEACHER}/documents/my`,
+      templates: `${ROOTS.TEACHER}/documents/templates`,
+      pp5: `${ROOTS.TEACHER}/documents/pp5`,
+      detail: (slug: string) => `${ROOTS.TEACHER}/documents/${slug}`,
+    },
+    departmentAcademicYear: {
+      root: `${ROOTS.TEACHER}/department-work/academic-year`,
+      semester: (id: string) => `${ROOTS.TEACHER}/department-work/academic-year/${id}/semester`,
+    },
+    departmentClassroom: `${ROOTS.TEACHER}/department-work/classroom`,
+    departmentSubject: `${ROOTS.TEACHER}/department-work/subject`,
+    departmentEnrollment: {
+      root: `${ROOTS.TEACHER}/department-work/enrollment`,
+      classroom: (id: string) => `${ROOTS.TEACHER}/department-work/enrollment/classroom/${id}`,
+    },
+    departmentAnnouncements: `${ROOTS.TEACHER}/department-work/announcements`,
+    departmentStudent: `${ROOTS.TEACHER}/department-work/student`,
+    departmentStaff: {
+      root: `${ROOTS.TEACHER}/department-work/user`,
+      teaching: (id: string) => `${ROOTS.TEACHER}/department-work/user/${id}/teaching`,
+    },
+  },
+  // MASTER ADMIN
+  master: {
+    root: ROOTS.MASTER,
+    systemFlow: `${ROOTS.MASTER}/system-flow`,
+    school: {
+      root: `${ROOTS.MASTER}/school`,
+      new: `${ROOTS.MASTER}/school/new`,
+      subscription: (id: string) => `${ROOTS.MASTER}/school/${id}/subscription`,
+    },
+    schoolAdmin: {
+      root: `${ROOTS.MASTER}/school-admin`,
+      new: `${ROOTS.MASTER}/school-admin/new`,
+    },
+    subscriptionPlan: {
+      root: `${ROOTS.MASTER}/subscription-plan`,
+    },
+  },
+  // SCHOOL ADMIN
+  admin: {
+    root: ROOTS.ADMIN,
+    school: `${ROOTS.ADMIN}/school`,
+    guide: `${ROOTS.ADMIN}/guide`,
+    announcements: `${ROOTS.ADMIN}/announcements`,
+    lineNotifications: `${ROOTS.ADMIN}/line-notifications`,
+    schoolHolidays: `${ROOTS.ADMIN}/school-holidays`,
+    accessPermissions: `${ROOTS.ADMIN}/access-permissions`,
+    masterData: {
+      staffTypes: `${ROOTS.ADMIN}/master-data/staff-types`,
+      prefixes: `${ROOTS.ADMIN}/master-data/prefixes`,
+      positions: `${ROOTS.ADMIN}/master-data/positions`,
+      academicRanks: `${ROOTS.ADMIN}/master-data/academic-ranks`,
+      employmentStatuses: `${ROOTS.ADMIN}/master-data/employment-statuses`,
+      learningAreas: `${ROOTS.ADMIN}/master-data/learning-areas`,
+      subjectTypes: `${ROOTS.ADMIN}/master-data/subject-types`,
+      educationStages: `${ROOTS.ADMIN}/master-data/education-stages`,
+    },
+    user: {
+      root: `${ROOTS.ADMIN}/user`,
+      new: `${ROOTS.ADMIN}/user/new`,
+      edit: (id: string) => `${ROOTS.ADMIN}/user/${id}/edit`,
+      teaching: (id: string) => `${ROOTS.ADMIN}/user/${id}/teaching`,
+    },
+    department: {
+      root: `${ROOTS.ADMIN}/department`,
+      detail: (id: string) => `${ROOTS.ADMIN}/department/${id}`,
+      /** @deprecated Use `admin.accessPermissions`. Kept for old links. */
+      permissions: `${ROOTS.ADMIN}/department-permissions`,
+    },
+    student: {
+      root: `${ROOTS.ADMIN}/student`,
+      list: `${ROOTS.ADMIN}/student/list`,
+      importData: `${ROOTS.ADMIN}/student/import`,
+    },
+    academicYear: {
+      root: `${ROOTS.ADMIN}/academic-year`,
+    },
+    classroom: {
+      root: `${ROOTS.ADMIN}/classroom`,
+    },
+    subject: {
+      root: `${ROOTS.ADMIN}/subject`,
+      new: `${ROOTS.ADMIN}/subject/new`,
+      edit: (id: string) => `${ROOTS.ADMIN}/subject/${id}/edit`,
+    },
+    teacherAssignment: {
+      root: `${ROOTS.ADMIN}/teacher-assignment`,
+      detail: (id: string) => `${ROOTS.ADMIN}/teacher-assignment/${id}`,
+      assignmentNew: (id: string) => `${ROOTS.ADMIN}/teacher-assignment/${id}/new`,
+      quizNew: (id: string) => `${ROOTS.ADMIN}/teacher-assignment/${id}/quiz/new`,
+    },
+    gradebook: (assignmentId: string) => `${ROOTS.ADMIN}/gradebook/${assignmentId}`,
+    scheduleBuilder: `${ROOTS.ADMIN}/schedule-builder`,
+    scheduleSubmission: (classroomId: string, semesterId: string) =>
+      `${ROOTS.ADMIN}/schedule-builder/${classroomId}/${semesterId}/sign`,
+    scheduleSubmissions: `${ROOTS.ADMIN}/schedule-submissions`,
+    scheduleSubmissionDetail: (id: string) => `${ROOTS.ADMIN}/schedule-submissions/${id}`,
+    scheduleApprovals: `${ROOTS.ADMIN}/schedule-approvals`,
+    scheduleApprovalDetail: (id: string) => `${ROOTS.ADMIN}/schedule-approvals/${id}`,
+    gradeReviews: `${ROOTS.ADMIN}/grade-reviews`,
+    gradeReviewGrade: (gradeLevel: string) =>
+      `${ROOTS.ADMIN}/grade-reviews/grade/${encodeURIComponent(gradeLevel)}`,
+    gradeReviewDetail: (id: string) => `${ROOTS.ADMIN}/grade-reviews/${id}`,
+    gradeResults: `${ROOTS.ADMIN}/grade-results`,
+    gradeResultClassroom: (classroomId: string, semesterId: string) =>
+      `${ROOTS.ADMIN}/grade-results/classroom/${classroomId}/${semesterId}`,
+    gradeResultDetail: (id: string) => `${ROOTS.ADMIN}/grade-results/${id}`,
+    documents: {
+      root: `${ROOTS.ADMIN}/documents`,
+      my: `${ROOTS.ADMIN}/documents/my`,
+      templates: `${ROOTS.ADMIN}/documents/templates`,
+      pp5: `${ROOTS.ADMIN}/documents/pp5`,
+      detail: (slug: string) => `${ROOTS.ADMIN}/documents/${slug}`,
+    },
+    enrollment: {
+      root: `${ROOTS.ADMIN}/enrollment`,
+      classroom: (id: string) => `${ROOTS.ADMIN}/enrollment/classroom/${id}`,
+    },
+  },
+};

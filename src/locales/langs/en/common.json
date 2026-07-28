@@ -1,0 +1,49 @@
+{
+  "demo": {
+    "lang": "English",
+    "description": "School information and academic score management system"
+  },
+  "language": {
+    "select": "Select language",
+    "thai": "ไทย",
+    "english": "English"
+  },
+  "actions": {
+    "signIn": "Sign in",
+    "signOut": "Sign out",
+    "save": "Save",
+    "cancel": "Cancel",
+    "close": "Close",
+    "add": "Add",
+    "edit": "Edit",
+    "delete": "Delete",
+    "search": "Search",
+    "export": "Export",
+    "needHelp": "Need help?"
+  },
+  "errors": {
+    "signOut": "Unable to sign out",
+    "loadData": "Unable to load data",
+    "notFound": {
+      "title": "Page not found",
+      "description": "The page may have been moved, deleted, or the URL may be incorrect.",
+      "backHome": "Back to home"
+    }
+  },
+  "navigation": {
+    "studentMenu": "Student main menu",
+    "footerLinks": "Footer quick links"
+  },
+  "school": {
+    "information": "School information",
+    "mySchool": "My school"
+  },
+  "brand": {
+    "tagline": "Learn and grow together",
+    "description": "A central place to track subjects, assignments, grades, schedules, and important school announcements.",
+    "copyright": "All rights reserved",
+    "version": "Version",
+    "languages": "Available in Thai and English",
+    "scoreSystem": "Academic score system"
+  }
+}

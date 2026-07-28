@@ -1,0 +1,54 @@
+
+
+@font-face {
+  font-family: 'LINE Seed Sans TH';
+  src: url('LINESeedSansTH-Heavy.eot');
+  src: url('LINESeedSansTH-Heavy.eot?#iefix') format('embedded-opentype'),
+      url('LINESeedSansTH-Heavy.woff2') format('woff2'),
+      url('LINESeedSansTH-Heavy.woff') format('woff'),
+      url('LINESeedSansTH-Heavy.ttf') format('truetype'),
+      url('LINESeedSansTH-Heavy.svg#LINESeedSansTH-Heavy') format('svg');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'LINE Seed Sans TH';
+  src: url('LINESeedSansTH-Bold.eot');
+  src: url('LINESeedSansTH-Bold.eot?#iefix') format('embedded-opentype'),
+      url('LINESeedSansTH-Bold.woff2') format('woff2'),
+      url('LINESeedSansTH-Bold.woff') format('woff'),
+      url('LINESeedSansTH-Bold.ttf') format('truetype'),
+      url('LINESeedSansTH-Bold.svg#LINESeedSansTH-Bold') format('svg');
+  font-weight: bold;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'LINE Seed Sans TH';
+  src: url('LINESeedSansTH-Regular.eot');
+  src: url('LINESeedSansTH-Regular.eot?#iefix') format('embedded-opentype'),
+      url('LINESeedSansTH-Regular.woff2') format('woff2'),
+      url('LINESeedSansTH-Regular.woff') format('woff'),
+      url('LINESeedSansTH-Regular.ttf') format('truetype'),
+      url('LINESeedSansTH-Regular.svg#LINESeedSansTH-Regular') format('svg');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+
+@font-face {
+  font-family: 'LINE Seed Sans TH';
+  src: url('LINESeedSansTH-Thin.eot');
+  src: url('LINESeedSansTH-Thin.eot?#iefix') format('embedded-opentype'),
+      url('LINESeedSansTH-Thin.woff2') format('woff2'),
+      url('LINESeedSansTH-Thin.woff') format('woff'),
+      url('LINESeedSansTH-Thin.ttf') format('truetype'),
+      url('LINESeedSansTH-Thin.svg#LINESeedSansTH-Thin') format('svg');
+  font-weight: 100;
+  font-style: normal;
+  font-display: swap;
+}
