@@ -3,6 +3,7 @@
 import type { LineNotificationSettingsInput } from '../line-notification-actions';
 import type { MarketplaceLineSettingsInput } from '../marketplace-line-settings-actions';
 
+import QRCode from 'qrcode';
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -98,6 +99,7 @@ function MarketplaceLineNotificationSettings() {
   const [form, setForm] = useState(EMPTY_MARKETPLACE_FORM);
   const [editingCredentials, setEditingCredentials] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [invitationQr, setInvitationQr] = useState('');
 
   const query = useQuery({
     queryKey: ['marketplace-line-settings'],
@@ -137,6 +139,22 @@ function MarketplaceLineNotificationSettings() {
     });
   }, [query.data]);
 
+  const invitation = inviteMutation.data?.invitation;
+
+  useEffect(() => {
+    if (!invitation?.lineUrl) {
+      setInvitationQr('');
+      return;
+    }
+    QRCode.toDataURL(invitation.lineUrl, {
+      width: 320,
+      margin: 2,
+      color: { dark: '#111111', light: '#FFFFFF' },
+    })
+      .then(setInvitationQr)
+      .catch(() => setInvitationQr(''));
+  }, [invitation?.lineUrl]);
+
   if (query.isLoading) {
     return (
       <Container maxWidth="lg" sx={{ py: 8, textAlign: 'center' }}>
@@ -153,7 +171,6 @@ function MarketplaceLineNotificationSettings() {
   }
 
   const { quota, integration, recentDeliveries } = query.data;
-  const invitation = inviteMutation.data?.invitation;
   const credentialsLocked = Boolean(integration.channelId) && !editingCredentials;
   const secretLocked = integration.hasChannelSecret && !editingCredentials;
   const tokenLocked = integration.hasAccessToken && !editingCredentials;
@@ -201,7 +218,7 @@ function MarketplaceLineNotificationSettings() {
               ? 'ส่งข้อความทดสอบไปยัง LINE ที่ผูกไว้แล้ว'
               : unlinkMutation.isSuccess
                 ? 'ยกเลิกการผูก LINE แล้ว'
-                : 'บันทึกการตั้งค่าเรียบร้อยแล้ว')}
+                : saveMutation.data?.message || 'บันทึกการตั้งค่าเรียบร้อยแล้ว')}
         </Alert>
       )}
 
@@ -338,10 +355,18 @@ function MarketplaceLineNotificationSettings() {
               control={
                 <Switch
                   checked={form.isEnabled}
+                  disabled={!integration.lineLinkedAt}
                   onChange={(event) => setField('isEnabled', event.target.checked)}
                 />
               }
             />
+            {!integration.lineLinkedAt && (
+              <Typography variant="caption" color="warning.main" sx={{ display: 'block' }}>
+                {integration.hasChannelSecret && integration.hasAccessToken
+                  ? 'Credentials บันทึกแล้ว ขั้นตอนต่อไปให้สร้าง QR สแกน และกดส่งข้อความใน LINE เพื่อผูกบัญชีผู้รับ'
+                  : 'กรุณาบันทึก Channel secret และ Channel access token ก่อน แล้วจึงผูกบัญชี LINE ผู้รับ'}
+              </Typography>
+            )}
             <FormControlLabel
               sx={{ mt: 1, display: 'flex' }}
               label="อนุญาตให้ผู้ขายใช้เมนู LINE แจ้งเตือนร้านค้า"
@@ -463,14 +488,28 @@ function MarketplaceLineNotificationSettings() {
               </>
             ) : (
               <>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                  สร้างรหัสแล้วส่งข้อความตามที่กำหนดไปยัง LINE OA ภายใน 10 นาที
+                {integration.hasChannelSecret && integration.hasAccessToken ? (
+                  <Alert severity="success" sx={{ mt: 2 }}>
+                    Credentials บันทึกแล้ว เหลือขั้นตอนผูกบัญชีผู้รับแจ้งเตือน
+                  </Alert>
+                ) : (
+                  <Alert severity="warning" sx={{ mt: 2 }}>
+                    กรุณาบันทึก Credentials ด้านซ้ายก่อนสร้าง QR
+                  </Alert>
+                )}
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
+                  หลังสแกน QR ต้องกดส่งข้อความในห้องแชต LINE OA ภายใน 10 นาที
+                  ระบบจึงจะได้รับ LINE User ID และยืนยันการผูกบัญชี
                 </Typography>
                 <Button
                   fullWidth
                   variant="contained"
                   loading={inviteMutation.isPending}
-                  disabled={!integration.oaBasicId}
+                  disabled={
+                    !integration.oaBasicId ||
+                    !integration.hasChannelSecret ||
+                    !integration.hasAccessToken
+                  }
                   onClick={() => inviteMutation.mutate()}
                   sx={{ mt: 2 }}
                 >
@@ -478,10 +517,33 @@ function MarketplaceLineNotificationSettings() {
                 </Button>
                 {invitation && (
                   <Alert severity="info" sx={{ mt: 2 }}>
-                    ส่งข้อความ: <strong>MARKETPLACE {invitation.code}</strong>
+                    <Typography variant="subtitle2">
+                      สแกน QR เพื่อเปิด LINE และผูกบัญชีผู้รับ
+                    </Typography>
+                    {!!invitationQr && (
+                      <Box
+                        component="img"
+                        src={invitationQr}
+                        alt="QR สำหรับผูกบัญชี LINE ผู้รับแจ้งเตือน"
+                        sx={{
+                          width: '100%',
+                          maxWidth: 240,
+                          mx: 'auto',
+                          my: 2,
+                          p: 1,
+                          display: 'block',
+                          bgcolor: 'common.white',
+                          borderRadius: 1.5,
+                        }}
+                      />
+                    )}
+                    <Typography variant="body2" sx={{ textAlign: 'center' }}>
+                      หรือส่งข้อความ: <strong>MARKETPLACE {invitation.code}</strong>
+                    </Typography>
                     {invitation.lineUrl && (
                       <Button
                         fullWidth
+                        variant="contained"
                         href={invitation.lineUrl}
                         target="_blank"
                         rel="noopener noreferrer"

@@ -64,7 +64,7 @@ export async function getMarketplaceLineSettings() {
 }
 
 export async function saveMarketplaceLineSettings(input: MarketplaceLineSettingsInput) {
-  return parse<{ success: boolean }>(
+  return parse<{ success: boolean; requiresLineLink?: boolean; message?: string }>(
     await fetch(endpoint, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },

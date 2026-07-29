@@ -147,17 +147,18 @@ export async function PATCH(request: Request) {
     .eq('id', 'default')
     .maybeSingle();
 
+  const hasChannelSecret = Boolean(channelSecret || existing?.channel_secret_encrypted);
+  const hasAccessToken = Boolean(accessToken || existing?.channel_access_token_encrypted);
   if (
     isEnabled &&
-    (!(channelSecret || existing?.channel_secret_encrypted) ||
-      !(accessToken || existing?.channel_access_token_encrypted) ||
-      !existing?.line_user_id)
+    (!hasChannelSecret || !hasAccessToken)
   ) {
     return NextResponse.json(
-      { message: 'กรุณาบันทึก Credentials และผูกบัญชี LINE ผู้รับก่อนเปิดใช้งาน' },
+      { message: 'กรุณาบันทึก Channel secret และ Channel access token ก่อนเปิดใช้งาน' },
       { status: 400 }
     );
   }
+  const requiresLineLink = isEnabled && !existing?.line_user_id;
 
   const { error } = await supabaseAdmin.from('marketplace_line_settings').upsert(
     {
@@ -165,7 +166,7 @@ export async function PATCH(request: Request) {
       channel_id: channelId,
       oa_basic_id: oaBasicId || null,
       webhook_url: `${parsedWebhook.origin}${expectedPath}/`,
-      is_enabled: isEnabled,
+      is_enabled: isEnabled && !requiresLineLink,
       notify_new_seller: body.notifyNewSeller,
       notify_product_approval: body.notifyProductApproval,
       allow_seller_notifications: body.allowSellerNotifications,
@@ -176,7 +177,13 @@ export async function PATCH(request: Request) {
     { onConflict: 'id' }
   );
   if (error) return NextResponse.json({ message: error.message }, { status: 500 });
-  return NextResponse.json({ success: true });
+  return NextResponse.json({
+    success: true,
+    requiresLineLink,
+    message: requiresLineLink
+      ? 'บันทึก Credentials แล้ว กรุณาสร้างรหัสและผูกบัญชี LINE ผู้รับก่อนเปิดแจ้งเตือน'
+      : 'บันทึกการตั้งค่าเรียบร้อยแล้ว',
+  });
 }
 
 export async function POST(request: Request) {
