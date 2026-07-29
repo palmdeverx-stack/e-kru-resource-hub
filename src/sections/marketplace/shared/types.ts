@@ -72,6 +72,22 @@ export type MarketplaceSubjectOption = {
   code: string | null;
 };
 
+export type MarketplaceSubscriptionPlan = {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  billing_cycle: 'monthly' | 'yearly' | 'custom';
+  price: number;
+  currency: string;
+  max_school_admins: number;
+  max_teachers: number;
+  max_students: number;
+  max_line_notifications: number;
+  enabled_features: string[];
+  is_active: boolean;
+};
+
 export type MarketplaceProductImage = {
   id: string;
   file_name: string;

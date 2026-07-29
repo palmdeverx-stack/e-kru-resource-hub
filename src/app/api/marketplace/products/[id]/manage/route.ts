@@ -264,9 +264,9 @@ export async function PATCH(request: Request, { params }: Context) {
     }
     update.grant_duration_days = grantDurationDays;
   }
-  if (body.grantsPlanCode !== undefined) {
-    update.grants_plan_code = String(body.grantsPlanCode).trim() || null;
-  }
+  const requestedPlanCode =
+    body.grantsPlanCode !== undefined ? String(body.grantsPlanCode).trim() : undefined;
+  if (requestedPlanCode === '') update.grants_plan_code = null;
   for (const [inputKey, column] of [
     ['licenseMaxTeachers', 'license_max_teachers'],
     ['licenseMaxStudents', 'license_max_students'],
@@ -282,6 +282,43 @@ export async function PATCH(request: Request, { params }: Context) {
       );
     }
     update[column] = value;
+  }
+  if (requestedPlanCode) {
+    if (caller.role !== 'master_admin') {
+      return NextResponse.json(
+        { message: 'เฉพาะร้าน eKru เท่านั้นที่เชื่อมแพ็กเกจจากระบบได้' },
+        { status: 403 }
+      );
+    }
+    if (String(body.licenseScope ?? 'school') !== 'school') {
+      return NextResponse.json(
+        { message: 'แพ็กเกจ eKru รองรับ License แบบทั้งโรงเรียนเท่านั้น' },
+        { status: 400 }
+      );
+    }
+    const { data: plan, error: planError } = await supabaseAdmin
+      .from('subscription_plans')
+      .select(
+        'code,billing_cycle,max_school_admins,max_teachers,max_students,max_line_notifications,enabled_features'
+      )
+      .eq('code', requestedPlanCode)
+      .eq('is_active', true)
+      .maybeSingle();
+    if (planError || !plan) {
+      return NextResponse.json(
+        { message: planError?.message ?? 'ไม่พบแพ็กเกจ eKru ที่เปิดใช้งาน' },
+        { status: planError ? 500 : 400 }
+      );
+    }
+    update.grants_plan_code = plan.code;
+    update.grants_feature_keys = plan.enabled_features;
+    update.grants_feature_key = plan.enabled_features[0] ?? null;
+    update.license_max_school_admins = plan.max_school_admins;
+    update.license_max_teachers = plan.max_teachers;
+    update.license_max_students = plan.max_students;
+    update.license_line_quota = plan.max_line_notifications;
+    if (plan.billing_cycle === 'monthly') update.grant_duration_days = 30;
+    if (plan.billing_cycle === 'yearly') update.grant_duration_days = 365;
   }
   if (body.saleTypeId !== undefined) {
     const saleTypeId = String(body.saleTypeId).trim();

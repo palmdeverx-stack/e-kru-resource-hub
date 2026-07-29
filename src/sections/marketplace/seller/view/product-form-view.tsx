@@ -11,6 +11,7 @@ import type {
   MarketplaceProductFile,
   MarketplaceProductImage,
   MarketplaceSubjectOption,
+  MarketplaceSubscriptionPlan,
 } from '../../shared/types';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -66,6 +67,7 @@ import {
   uploadProductFiles,
   deleteProductImage,
   uploadProductImages,
+  getSubscriptionPlans,
   setProductCoverImage,
   setProductFilePreview,
   getMarketplaceSubjects,
@@ -159,6 +161,9 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
   const [mediaTypes, setMediaTypes] = useState<MarketplaceMediaType[]>([]);
   const [saleTypes, setSaleTypes] = useState<MarketplaceSaleType[]>([]);
   const [subjectOptions, setSubjectOptions] = useState<MarketplaceSubjectOption[]>([]);
+  const [subscriptionPlans, setSubscriptionPlans] = useState<MarketplaceSubscriptionPlan[]>([]);
+  const [subscriptionPlansLoading, setSubscriptionPlansLoading] = useState(false);
+  const [subscriptionPlansError, setSubscriptionPlansError] = useState('');
   const [images, setImages] = useState<MarketplaceProductImage[]>([]);
   const [pendingCover, setPendingCover] = useState<File | null>(null);
   const [pendingPreviewImages, setPendingPreviewImages] = useState<File[]>([]);
@@ -202,6 +207,21 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
       )
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (user?.role !== 'master_admin') return;
+
+    setSubscriptionPlansLoading(true);
+    setSubscriptionPlansError('');
+    getSubscriptionPlans()
+      .then(({ plans }) => setSubscriptionPlans(plans))
+      .catch((loadError) =>
+        setSubscriptionPlansError(
+          loadError instanceof Error ? loadError.message : 'โหลดแพ็กเกจจาก eKru ไม่สำเร็จ'
+        )
+      )
+      .finally(() => setSubscriptionPlansLoading(false));
+  }, [user?.role]);
 
   const hydrate = useCallback((product: MarketplaceProduct) => {
     setForm({
@@ -259,6 +279,9 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
   const selectedSaleType = saleTypes.find((item) => item.id === form.saleTypeId);
   const licenseMediaType = mediaTypes.find((item) => item.delivery_mode === 'feature_unlock');
   const isLicenseProduct = form.productKind === 'license';
+  const selectedSubscriptionPlan = subscriptionPlans.find(
+    (plan) => plan.code === form.grantsPlanCode
+  );
   const isFileOptional =
     selectedMediaType?.delivery_mode === 'service' ||
     selectedMediaType?.delivery_mode === 'feature_unlock';
@@ -1029,6 +1052,15 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                                     key.startsWith('teacher.')
                                   )
                                 : current.grantsFeatureKeys,
+                            ...(licenseScope === 'teacher'
+                              ? {
+                                  grantsPlanCode: '',
+                                  licenseMaxTeachers: '',
+                                  licenseMaxStudents: '',
+                                  licenseMaxSchoolAdmins: '',
+                                  licenseLineQuota: '',
+                                }
+                              : {}),
                           }));
                         }}
                       >
@@ -1042,6 +1074,10 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                         type="number"
                         label="ระยะเวลาปลดล็อก (วัน)"
                         value={form.grantDurationDays}
+                        disabled={
+                          selectedSubscriptionPlan?.billing_cycle === 'monthly' ||
+                          selectedSubscriptionPlan?.billing_cycle === 'yearly'
+                        }
                         slotProps={{ htmlInput: { min: 1 } }}
                         onChange={(event) =>
                           setForm((current) => ({
@@ -1071,6 +1107,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                       <Autocomplete
                         multiple
                         disableCloseOnSelect
+                        disabled={Boolean(selectedSubscriptionPlan)}
                         options={licenseFeatures}
                         value={licenseFeatures.filter((feature) =>
                           form.grantsFeatureKeys.includes(feature.key)
@@ -1090,9 +1127,11 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                             label="ฟีเจอร์ในแพ็กเกจ"
                             placeholder="เลือกได้หลายฟีเจอร์"
                             helperText={
-                              form.licenseScope === 'teacher'
-                                ? 'License รายครูเลือกได้เฉพาะฟีเจอร์สำหรับครู'
-                                : 'สิทธิ์จะเปิดให้ผู้ใช้ทั้งโรงเรียน'
+                              selectedSubscriptionPlan
+                                ? `ดึง ${selectedSubscriptionPlan.enabled_features.length} ฟีเจอร์จากแพ็กเกจ ${selectedSubscriptionPlan.name}`
+                                : form.licenseScope === 'teacher'
+                                  ? 'License รายครูเลือกได้เฉพาะฟีเจอร์สำหรับครู'
+                                  : 'สิทธิ์จะเปิดให้ผู้ใช้ทั้งโรงเรียน'
                             }
                           />
                         )}
@@ -1116,20 +1155,60 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                         />
                       </Grid>
                     )}
-                    <Grid size={{ xs: 12, sm: 6 }}>
-                      <TextField
-                        fullWidth
-                        label="Plan Code"
-                        value={form.grantsPlanCode}
-                        onChange={(event) =>
-                          setForm((current) => ({
-                            ...current,
-                            grantsPlanCode: event.target.value,
-                          }))
-                        }
-                        helperText="ใช้เชื่อมกับ subscription_plans เช่น FULL_SYSTEM"
-                      />
-                    </Grid>
+                    {form.licenseScope === 'school' && (
+                      <Grid size={{ xs: 12 }}>
+                        <TextField
+                          fullWidth
+                          select
+                          label="แพ็กเกจจากระบบ eKru"
+                          value={form.grantsPlanCode}
+                          disabled={subscriptionPlansLoading}
+                          onChange={(event) => {
+                            const plan = subscriptionPlans.find(
+                              (item) => item.code === event.target.value
+                            );
+                            setForm((current) =>
+                              plan
+                                ? {
+                                    ...current,
+                                    grantsPlanCode: plan.code,
+                                    grantsFeatureKeys: plan.enabled_features,
+                                    price: String(plan.price),
+                                    grantDurationDays:
+                                      plan.billing_cycle === 'monthly'
+                                        ? '30'
+                                        : plan.billing_cycle === 'yearly'
+                                          ? '365'
+                                          : current.grantDurationDays,
+                                    licenseMaxTeachers: String(plan.max_teachers),
+                                    licenseMaxStudents: String(plan.max_students),
+                                    licenseMaxSchoolAdmins: String(plan.max_school_admins),
+                                    licenseLineQuota: String(plan.max_line_notifications),
+                                  }
+                                : { ...current, grantsPlanCode: '' }
+                            );
+                          }}
+                          helperText={
+                            subscriptionPlansError ||
+                            (selectedSubscriptionPlan
+                              ? `${selectedSubscriptionPlan.code} · ${selectedSubscriptionPlan.billing_cycle === 'monthly' ? 'รายเดือน' : selectedSubscriptionPlan.billing_cycle === 'yearly' ? 'รายปี' : 'กำหนดเอง'} · ${Number(selectedSubscriptionPlan.price).toLocaleString('th-TH')} บาท`
+                              : 'เลือกเพื่อดึง Feature และข้อจำกัดจาก subscription_plans อัตโนมัติ')
+                          }
+                        >
+                          <MenuItem value="">ไม่เชื่อมแพ็กเกจ / กำหนดสิทธิ์เอง</MenuItem>
+                          {!selectedSubscriptionPlan && form.grantsPlanCode && (
+                            <MenuItem value={form.grantsPlanCode}>
+                              {form.grantsPlanCode} (ไม่พบหรือปิดใช้งานแล้ว)
+                            </MenuItem>
+                          )}
+                          {subscriptionPlans.map((plan) => (
+                            <MenuItem key={plan.id} value={plan.code}>
+                              {plan.name} ({plan.code})
+                            </MenuItem>
+                          ))}
+                        </TextField>
+                      </Grid>
+                    )}
                     {[
                       ['licenseMaxSchoolAdmins', 'จำนวนผู้ดูแลสูงสุด'],
                       ['licenseMaxTeachers', 'จำนวนครูสูงสุด'],
@@ -1141,6 +1220,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                           fullWidth
                           type="number"
                           label={label}
+                          disabled={Boolean(selectedSubscriptionPlan)}
                           value={form[key as keyof typeof form] as string}
                           slotProps={{ htmlInput: { min: 0, step: 1 } }}
                           onChange={(event) =>

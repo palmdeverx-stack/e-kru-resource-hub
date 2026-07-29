@@ -15,6 +15,7 @@ import type {
   MarketplaceSchoolLicense,
   MarketplacePaymentSession,
   MarketplaceLicenseTeacher,
+  MarketplaceSubscriptionPlan,
   MarketplaceProductEngagement,
 } from './types';
 
@@ -57,6 +58,11 @@ export async function getTags(includeInactive = false) {
 export async function getMarketplaceSubjects() {
   const response = await fetch('/api/marketplace/subjects');
   return parseResponse<{ items: MarketplaceSubjectOption[] }>(response);
+}
+
+export async function getSubscriptionPlans() {
+  const response = await fetch('/api/subscription-plans', { cache: 'no-store' });
+  return parseResponse<{ plans: MarketplaceSubscriptionPlan[] }>(response);
 }
 
 export async function getProducts(params?: {
