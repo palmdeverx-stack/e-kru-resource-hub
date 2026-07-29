@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 import Box from '@mui/material/Box';
+import Chip from '@mui/material/Chip';
 import Card from '@mui/material/Card';
 import Alert from '@mui/material/Alert';
 import Radio from '@mui/material/Radio';
@@ -14,6 +15,7 @@ import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
+import CircularProgress from '@mui/material/CircularProgress';
 
 import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
@@ -24,6 +26,7 @@ import { useTranslate } from 'src/locales';
 import { SplashScreen } from 'src/components/loading-screen';
 import {
   RiQrCodeLine,
+  RiSchoolLine,
   RiBankCardLine,
   RiShieldCheckLine,
   RiShoppingBag3Line,
@@ -43,18 +46,24 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
   const router = useRouter();
   const searchParams = useSearchParams();
   const { currentLang } = useTranslate();
-  const { authenticated, loading } = useAuthContext();
+  const { user, authenticated, loading } = useAuthContext();
   const { items, subtotal, clearCart } = useMarketplaceCart();
-  const [paymentMethod, setPaymentMethod] = useState('promptpay');
+  const [paymentMethod, setPaymentMethod] = useState('');
   const [availableMethods, setAvailableMethods] = useState({
-    promptpay: true,
+    promptpay: false,
     stripe: false,
   });
+  const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [schools, setSchools] = useState<Array<{ id: string; name: string }>>([]);
+  const [schoolsLoading, setSchoolsLoading] = useState(true);
   const [licenseSchoolId, setLicenseSchoolId] = useState('');
   const salesDealToken = searchParams.get('dealToken') ?? '';
+  const isFree = subtotal === 0;
+  const hasAvailablePaymentMethod = availableMethods.promptpay || availableMethods.stripe;
+  const canCreateSchoolAfterPayment =
+    user?.role === 'marketplace_user' && !schoolsLoading && !schools.length;
   const hasIndividualLicense = items.some(
     (item) =>
       item.product.resource_type === 'feature_unlock' && item.product.license_scope === 'individual'
@@ -82,13 +91,18 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
       .then((result) => {
         const methods = result.paymentMethods ?? { promptpay: false, stripe: false };
         setAvailableMethods(methods);
-        if (!methods.promptpay && methods.stripe) setPaymentMethod('stripe');
+        setPaymentMethod(methods.promptpay ? 'promptpay' : methods.stripe ? 'stripe' : '');
       })
-      .catch(() => undefined);
+      .catch(() => {
+        setAvailableMethods({ promptpay: false, stripe: false });
+        setPaymentMethod('');
+      })
+      .finally(() => setPaymentMethodsLoading(false));
   }, []);
 
   useEffect(() => {
     if (!authenticated || !hasSchoolLicense || salesDealToken) return;
+    setSchoolsLoading(true);
     getEligibleLicenseSchools()
       .then(({ schools: result }) => {
         setSchools(result);
@@ -96,7 +110,8 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
       })
       .catch((schoolError) =>
         setError(schoolError instanceof Error ? schoolError.message : 'โหลดโรงเรียนไม่สำเร็จ')
-      );
+      )
+      .finally(() => setSchoolsLoading(false));
   }, [authenticated, hasSchoolLicense, salesDealToken]);
 
   const submitOrder = async () => {
@@ -112,7 +127,7 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
       }
       const result = await createOrder(
         items.map((item) => ({ productId: item.product.id })),
-        paymentMethod,
+        isFree ? 'promptpay' : paymentMethod,
         hasSchoolLicense ? licenseSchoolId : undefined,
         salesDealToken || undefined
       );
@@ -183,7 +198,7 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
   }
 
   return (
-    <Container maxWidth="xl" sx={{ py: { xs: 4, md: 8 } }}>
+    <Container maxWidth={false} sx={{ py: { xs: 4 } }}>
       <Typography component="h1" variant="h3">
         ชำระเงิน
       </Typography>
@@ -217,62 +232,134 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
               <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 2 }}>
                 เลือกโรงเรียนที่คุณเป็นผู้ดูแล ระบบจะออกสิทธิ์ให้โรงเรียนนี้หลังชำระเงินสำเร็จ
               </Typography>
-              <TextField
-                fullWidth
-                required
-                select
-                label="โรงเรียนปลายทาง"
-                value={licenseSchoolId}
-                onChange={(event) => setLicenseSchoolId(event.target.value)}
-              >
-                <MenuItem value="">เลือกโรงเรียน</MenuItem>
-                {schools.map((school) => (
-                  <MenuItem key={school.id} value={school.id}>
-                    {school.name}
-                  </MenuItem>
-                ))}
-              </TextField>
-              {!schools.length && (
-                <Alert severity="warning" sx={{ mt: 2 }}>
-                  ไม่พบโรงเรียนที่บัญชีนี้มีสิทธิ์เป็นผู้ดูแล
+              {schoolsLoading ? (
+                <Stack direction="row" spacing={1.25} alignItems="center" sx={{ py: 2 }}>
+                  <CircularProgress size={20} />
+                  <Typography variant="body2" color="text.secondary">
+                    กำลังโหลดโรงเรียนที่บัญชีนี้มีสิทธิ์...
+                  </Typography>
+                </Stack>
+              ) : schools.length ? (
+                <TextField
+                  fullWidth
+                  required
+                  select
+                  label="โรงเรียนปลายทาง"
+                  value={licenseSchoolId}
+                  onChange={(event) => setLicenseSchoolId(event.target.value)}
+                >
+                  <MenuItem value="">เลือกโรงเรียน</MenuItem>
+                  {schools.map((school) => (
+                    <MenuItem key={school.id} value={school.id}>
+                      {school.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              ) : (
+                <Alert
+                  severity={user?.role === 'marketplace_user' ? 'info' : 'warning'}
+                  icon={<RiSchoolLine />}
+                  sx={{ mt: 2 }}
+                >
+                  <Typography variant="subtitle2">
+                    {user?.role === 'marketplace_user'
+                      ? 'สร้างโรงเรียนหลังชำระเงิน'
+                      : 'บัญชีนี้ยังไม่มีโรงเรียนให้รับ License'}
+                  </Typography>
+                  <Typography variant="body2" sx={{ mt: 0.5 }}>
+                    {user?.role === 'master_admin'
+                      ? 'ยังไม่มีโรงเรียนที่เปิดใช้งานในระบบ กรุณาสร้างหรือเปิดใช้งานโรงเรียนก่อน'
+                      : user?.role === 'marketplace_user'
+                        ? 'ชำระเงินต่อได้ ระบบจะส่งลิงก์สร้างโรงเรียนไปยังอีเมลของบัญชีนี้ และเริ่มนับอายุ License หลังสร้างโรงเรียนสำเร็จ'
+                        : user?.role === 'school_admin'
+                          ? 'บัญชีผู้ดูแลนี้ยังไม่ได้เชื่อมกับโรงเรียน กรุณาติดต่อ Super Admin'
+                          : 'License โรงเรียนต้องซื้อด้วยบัญชีผู้ดูแลโรงเรียน กรุณาเข้าสู่ระบบด้วยบัญชีที่มีสิทธิ์'}
+                  </Typography>
+                  {user?.role === 'master_admin' && (
+                    <Button
+                      size="small"
+                      color="warning"
+                      variant="outlined"
+                      component={RouterLink}
+                      href={paths.master.school.root}
+                      startIcon={<RiSchoolLine />}
+                      sx={{ mt: 1.5 }}
+                    >
+                      จัดการโรงเรียน
+                    </Button>
+                  )}
                 </Alert>
               )}
             </Card>
           )}
 
-          <Card sx={{ p: 3 }}>
-            <Typography variant="h5">วิธีชำระเงิน</Typography>
-            <Stack spacing={1.5} sx={{ mt: 2 }}>
-              <PaymentOption
-                selected={paymentMethod === 'promptpay'}
-                icon={<RiQrCodeLine size={28} />}
-                title="QR PromptPay"
-                description={
-                  availableMethods.promptpay
-                    ? 'สแกน QR และแนบสลิปให้ผู้ดูแลตรวจสอบ'
-                    : 'ยังไม่เปิดใช้งาน'
-                }
-                disabled={!availableMethods.promptpay}
-                onClick={() => setPaymentMethod('promptpay')}
-              />
-              <PaymentOption
-                selected={paymentMethod === 'stripe'}
-                icon={<RiBankCardLine size={28} />}
-                title="Stripe Checkout"
-                description={
-                  availableMethods.stripe
-                    ? 'บัตรและช่องทางที่เปิดใช้ใน Stripe รวมถึง PromptPay'
-                    : 'ยังไม่ได้เชื่อมต่อ Stripe'
-                }
-                disabled={!availableMethods.stripe}
-                onClick={() => setPaymentMethod('stripe')}
-              />
-            </Stack>
-          </Card>
+          {!isFree && hasAvailablePaymentMethod && (
+            <Card sx={{ p: 3 }}>
+              <Typography variant="h5">วิธีชำระเงิน</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                เลือกช่องทางที่สะดวก ระบบจะแสดงเฉพาะช่องทางที่เปิดใช้งาน
+              </Typography>
+              <Stack spacing={1.5} sx={{ mt: 2 }}>
+                {availableMethods.promptpay && (
+                  <PaymentOption
+                    selected={paymentMethod === 'promptpay'}
+                    icon={<RiQrCodeLine size={28} />}
+                    title="QR PromptPay — แนบสลิป"
+                    description="สแกน QR โอนเงิน จากนั้นอัปโหลดสลิปและรอผู้ดูแลยืนยัน"
+                    statusLabel="ตรวจสอบโดยผู้ดูแล"
+                    statusColor="warning"
+                    onClick={() => setPaymentMethod('promptpay')}
+                  />
+                )}
+                {availableMethods.stripe && (
+                  <PaymentOption
+                    selected={paymentMethod === 'stripe'}
+                    icon={<RiBankCardLine size={28} />}
+                    title="ชำระเงินผ่าน Stripe"
+                    description="บัตรเครดิต/เดบิต และ PromptPay เมื่อบัญชีและรายการเข้าเงื่อนไข"
+                    statusLabel="ยืนยันอัตโนมัติ"
+                    statusColor="success"
+                    onClick={() => setPaymentMethod('stripe')}
+                  />
+                )}
+              </Stack>
+            </Card>
+          )}
 
-          <Alert severity="info" icon={<RiShieldCheckLine />}>
-            Stripe ยืนยันยอดผ่าน webhook อัตโนมัติ ส่วน PromptPay แบบแนบสลิปจะผ่านการตรวจจากผู้ดูแล
-          </Alert>
+          {!isFree && paymentMethodsLoading && (
+            <Card sx={{ p: 3 }}>
+              <Typography variant="h5">วิธีชำระเงิน</Typography>
+              <Stack direction="row" spacing={1.25} alignItems="center" sx={{ mt: 2 }}>
+                <CircularProgress size={20} />
+                <Typography variant="body2" color="text.secondary">
+                  กำลังตรวจสอบช่องทางที่เปิดใช้งาน...
+                </Typography>
+              </Stack>
+            </Card>
+          )}
+
+          {!isFree && !paymentMethodsLoading && !hasAvailablePaymentMethod && (
+            <Alert severity="warning">
+              ขณะนี้ยังไม่มีช่องทางชำระเงินที่เปิดใช้งาน กรุณาติดต่อผู้ดูแลระบบ
+            </Alert>
+          )}
+
+          {!isFree && availableMethods.promptpay && availableMethods.stripe && (
+            <Alert severity="info" icon={<RiShieldCheckLine />}>
+              PromptPay แบบแนบสลิปต้องรอผู้ดูแลตรวจ ส่วน Stripe ยืนยันผลชำระผ่าน webhook
+              อัตโนมัติ
+            </Alert>
+          )}
+          {!isFree && availableMethods.promptpay && !availableMethods.stripe && (
+            <Alert severity="info" icon={<RiShieldCheckLine />}>
+              QR PromptPay แบบแนบสลิปจะผ่านการตรวจจากผู้ดูแล
+            </Alert>
+          )}
+          {!isFree && availableMethods.stripe && !availableMethods.promptpay && (
+            <Alert severity="info" icon={<RiShieldCheckLine />}>
+              Stripe จะยืนยันยอดชำระผ่าน webhook อัตโนมัติ
+            </Alert>
+          )}
         </Stack>
 
         <Card sx={{ p: 3, width: { xs: 1, md: 380 } }}>
@@ -312,12 +399,22 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
             variant="contained"
             loading={submitting}
             disabled={
-              !availableMethods[paymentMethod as keyof typeof availableMethods] ||
-              (hasSchoolLicense && !salesDealToken && !licenseSchoolId)
+              (!isFree && paymentMethodsLoading) ||
+              (!isFree &&
+                (!paymentMethod ||
+                  !availableMethods[paymentMethod as keyof typeof availableMethods])) ||
+              (hasSchoolLicense &&
+                !salesDealToken &&
+                !licenseSchoolId &&
+                !canCreateSchoolAfterPayment)
             }
             onClick={submitOrder}
           >
-            {paymentMethod === 'stripe' ? 'ไปยัง Stripe Checkout' : 'สร้าง QR ชำระเงิน'}
+            {isFree
+              ? 'ยืนยันรับสินค้า'
+              : paymentMethod === 'stripe'
+                ? 'ชำระเงินผ่าน Stripe'
+                : 'สร้าง QR PromptPay'}
           </Button>
         </Card>
       </Stack>
@@ -332,6 +429,8 @@ function PaymentOption({
   disabled,
   onClick,
   description,
+  statusLabel,
+  statusColor,
 }: {
   icon: React.ReactNode;
   title: string;
@@ -339,6 +438,8 @@ function PaymentOption({
   disabled?: boolean;
   onClick: () => void;
   description: string;
+  statusLabel: string;
+  statusColor: 'success' | 'warning';
 }) {
   return (
     <Stack
@@ -356,9 +457,29 @@ function PaymentOption({
         bgcolor: selected ? 'primary.lighter' : 'transparent',
       }}
     >
-      {icon}
+      <Box
+        sx={{
+          width: 48,
+          height: 48,
+          display: 'grid',
+          flexShrink: 0,
+          borderRadius: 1.5,
+          placeItems: 'center',
+          color: selected ? 'primary.main' : 'text.secondary',
+          bgcolor: selected ? 'primary.lighter' : 'background.neutral',
+        }}
+      >
+        {icon}
+      </Box>
       <Box sx={{ flexGrow: 1 }}>
-        <Typography variant="subtitle1">{title}</Typography>
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={0.75}
+          alignItems={{ xs: 'flex-start', sm: 'center' }}
+        >
+          <Typography variant="subtitle1">{title}</Typography>
+          <Chip size="small" variant="soft" color={statusColor} label={statusLabel} />
+        </Stack>
         <Typography variant="body2" color="text.secondary">
           {description}
         </Typography>

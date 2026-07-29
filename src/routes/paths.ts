@@ -61,6 +61,7 @@ export const paths = {
     lineSettings: '/dashboard/settings/line',
     financeSettings: '/dashboard/settings/finance',
     paymentReviews: '/dashboard/payment-reviews',
+    receipts: '/dashboard/receipts',
     payouts: '/dashboard/payouts',
     purchases: '/dashboard/purchases',
     licenses: '/dashboard/licenses',

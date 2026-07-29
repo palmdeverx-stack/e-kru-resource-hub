@@ -151,7 +151,7 @@ export function MarketplaceSellerDashboardView() {
             <RiStore2Line size={40} />
           </Box>
           <Typography variant="h3" sx={{ mt: 3 }}>
-            เปิดร้านบน eKru Marketplace
+            เปิดร้านบน E-KRU Marketplace
           </Typography>
           <Typography color="text.secondary" sx={{ maxWidth: 600, mx: 'auto', mt: 1, mb: 3 }}>
             ครู บุคคลทั่วไป และองค์กรสามารถสร้างร้าน แบ่งปันสื่อการสอน

@@ -93,7 +93,7 @@ const memberNavData: NavSectionProps['data'] = [
         icon: <RiIdCardLine />,
       },
       {
-        title: 'รายได้ของร้าน',
+        title: 'รายได้และการรับเงิน',
         path: '/dashboard/seller/finance',
         icon: <RiWallet3Line />,
       },
@@ -140,6 +140,11 @@ const adminNavData: NavSectionProps['data'] = [
         title: 'ตรวจสอบการชำระเงิน',
         path: '/dashboard/payment-reviews',
         icon: <RiBankCardLine />,
+      },
+      {
+        title: 'ใบเสร็จรับเงิน',
+        path: '/dashboard/receipts',
+        icon: <RiReceiptLine />,
       },
       {
         title: 'โอนเงินผู้ขาย',
@@ -201,16 +206,6 @@ const adminNavData: NavSectionProps['data'] = [
     ],
   },
   {
-    subheader: 'บัญชีของฉัน',
-    items: [
-      {
-        title: 'รายการซื้อ',
-        path: '/dashboard/purchases',
-        icon: <RiReceiptLine />,
-      },
-    ],
-  },
-  {
     subheader: 'ผู้ขาย',
     items: [
       {
@@ -225,7 +220,7 @@ const adminNavData: NavSectionProps['data'] = [
         icon: <RiIdCardLine />,
       },
       {
-        title: 'รายได้ของร้าน',
+        title: 'รายได้และการรับเงิน',
         path: '/dashboard/seller/finance',
         icon: <RiWallet3Line />,
       },
@@ -233,11 +228,6 @@ const adminNavData: NavSectionProps['data'] = [
         title: 'ข้อเสนอขายโรงเรียน',
         path: '/dashboard/seller/deals',
         icon: <RiFilePaper2Line />,
-      },
-      {
-        title: 'LINE แจ้งเตือนร้านค้า',
-        path: '/dashboard/seller/settings/line',
-        icon: <RiNotification3Line />,
       },
     ],
   },
@@ -266,6 +256,7 @@ export default function Layout({ children }: Props) {
   const { user } = useAuthContext();
   const [canViewSchoolEntitlements, setCanViewSchoolEntitlements] = useState(false);
   const [canUseSellerLine, setCanUseSellerLine] = useState(false);
+  const [hasSubmittedSeller, setHasSubmittedSeller] = useState(false);
 
   useEffect(() => {
     if (user?.role !== 'teacher' && user?.role !== 'marketplace_user') {
@@ -300,6 +291,39 @@ export default function Layout({ children }: Props) {
   }, [user?.id, user?.role]);
 
   useEffect(() => {
+    if (!user?.role) {
+      setHasSubmittedSeller(false);
+      return undefined;
+    }
+    if (user.role === 'master_admin') {
+      setHasSubmittedSeller(true);
+      return undefined;
+    }
+
+    setHasSubmittedSeller(false);
+    const controller = new AbortController();
+
+    fetch('/api/marketplace/seller', {
+      cache: 'no-store',
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) return { seller: null };
+        return response.json() as Promise<{ seller?: { status?: string } | null }>;
+      })
+      .then((result) => {
+        setHasSubmittedSeller(
+          Boolean(result.seller && result.seller.status && result.seller.status !== 'draft')
+        );
+      })
+      .catch((error) => {
+        if ((error as Error).name !== 'AbortError') setHasSubmittedSeller(false);
+      });
+
+    return () => controller.abort();
+  }, [user?.id, user?.role]);
+
+  useEffect(() => {
     if (!user?.role || user.role === 'master_admin') {
       setCanUseSellerLine(user?.role === 'master_admin');
       return undefined;
@@ -329,8 +353,15 @@ export default function Layout({ children }: Props) {
       ? adminNavData
       : memberNavData.map((section) => {
           if (section.subheader === 'ร้านค้าของฉัน') {
+            const sellerItems = hasSubmittedSeller
+              ? section.items
+              : section.items.filter(
+                  (item) =>
+                    item.path !== '/dashboard/seller/profile' &&
+                    item.path !== '/dashboard/seller/finance'
+                );
             const lineItems = canUseSellerLine
-                ? [
+              ? [
                   {
                     title: 'LINE แจ้งเตือนร้านค้า',
                     path: '/dashboard/seller/settings/line',
@@ -338,7 +369,7 @@ export default function Layout({ children }: Props) {
                   },
                 ]
               : [];
-            return { ...section, items: [...section.items, ...lineItems] };
+            return { ...section, items: [...sellerItems, ...lineItems] };
           }
           if (section.subheader !== 'บัญชีของฉัน') return section;
           const roleItems =

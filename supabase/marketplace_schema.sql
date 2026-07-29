@@ -424,6 +424,7 @@ alter table public.marketplace_sellers
   add column if not exists company_name text,
   add column if not exists company_registration_no text,
   add column if not exists company_tax_id text,
+  add column if not exists business_address text,
   add column if not exists wizard_step integer not null default 1,
   add column if not exists seller_agreement_accepted_at timestamptz,
   add column if not exists copyright_confirmed_at timestamptz,
@@ -976,6 +977,24 @@ alter table public.marketplace_orders
 
 create index if not exists marketplace_orders_payment_session_idx
   on public.marketplace_orders (payment_session_id);
+
+create table if not exists public.marketplace_school_onboardings (
+  id uuid primary key default gen_random_uuid(),
+  payment_session_id uuid not null unique
+    references public.marketplace_payment_sessions(id) on delete cascade,
+  buyer_id uuid not null,
+  email text not null,
+  token_hash text not null unique,
+  token_ciphertext text not null,
+  email_sent_at timestamptz,
+  expires_at timestamptz not null,
+  completed_at timestamptz,
+  school_id uuid references public.schools(id) on delete restrict,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists marketplace_school_onboardings_buyer_idx
+  on public.marketplace_school_onboardings (buyer_id, created_at desc);
 create index if not exists marketplace_orders_seller_available_idx
   on public.marketplace_orders (seller_id, available_at)
   where status in ('paid', 'completed');
@@ -1174,6 +1193,7 @@ alter table public.marketplace_product_reviews enable row level security;
 alter table public.marketplace_product_downloads enable row level security;
 alter table public.marketplace_product_collections enable row level security;
 alter table public.marketplace_school_licenses enable row level security;
+alter table public.marketplace_school_onboardings enable row level security;
 alter table public.marketplace_user_licenses enable row level security;
 alter table public.marketplace_user_license_events enable row level security;
 alter table public.marketplace_teacher_license_assignments enable row level security;

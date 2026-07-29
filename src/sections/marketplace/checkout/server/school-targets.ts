@@ -7,6 +7,16 @@ import { supabaseAdmin } from 'src/lib/supabase-admin';
 export async function getEligibleLicenseSchools(caller: AppTokenPayload) {
   const targets = new Map<string, { id: string; name: string }>();
 
+  if (caller.role === 'master_admin') {
+    const { data: schools, error } = await supabaseAdmin
+      .from('schools')
+      .select('id,name')
+      .eq('is_active', true)
+      .order('name');
+    if (error) throw error;
+    return schools ?? [];
+  }
+
   if (caller.role === 'school_admin' && caller.schoolId) {
     const { data: school } = await supabaseAdmin
       .from('schools')

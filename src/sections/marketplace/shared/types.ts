@@ -186,6 +186,7 @@ export type MarketplaceSeller = {
   company_name?: string | null;
   company_registration_no?: string | null;
   company_tax_id?: string | null;
+  business_address?: string | null;
   wizard_step?: number;
   seller_agreement_accepted_at?: string | null;
   copyright_confirmed_at?: string | null;

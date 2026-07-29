@@ -78,7 +78,7 @@ export function MarketplaceSellerProfileView() {
 
   if (!seller) {
     return (
-      <Container maxWidth="md" sx={{ py: 8 }}>
+      <Container maxWidth={false} sx={{ py: 8 }}>
         <Card variant="outlined" sx={{ p: 5, textAlign: 'center', borderRadius: 4 }}>
           <Avatar
             variant="rounded"
@@ -325,6 +325,9 @@ export function MarketplaceSellerProfileView() {
                     </Grid>
                     <Grid size={{ xs: 12, sm: 6 }}>
                       <ProfileField label="เลขผู้เสียภาษีบริษัท" value={seller.company_tax_id} />
+                    </Grid>
+                    <Grid size={{ xs: 12 }}>
+                      <ProfileField label="ที่อยู่ผู้ออกใบเสร็จ" value={seller.business_address} />
                     </Grid>
                   </>
                 )}

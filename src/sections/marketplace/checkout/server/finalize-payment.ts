@@ -4,6 +4,7 @@ import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { createNotifications } from 'src/lib/notifications';
 
 import { money, getFinanceSettings } from '../../admin/server/finance';
+import { createSchoolOnboardingForPaidOrders } from './school-onboarding';
 import { grantFeatureEntitlementsForOrders } from './grant-feature-entitlements';
 import { notifySellerPaymentReceived } from '../../seller/server/seller-line-notifications';
 
@@ -25,8 +26,14 @@ export async function finalizeMarketplacePayment(input: FinalizeInput) {
   if (error) throw error;
   if (!session) throw new Error('ไม่พบรายการชำระเงิน');
   const orders = (session.orders ?? []) as Array<Record<string, unknown>>;
+  const orderIds = orders.map((order) => String(order.id));
   if (session.status === 'verified') {
-    await grantFeatureEntitlementsForOrders(orders.map((order) => String(order.id)));
+    await grantFeatureEntitlementsForOrders(orderIds);
+    await createSchoolOnboardingForPaidOrders({
+      paymentSessionId: session.id,
+      buyerId: session.buyer_id,
+      orderIds,
+    });
     const salesDealIds = orders.map((order) => String(order.sales_deal_id ?? '')).filter(Boolean);
     if (salesDealIds.length) {
       await supabaseAdmin
@@ -124,7 +131,12 @@ export async function finalizeMarketplacePayment(input: FinalizeInput) {
 
   // Payment remains verified if entitlement creation fails, while the thrown
   // error makes Stripe/admin retry the idempotent reconciliation path.
-  const licenses = await grantFeatureEntitlementsForOrders(orders.map((order) => String(order.id)));
+  const licenses = await grantFeatureEntitlementsForOrders(orderIds);
+  const schoolOnboardingPending = await createSchoolOnboardingForPaidOrders({
+    paymentSessionId: session.id,
+    buyerId: session.buyer_id,
+    orderIds,
+  });
   const salesDealIds = orders.map((order) => String(order.sales_deal_id ?? '')).filter(Boolean);
   if (salesDealIds.length) {
     await supabaseAdmin
@@ -175,7 +187,9 @@ export async function finalizeMarketplacePayment(input: FinalizeInput) {
       schoolId: null,
       type: 'marketplace_payment_verified',
       title: 'ยืนยันการชำระเงินแล้ว',
-      body: 'คำสั่งซื้อพร้อมใช้งานแล้ว',
+      body: schoolOnboardingPending
+        ? 'ส่งลิงก์สร้างโรงเรียนไปยังอีเมลแล้ว กรุณาดำเนินการเพื่อเปิดใช้งาน License'
+        : 'คำสั่งซื้อพร้อมใช้งานแล้ว',
       link: '/dashboard/purchases',
     },
   ]);

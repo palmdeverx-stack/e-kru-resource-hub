@@ -7,8 +7,12 @@ import { withMediaUrls } from 'src/sections/marketplace/seller/server/product-me
 import { money, getFinanceSettings } from 'src/sections/marketplace/admin/server/finance';
 import { getStripe, isStripeConfigured } from 'src/sections/marketplace/checkout/server/stripe';
 import { getEligibleLicenseSchools } from 'src/sections/marketplace/checkout/server/school-targets';
-import { getProductPurchaseAccess } from 'src/sections/marketplace/catalog/server/product-engagement';
+import { createSchoolOnboardingForPaidOrders } from 'src/sections/marketplace/checkout/server/school-onboarding';
 import { grantFeatureEntitlementsForOrders } from 'src/sections/marketplace/checkout/server/grant-feature-entitlements';
+import {
+  hasPurchasedProduct,
+  getProductPurchaseAccess,
+} from 'src/sections/marketplace/catalog/server/product-engagement';
 
 type RequestedItem = {
   productId: string;
@@ -158,28 +162,50 @@ export async function POST(request: Request) {
   );
   if (hasSchoolLicense) {
     const eligibleSchools = await getEligibleLicenseSchools(caller);
+    const canCreateSchoolAfterPayment =
+      caller.role === 'marketplace_user' && !requestedLicenseSchoolId;
     if (
-      !requestedLicenseSchoolId ||
-      !eligibleSchools.some((school) => school.id === requestedLicenseSchoolId)
+      !canCreateSchoolAfterPayment &&
+      (!requestedLicenseSchoolId ||
+        !eligibleSchools.some((school) => school.id === requestedLicenseSchoolId))
     ) {
       return NextResponse.json(
-        { message: 'กรุณาเลือกโรงเรียนที่คุณมีสิทธิ์เป็นผู้ดูแลก่อนชำระเงิน' },
+        { message: 'กรุณาเลือกโรงเรียนที่คุณมีสิทธิ์เป็นผู้ดูแล หรือใช้บัญชีสมาชิกทั่วไปเพื่อสร้างโรงเรียนหลังชำระเงิน' },
         { status: 403 }
       );
     }
   }
 
   const purchaseAccess = await Promise.all(
-    products.map(async (product) => ({
-      product,
-      access: await getProductPurchaseAccess({
+    products.map(async (product) => {
+      if (
+        caller.role === 'marketplace_user' &&
+        !requestedLicenseSchoolId &&
+        product.resource_type === 'feature_unlock' &&
+        product.license_scope !== 'individual'
+      ) {
+        const hasPurchased = await hasPurchasedProduct(product.id, caller.sub);
+        return {
+          product,
+          access: {
+            canPurchase: !hasPurchased,
+            hasPurchased,
+            accessExpiresAt: null,
+            message: hasPurchased ? 'คุณซื้อ License นี้และกำลังรอสร้างโรงเรียน' : null,
+          },
+        };
+      }
+      return {
+        product,
+        access: await getProductPurchaseAccess({
         productId: product.id,
         buyerId: caller.sub,
         schoolId: hasSchoolLicense ? requestedLicenseSchoolId : caller.schoolId,
         resourceType: product.resource_type,
         licenseScope: product.license_scope,
       }),
-    }))
+      };
+    })
   );
   const unavailable = purchaseAccess.find(({ access }) => !access.canPurchase);
   if (unavailable) {
@@ -282,7 +308,7 @@ export async function POST(request: Request) {
         seller_id: sellerId,
         payment_session_id: paymentSession.id,
         sales_deal_id: salesDeal?.id ?? null,
-        license_school_id: hasSchoolLicense ? requestedLicenseSchoolId : null,
+        license_school_id: hasSchoolLicense && requestedLicenseSchoolId ? requestedLicenseSchoolId : null,
         status: isFree ? 'paid' : 'pending_payment',
         total: grossAmount,
         gross_amount: grossAmount,
@@ -345,7 +371,13 @@ export async function POST(request: Request) {
 
   let finalPaymentSession = paymentSession;
   if (isFree) {
-    await grantFeatureEntitlementsForOrders(createdOrders.map((order) => String(order.id)));
+    const orderIds = createdOrders.map((order) => String(order.id));
+    await grantFeatureEntitlementsForOrders(orderIds);
+    await createSchoolOnboardingForPaidOrders({
+      paymentSessionId: paymentSession.id,
+      buyerId: caller.sub,
+      orderIds,
+    });
     if (salesDeal) {
       await supabaseAdmin
         .from('marketplace_sales_deals')

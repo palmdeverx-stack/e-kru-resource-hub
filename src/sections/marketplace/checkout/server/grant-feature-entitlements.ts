@@ -121,7 +121,9 @@ export async function grantFeatureEntitlementsForOrders(orderIds: string[]) {
     }
 
     const schoolId = item.order?.license_school_id;
-    if (!schoolId) throw new Error(`ไม่พบโรงเรียนของผู้ซื้อในคำสั่งซื้อ ${item.order_id}`);
+    // Marketplace-only buyers can pay first and create their school from the
+    // secure onboarding link. Fulfillment is retried after the school is bound.
+    if (!schoolId) continue;
 
     const { data: previousLicense } = await supabaseAdmin
       .from('marketplace_school_licenses')

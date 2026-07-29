@@ -80,14 +80,32 @@ export async function POST(request: Request) {
 
   if (caller.role === 'master_admin') {
     const displayName = String(body?.displayName ?? '').trim();
+    const companyName = String(body?.companyName ?? '').trim();
+    const companyTaxId = String(body?.companyTaxId ?? '').replace(/\D/g, '');
+    const businessAddress = String(body?.businessAddress ?? '').trim();
     if (displayName.length < 2 || displayName.length > 120) {
       return NextResponse.json(
         { message: 'ชื่อร้านทางการต้องมีความยาว 2–120 ตัวอักษร' },
         { status: 400 }
       );
     }
+    if (
+      (companyName && companyName.length < 2) ||
+      (companyTaxId && companyTaxId.length !== 13)
+    ) {
+      return NextResponse.json(
+        {
+          message:
+            'ชื่อผู้ออกต้องมีอย่างน้อย 2 ตัวอักษร และเลขประจำตัวผู้เสียภาษีต้องมี 13 หลัก',
+        },
+        { status: 400 }
+      );
+    }
     const result = await provisionEkruSystemSeller(caller.sub, {
       bio: String(body?.bio ?? '').trim(),
+      businessAddress,
+      companyName,
+      companyTaxId,
       contactEmail: String(body?.contactEmail ?? '').trim(),
       displayName,
       displayNameEn: String(body?.displayNameEn ?? '').trim(),

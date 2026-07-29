@@ -13,6 +13,7 @@ import Radio from '@mui/material/Radio';
 import Avatar from '@mui/material/Avatar';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
+import Divider from '@mui/material/Divider';
 import Checkbox from '@mui/material/Checkbox';
 import TextField from '@mui/material/TextField';
 import Container from '@mui/material/Container';
@@ -252,6 +253,7 @@ const initialForm = {
   companyName: '',
   companyRegistrationNo: '',
   companyTaxId: '',
+  businessAddress: '',
   bankCode: '',
   bankName: '',
   accountNumber: '',
@@ -318,6 +320,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
           companyName: current.company_name ?? '',
           companyRegistrationNo: current.company_registration_no ?? '',
           companyTaxId: current.company_tax_id ?? '',
+          businessAddress: current.business_address ?? '',
           bankCode: current.payout_account?.bank_code ?? '',
           bankName: current.payout_account?.bank_name ?? '',
           accountNumber: current.payout_account?.account_number ?? '',
@@ -502,6 +505,29 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
               label="อีเมลติดต่อ"
               value={form.contactEmail}
               onChange={(e) => update('contactEmail', e.target.value)}
+            />
+            <Divider />
+            <Typography variant="h6">ข้อมูลผู้ออกใบเสร็จรับเงิน</Typography>
+            <TextField
+              required
+              label="ชื่อผู้ออกใบเสร็จ / ชื่อบริษัท"
+              value={form.companyName}
+              onChange={(e) => update('companyName', e.target.value)}
+            />
+            <TextField
+              required
+              label="เลขประจำตัวผู้เสียภาษี"
+              value={form.companyTaxId}
+              slotProps={{ htmlInput: { inputMode: 'numeric', maxLength: 13 } }}
+              onChange={(e) => update('companyTaxId', e.target.value.replace(/\D/g, ''))}
+            />
+            <TextField
+              required
+              multiline
+              minRows={3}
+              label="ที่อยู่ผู้ออกใบเสร็จ"
+              value={form.businessAddress}
+              onChange={(e) => update('businessAddress', e.target.value)}
             />
             <TextField
               multiline
