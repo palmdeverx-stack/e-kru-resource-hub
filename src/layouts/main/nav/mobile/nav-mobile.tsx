@@ -4,11 +4,13 @@ import { useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Drawer from '@mui/material/Drawer';
+import IconButton from '@mui/material/IconButton';
 
 import { usePathname } from 'src/routes/hooks';
 
 import { Logo } from 'src/components/logo';
 import { Scrollbar } from 'src/components/scrollbar';
+import { RiCloseLine } from 'src/components/remix-icon';
 
 import { Nav, NavUl } from '../components';
 import { NavList } from './nav-mobile-list';
@@ -55,13 +57,21 @@ export function NavMobile({ data, open, onClose, slots, sx }: NavMobileProps) {
       {slots?.topArea ?? (
         <Box
           sx={{
-            pt: 3,
-            pb: 2,
-            pl: 2.5,
+            px: 2,
+            pt: 2,
+            pb: 1.5,
             display: 'flex',
+            minHeight: 72,
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            borderBottom: '1px solid',
+            borderColor: 'divider',
           }}
         >
-          <Logo />
+          <Logo sx={{ width: 'auto', height: 48 }} />
+          <IconButton onClick={onClose} aria-label="ปิดเมนู">
+            <RiCloseLine size={24} />
+          </IconButton>
         </Box>
       )}
 

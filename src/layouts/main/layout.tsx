@@ -62,6 +62,7 @@ export function MainLayout({
   const mobileBottom = slotProps?.nav?.mobileBottom ?? false;
 
   const renderHeader = () => {
+    const customHeaderSlots = slotProps?.header?.slots;
     const headerSlots: HeaderSectionProps['slots'] = {
       topArea: (
         <Alert severity="info" sx={{ display: 'none', borderRadius: 0 }}>
@@ -75,6 +76,7 @@ export function MainLayout({
               {/** @slot Nav mobile */}
               <MenuButton
                 onClick={onOpen}
+                aria-label="เปิดเมนู"
                 sx={(theme) => ({
                   mr: 1,
                   ml: -1,
@@ -85,8 +87,8 @@ export function MainLayout({
             </>
           )}
 
-          {/** @slot Logo */}
-          <MainSchoolLogo />
+          {/** @slot Logo / custom brand */}
+          {customHeaderSlots?.leftArea ?? <MainSchoolLogo />}
         </>
       ),
       centerArea: (
@@ -117,7 +119,7 @@ export function MainLayout({
       <HeaderSection
         layoutQuery={layoutQuery}
         {...slotProps?.header}
-        slots={{ ...headerSlots, ...slotProps?.header?.slots }}
+        slots={{ ...headerSlots, ...customHeaderSlots, leftArea: headerSlots.leftArea }}
         slotProps={slotProps?.header?.slotProps}
         sx={[
           (theme) => ({

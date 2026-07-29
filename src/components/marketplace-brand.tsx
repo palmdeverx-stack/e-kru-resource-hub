@@ -10,8 +10,14 @@ type MarketplaceBrandProps = {
 
 export function MarketplaceBrand({ compact = false }: MarketplaceBrandProps) {
   return (
-    <Stack direction="row" spacing={1.25} alignItems="center">
-      <Logo sx={{ width: 'auto', height: 80 }} />
+    <Stack direction="row" spacing={1.25} alignItems="center" sx={{ minWidth: 0 }}>
+      <Logo
+        sx={{
+          width: 'auto',
+          flexShrink: 0,
+          height: compact ? 40 : { xs: 42, sm: 52, md: 80 },
+        }}
+      />
       {/* {!compact && (
         <Stack spacing={0} sx={{ minWidth: 0 }}>
           <Typography variant="subtitle1" noWrap>

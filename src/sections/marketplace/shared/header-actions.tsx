@@ -13,7 +13,12 @@ import { usePathname, useSearchParams } from 'src/routes/hooks';
 import { languageOptions } from 'src/locales';
 import { LanguagePopover } from 'src/layouts/components/language-popover';
 
-import { RiLoginBoxLine, RiDashboardLine, RiShoppingBag3Line } from 'src/components/remix-icon';
+import {
+  RiUserAddLine,
+  RiLoginBoxLine,
+  RiDashboardLine,
+  RiShoppingBag3Line,
+} from 'src/components/remix-icon';
 
 import { useAuthContext } from 'src/auth/hooks';
 
@@ -31,8 +36,13 @@ export function MarketplaceHeaderActions() {
   const cartHref = authenticated ? paths.marketplace.dashboardCart : paths.marketplace.cart;
 
   return (
-    <Stack direction="row" spacing={1} alignItems="center">
-      <IconButton component={RouterLink} href={cartHref} aria-label={`ตะกร้า ${itemCount} รายการ`}>
+    <Stack direction="row" spacing={{ xs: 0.25, sm: 1 }} alignItems="center">
+      <IconButton
+        component={RouterLink}
+        href={cartHref}
+        aria-label={`ตะกร้า ${itemCount} รายการ`}
+        sx={{ width: { xs: 36, sm: 40 }, height: { xs: 36, sm: 40 } }}
+      >
         <Badge badgeContent={itemCount} color="primary">
           <RiShoppingBag3Line />
         </Badge>
@@ -51,9 +61,27 @@ export function MarketplaceHeaderActions() {
       )}
 
       {!authenticated && (
-        <Button href={paths.auth.jwt.signUp} component={RouterLink} variant="contained">
-          สมัครใช้งาน
-        </Button>
+        <>
+          <Tooltip title="สมัครใช้งาน">
+            <IconButton
+              component={RouterLink}
+              href={paths.auth.jwt.signUp}
+              aria-label="สมัครใช้งาน"
+              color="primary"
+              sx={{ display: { xs: 'inline-flex', sm: 'none' }, width: 36, height: 36 }}
+            >
+              <RiUserAddLine />
+            </IconButton>
+          </Tooltip>
+          <Button
+            href={paths.auth.jwt.signUp}
+            component={RouterLink}
+            variant="contained"
+            sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
+          >
+            สมัครใช้งาน
+          </Button>
+        </>
       )}
 
       <MarketplaceAccountMenu />
@@ -64,13 +92,18 @@ export function MarketplaceHeaderActions() {
             component={RouterLink}
             href={paths.marketplace.dashboard}
             aria-label="Dashboard"
+            sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
           >
             <RiDashboardLine />
           </IconButton>
         </Tooltip>
       )}
 
-      <LanguagePopover showTranslateIcon data={languageOptions} />
+      <LanguagePopover
+        showTranslateIcon
+        data={languageOptions}
+        sx={{ width: { xs: 36, sm: 40 }, height: { xs: 36, sm: 40 } }}
+      />
     </Stack>
   );
 }
