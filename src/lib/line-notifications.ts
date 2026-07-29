@@ -66,6 +66,7 @@ function formatAttendanceDate(value: string) {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
+    timeZone: 'Asia/Bangkok',
   }).format(new Date(`${value}T00:00:00+07:00`));
 }
 

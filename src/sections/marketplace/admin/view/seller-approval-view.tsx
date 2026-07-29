@@ -207,7 +207,9 @@ export function MarketplaceSellerApprovalView() {
                     <TableCell>
                       <Typography variant="body2">
                         {seller.submitted_at
-                          ? new Date(seller.submitted_at).toLocaleDateString('th-TH')
+                          ? new Date(seller.submitted_at).toLocaleDateString('th-TH', {
+                              timeZone: 'Asia/Bangkok',
+                            })
                           : '-'}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
@@ -215,6 +217,7 @@ export function MarketplaceSellerApprovalView() {
                           ? new Date(seller.submitted_at).toLocaleTimeString('th-TH', {
                               hour: '2-digit',
                               minute: '2-digit',
+                              timeZone: 'Asia/Bangkok',
                             })
                           : ''}
                       </Typography>

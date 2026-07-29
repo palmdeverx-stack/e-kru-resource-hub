@@ -54,7 +54,10 @@ type Entitlement = {
 const featureMap = new Map(SCHOOL_FEATURES.map((feature) => [feature.key, feature]));
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat('th-TH', { dateStyle: 'long' }).format(new Date(value));
+  return new Intl.DateTimeFormat('th-TH', {
+    dateStyle: 'long',
+    timeZone: 'Asia/Bangkok',
+  }).format(new Date(value));
 }
 
 export function SchoolEntitlementsView() {

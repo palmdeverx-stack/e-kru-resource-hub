@@ -140,6 +140,7 @@ export function SchoolProfileView({ readOnly = false }: Props) {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
+    timeZone: 'Asia/Bangkok',
   }).format(new Date(school.created_at));
 
   return (

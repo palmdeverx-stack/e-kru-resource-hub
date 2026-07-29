@@ -1,8 +1,12 @@
 import type { Dayjs, OpUnitType } from 'dayjs';
 
 import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
 import duration from 'dayjs/plugin/duration';
+import timezone from 'dayjs/plugin/timezone';
 import relativeTime from 'dayjs/plugin/relativeTime';
+
+import { APP_TIME_ZONE } from './timezone';
 
 // ----------------------------------------------------------------------
 
@@ -25,6 +29,8 @@ import relativeTime from 'dayjs/plugin/relativeTime';
  * dayjs().utc().format()
  */
 
+dayjs.extend(utc);
+dayjs.extend(timezone);
 dayjs.extend(duration);
 dayjs.extend(relativeTime);
 
@@ -51,7 +57,7 @@ const INVALID_DATE = 'Invalid';
 // ----------------------------------------------------------------------
 
 export function today(template?: string): string {
-  return dayjs(new Date()).startOf('day').format(template);
+  return dayjs().tz(APP_TIME_ZONE).startOf('day').format(template);
 }
 
 // ----------------------------------------------------------------------
@@ -65,7 +71,7 @@ export function today(template?: string): string {
 export function fDateTime(input: DateInput, template = FORMAT_PATTERNS.dateTime): string {
   if (!input) return '';
 
-  const date = dayjs(input);
+  const date = dayjs(input).tz(APP_TIME_ZONE);
   if (!date.isValid()) return INVALID_DATE;
 
   return date.format(template);
@@ -82,7 +88,10 @@ export function fDateTime(input: DateInput, template = FORMAT_PATTERNS.dateTime)
 export function fDate(input: DateInput, template = FORMAT_PATTERNS.date): string {
   if (!input) return '';
 
-  const date = dayjs(input);
+  const date =
+    typeof input === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(input)
+      ? dayjs(input)
+      : dayjs(input).tz(APP_TIME_ZONE);
   if (!date.isValid()) return INVALID_DATE;
 
   return date.format(template);
@@ -99,7 +108,7 @@ export function fDate(input: DateInput, template = FORMAT_PATTERNS.date): string
 export function fTime(input: DateInput, template = FORMAT_PATTERNS.time): string {
   if (!input) return '';
 
-  const date = dayjs(input);
+  const date = dayjs(input).tz(APP_TIME_ZONE);
   if (!date.isValid()) return INVALID_DATE;
 
   return date.format(template);

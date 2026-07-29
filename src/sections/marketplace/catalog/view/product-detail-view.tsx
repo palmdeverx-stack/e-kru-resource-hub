@@ -315,7 +315,10 @@ export function MarketplaceProductDetailView({
     purchaseUnavailable &&
     purchaseAccess?.accessExpiresAt;
   const addButtonLabel = activeSubscription
-    ? `ใช้งานถึง ${new Intl.DateTimeFormat('th-TH', { dateStyle: 'medium' }).format(
+    ? `ใช้งานถึง ${new Intl.DateTimeFormat('th-TH', {
+        dateStyle: 'medium',
+        timeZone: 'Asia/Bangkok',
+      }).format(
         new Date(activeSubscription)
       )}`
     : purchaseUnavailable
@@ -754,6 +757,7 @@ export function MarketplaceProductDetailView({
                               {new Intl.DateTimeFormat('th-TH', {
                                 dateStyle: 'medium',
                                 timeStyle: 'short',
+                                timeZone: 'Asia/Bangkok',
                               }).format(new Date(engagement.myReview.updated_at))}
                             </Typography>
                             {reviewSaved && <Alert severity="success">{reviewSaved}</Alert>}
@@ -834,6 +838,7 @@ export function MarketplaceProductDetailView({
                             <Typography variant="caption" color="text.secondary">
                               {new Intl.DateTimeFormat('th-TH', {
                                 dateStyle: 'medium',
+                                timeZone: 'Asia/Bangkok',
                               }).format(new Date(review.updated_at))}
                             </Typography>
                           </Stack>
@@ -1522,6 +1527,7 @@ export function MarketplaceProductDetailView({
                       <Typography variant="caption" color="text.secondary">
                         {new Intl.DateTimeFormat('th-TH', {
                           dateStyle: 'medium',
+                          timeZone: 'Asia/Bangkok',
                         }).format(new Date(review.updated_at))}
                       </Typography>
                     </Stack>

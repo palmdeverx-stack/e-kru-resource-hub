@@ -560,6 +560,7 @@ function ConsentItem({ label, acceptedAt }: { label: string; acceptedAt?: string
             {acceptedAt
               ? `ยอมรับเมื่อ ${new Date(acceptedAt).toLocaleDateString('th-TH', {
                   dateStyle: 'medium',
+                  timeZone: 'Asia/Bangkok',
                 })}`
               : 'ยังไม่ยอมรับ'}
           </Typography>

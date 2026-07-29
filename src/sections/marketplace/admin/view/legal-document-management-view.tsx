@@ -32,6 +32,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import { paths } from 'src/routes/paths';
 
 import { fDateTime } from 'src/utils/format-time';
+import { formatBangkokDateTimeInput } from 'src/utils/timezone';
 
 import { Editor } from 'src/components/editor';
 import {
@@ -92,10 +93,7 @@ async function parseResponse(response: Response) {
 }
 
 function toLocalDateTime(value: string | null) {
-  if (!value) return '';
-  const date = new Date(value);
-  const offset = date.getTimezoneOffset() * 60_000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+  return formatBangkokDateTimeInput(value);
 }
 
 export function MarketplaceLegalDocumentManagementView() {

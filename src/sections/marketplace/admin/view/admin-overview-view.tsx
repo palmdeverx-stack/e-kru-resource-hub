@@ -248,6 +248,7 @@ export function MarketplaceAdminOverviewView() {
                     {updatedAt.toLocaleTimeString('th-TH', {
                       hour: '2-digit',
                       minute: '2-digit',
+                      timeZone: 'Asia/Bangkok',
                     })}
                   </Typography>
                 )}
@@ -520,7 +521,9 @@ function RecentOrders({ orders }: { orders: AdminOverview['recentOrders'] }) {
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
                     #{order.id.slice(0, 8).toUpperCase()} ·{' '}
-                    {new Date(order.created_at).toLocaleString('th-TH')}
+                    {new Date(order.created_at).toLocaleString('th-TH', {
+                      timeZone: 'Asia/Bangkok',
+                    })}
                   </Typography>
                 </Box>
                 <Typography variant="subtitle2">
@@ -645,7 +648,9 @@ function RecentSellers({ sellers }: { sellers: AdminOverview['recentSellers'] })
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
                   {sellerTypeLabel[seller.seller_type]} ·{' '}
-                  {new Date(seller.submitted_at ?? seller.created_at).toLocaleDateString('th-TH')}
+                  {new Date(
+                    seller.submitted_at ?? seller.created_at
+                  ).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' })}
                 </Typography>
               </Box>
               <Chip

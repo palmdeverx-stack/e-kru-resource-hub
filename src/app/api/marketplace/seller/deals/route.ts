@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 
+import { parseBangkokDateTime } from 'src/utils/timezone';
+
 import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 
@@ -68,7 +70,7 @@ export async function POST(request: Request) {
     .toLowerCase();
   const contactName = String(body?.contactName ?? '').trim();
   const negotiatedPrice = Number(body?.negotiatedPrice);
-  const expiresAt = new Date(String(body?.expiresAt ?? ''));
+  const expiresAt = parseBangkokDateTime(String(body?.expiresAt ?? ''));
   if (
     schoolName.length < 2 ||
     contactName.length < 2 ||
@@ -76,7 +78,7 @@ export async function POST(request: Request) {
     !Number.isFinite(negotiatedPrice) ||
     negotiatedPrice < 0 ||
     negotiatedPrice > Number(product.price) ||
-    Number.isNaN(expiresAt.getTime()) ||
+    !expiresAt ||
     expiresAt <= new Date() ||
     (product.resource_type === 'feature_unlock' &&
       product.license_scope !== 'individual' &&

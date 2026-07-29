@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 
+import { parseBangkokDateTime } from 'src/utils/timezone';
+
 import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { canEditGradebook } from 'src/lib/grade-review-access';
@@ -234,7 +236,8 @@ export async function POST(request: Request, { params }: RouteParams) {
     return NextResponse.json({ message: 'คะแนนเต็มต้องมากกว่า 0' }, { status: 400 });
   }
 
-  const parsedDueAt = typeof dueAt === 'string' && dueAt.trim() ? new Date(dueAt) : null;
+  const parsedDueAt =
+    typeof dueAt === 'string' && dueAt.trim() ? parseBangkokDateTime(dueAt) : null;
   if (parsedDueAt && Number.isNaN(parsedDueAt.getTime())) {
     return NextResponse.json({ message: 'วันและเวลาครบกำหนดส่งไม่ถูกต้อง' }, { status: 400 });
   }

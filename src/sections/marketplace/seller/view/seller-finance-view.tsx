@@ -398,6 +398,7 @@ export function MarketplaceSellerFinanceView() {
               ยอดที่พร้อมจ่ายจะถูกรวมในรอบถัดไปวันที่{' '}
               {new Date(data?.schedule.nextPayoutAt ?? '').toLocaleDateString('th-TH', {
                 dateStyle: 'long',
+                timeZone: 'Asia/Bangkok',
               })}{' '}
               · ระบบจัดรอบทุก{payoutDayNames[data?.schedule.payoutDay ?? 5]}
             </Alert>
@@ -514,6 +515,7 @@ export function MarketplaceSellerFinanceView() {
                               day: 'numeric',
                               month: 'short',
                               year: '2-digit',
+                              timeZone: 'Asia/Bangkok',
                             })}
                           </TableCell>
                           <TableCell>
@@ -841,13 +843,15 @@ export function MarketplaceSellerFinanceView() {
                         label="วันที่สร้างรายการ"
                         value={new Date(
                           selectedPayout.requested_at || selectedPayout.created_at
-                        ).toLocaleString('th-TH')}
+                        ).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}
                       />
                       <DetailRow
                         label="วันที่ดำเนินการ"
                         value={
                           selectedPayout.processed_at
-                            ? new Date(selectedPayout.processed_at).toLocaleString('th-TH')
+                            ? new Date(selectedPayout.processed_at).toLocaleString('th-TH', {
+                                timeZone: 'Asia/Bangkok',
+                              })
                             : '-'
                         }
                       />

@@ -30,6 +30,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 
 import { Logo } from 'src/components/logo';
+import { formatThaiDateTime } from 'src/utils/timezone';
 import {
   RiEyeLine,
   RiSearchLine,
@@ -118,11 +119,7 @@ const paymentLabels = {
 };
 
 function formatDate(value: string | null | undefined) {
-  if (!value) return '-';
-  return new Intl.DateTimeFormat('th-TH', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value));
+  return formatThaiDateTime(value);
 }
 
 export function MarketplaceReceiptManagementView() {

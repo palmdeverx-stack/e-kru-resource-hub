@@ -321,6 +321,7 @@ export function SchoolListView() {
                             day: 'numeric',
                             month: 'short',
                             year: 'numeric',
+                            timeZone: 'Asia/Bangkok',
                           }).format(new Date(school.created_at))}
                         </Typography>
                       </Box>

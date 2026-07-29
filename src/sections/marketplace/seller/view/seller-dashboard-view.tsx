@@ -379,6 +379,7 @@ export function MarketplaceSellerDashboardView() {
                             สร้างเมื่อ{' '}
                             {new Intl.DateTimeFormat('th-TH', {
                               dateStyle: 'medium',
+                              timeZone: 'Asia/Bangkok',
                             }).format(new Date(product.created_at))}
                           </Typography>
                         </Box>

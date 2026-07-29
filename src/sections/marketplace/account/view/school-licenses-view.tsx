@@ -169,7 +169,10 @@ export function MarketplaceSchoolLicensesView() {
                       />
                       <Typography variant="body2" color="text.secondary">
                         หมดอายุ{' '}
-                        {new Intl.DateTimeFormat('th-TH', { dateStyle: 'long' }).format(
+                        {new Intl.DateTimeFormat('th-TH', {
+                          dateStyle: 'long',
+                          timeZone: 'Asia/Bangkok',
+                        }).format(
                           new Date(license.expires_at)
                         )}
                       </Typography>

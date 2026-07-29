@@ -418,6 +418,7 @@ export function MarketplacePurchasesView() {
                           <Typography variant="caption" color="text.secondary" display="block">
                             {new Date(order.created_at).toLocaleDateString('th-TH', {
                               dateStyle: 'medium',
+                              timeZone: 'Asia/Bangkok',
                             })}
                           </Typography>
                         </Box>

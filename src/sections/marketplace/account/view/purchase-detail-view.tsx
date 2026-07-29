@@ -154,6 +154,7 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                 ORD-{order.id.slice(0, 12).toUpperCase()} ·{' '}
                 {new Date(order.created_at).toLocaleDateString('th-TH', {
                   dateStyle: 'long',
+                  timeZone: 'Asia/Bangkok',
                 })}
               </Typography>
             </Box>
@@ -462,6 +463,7 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                 value={new Date(order.created_at).toLocaleString('th-TH', {
                   dateStyle: 'medium',
                   timeStyle: 'short',
+                  timeZone: 'Asia/Bangkok',
                 })}
               />
               <InfoRow label="จำนวนสินค้า" value={`${order.items?.length ?? 0} รายการ`} />

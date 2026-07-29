@@ -2,6 +2,8 @@ import 'server-only';
 
 import { NextResponse } from 'next/server';
 
+import { toBangkokISOString } from 'src/utils/timezone';
+
 import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 
@@ -46,6 +48,7 @@ function inputFrom(body: Record<string, unknown>, callerId: string) {
   const version = String(body.version ?? '').trim();
   const status = body.status === 'published' ? 'published' : 'draft';
   const effectiveAt = String(body.effectiveAt ?? '').trim();
+  const effectiveAtIso = effectiveAt ? toBangkokISOString(effectiveAt) : null;
 
   if (!LEGAL_DOCUMENT_TYPES.includes(documentType)) return { error: 'ประเภทเอกสารไม่ถูกต้อง' };
   if (title.length < 3 || title.length > 180) return { error: 'ชื่อเอกสารต้องมี 3–180 ตัวอักษร' };
@@ -63,7 +66,7 @@ function inputFrom(body: Record<string, unknown>, callerId: string) {
       providerAddress.length < 10 ||
       !contactEmail.includes('@') ||
       !effectiveAt ||
-      Number.isNaN(new Date(effectiveAt).getTime())
+      !effectiveAtIso
     ) {
       return {
         error:
@@ -86,7 +89,7 @@ function inputFrom(body: Record<string, unknown>, callerId: string) {
       contact_email: contactEmail || null,
       version,
       status,
-      effective_at: effectiveAt ? new Date(effectiveAt).toISOString() : null,
+      effective_at: effectiveAtIso,
       published_at: status === 'published' ? now : null,
       updated_by: callerId,
       updated_at: now,

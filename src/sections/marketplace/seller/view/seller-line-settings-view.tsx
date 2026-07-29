@@ -308,7 +308,9 @@ export function MarketplaceSellerLineSettingsView() {
                     <Typography variant="body2">{formatPrice(Number(delivery.amount))}</Typography>
                   )}
                   <Typography variant="caption" color="text.secondary">
-                    {new Date(delivery.created_at).toLocaleString('th-TH')}
+                    {new Date(delivery.created_at).toLocaleString('th-TH', {
+                      timeZone: 'Asia/Bangkok',
+                    })}
                   </Typography>
                   {!!delivery.last_error && (
                     <Typography variant="caption" color="error" display="block">

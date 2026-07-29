@@ -89,7 +89,9 @@ export async function notifySellerPaymentReceived(input: PaymentNotificationInpu
     `ยอดขาย: ${formatBaht(input.grossAmount)}`,
     `รายรับหลังค่าธรรมเนียม: ${formatBaht(input.sellerNet)}`,
     `คำสั่งซื้อ: #${input.orderId.slice(0, 8).toUpperCase()}`,
-    `ยอดพร้อมโอน: ${new Date(input.availableAt).toLocaleDateString('th-TH')}`,
+    `ยอดพร้อมโอน: ${new Date(input.availableAt).toLocaleDateString('th-TH', {
+      timeZone: 'Asia/Bangkok',
+    })}`,
     '',
     'หมายเหตุ: เป็นยอดที่แพลตฟอร์มรับชำระแล้ว เงินจะโอนเข้าบัญชีตามรอบที่กำหนด',
   ].join('\n');

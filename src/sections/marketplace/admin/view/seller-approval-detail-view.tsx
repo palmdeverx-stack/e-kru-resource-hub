@@ -359,7 +359,9 @@ export function MarketplaceSellerApprovalDetailView({ sellerId }: Props) {
                       <Typography variant="subtitle2">{agreement.label}</Typography>
                       <Typography variant="caption" color="text.secondary">
                         {acceptedAt
-                          ? `ยอมรับเมื่อ ${new Date(acceptedAt).toLocaleString('th-TH')}`
+                          ? `ยอมรับเมื่อ ${new Date(acceptedAt).toLocaleString('th-TH', {
+                              timeZone: 'Asia/Bangkok',
+                            })}`
                           : 'ยังไม่ยอมรับ'}
                       </Typography>
                     </Box>
@@ -375,12 +377,18 @@ export function MarketplaceSellerApprovalDetailView({ sellerId }: Props) {
                 [
                   'วันที่ส่งคำขอ',
                   seller.submitted_at
-                    ? new Date(seller.submitted_at).toLocaleString('th-TH')
+                    ? new Date(seller.submitted_at).toLocaleString('th-TH', {
+                        timeZone: 'Asia/Bangkok',
+                      })
                     : null,
                 ],
                 [
                   'วันที่ตรวจสอบ',
-                  seller.reviewed_at ? new Date(seller.reviewed_at).toLocaleString('th-TH') : null,
+                  seller.reviewed_at
+                    ? new Date(seller.reviewed_at).toLocaleString('th-TH', {
+                        timeZone: 'Asia/Bangkok',
+                      })
+                    : null,
                 ],
                 ['สถานะ', statusLabel(seller.status)],
               ]}

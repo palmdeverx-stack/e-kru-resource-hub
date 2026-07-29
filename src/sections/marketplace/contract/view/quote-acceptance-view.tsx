@@ -177,7 +177,10 @@ export function QuoteAcceptanceView({ token }: { token: string }) {
           </Stack>
           <Alert severity="info">
             ข้อเสนอใช้ได้ถึง{' '}
-            {new Intl.DateTimeFormat('th-TH', { dateStyle: 'long' }).format(
+            {new Intl.DateTimeFormat('th-TH', {
+              dateStyle: 'long',
+              timeZone: 'Asia/Bangkok',
+            }).format(
               new Date(deal.expires_at)
             )}
           </Alert>

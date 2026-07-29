@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 
+import { toBangkokISOString } from 'src/utils/timezone';
+
 import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { canManageViaPermission } from 'src/lib/department-permission-access';
@@ -83,18 +85,21 @@ export async function PATCH(request: Request, { params }: RouteParams) {
   } catch {
     classroomIds = [];
   }
-  const eventStart =
+  const eventStartInput =
     typeof formData.get('eventStart') === 'string' && formData.get('eventStart')
       ? String(formData.get('eventStart'))
       : null;
-  const eventEnd =
+  const eventEndInput =
     typeof formData.get('eventEnd') === 'string' && formData.get('eventEnd')
       ? String(formData.get('eventEnd'))
       : null;
-  const expiresAt =
+  const expiresAtInput =
     typeof formData.get('expiresAt') === 'string' && formData.get('expiresAt')
       ? String(formData.get('expiresAt'))
       : null;
+  const eventStart = toBangkokISOString(eventStartInput);
+  const eventEnd = toBangkokISOString(eventEndInput);
+  const expiresAt = toBangkokISOString(expiresAtInput);
   const imageValue = formData.get('image');
   const image = imageValue instanceof File && imageValue.size ? imageValue : null;
   const removeImage = formData.get('removeImage') === 'true';
