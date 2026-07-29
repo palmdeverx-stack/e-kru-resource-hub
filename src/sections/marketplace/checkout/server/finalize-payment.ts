@@ -4,6 +4,7 @@ import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { createNotifications } from 'src/lib/notifications';
 
 import { money, getFinanceSettings } from '../../admin/server/finance';
+import { grantFeatureEntitlementsForOrders } from './grant-feature-entitlements';
 import { notifySellerPaymentReceived } from '../../seller/server/seller-line-notifications';
 
 type FinalizeInput = {
@@ -23,7 +24,9 @@ export async function finalizeMarketplacePayment(input: FinalizeInput) {
     .maybeSingle();
   if (error) throw error;
   if (!session) throw new Error('ไม่พบรายการชำระเงิน');
+  const orders = (session.orders ?? []) as Array<Record<string, unknown>>;
   if (session.status === 'verified') {
+    await grantFeatureEntitlementsForOrders(orders.map((order) => String(order.id)));
     return { alreadyProcessed: true, availableAt: session.reviewed_at };
   }
   if (!input.allowedStatuses.includes(session.status)) {
@@ -35,7 +38,6 @@ export async function finalizeMarketplacePayment(input: FinalizeInput) {
   const availableAt = new Date(
     now.getTime() + Number(finance.hold_days) * 24 * 60 * 60 * 1000
   ).toISOString();
-  const orders = (session.orders ?? []) as Array<Record<string, unknown>>;
   const total = orders.reduce((sum, order) => sum + Number(order.gross_amount), 0);
   const processorFee = money(Math.max(0, Number(input.processorFee) || 0));
   let allocatedFee = 0;
@@ -125,6 +127,10 @@ export async function finalizeMarketplacePayment(input: FinalizeInput) {
     .eq('id', input.paymentSessionId)
     .in('status', input.allowedStatuses);
   if (approveError) throw approveError;
+
+  // Payment remains verified if entitlement creation fails, while the thrown
+  // error makes Stripe/admin retry the idempotent reconciliation path.
+  await grantFeatureEntitlementsForOrders(orders.map((order) => String(order.id)));
 
   await createNotifications([
     {

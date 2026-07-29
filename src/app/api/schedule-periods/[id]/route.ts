@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
+import { schoolHasFeature } from 'src/lib/school-subscription';
 
 // ----------------------------------------------------------------------
 
@@ -20,6 +21,12 @@ export async function PATCH(request: Request, { params }: RouteParams) {
   const caller = requireRole(request, ['school_admin']);
   if (!caller?.schoolId) {
     return NextResponse.json({ message: 'เฉพาะผู้ดูแลโรงเรียนเท่านั้น' }, { status: 403 });
+  }
+  if (!(await schoolHasFeature(caller.schoolId, 'academic.schedule_workflow'))) {
+    return NextResponse.json(
+      { message: 'แพ็กเกจโรงเรียนไม่รองรับระบบจัดตารางสอน' },
+      { status: 403 }
+    );
   }
 
   const { id } = await params;
@@ -98,6 +105,12 @@ export async function DELETE(request: Request, { params }: RouteParams) {
   const caller = requireRole(request, ['school_admin']);
   if (!caller?.schoolId) {
     return NextResponse.json({ message: 'เฉพาะผู้ดูแลโรงเรียนเท่านั้น' }, { status: 403 });
+  }
+  if (!(await schoolHasFeature(caller.schoolId, 'academic.schedule_workflow'))) {
+    return NextResponse.json(
+      { message: 'แพ็กเกจโรงเรียนไม่รองรับระบบจัดตารางสอน' },
+      { status: 403 }
+    );
   }
 
   const { id } = await params;

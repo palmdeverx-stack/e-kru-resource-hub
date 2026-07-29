@@ -92,7 +92,6 @@ const ItemRoot = styled(ButtonBase, { shouldForwardProp })<StyledState>(({
     ...(open && { '&::before': { ...dotTransitions.out } }),
     ...(active && {
       color: theme.vars.palette.primary.main,
-      backgroundColor: varAlpha(theme.vars.palette.primary.mainChannel, 0.12),
     }),
   };
 

@@ -31,7 +31,7 @@ import {
 
 import { useAuthContext } from 'src/auth/hooks';
 
-import { formatPrice } from '../../shared/api';
+import { stripHtml, formatPrice } from '../../shared/api';
 
 type ReviewStatus = 'pending_review' | 'published' | 'rejected';
 type ReviewProduct = MarketplaceProduct & {
@@ -157,7 +157,13 @@ export function MarketplaceProductApprovalView() {
         </Box>
       ) : products.length ? (
         <Grid container spacing={2.5} sx={{ mt: 1 }}>
-          {products.map((product) => (
+          {products.map((product) => {
+            const coverUrl =
+              product.images?.find((image) => image.is_cover)?.url ??
+              product.images?.[0]?.url ??
+              product.cover_url ??
+              undefined;
+            return (
             <Grid key={product.id} size={{ xs: 12, lg: 6 }}>
               <Card sx={{ p: 3, height: 1 }}>
                 <Stack direction="row" spacing={2}>
@@ -170,12 +176,12 @@ export function MarketplaceProductApprovalView() {
                       borderRadius: 2.5,
                       placeItems: 'center',
                       bgcolor: 'primary.lighter',
-                      backgroundImage: product.cover_url ? `url(${product.cover_url})` : undefined,
+                      backgroundImage: coverUrl ? `url(${coverUrl})` : undefined,
                       backgroundSize: 'cover',
                       backgroundPosition: 'center',
                     }}
                   >
-                    {!product.cover_url && <RiBookOpenLine size={34} />}
+                    {!coverUrl && <RiBookOpenLine size={34} />}
                   </Box>
                   <Box sx={{ minWidth: 0, flex: 1 }}>
                     <Stack direction="row" justifyContent="space-between" spacing={1}>
@@ -220,7 +226,7 @@ export function MarketplaceProductApprovalView() {
                     WebkitBoxOrient: 'vertical',
                   }}
                 >
-                  {product.description}
+                  {stripHtml(product.description)}
                 </Typography>
 
                 {product.rejection_reason && (
@@ -258,7 +264,8 @@ export function MarketplaceProductApprovalView() {
                 </Stack>
               </Card>
             </Grid>
-          ))}
+            );
+          })}
         </Grid>
       ) : (
         <Card sx={{ mt: 3, py: 10, textAlign: 'center', borderStyle: 'dashed' }}>

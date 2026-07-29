@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
-import { schoolHasFeature } from 'src/lib/school-subscription';
+import { userHasFeature } from 'src/lib/school-subscription';
 
 // ----------------------------------------------------------------------
 
@@ -15,7 +15,7 @@ export async function POST(request: Request, { params }: RouteParams) {
   }
   if (
     caller.role === 'teacher' &&
-    !(await schoolHasFeature(caller.schoolId, 'teacher.qr_attendance'))
+    !(await userHasFeature(caller.sub, caller.schoolId, 'teacher.qr_attendance'))
   ) {
     return NextResponse.json({ message: 'แพ็กเกจโรงเรียนไม่รองรับ QR เช็คชื่อ' }, { status: 403 });
   }

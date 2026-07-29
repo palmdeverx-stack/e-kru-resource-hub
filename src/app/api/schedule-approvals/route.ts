@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
+import { schoolHasFeature } from 'src/lib/school-subscription';
 import { canViewViaPermission } from 'src/lib/department-permission-access';
 import { canApproveSchedule, hasTimetableCapability } from 'src/lib/schedule-access';
 
@@ -16,6 +17,12 @@ export async function GET(request: Request) {
       (caller.role === 'teacher' && (await hasTimetableCapability(caller.sub, caller.schoolId))));
   if (!caller?.schoolId || !canView) {
     return NextResponse.json({ message: 'ไม่มีสิทธิ์เข้าถึง' }, { status: 403 });
+  }
+  if (!(await schoolHasFeature(caller.schoolId, 'academic.schedule_workflow'))) {
+    return NextResponse.json(
+      { message: 'แพ็กเกจโรงเรียนไม่รองรับระบบจัดตารางสอน' },
+      { status: 403 }
+    );
   }
 
   const { searchParams } = new URL(request.url);

@@ -64,7 +64,7 @@ export function HeaderSection({
     >
       {slots?.topArea}
 
-      <HeaderContainer layoutQuery={layoutQuery} {...slotProps?.container}>
+      <HeaderContainer maxWidth="xl" layoutQuery={layoutQuery} {...slotProps?.container}>
         {slots?.leftArea}
 
         <HeaderCenterArea {...slotProps?.centerArea}>{slots?.centerArea}</HeaderCenterArea>
@@ -136,7 +136,7 @@ const HeaderRoot = styled(AppBar, {
 
 const HeaderContainer = styled(Container, {
   shouldForwardProp: (prop: string) => !['layoutQuery', 'sx'].includes(prop),
-})<Pick<HeaderSectionProps, 'layoutQuery'>>(({ layoutQuery = 'md', theme }) => ({
+})<Pick<HeaderSectionProps, 'layoutQuery'>>(({ layoutQuery = 'xl', theme }) => ({
   display: 'flex',
   alignItems: 'center',
   color: 'var(--color)',

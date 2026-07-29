@@ -7,6 +7,7 @@ import IconButton from '@mui/material/IconButton';
 
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
+import { usePathname, useSearchParams } from 'src/routes/hooks';
 
 import { RiLoginBoxLine, RiDashboardLine, RiShoppingBag3Line } from 'src/components/remix-icon';
 
@@ -16,8 +17,13 @@ import { useMarketplaceCart } from '../cart/cart-context';
 import { MarketplaceAccountMenu } from '../account/components/account-menu';
 
 export function MarketplaceHeaderActions() {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { itemCount } = useMarketplaceCart();
   const { authenticated, loading } = useAuthContext();
+  const query = searchParams.toString();
+  const returnTo = `${pathname}${query ? `?${query}` : ''}`;
+  const signInHref = `${paths.auth.jwt.signIn}?returnTo=${encodeURIComponent(returnTo)}`;
 
   return (
     <Stack direction="row" spacing={1} alignItems="center">
@@ -29,7 +35,7 @@ export function MarketplaceHeaderActions() {
 
       {!loading && !authenticated && (
         <Button
-          href={paths.auth.jwt.signIn}
+          href={signInHref}
           component={RouterLink}
           color="inherit"
           startIcon={<RiLoginBoxLine />}

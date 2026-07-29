@@ -15,6 +15,7 @@ const AREA_ROLES: Array<{ prefix: string; roles: AppRole[] }> = [
   { prefix: '/dashboard/payment-reviews', roles: ['master_admin'] },
   { prefix: '/dashboard/payouts', roles: ['master_admin'] },
   { prefix: '/dashboard/settings', roles: ['master_admin'] },
+  { prefix: '/dashboard/licenses', roles: ['school_admin'] },
   {
     prefix: '/dashboard',
     roles: ['master_admin', 'school_admin', 'teacher', 'student', 'marketplace_user'],

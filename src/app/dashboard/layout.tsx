@@ -11,7 +11,9 @@ import { NotificationsMenu } from 'src/layouts/components/notifications-menu';
 import { MarketplaceBrand } from 'src/components/marketplace-brand';
 import {
   RiBankLine,
+  RiKey2Line,
   RiHome5Line,
+  RiSearchLine,
   RiStore2Line,
   RiMessage2Line,
   RiDashboardLine,
@@ -30,6 +32,12 @@ const memberNavData: NavSectionProps['data'] = [
   {
     subheader: 'Marketplace',
     items: [
+      {
+        title: 'สินค้าทั้งหมด',
+        path: '/products',
+        deepMatch: false,
+        icon: <RiSearchLine />,
+      },
       {
         title: 'ภาพรวม',
         path: '/dashboard',
@@ -69,6 +77,12 @@ const adminNavData: NavSectionProps['data'] = [
   {
     subheader: 'Super Admin',
     items: [
+      {
+        title: 'สินค้าทั้งหมด',
+        path: '/products',
+        deepMatch: false,
+        icon: <RiSearchLine />,
+      },
       {
         title: 'ศูนย์ควบคุม',
         path: '/dashboard',
@@ -128,6 +142,18 @@ const adminNavData: NavSectionProps['data'] = [
             title: 'รีวิวและรายงาน',
             path: '/dashboard/master/report-reasons',
           },
+          {
+            title: 'ระดับชั้น',
+            path: '/dashboard/master/grade-levels',
+          },
+          {
+            title: 'หลักสูตร',
+            path: '/dashboard/master/curricula',
+          },
+          {
+            title: 'แท็ก',
+            path: '/dashboard/master/tags',
+          },
         ],
       },
     ],
@@ -186,7 +212,23 @@ type Props = {
 
 export default function Layout({ children }: Props) {
   const { user } = useAuthContext();
-  const navData = user?.role === 'master_admin' ? adminNavData : memberNavData;
+  const navData =
+    user?.role === 'master_admin'
+      ? adminNavData
+      : user?.role === 'school_admin'
+        ? memberNavData.map((section) => ({
+            ...section,
+            items: [
+              ...section.items.slice(0, 3),
+              {
+                title: 'สิทธิ์และ License',
+                path: '/dashboard/licenses',
+                icon: <RiKey2Line />,
+              },
+              ...section.items.slice(3),
+            ],
+          }))
+        : memberNavData;
 
   return (
     <DashboardLayout
@@ -203,13 +245,13 @@ export default function Layout({ children }: Props) {
           slots: {
             centerArea: (
               <Button
-                href="/?preview=1"
+                href="/"
                 target="_blank"
                 rel="noopener noreferrer"
                 variant="outlined"
                 startIcon={<RiHome5Line />}
               >
-                Main
+                ดูหน้าเว็บไซต์
               </Button>
             ),
             rightArea: (

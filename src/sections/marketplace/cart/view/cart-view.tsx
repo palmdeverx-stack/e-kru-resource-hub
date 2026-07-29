@@ -6,24 +6,19 @@ import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
 import Container from '@mui/material/Container';
-import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 
 import { RouterLink } from 'src/routes/components';
+import { useTranslate } from 'src/locales';
 
-import {
-  RiAddLine,
-  RiSubtractLine,
-  RiDeleteBinLine,
-  RiArrowLeftLine,
-  RiShoppingBag3Line,
-} from 'src/components/remix-icon';
+import { RiDeleteBinLine, RiArrowLeftLine, RiShoppingBag3Line } from 'src/components/remix-icon';
 
-import { formatPrice } from '../../shared/api';
+import { formatPrice, getLocalizedProduct } from '../../shared/api';
 import { useMarketplaceCart } from '../cart-context';
 
 export function MarketplaceCartView() {
-  const { items, subtotal, removeItem, updateQuantity } = useMarketplaceCart();
+  const { currentLang } = useTranslate();
+  const { items, subtotal, removeItem } = useMarketplaceCart();
 
   if (!items.length) {
     return (
@@ -48,7 +43,12 @@ export function MarketplaceCartView() {
         <Typography color="text.secondary" sx={{ mt: 1, mb: 3 }}>
           เลือกสื่อที่เหมาะกับห้องเรียนแล้วกลับมาที่นี่
         </Typography>
-        <Button component={RouterLink} href="/" variant="contained" startIcon={<RiArrowLeftLine />}>
+        <Button
+          component={RouterLink}
+          href="/products"
+          variant="contained"
+          startIcon={<RiArrowLeftLine />}
+        >
           เลือกดูสินค้า
         </Button>
       </Container>
@@ -66,7 +66,7 @@ export function MarketplaceCartView() {
 
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} alignItems="flex-start">
         <Stack spacing={2} sx={{ flex: 1, width: 1 }}>
-          {items.map(({ product, quantity }) => (
+          {items.map(({ product }) => (
             <Card key={product.id} sx={{ p: 2.5 }}>
               <Stack direction="row" spacing={2}>
                 <Box
@@ -85,35 +85,28 @@ export function MarketplaceCartView() {
                   {!product.cover_url && <RiShoppingBag3Line color="#1565F5" />}
                 </Box>
                 <Stack spacing={0.75} sx={{ flexGrow: 1, minWidth: 0 }}>
-                  <Typography variant="subtitle1">{product.title}</Typography>
+                  <Typography variant="subtitle1">
+                    {getLocalizedProduct(product, currentLang.value).title}
+                  </Typography>
                   <Typography variant="body2" color="text.secondary">
                     {product.seller?.display_name ?? 'ผู้ขาย eKru'} · {product.category}
                   </Typography>
                   <Typography variant="h6" color="primary.main">
                     {formatPrice(Number(product.price), product.currency)}
                   </Typography>
-                  <Stack direction="row" spacing={0.5} alignItems="center">
-                    <IconButton
-                      size="small"
-                      onClick={() => updateQuantity(product.id, quantity - 1)}
-                    >
-                      <RiSubtractLine />
-                    </IconButton>
-                    <Typography sx={{ minWidth: 28, textAlign: 'center' }}>{quantity}</Typography>
-                    <IconButton
-                      size="small"
-                      onClick={() => updateQuantity(product.id, quantity + 1)}
-                    >
-                      <RiAddLine />
-                    </IconButton>
-                    <IconButton
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Typography variant="caption" color="text.secondary">
+                      ซื้อเป็นสิทธิ์ต่อรายการ
+                    </Typography>
+                    <Button
                       size="small"
                       color="error"
+                      startIcon={<RiDeleteBinLine />}
                       onClick={() => removeItem(product.id)}
                       sx={{ ml: 'auto' }}
                     >
-                      <RiDeleteBinLine />
-                    </IconButton>
+                      นำออก
+                    </Button>
                   </Stack>
                 </Stack>
               </Stack>
@@ -148,7 +141,7 @@ export function MarketplaceCartView() {
             >
               ดำเนินการชำระเงิน
             </Button>
-            <Button component={RouterLink} href="/" color="inherit" fullWidth>
+            <Button component={RouterLink} href="/products" color="inherit" fullWidth>
               เลือกสินค้าต่อ
             </Button>
           </Stack>

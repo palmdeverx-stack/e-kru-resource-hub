@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import type { CartItem, MarketplaceProduct } from '../shared/types';
 
@@ -10,7 +10,6 @@ type CartContextValue = {
   subtotal: number;
   addItem: (product: MarketplaceProduct) => void;
   removeItem: (productId: string) => void;
-  updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
 };
 
@@ -23,7 +22,12 @@ export function MarketplaceCartProvider({ children }: { children: React.ReactNod
   useEffect(() => {
     try {
       const stored = window.localStorage.getItem(STORAGE_KEY);
-      if (stored) setItems(JSON.parse(stored));
+      if (stored) {
+        const parsed = JSON.parse(stored) as Array<{ product?: MarketplaceProduct }>;
+        if (Array.isArray(parsed)) {
+          setItems(parsed.filter((item) => item.product).map((item) => ({ product: item.product! })));
+        }
+      }
     } catch {
       window.localStorage.removeItem(STORAGE_KEY);
     }
@@ -36,31 +40,13 @@ export function MarketplaceCartProvider({ children }: { children: React.ReactNod
   const addItem = useCallback((product: MarketplaceProduct) => {
     setItems((current) => {
       const existing = current.find((item) => item.product.id === product.id);
-      if (existing) {
-        return current.map((item) =>
-          item.product.id === product.id
-            ? { ...item, quantity: Math.min(item.quantity + 1, 10) }
-            : item
-        );
-      }
-      return [...current, { product, quantity: 1 }];
+      if (existing) return current;
+      return [...current, { product }];
     });
   }, []);
 
   const removeItem = useCallback((productId: string) => {
     setItems((current) => current.filter((item) => item.product.id !== productId));
-  }, []);
-
-  const updateQuantity = useCallback((productId: string, quantity: number) => {
-    if (quantity < 1) {
-      setItems((current) => current.filter((item) => item.product.id !== productId));
-      return;
-    }
-    setItems((current) =>
-      current.map((item) =>
-        item.product.id === productId ? { ...item, quantity: Math.min(quantity, 10) } : item
-      )
-    );
   }, []);
 
   const clearCart = useCallback(() => setItems([]), []);
@@ -71,11 +57,10 @@ export function MarketplaceCartProvider({ children }: { children: React.ReactNod
       addItem,
       clearCart,
       removeItem,
-      updateQuantity,
-      itemCount: items.reduce((sum, item) => sum + item.quantity, 0),
-      subtotal: items.reduce((sum, item) => sum + Number(item.product.price) * item.quantity, 0),
+      itemCount: items.length,
+      subtotal: items.reduce((sum, item) => sum + Number(item.product.price), 0),
     }),
-    [addItem, clearCart, items, removeItem, updateQuantity]
+    [addItem, clearCart, items, removeItem]
   );
 
   return <CartContext value={value}>{children}</CartContext>;

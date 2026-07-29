@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
-import { schoolHasFeature } from 'src/lib/school-subscription';
+import { userHasFeature, schoolHasFeature } from 'src/lib/school-subscription';
 
 // ----------------------------------------------------------------------
 
@@ -32,15 +32,18 @@ async function removeStoredAvatar(studentId: string) {
   return removeError;
 }
 
-async function canManageStudentAvatar(role: string, schoolId: string) {
+async function canManageStudentAvatar(role: string, userId: string, schoolId: string) {
   if (role === 'school_admin') return schoolHasFeature(schoolId, 'admin.students');
-  if (role === 'teacher') return schoolHasFeature(schoolId, 'teacher.manage_enrollments');
+  if (role === 'teacher') return userHasFeature(userId, schoolId, 'teacher.manage_enrollments');
   return false;
 }
 
 export async function POST(request: Request, { params }: RouteParams) {
   const caller = requireRole(request, ['school_admin', 'teacher']);
-  if (!caller?.schoolId || !(await canManageStudentAvatar(caller.role, caller.schoolId))) {
+  if (
+    !caller?.schoolId ||
+    !(await canManageStudentAvatar(caller.role, caller.sub, caller.schoolId))
+  ) {
     return NextResponse.json({ message: 'ไม่มีสิทธิ์เข้าถึง' }, { status: 403 });
   }
 
@@ -90,7 +93,10 @@ export async function POST(request: Request, { params }: RouteParams) {
 
 export async function DELETE(request: Request, { params }: RouteParams) {
   const caller = requireRole(request, ['school_admin', 'teacher']);
-  if (!caller?.schoolId || !(await canManageStudentAvatar(caller.role, caller.schoolId))) {
+  if (
+    !caller?.schoolId ||
+    !(await canManageStudentAvatar(caller.role, caller.sub, caller.schoolId))
+  ) {
     return NextResponse.json({ message: 'ไม่มีสิทธิ์เข้าถึง' }, { status: 403 });
   }
 

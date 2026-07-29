@@ -46,7 +46,7 @@ export function MarketplaceOrderSuccessView({ demo = false }: { demo?: boolean }
           >
             ดูรายการซื้อของฉัน
           </Button>
-          <Button component={RouterLink} href="/" color="inherit">
+          <Button component={RouterLink} href="/products" color="inherit">
             กลับไปเลือกสื่อ
           </Button>
         </Stack>

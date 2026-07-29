@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
+import { schoolHasFeature } from 'src/lib/school-subscription';
 import { loadTeacherAssignment } from 'src/lib/teacher-assignment-access';
 import {
   canManageAssignmentSchedule,
@@ -22,8 +23,14 @@ const toMinutes = (time: string) => {
 export async function PATCH(request: Request, { params }: RouteParams) {
   const caller = requireRole(request, ['teacher', 'school_admin']);
 
-  if (!caller) {
+  if (!caller?.schoolId) {
     return NextResponse.json({ message: 'ไม่มีสิทธิ์เข้าถึง' }, { status: 403 });
+  }
+  if (!(await schoolHasFeature(caller.schoolId, 'academic.schedule_workflow'))) {
+    return NextResponse.json(
+      { message: 'แพ็กเกจโรงเรียนไม่รองรับระบบจัดตารางสอน' },
+      { status: 403 }
+    );
   }
 
   const { id, scheduleId } = await params;
@@ -156,8 +163,14 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 export async function DELETE(request: Request, { params }: RouteParams) {
   const caller = requireRole(request, ['teacher', 'school_admin']);
 
-  if (!caller) {
+  if (!caller?.schoolId) {
     return NextResponse.json({ message: 'ไม่มีสิทธิ์เข้าถึง' }, { status: 403 });
+  }
+  if (!(await schoolHasFeature(caller.schoolId, 'academic.schedule_workflow'))) {
+    return NextResponse.json(
+      { message: 'แพ็กเกจโรงเรียนไม่รองรับระบบจัดตารางสอน' },
+      { status: 403 }
+    );
   }
 
   const { id, scheduleId } = await params;

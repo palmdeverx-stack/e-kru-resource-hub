@@ -52,14 +52,14 @@ type Props = {
   title: string;
   description: string;
   endpoint: string;
-  behaviorKey:
+  behaviorKey?:
     | 'delivery_mode'
     | 'pricing_mode'
     | 'review_scope'
     | 'finance_scope'
     | 'reason_scope';
-  behaviorLabel: string;
-  behaviorOptions: Array<{ value: string; label: string }>;
+  behaviorLabel?: string;
+  behaviorOptions?: Array<{ value: string; label: string }>;
 };
 
 const initialForm = {
@@ -93,7 +93,7 @@ export function MarketplaceLookupManagementView({
   const [editing, setEditing] = useState<LookupItem | null>(null);
   const [deleting, setDeleting] = useState<LookupItem | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState({ ...initialForm, behavior: behaviorOptions[0]?.value ?? '' });
+  const [form, setForm] = useState({ ...initialForm, behavior: behaviorOptions?.[0]?.value ?? '' });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -125,7 +125,7 @@ export function MarketplaceLookupManagementView({
     setEditing(null);
     setForm({
       ...initialForm,
-      behavior: behaviorOptions[0]?.value ?? '',
+      behavior: behaviorOptions?.[0]?.value ?? '',
       sortOrder: String((items.at(-1)?.sort_order ?? 0) + 10),
     });
     setDialogOpen(true);
@@ -137,7 +137,7 @@ export function MarketplaceLookupManagementView({
       code: item.code,
       name: item.name,
       description: item.description ?? '',
-      behavior: item[behaviorKey] ?? behaviorOptions[0]?.value ?? '',
+      behavior: (behaviorKey && item[behaviorKey]) || behaviorOptions?.[0]?.value || '',
       sortOrder: String(item.sort_order),
       isActive: item.is_active,
     });
@@ -180,7 +180,7 @@ export function MarketplaceLookupManagementView({
   };
 
   const behaviorName = (value: string | undefined) =>
-    behaviorOptions.find((option) => option.value === value)?.label ?? value;
+    behaviorOptions?.find((option) => option.value === value)?.label ?? value;
 
   return (
     <Box sx={{ p: { xs: 2.5, md: 4 } }}>
@@ -220,7 +220,7 @@ export function MarketplaceLookupManagementView({
               <TableHead>
                 <TableRow>
                   <TableCell>{title}</TableCell>
-                  <TableCell>{behaviorLabel}</TableCell>
+                  {behaviorKey && <TableCell>{behaviorLabel}</TableCell>}
                   <TableCell align="center">ลำดับ</TableCell>
                   <TableCell align="center">สถานะ</TableCell>
                   <TableCell align="right">จัดการ</TableCell>
@@ -252,7 +252,7 @@ export function MarketplaceLookupManagementView({
                         </Box>
                       </Stack>
                     </TableCell>
-                    <TableCell>{behaviorName(item[behaviorKey])}</TableCell>
+                    {behaviorKey && <TableCell>{behaviorName(item[behaviorKey])}</TableCell>}
                     <TableCell align="center">{item.sort_order}</TableCell>
                     <TableCell align="center">
                       <Chip
@@ -274,7 +274,7 @@ export function MarketplaceLookupManagementView({
                 ))}
                 {!items.length && (
                   <TableRow>
-                    <TableCell colSpan={5} sx={{ py: 10, textAlign: 'center' }}>
+                    <TableCell colSpan={behaviorKey ? 5 : 4} sx={{ py: 10, textAlign: 'center' }}>
                       ยังไม่มีข้อมูล
                     </TableCell>
                   </TableRow>
@@ -306,20 +306,22 @@ export function MarketplaceLookupManagementView({
                 setForm((current) => ({ ...current, name: event.target.value }))
               }
             />
-            <TextField
-              select
-              label={behaviorLabel}
-              value={form.behavior}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, behavior: event.target.value }))
-              }
-            >
-              {behaviorOptions.map((option) => (
-                <MenuItem key={option.value} value={option.value}>
-                  {option.label}
-                </MenuItem>
-              ))}
-            </TextField>
+            {behaviorKey && (
+              <TextField
+                select
+                label={behaviorLabel}
+                value={form.behavior}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, behavior: event.target.value }))
+                }
+              >
+                {behaviorOptions?.map((option) => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </TextField>
+            )}
             <TextField
               multiline
               minRows={3}

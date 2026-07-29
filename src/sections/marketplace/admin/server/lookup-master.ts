@@ -11,15 +11,20 @@ type LookupConfig = {
     | 'marketplace_sale_types'
     | 'marketplace_media_review_rules'
     | 'marketplace_order_finance_types'
-    | 'marketplace_report_reasons';
-  behaviorColumn:
+    | 'marketplace_report_reasons'
+    | 'marketplace_grade_levels'
+    | 'marketplace_curricula'
+    | 'marketplace_tags';
+  behaviorColumn?:
     | 'delivery_mode'
     | 'pricing_mode'
     | 'review_scope'
     | 'finance_scope'
     | 'reason_scope';
-  behaviorValues: string[];
-  productColumn?: 'media_type_id' | 'sale_type_id';
+  behaviorValues?: string[];
+  /** Table checked for in-use rows when updating a behavior or deleting. Defaults to 'marketplace_products'. */
+  usageTable?: string;
+  productColumn?: 'media_type_id' | 'sale_type_id' | 'grade_level_id' | 'tag_id' | 'curriculum_id';
   label: string;
 };
 
@@ -42,7 +47,7 @@ function inputFrom(body: Record<string, unknown>, config: LookupConfig) {
   if (name.length < 2 || name.length > 80) {
     return { error: 'ชื่อต้องมี 2–80 ตัวอักษร' } as const;
   }
-  if (!config.behaviorValues.includes(behavior)) {
+  if (config.behaviorColumn && !config.behaviorValues?.includes(behavior)) {
     return { error: 'กรุณาเลือกพฤติกรรมให้ถูกต้อง' } as const;
   }
 
@@ -51,7 +56,7 @@ function inputFrom(body: Record<string, unknown>, config: LookupConfig) {
       code,
       name,
       description: description || null,
-      [config.behaviorColumn]: behavior,
+      ...(config.behaviorColumn ? { [config.behaviorColumn]: behavior } : {}),
       sort_order: sortOrder,
       is_active: body.isActive !== false,
       updated_at: new Date().toISOString(),
@@ -117,7 +122,7 @@ export async function updateLookup(
 
   const { data: currentRow } = await supabaseAdmin
     .from(config.table)
-    .select(`id, ${config.behaviorColumn}`)
+    .select(config.behaviorColumn ? `id, ${config.behaviorColumn}` : 'id')
     .eq('id', id)
     .maybeSingle();
   const current = currentRow as Record<string, unknown> | null;
@@ -125,12 +130,14 @@ export async function updateLookup(
     return NextResponse.json({ message: `ไม่พบ${config.label}` }, { status: 404 });
   }
 
+  const nextValue = input.value as Record<string, unknown>;
   if (
+    config.behaviorColumn &&
     config.productColumn &&
-    current[config.behaviorColumn] !== input.value[config.behaviorColumn]
+    current[config.behaviorColumn] !== nextValue[config.behaviorColumn]
   ) {
     const { count, error: countError } = await supabaseAdmin
-      .from('marketplace_products')
+      .from(config.usageTable ?? 'marketplace_products')
       .select('*', { count: 'exact', head: true })
       .eq(config.productColumn, id);
     if (countError) return NextResponse.json({ message: countError.message }, { status: 500 });
@@ -171,7 +178,7 @@ export async function deleteLookup(request: Request, id: string, config: LookupC
 
   if (config.productColumn) {
     const { count, error: countError } = await supabaseAdmin
-      .from('marketplace_products')
+      .from(config.usageTable ?? 'marketplace_products')
       .select('*', { count: 'exact', head: true })
       .eq(config.productColumn, id);
     if (countError) return NextResponse.json({ message: countError.message }, { status: 500 });
@@ -233,4 +240,24 @@ export const reportReasonConfig: LookupConfig = {
   behaviorColumn: 'reason_scope',
   behaviorValues: ['product', 'review', 'seller'],
   label: 'เหตุผลการรายงาน',
+};
+
+export const gradeLevelConfig: LookupConfig = {
+  table: 'marketplace_grade_levels',
+  usageTable: 'marketplace_product_grade_levels',
+  productColumn: 'grade_level_id',
+  label: 'ระดับชั้น',
+};
+
+export const curriculumConfig: LookupConfig = {
+  table: 'marketplace_curricula',
+  productColumn: 'curriculum_id',
+  label: 'หลักสูตร',
+};
+
+export const tagConfig: LookupConfig = {
+  table: 'marketplace_tags',
+  usageTable: 'marketplace_product_tags',
+  productColumn: 'tag_id',
+  label: 'แท็ก',
 };

@@ -4,13 +4,48 @@ import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { requireAuthenticated } from 'src/lib/auth-token';
 
 import { provisionEkruSystemSeller } from 'src/sections/marketplace/seller/server/system-seller';
-import { notifyMarketplaceAdmins } from 'src/sections/marketplace/admin/server/line-notifications';
+import {
+  withMediaUrls,
+  PRODUCT_MANAGE_SELECT,
+} from 'src/sections/marketplace/seller/server/product-media';
+
+function withCardRating(product: Record<string, unknown>): Record<string, unknown> {
+  const reviews = Array.isArray(product.reviews)
+    ? (product.reviews as Array<{ rating?: number }>)
+    : [];
+  const ratings = reviews
+    .map((review: { rating?: number }) => Number(review.rating))
+    .filter((rating: number) => Number.isFinite(rating));
+  const safeProduct = { ...product };
+  delete safeProduct.reviews;
+  return {
+    ...safeProduct,
+    engagement: {
+      views: 0,
+      purchases: 0,
+      downloads: 0,
+      reviewCount: ratings.length,
+      averageRating: ratings.length
+        ? ratings.reduce((sum: number, rating: number) => sum + rating, 0) / ratings.length
+        : 0,
+      reviews: [],
+      canReview: false,
+      myReview: null,
+    },
+  };
+}
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const mine = url.searchParams.get('mine') === '1';
   const category = url.searchParams.get('category');
   const search = url.searchParams.get('q')?.trim();
+  const page = Math.max(1, Number.parseInt(url.searchParams.get('page') ?? '1', 10) || 1);
+  const limit = Math.min(
+    48,
+    Math.max(1, Number.parseInt(url.searchParams.get('limit') ?? '48', 10) || 48)
+  );
+  const offset = (page - 1) * limit;
 
   let sellerId: string | null = null;
   if (mine) {
@@ -30,14 +65,19 @@ export async function GET(request: Request) {
   let query = supabaseAdmin
     .from('marketplace_products')
     .select(
-      '*, seller:marketplace_sellers(id, display_name, seller_type), media_type:marketplace_media_types(id, name, delivery_mode), sale_type:marketplace_sale_types(id, name, pricing_mode)'
+      '*, seller:marketplace_sellers(id, display_name, seller_type, slug, logo_url), media_type:marketplace_media_types(id, name, delivery_mode), sale_type:marketplace_sale_types(id, name, pricing_mode), grade_levels:marketplace_product_grade_levels(grade_level:marketplace_grade_levels(id,name)), images:marketplace_product_images(*), reviews:marketplace_product_reviews(rating)'
     )
     .order('created_at', { ascending: false })
-    .limit(48);
+    .range(offset, offset + limit);
 
   query = mine ? query.eq('seller_id', sellerId) : query.eq('status', 'published');
   if (category && category !== 'all') query = query.eq('category', category);
-  if (search) query = query.ilike('title', `%${search.replaceAll('%', '')}%`);
+  if (search) {
+    const safeSearch = search.replace(/[^\p{L}\p{N}\s_-]/gu, '').trim();
+    if (safeSearch) {
+      query = query.or(`title.ilike.%${safeSearch}%,title_en.ilike.%${safeSearch}%`);
+    }
+  }
 
   const { data: products, error } = await query;
 
@@ -46,13 +86,23 @@ export async function GET(request: Request) {
     return NextResponse.json({ message: error.message }, { status: 500 });
   }
 
-  const safeProducts = (products ?? []).map((product) => {
+  const rows = products ?? [];
+  const hasMore = rows.length > limit;
+  const pageRows = rows.slice(0, limit);
+  const resolved = await Promise.all(pageRows.map((product) => withMediaUrls(product)));
+  const safeProducts = resolved.map((resolvedProduct) => {
+    const product = withCardRating(resolvedProduct);
     if (mine) return product;
     const publicProduct = { ...product };
     delete publicProduct.file_url;
+    delete publicProduct.files;
     return publicProduct;
   });
-  return NextResponse.json({ products: safeProducts });
+  return NextResponse.json({
+    products: safeProducts,
+    hasMore,
+    nextPage: hasMore ? page + 1 : null,
+  });
 }
 
 export async function POST(request: Request) {
@@ -92,92 +142,41 @@ export async function POST(request: Request) {
 
   const body = await request.json();
   const title = String(body.title ?? '').trim();
+  if (title.length < 3) {
+    return NextResponse.json(
+      { message: 'กรุณากรอกชื่อสินค้าอย่างน้อย 3 ตัวอักษร' },
+      { status: 400 }
+    );
+  }
+  const shortDescription = String(body.shortDescription ?? '').trim();
+  if (shortDescription.length > 150) {
+    return NextResponse.json({ message: 'คำอธิบายสั้นต้องไม่เกิน 150 ตัวอักษร' }, { status: 400 });
+  }
   const description = String(body.description ?? '').trim();
-  const category = String(body.category ?? '').trim();
-  const mediaTypeId = String(body.mediaTypeId ?? '');
-  const saleTypeId = String(body.saleTypeId ?? '');
-  let price = Number(body.price);
-  const coverUrl = String(body.coverUrl ?? '').trim();
-  const fileUrl = String(body.fileUrl ?? '').trim();
-
-  if (
-    title.length < 3 ||
-    description.length < 10 ||
-    !category ||
-    !mediaTypeId ||
-    !saleTypeId ||
-    !Number.isFinite(price) ||
-    price < 0
-  ) {
+  const titleEn = String(body.titleEn ?? '').trim();
+  const shortDescriptionEn = String(body.shortDescriptionEn ?? '').trim();
+  if (shortDescriptionEn.length > 150) {
     return NextResponse.json(
-      { message: 'กรุณากรอกชื่อ รายละเอียด หมวดหมู่ และราคาให้ถูกต้อง' },
+      { message: 'คำอธิบายสั้นภาษาอังกฤษต้องไม่เกิน 150 ตัวอักษร' },
       { status: 400 }
     );
   }
-
-  const { data: selectedCategory, error: categoryError } = await supabaseAdmin
-    .from('marketplace_categories')
-    .select('id')
-    .eq('name', category)
-    .eq('is_active', true)
-    .maybeSingle();
-  if (categoryError?.code === '42P01') {
-    return NextResponse.json(
-      { message: 'กรุณาติดตั้ง Marketplace category schema เวอร์ชันล่าสุด' },
-      { status: 503 }
-    );
-  }
-  if (categoryError || !selectedCategory) {
-    return NextResponse.json(
-      { message: 'หมวดหมู่นี้ไม่มีอยู่หรือถูกปิดใช้งาน' },
-      { status: 400 }
-    );
-  }
-
-  const [{ data: mediaType, error: mediaTypeError }, { data: saleType, error: saleTypeError }] =
-    await Promise.all([
-      supabaseAdmin
-        .from('marketplace_media_types')
-        .select('id, delivery_mode')
-        .eq('id', mediaTypeId)
-        .eq('is_active', true)
-        .maybeSingle(),
-      supabaseAdmin
-        .from('marketplace_sale_types')
-        .select('id, pricing_mode')
-        .eq('id', saleTypeId)
-        .eq('is_active', true)
-        .maybeSingle(),
-    ]);
-  if (mediaTypeError || saleTypeError || !mediaType || !saleType) {
-    return NextResponse.json(
-      { message: 'ประเภทสื่อหรือประเภทการจำหน่ายไม่มีอยู่หรือถูกปิดใช้งาน' },
-      { status: 400 }
-    );
-  }
-  if (saleType.pricing_mode === 'free') price = 0;
+  const descriptionEn = String(body.descriptionEn ?? '').trim();
 
   const { data: product, error } = await supabaseAdmin
     .from('marketplace_products')
     .insert({
       seller_id: seller.id,
       title,
+      title_en: titleEn || null,
+      short_description: shortDescription || null,
+      short_description_en: shortDescriptionEn || null,
       description,
-      category,
-      media_type_id: mediaType.id,
-      sale_type_id: saleType.id,
-      resource_type: mediaType.delivery_mode,
-      price,
-      cover_url: coverUrl || null,
-      file_url: fileUrl || null,
-      status: caller.role === 'master_admin' ? 'published' : 'pending_review',
-      submitted_at: new Date().toISOString(),
-      ...(caller.role === 'master_admin' && {
-        reviewed_at: new Date().toISOString(),
-        reviewed_by: caller.sub,
-      }),
+      description_en: descriptionEn || null,
+      status: 'draft',
+      wizard_step: 1,
     })
-    .select('*')
+    .select(PRODUCT_MANAGE_SELECT)
     .single();
 
   if (error || !product) {
@@ -187,18 +186,5 @@ export async function POST(request: Request) {
     );
   }
 
-  if (product.status === 'pending_review') {
-    await notifyMarketplaceAdmins({
-      event: 'product_approval',
-      sourceId: product.id,
-      message: [
-        '📚 มีสินค้ารออนุมัติ',
-        `ชื่อสินค้า: ${product.title}`,
-        `หมวดหมู่: ${product.category}`,
-      ].join('\n'),
-      actionUrl: `${new URL(request.url).origin}/dashboard/product-approvals`,
-    });
-  }
-
-  return NextResponse.json({ product }, { status: 201 });
+  return NextResponse.json({ product: await withMediaUrls(product) }, { status: 201 });
 }

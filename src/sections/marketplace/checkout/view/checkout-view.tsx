@@ -15,6 +15,7 @@ import Typography from '@mui/material/Typography';
 import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
+import { useTranslate } from 'src/locales';
 
 import {
   RiQrCodeLine,
@@ -25,11 +26,12 @@ import {
 
 import { useAuthContext } from 'src/auth/hooks';
 
-import { createOrder, formatPrice } from '../../shared/api';
+import { createOrder, formatPrice, getLocalizedProduct } from '../../shared/api';
 import { useMarketplaceCart } from '../../cart/cart-context';
 
 export function MarketplaceCheckoutView() {
   const router = useRouter();
+  const { currentLang } = useTranslate();
   const { authenticated, loading } = useAuthContext();
   const { items, subtotal, clearCart } = useMarketplaceCart();
   const [paymentMethod, setPaymentMethod] = useState('promptpay');
@@ -63,7 +65,7 @@ export function MarketplaceCheckoutView() {
         return;
       }
       const result = await createOrder(
-        items.map((item) => ({ productId: item.product.id, quantity: item.quantity })),
+        items.map((item) => ({ productId: item.product.id })),
         paymentMethod
       );
       clearCart();
@@ -91,7 +93,7 @@ export function MarketplaceCheckoutView() {
         <Typography variant="h4" sx={{ mt: 2 }}>
           ไม่มีสินค้าสำหรับ Checkout
         </Typography>
-        <Button component={RouterLink} href="/" variant="contained" sx={{ mt: 3 }}>
+        <Button component={RouterLink} href="/products" variant="contained" sx={{ mt: 3 }}>
           กลับไป Marketplace
         </Button>
       </Container>
@@ -185,13 +187,15 @@ export function MarketplaceCheckoutView() {
                 sx={{ py: 1.5 }}
               >
                 <Box sx={{ pr: 2 }}>
-                  <Typography variant="body2">{item.product.title}</Typography>
+                  <Typography variant="body2">
+                    {getLocalizedProduct(item.product, currentLang.value).title}
+                  </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    จำนวน {item.quantity}
+                    1 สิทธิ์
                   </Typography>
                 </Box>
                 <Typography variant="subtitle2">
-                  {formatPrice(Number(item.product.price) * item.quantity)}
+                  {formatPrice(Number(item.product.price))}
                 </Typography>
               </Stack>
             ))}

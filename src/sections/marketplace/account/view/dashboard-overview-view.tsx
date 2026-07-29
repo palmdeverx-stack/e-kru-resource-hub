@@ -22,7 +22,7 @@ const actions = [
   {
     title: 'เลือกซื้อสื่อการสอน',
     description: 'ค้นหาใบงาน แผนการสอน และสื่อใหม่จากชุมชน',
-    href: '/',
+    href: '/products',
     icon: RiBookOpenLine,
     color: 'primary.lighter',
   },

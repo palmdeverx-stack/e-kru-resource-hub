@@ -89,28 +89,26 @@ export function MainLayout({
           <MainSchoolLogo />
         </>
       ),
+      centerArea: (
+        <NavDesktop
+          data={navData}
+          sx={(theme) => ({
+            display: 'none',
+            [theme.breakpoints.up(layoutQuery)]: { display: 'flex' },
+          })}
+        />
+      ),
       rightArea: (
-        <>
-          {/** @slot Nav desktop */}
-          <NavDesktop
-            data={navData}
-            sx={(theme) => ({
-              display: 'none',
-              [theme.breakpoints.up(layoutQuery)]: { mr: 2.5, display: 'flex' },
-            })}
-          />
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 1.5 } }}>
+          <LanguagePopover data={languageOptions} />
 
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 1.5 } }}>
-            <LanguagePopover data={languageOptions} />
+          {/** @slot Settings button */}
+          {/* <SettingsButton /> */}
 
-            {/** @slot Settings button */}
-            {/* <SettingsButton /> */}
-
-            {/** @slot Sign in button */}
-            <SignInButton />
-            <AccountPopover />
-          </Box>
-        </>
+          {/** @slot Sign in button */}
+          <SignInButton />
+          <AccountPopover />
+        </Box>
       ),
     };
 

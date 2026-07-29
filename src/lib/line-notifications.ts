@@ -4,19 +4,13 @@ import { createHash, randomBytes } from 'node:crypto';
 
 import { supabaseAdmin } from './supabase-admin';
 import { decryptLineCredential } from './line-credentials';
-import { isSubscriptionUsable } from './school-subscription';
+import { schoolHasFeature } from './school-subscription';
 
 // ----------------------------------------------------------------------
 
 type AttendanceStatus = 'present' | 'absent' | 'leave' | 'late';
 type SourceType = 'homeroom_attendance' | 'class_attendance' | 'announcement' | 'grade_result';
-type EventType =
-  | 'absent'
-  | 'leave'
-  | 'late'
-  | 'class_absent'
-  | 'announcement'
-  | 'grade_result';
+type EventType = 'absent' | 'leave' | 'late' | 'class_absent' | 'announcement' | 'grade_result';
 type AttendanceEventType = Exclude<EventType, 'announcement'>;
 
 export type AttendanceNotificationInput = {
@@ -97,28 +91,29 @@ export async function queueAttendanceNotifications({
     .maybeSingle();
   if (holiday) return [];
 
-  const [{ data: integration }, { data: subscription }, { data: school }] = await Promise.all([
-    supabaseAdmin
-      .from('school_line_integrations')
-      .select(
-        'is_enabled, channel_access_token_encrypted, notify_absent, notify_leave, notify_late, notify_class_absent'
-      )
-      .eq('school_id', schoolId)
-      .maybeSingle(),
-    supabaseAdmin
-      .from('school_subscriptions')
-      .select('status, ends_at, enabled_features, max_line_notifications')
-      .eq('school_id', schoolId)
-      .maybeSingle(),
-    supabaseAdmin.from('schools').select('name').eq('id', schoolId).maybeSingle(),
-  ]);
+  const [{ data: integration }, { data: subscription }, { data: school }, hasLineFeature] =
+    await Promise.all([
+      supabaseAdmin
+        .from('school_line_integrations')
+        .select(
+          'is_enabled, channel_access_token_encrypted, notify_absent, notify_leave, notify_late, notify_class_absent'
+        )
+        .eq('school_id', schoolId)
+        .maybeSingle(),
+      supabaseAdmin
+        .from('school_subscriptions')
+        .select('status, ends_at, enabled_features, max_line_notifications')
+        .eq('school_id', schoolId)
+        .maybeSingle(),
+      supabaseAdmin.from('schools').select('name').eq('id', schoolId).maybeSingle(),
+      schoolHasFeature(schoolId, 'admin.line_notifications'),
+    ]);
 
   if (
     !integration?.is_enabled ||
     !integration.channel_access_token_encrypted ||
     !subscription ||
-    !isSubscriptionUsable(subscription as never) ||
-    !(subscription.enabled_features ?? []).includes('admin.line_notifications')
+    !hasLineFeature
   ) {
     return [];
   }
@@ -215,26 +210,27 @@ export async function queueAnnouncementNotifications({
 }) {
   if (!classroomIds.length || (!content && !imageUrl)) return [];
 
-  const [{ data: integration }, { data: subscription }, { data: school }] = await Promise.all([
-    supabaseAdmin
-      .from('school_line_integrations')
-      .select('is_enabled, channel_access_token_encrypted')
-      .eq('school_id', schoolId)
-      .maybeSingle(),
-    supabaseAdmin
-      .from('school_subscriptions')
-      .select('status, ends_at, enabled_features, max_line_notifications')
-      .eq('school_id', schoolId)
-      .maybeSingle(),
-    supabaseAdmin.from('schools').select('name').eq('id', schoolId).maybeSingle(),
-  ]);
+  const [{ data: integration }, { data: subscription }, { data: school }, hasLineFeature] =
+    await Promise.all([
+      supabaseAdmin
+        .from('school_line_integrations')
+        .select('is_enabled, channel_access_token_encrypted')
+        .eq('school_id', schoolId)
+        .maybeSingle(),
+      supabaseAdmin
+        .from('school_subscriptions')
+        .select('status, ends_at, enabled_features, max_line_notifications')
+        .eq('school_id', schoolId)
+        .maybeSingle(),
+      supabaseAdmin.from('schools').select('name').eq('id', schoolId).maybeSingle(),
+      schoolHasFeature(schoolId, 'admin.line_notifications'),
+    ]);
 
   if (
     !integration?.is_enabled ||
     !integration.channel_access_token_encrypted ||
     !subscription ||
-    !isSubscriptionUsable(subscription as never) ||
-    !(subscription.enabled_features ?? []).includes('admin.line_notifications')
+    !hasLineFeature
   ) {
     return [];
   }
@@ -341,6 +337,7 @@ export async function queueGradeResultNotifications({
     { data: subscription },
     { data: school },
     { data: teacherAssignment },
+    hasLineFeature,
   ] = await Promise.all([
     supabaseAdmin
       .from('school_line_integrations')
@@ -363,14 +360,14 @@ export async function queueGradeResultNotifications({
       .eq('id', teacherAssignmentId)
       .eq('classroom.school_id', schoolId)
       .maybeSingle(),
+    schoolHasFeature(schoolId, 'admin.line_notifications'),
   ]);
 
   if (
     !integration?.is_enabled ||
     !integration.channel_access_token_encrypted ||
     !subscription ||
-    !isSubscriptionUsable(subscription as never) ||
-    !(subscription.enabled_features ?? []).includes('admin.line_notifications')
+    !hasLineFeature
   ) {
     return {
       batchId: null,
@@ -473,13 +470,13 @@ export async function queueGradeResultNotifications({
   }
 
   const { data: guardians } = await supabaseAdmin
-      .from('student_guardians')
-      .select('id, student_id, line_user_id, is_primary')
-      .eq('school_id', schoolId)
-      .in('student_id', recipientStudentIds)
-      .not('line_user_id', 'is', null)
-      .eq('line_notifications_enabled', true)
-      .order('is_primary', { ascending: false });
+    .from('student_guardians')
+    .select('id, student_id, line_user_id, is_primary')
+    .eq('school_id', schoolId)
+    .in('student_id', recipientStudentIds)
+    .not('line_user_id', 'is', null)
+    .eq('line_notifications_enabled', true)
+    .order('is_primary', { ascending: false });
 
   const guardiansByStudent = new Map<string, typeof guardians>();
   const recipientKeys = new Set<string>();
@@ -596,7 +593,7 @@ export async function queueGradeResultNotifications({
 }
 
 export async function processPendingLineNotifications(schoolId: string, deliveryIds?: string[]) {
-  const [{ data: integration }, { data: subscription }] = await Promise.all([
+  const [{ data: integration }, { data: subscription }, hasLineFeature] = await Promise.all([
     supabaseAdmin
       .from('school_line_integrations')
       .select('is_enabled, channel_access_token_encrypted')
@@ -607,13 +604,13 @@ export async function processPendingLineNotifications(schoolId: string, delivery
       .select('status, ends_at, enabled_features, max_line_notifications')
       .eq('school_id', schoolId)
       .maybeSingle(),
+    schoolHasFeature(schoolId, 'admin.line_notifications'),
   ]);
   if (
     !integration?.is_enabled ||
     !integration.channel_access_token_encrypted ||
     !subscription ||
-    !isSubscriptionUsable(subscription as never) ||
-    !(subscription.enabled_features ?? []).includes('admin.line_notifications')
+    !hasLineFeature
   ) {
     return;
   }

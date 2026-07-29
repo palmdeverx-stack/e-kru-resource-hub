@@ -3,19 +3,28 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { requireAuthenticated } from 'src/lib/auth-token';
 
-import {
-  money,
-  getFinanceSettings,
-} from 'src/sections/marketplace/admin/server/finance';
-import {
-  getStripe,
-  isStripeConfigured,
-} from 'src/sections/marketplace/checkout/server/stripe';
+import { withMediaUrls } from 'src/sections/marketplace/seller/server/product-media';
+import { money, getFinanceSettings } from 'src/sections/marketplace/admin/server/finance';
+import { getStripe, isStripeConfigured } from 'src/sections/marketplace/checkout/server/stripe';
+import { getProductPurchaseAccess } from 'src/sections/marketplace/catalog/server/product-engagement';
+import { grantFeatureEntitlementsForOrders } from 'src/sections/marketplace/checkout/server/grant-feature-entitlements';
 
 type RequestedItem = {
   productId: string;
-  quantity: number;
 };
+
+type OrderProduct = {
+  id: string;
+  title: string;
+  title_en: string | null;
+  short_description: string | null;
+  short_description_en: string | null;
+  file_url: string | null;
+  cover_url: string | null;
+  resource_type: string;
+  images?: Array<{ storage_bucket: string; storage_path: string; [key: string]: unknown }>;
+  files?: Array<{ storage_bucket: string; storage_path: string; [key: string]: unknown }>;
+} | null;
 
 async function cleanupCheckout(paymentSessionId: string) {
   await supabaseAdmin
@@ -34,22 +43,41 @@ export async function GET(request: Request) {
   const { data: orders, error } = await supabaseAdmin
     .from('marketplace_orders')
     .select(
-      '*, seller:marketplace_sellers(id, display_name), items:marketplace_order_items(*, product:marketplace_products(file_url, cover_url, resource_type))'
+      '*, seller:marketplace_sellers(id, display_name, slug, logo_url), items:marketplace_order_items(*, product:marketplace_products(id, title, title_en, short_description, short_description_en, file_url, cover_url, resource_type, images:marketplace_product_images(*), files:marketplace_product_files(*)))'
     )
     .eq('buyer_id', caller.sub)
     .order('created_at', { ascending: false });
 
   if (error) return NextResponse.json({ message: error.message }, { status: 500 });
-  const safeOrders = (orders ?? []).map((order) => ({
-    ...order,
-    items: order.items?.map((item: Record<string, unknown>) => ({
-      ...item,
-      product:
-        ['paid', 'completed'].includes(order.status) && item.product
-          ? item.product
-          : { ...(item.product as Record<string, unknown>), file_url: null },
-    })),
-  }));
+
+  const safeOrders = await Promise.all(
+    (orders ?? []).map(async (order) => {
+      const isPaid = ['paid', 'completed'].includes(order.status);
+      const items = await Promise.all(
+        (order.items ?? []).map(async (item: Record<string, unknown>) => {
+          const product = item.product as OrderProduct;
+          if (!product) return item;
+          const { images } = await withMediaUrls({
+            images: product.images ?? [],
+            files: [],
+          });
+          if (!isPaid) {
+            return {
+              ...item,
+              product: { ...product, images, file_url: null, files: [] },
+            };
+          }
+          const files = (product.files ?? []).map((file) => ({
+            ...file,
+            url: `/api/marketplace/downloads/${String(file.id)}?orderItemId=${String(item.id)}`,
+          }));
+          return { ...item, product: { ...product, images, files } };
+        })
+      );
+      return { ...order, items };
+    })
+  );
+
   return NextResponse.json({ orders: safeOrders });
 }
 
@@ -65,13 +93,16 @@ export async function POST(request: Request) {
   const uniqueProductIds = [...new Set(requestedItems.map((item) => String(item.productId)))];
 
   if (!uniqueProductIds.length || !['promptpay', 'stripe'].includes(requestedPaymentMethod)) {
-    return NextResponse.json({ message: 'รายการสินค้าหรือวิธีชำระเงินไม่ถูกต้อง' }, { status: 400 });
+    return NextResponse.json(
+      { message: 'รายการสินค้าหรือวิธีชำระเงินไม่ถูกต้อง' },
+      { status: 400 }
+    );
   }
 
   const { data: products, error: productError } = await supabaseAdmin
     .from('marketplace_products')
     .select(
-      'id, seller_id, title, price, currency, status, seller:marketplace_sellers(owner_role)'
+      'id, seller_id, title, price, currency, status, resource_type, grants_feature_key, grants_feature_keys, grant_duration_days, license_scope, license_seat_count, seller:marketplace_sellers(owner_role)'
     )
     .in('id', uniqueProductIds)
     .eq('status', 'published');
@@ -83,15 +114,47 @@ export async function POST(request: Request) {
     );
   }
 
+  const hasFeatureUnlock = products.some((product) => product.resource_type === 'feature_unlock');
+  if (hasFeatureUnlock && (caller.role !== 'school_admin' || !caller.schoolId)) {
+    return NextResponse.json(
+      { message: 'สินค้านี้ซื้อได้เฉพาะบัญชีผู้ดูแลโรงเรียน (school_admin) เท่านั้น' },
+      { status: 400 }
+    );
+  }
+
+  const purchaseAccess = await Promise.all(
+    products.map(async (product) => ({
+      product,
+      access: await getProductPurchaseAccess({
+        productId: product.id,
+        buyerId: caller.sub,
+        schoolId: caller.schoolId,
+        resourceType: product.resource_type,
+      }),
+    }))
+  );
+  const unavailable = purchaseAccess.find(({ access }) => !access.canPurchase);
+  if (unavailable) {
+    return NextResponse.json(
+      {
+        message:
+          unavailable.access.message ??
+          `ไม่สามารถซื้อ “${unavailable.product.title}” ซ้ำได้ในขณะนี้`,
+        productId: unavailable.product.id,
+        accessExpiresAt: unavailable.access.accessExpiresAt,
+      },
+      { status: 409 }
+    );
+  }
+
   const productMap = new Map(products.map((product) => [product.id, product]));
   const itemsBySeller = new Map<string, Array<(typeof products)[number] & { quantity: number }>>();
 
-  for (const item of requestedItems) {
-    const product = productMap.get(String(item.productId));
+  for (const productId of uniqueProductIds) {
+    const product = productMap.get(productId);
     if (!product) continue;
-    const quantity = Math.max(1, Math.min(Number(item.quantity) || 1, 10));
     const group = itemsBySeller.get(product.seller_id) ?? [];
-    group.push({ ...product, quantity });
+    group.push({ ...product, quantity: 1 });
     itemsBySeller.set(product.seller_id, group);
   }
 
@@ -140,9 +203,7 @@ export async function POST(request: Request) {
       promptpay_id_snapshot:
         !isFree && requestedPaymentMethod === 'promptpay' ? finance.promptpay_id : null,
       account_name_snapshot:
-        !isFree && requestedPaymentMethod === 'promptpay'
-          ? finance.promptpay_account_name
-          : null,
+        !isFree && requestedPaymentMethod === 'promptpay' ? finance.promptpay_account_name : null,
       submitted_at: isFree ? now.toISOString() : null,
       reviewed_at: isFree ? now.toISOString() : null,
     })
@@ -161,9 +222,7 @@ export async function POST(request: Request) {
     const grossAmount = money(
       items.reduce((sum, item) => sum + Number(item.price) * item.quantity, 0)
     );
-    const sellerRecord = Array.isArray(items[0]?.seller)
-      ? items[0]?.seller[0]
-      : items[0]?.seller;
+    const sellerRecord = Array.isArray(items[0]?.seller) ? items[0]?.seller[0] : items[0]?.seller;
     const commissionRate =
       sellerRecord?.owner_role === 'master_admin' ? 0 : Number(finance.commission_rate);
     const platformFee = money((grossAmount * commissionRate) / 100);
@@ -235,6 +294,9 @@ export async function POST(request: Request) {
   }
 
   let finalPaymentSession = paymentSession;
+  if (isFree) {
+    await grantFeatureEntitlementsForOrders(createdOrders.map((order) => String(order.id)));
+  }
   if (!isFree && requestedPaymentMethod === 'stripe') {
     try {
       const origin = new URL(request.url).origin;
@@ -276,7 +338,9 @@ export async function POST(request: Request) {
         .select('*')
         .single();
       if (updateError || !updatedSession) {
-        await getStripe().checkout.sessions.expire(stripeSession.id).catch(() => undefined);
+        await getStripe()
+          .checkout.sessions.expire(stripeSession.id)
+          .catch(() => undefined);
         throw updateError ?? new Error('บันทึก Stripe Checkout Session ไม่สำเร็จ');
       }
       finalPaymentSession = updatedSession;

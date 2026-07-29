@@ -70,6 +70,16 @@ values
   ('service', 'บริการ / คอร์ส', 'service', 30)
 on conflict do nothing;
 
+alter table public.marketplace_media_types
+  drop constraint if exists marketplace_media_types_delivery_mode_check;
+alter table public.marketplace_media_types
+  add constraint marketplace_media_types_delivery_mode_check
+  check (delivery_mode in ('digital', 'physical', 'service', 'feature_unlock'));
+
+insert into public.marketplace_media_types (code, name, delivery_mode, sort_order)
+values ('feature-unlock', 'ปลดล็อกฟีเจอร์ระบบ', 'feature_unlock', 40)
+on conflict do nothing;
+
 create table if not exists public.marketplace_sale_types (
   id uuid primary key default gen_random_uuid(),
   code text not null,
@@ -92,6 +102,78 @@ insert into public.marketplace_sale_types (code, name, pricing_mode, sort_order)
 values
   ('free', 'แจกฟรี', 'free', 10),
   ('paid', 'จำหน่ายแบบมีค่าใช้จ่าย', 'paid', 20)
+on conflict do nothing;
+
+create table if not exists public.marketplace_grade_levels (
+  id uuid primary key default gen_random_uuid(),
+  code text not null,
+  name text not null,
+  description text,
+  sort_order integer not null default 0 check (sort_order >= 0),
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create unique index if not exists marketplace_grade_levels_code_lower_key
+  on public.marketplace_grade_levels (lower(code));
+create unique index if not exists marketplace_grade_levels_name_lower_key
+  on public.marketplace_grade_levels (lower(name));
+
+insert into public.marketplace_grade_levels (code, name, sort_order)
+values
+  ('p1', 'ป.1', 10), ('p2', 'ป.2', 20), ('p3', 'ป.3', 30),
+  ('p4', 'ป.4', 40), ('p5', 'ป.5', 50), ('p6', 'ป.6', 60),
+  ('m1', 'ม.1', 70), ('m2', 'ม.2', 80), ('m3', 'ม.3', 90),
+  ('m4', 'ม.4', 100), ('m5', 'ม.5', 110), ('m6', 'ม.6', 120)
+on conflict do nothing;
+
+create table if not exists public.marketplace_curricula (
+  id uuid primary key default gen_random_uuid(),
+  code text not null,
+  name text not null,
+  description text,
+  sort_order integer not null default 0 check (sort_order >= 0),
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create unique index if not exists marketplace_curricula_code_lower_key
+  on public.marketplace_curricula (lower(code));
+create unique index if not exists marketplace_curricula_name_lower_key
+  on public.marketplace_curricula (lower(name));
+
+insert into public.marketplace_curricula (code, name, sort_order)
+values
+  ('core-2551-2560', 'หลักสูตรแกนกลาง 2551 (ปรับปรุง 2560)', 10),
+  ('school-based', 'หลักสูตรสถานศึกษา', 20),
+  ('other', 'อื่นๆ', 30)
+on conflict do nothing;
+
+create table if not exists public.marketplace_tags (
+  id uuid primary key default gen_random_uuid(),
+  code text not null,
+  name text not null,
+  description text,
+  sort_order integer not null default 0 check (sort_order >= 0),
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create unique index if not exists marketplace_tags_code_lower_key
+  on public.marketplace_tags (lower(code));
+create unique index if not exists marketplace_tags_name_lower_key
+  on public.marketplace_tags (lower(name));
+
+insert into public.marketplace_tags (code, name, sort_order)
+values
+  ('stem', 'STEM', 10),
+  ('active-learning', 'Active Learning', 20),
+  ('pbl', 'PBL', 30),
+  ('game', 'เกม', 40),
+  ('exam-prep', 'สอบเข้า', 50)
 on conflict do nothing;
 
 create table if not exists public.marketplace_media_review_rules (
@@ -358,12 +440,55 @@ alter table public.marketplace_products
   add column if not exists reviewed_by uuid;
 alter table public.marketplace_products
   add column if not exists rejection_reason text;
+alter table public.marketplace_products
+  drop column if exists file_url_2;
+alter table public.marketplace_products
+  add column if not exists short_description text;
+alter table public.marketplace_products
+  add column if not exists title_en text;
+alter table public.marketplace_products
+  add column if not exists short_description_en text;
+alter table public.marketplace_products
+  add column if not exists description_en text;
+alter table public.marketplace_products
+  add column if not exists subject_label text;
+alter table public.marketplace_products
+  add column if not exists curriculum_id uuid references public.marketplace_curricula(id);
+alter table public.marketplace_products
+  add column if not exists wizard_step integer not null default 1;
+-- The wizard creates a draft product at step 1 (title only); category isn't
+-- chosen until step 2, so it can no longer be required at insert time.
+alter table public.marketplace_products
+  alter column category drop not null;
+alter table public.marketplace_products
+  add column if not exists grants_feature_key text;
+alter table public.marketplace_products
+  add column if not exists grant_duration_days integer;
+alter table public.marketplace_products
+  add column if not exists license_scope text not null default 'school'
+    check (license_scope in ('school', 'teacher'));
+alter table public.marketplace_products
+  add column if not exists license_seat_count integer not null default 1
+    check (license_seat_count > 0);
+alter table public.marketplace_products
+  add column if not exists grants_feature_keys text[] not null default '{}';
+
+update public.marketplace_products
+set grants_feature_keys = array[grants_feature_key]
+where grants_feature_key is not null
+  and cardinality(grants_feature_keys) = 0;
 
 alter table public.marketplace_products
   drop constraint if exists marketplace_products_status_check;
 alter table public.marketplace_products
   add constraint marketplace_products_status_check
   check (status in ('draft', 'pending_review', 'published', 'rejected', 'archived'));
+
+alter table public.marketplace_products
+  drop constraint if exists marketplace_products_resource_type_check;
+alter table public.marketplace_products
+  add constraint marketplace_products_resource_type_check
+  check (resource_type in ('digital', 'physical', 'service', 'feature_unlock'));
 
 update public.marketplace_products product
 set media_type_id = media.id
@@ -376,6 +501,56 @@ set sale_type_id = sale.id
 from public.marketplace_sale_types sale
 where product.sale_type_id is null
   and sale.pricing_mode = case when product.price = 0 then 'free' else 'paid' end;
+
+create table if not exists public.marketplace_product_grade_levels (
+  product_id uuid not null references public.marketplace_products(id) on delete cascade,
+  grade_level_id uuid not null references public.marketplace_grade_levels(id) on delete restrict,
+  created_at timestamptz not null default now(),
+  primary key (product_id, grade_level_id)
+);
+create index if not exists marketplace_product_grade_levels_grade_idx
+  on public.marketplace_product_grade_levels (grade_level_id);
+
+create table if not exists public.marketplace_product_tags (
+  product_id uuid not null references public.marketplace_products(id) on delete cascade,
+  tag_id uuid not null references public.marketplace_tags(id) on delete restrict,
+  created_at timestamptz not null default now(),
+  primary key (product_id, tag_id)
+);
+create index if not exists marketplace_product_tags_tag_idx
+  on public.marketplace_product_tags (tag_id);
+
+create table if not exists public.marketplace_product_images (
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid not null references public.marketplace_products(id) on delete cascade,
+  storage_bucket text not null default 'marketplace-product-covers',
+  storage_path text not null,
+  file_name text not null,
+  mime_type text not null,
+  file_size integer not null check (file_size > 0),
+  position integer not null default 0,
+  is_cover boolean not null default false,
+  created_at timestamptz not null default now()
+);
+create index if not exists marketplace_product_images_product_idx
+  on public.marketplace_product_images (product_id, position);
+create unique index if not exists marketplace_product_images_one_cover_idx
+  on public.marketplace_product_images (product_id) where is_cover;
+
+create table if not exists public.marketplace_product_files (
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid not null references public.marketplace_products(id) on delete cascade,
+  storage_bucket text not null default 'marketplace-product-files',
+  storage_path text not null,
+  file_name text not null,
+  mime_type text not null,
+  file_size integer not null check (file_size > 0),
+  position integer not null default 0,
+  is_preview boolean not null default false,
+  created_at timestamptz not null default now()
+);
+create index if not exists marketplace_product_files_product_idx
+  on public.marketplace_product_files (product_id, position);
 
 create table if not exists public.marketplace_orders (
   id uuid primary key default gen_random_uuid(),
@@ -397,6 +572,104 @@ create table if not exists public.marketplace_order_items (
   unit_price numeric(12, 2) not null check (unit_price >= 0),
   quantity integer not null default 1 check (quantity > 0)
 );
+
+-- Public engagement shown on the product detail page. Views count unique
+-- visitors, reviews are restricted to one per verified buyer, and every
+-- authorized file request records a download event.
+create table if not exists public.marketplace_product_views (
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid not null references public.marketplace_products(id) on delete cascade,
+  visitor_key text not null,
+  viewer_id uuid,
+  first_viewed_at timestamptz not null default now(),
+  last_viewed_at timestamptz not null default now(),
+  unique (product_id, visitor_key)
+);
+create index if not exists marketplace_product_views_product_idx
+  on public.marketplace_product_views (product_id);
+
+create table if not exists public.marketplace_product_reviews (
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid not null references public.marketplace_products(id) on delete cascade,
+  buyer_id uuid not null,
+  reviewer_name text not null,
+  rating smallint not null check (rating between 1 and 5),
+  comment text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (product_id, buyer_id)
+);
+create index if not exists marketplace_product_reviews_product_idx
+  on public.marketplace_product_reviews (product_id, updated_at desc);
+
+create table if not exists public.marketplace_product_downloads (
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid not null references public.marketplace_products(id) on delete cascade,
+  product_file_id uuid not null references public.marketplace_product_files(id) on delete cascade,
+  order_item_id uuid not null references public.marketplace_order_items(id) on delete cascade,
+  buyer_id uuid not null,
+  downloaded_at timestamptz not null default now()
+);
+create index if not exists marketplace_product_downloads_product_idx
+  on public.marketplace_product_downloads (product_id, downloaded_at desc);
+create index if not exists marketplace_product_downloads_buyer_idx
+  on public.marketplace_product_downloads (buyer_id, downloaded_at desc);
+
+-- Marketplace purchases of "feature_unlock" products grant a school a
+-- time-limited entitlement here. This is separate from (additive to)
+-- school_subscriptions.enabled_features, since that table has one expiry per
+-- whole plan while each purchased feature key needs its own, independently
+-- renewable expiry.
+create table if not exists public.school_feature_purchases (
+  id uuid primary key default gen_random_uuid(),
+  school_id uuid not null references public.schools(id) on delete cascade,
+  feature_key text not null,
+  expires_at timestamptz not null,
+  source_order_id uuid references public.marketplace_orders(id) on delete set null,
+  source_product_id uuid references public.marketplace_products(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (school_id, feature_key)
+);
+create index if not exists school_feature_purchases_school_idx
+  on public.school_feature_purchases (school_id);
+
+create table if not exists public.marketplace_school_licenses (
+  id uuid primary key default gen_random_uuid(),
+  school_id uuid not null references public.schools(id) on delete cascade,
+  product_id uuid not null references public.marketplace_products(id) on delete restrict,
+  order_id uuid not null references public.marketplace_orders(id) on delete restrict,
+  order_item_id uuid not null unique references public.marketplace_order_items(id) on delete restrict,
+  license_scope text not null check (license_scope in ('school', 'teacher')),
+  feature_keys text[] not null default '{}',
+  seat_count integer not null default 1 check (seat_count > 0),
+  starts_at timestamptz not null default now(),
+  expires_at timestamptz not null,
+  status text not null default 'active' check (status in ('active', 'revoked')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists marketplace_school_licenses_school_idx
+  on public.marketplace_school_licenses (school_id, expires_at desc);
+create index if not exists marketplace_school_licenses_features_idx
+  on public.marketplace_school_licenses using gin (feature_keys);
+
+create table if not exists public.marketplace_teacher_license_assignments (
+  id uuid primary key default gen_random_uuid(),
+  license_id uuid not null references public.marketplace_school_licenses(id) on delete cascade,
+  teacher_id uuid not null,
+  assigned_by uuid not null,
+  assigned_at timestamptz not null default now(),
+  revoked_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create unique index if not exists marketplace_teacher_license_assignments_active_key
+  on public.marketplace_teacher_license_assignments (license_id, teacher_id)
+  where revoked_at is null;
+create index if not exists marketplace_teacher_license_assignments_teacher_idx
+  on public.marketplace_teacher_license_assignments (teacher_id)
+  where revoked_at is null;
 
 -- Each seller connects their own LINE Official Account credentials. Access tokens
 -- are encrypted by the application before they reach this table.
@@ -661,6 +934,32 @@ values
     false,
     10485760,
     array['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
+  ),
+  (
+    'marketplace-product-covers',
+    'marketplace-product-covers',
+    true,
+    5242880,
+    array['image/jpeg', 'image/png', 'image/webp']
+  ),
+  (
+    'marketplace-product-files',
+    'marketplace-product-files',
+    false,
+    52428800,
+    array[
+      'application/pdf',
+      'application/zip',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'image/jpeg',
+      'image/png',
+      'image/webp'
+    ]
   )
 on conflict (id) do update
 set public = excluded.public,
@@ -695,6 +994,19 @@ alter table public.marketplace_seller_payout_accounts enable row level security;
 alter table public.marketplace_payouts enable row level security;
 alter table public.marketplace_ledger_entries enable row level security;
 alter table public.marketplace_stripe_events enable row level security;
+alter table public.marketplace_grade_levels enable row level security;
+alter table public.marketplace_curricula enable row level security;
+alter table public.marketplace_tags enable row level security;
+alter table public.marketplace_product_grade_levels enable row level security;
+alter table public.marketplace_product_tags enable row level security;
+alter table public.marketplace_product_images enable row level security;
+alter table public.marketplace_product_files enable row level security;
+alter table public.marketplace_product_views enable row level security;
+alter table public.marketplace_product_reviews enable row level security;
+alter table public.marketplace_product_downloads enable row level security;
+alter table public.marketplace_school_licenses enable row level security;
+alter table public.marketplace_teacher_license_assignments enable row level security;
+alter table public.school_feature_purchases enable row level security;
 
 -- Application APIs use the server-only service role. No anonymous table writes
 -- are allowed; public product reads are intentionally exposed through the API.

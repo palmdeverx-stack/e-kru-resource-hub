@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
-import { schoolHasFeature } from 'src/lib/school-subscription';
+import { userHasFeature } from 'src/lib/school-subscription';
 import { canManageViaPermission } from 'src/lib/department-permission-access';
 
 // ----------------------------------------------------------------------
@@ -128,7 +128,7 @@ export async function POST(request: Request) {
   if (
     caller.role === 'teacher' &&
     !isAdminLike &&
-    !(await schoolHasFeature(caller.schoolId, 'teacher.manage_subjects'))
+    !(await userHasFeature(caller.sub, caller.schoolId, 'teacher.manage_subjects'))
   ) {
     return NextResponse.json(
       { message: 'แพ็กเกจโรงเรียนไม่รองรับการให้ครูสร้างรายวิชา' },

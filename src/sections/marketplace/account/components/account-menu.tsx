@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { useState } from 'react';
 
@@ -14,7 +14,9 @@ import IconButton from '@mui/material/IconButton';
 import { RouterLink } from 'src/routes/components';
 
 import {
+  RiKey2Line,
   RiStore2Line,
+  RiSearchLine,
   RiLogoutBoxLine,
   RiDashboardLine,
   RiShieldStarLine,
@@ -25,6 +27,7 @@ import { signOut } from 'src/auth/context/jwt';
 import { useAuthContext } from 'src/auth/hooks';
 
 const memberMenuItems = [
+  { label: 'สินค้าทั้งหมด', href: '/products', icon: RiSearchLine },
   { label: 'ภาพรวม', href: '/dashboard', icon: RiDashboardLine },
   { label: 'รายการซื้อ', href: '/dashboard/purchases', icon: RiShoppingBag3Line },
   { label: 'ร้านค้าของฉัน', href: '/dashboard/seller', icon: RiStore2Line },
@@ -38,7 +41,7 @@ export function MarketplaceAccountMenu() {
 
   const displayName = user.displayName || user.username || 'สมาชิก Marketplace';
   const initials = String(displayName).trim().charAt(0).toUpperCase();
-  const menuItems =
+  let menuItems =
     user.role === 'master_admin'
       ? [
           {
@@ -46,9 +49,17 @@ export function MarketplaceAccountMenu() {
             href: '/dashboard',
             icon: RiShieldStarLine,
           },
-          ...memberMenuItems.slice(1),
+          memberMenuItems[0],
+          ...memberMenuItems.slice(2),
         ]
       : memberMenuItems;
+  if (user.role === 'school_admin') {
+    menuItems = [
+      ...menuItems.slice(0, 2),
+      { label: 'สิทธิ์และ License', href: '/dashboard/licenses', icon: RiKey2Line },
+      ...menuItems.slice(2),
+    ];
+  }
 
   const handleSignOut = async () => {
     setAnchorEl(null);
@@ -75,7 +86,10 @@ export function MarketplaceAccountMenu() {
             color="success"
             anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
           >
-            <Avatar src={user.photoURL || user.avatar_url || undefined} sx={{ width: 38, height: 38 }}>
+            <Avatar
+              src={user.photoURL || user.avatar_url || undefined}
+              sx={{ width: 38, height: 38 }}
+            >
               {initials}
             </Avatar>
           </Badge>
@@ -123,7 +137,7 @@ export function MarketplaceAccountMenu() {
 }
 
 function roleLabel(role?: string) {
-  if (role === 'teacher') return 'ครู eKru';
+  if (role === 'teacher') return 'ครู';
   if (role === 'school_admin') return 'ผู้ดูแลโรงเรียน';
   if (role === 'master_admin') return 'Super Admin';
   if (role === 'student') return 'นักเรียน';

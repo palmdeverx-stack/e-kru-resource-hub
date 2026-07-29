@@ -33,7 +33,6 @@ export async function PATCH(request: Request, { params }: Context) {
     .from('marketplace_payment_sessions')
     .select('*, orders:marketplace_orders(*)')
     .eq('id', id)
-    .eq('status', 'payment_review')
     .eq('payment_method', 'promptpay')
     .maybeSingle();
   if (error || !session) {
@@ -41,6 +40,12 @@ export async function PATCH(request: Request, { params }: Context) {
       { message: error?.message ?? 'รายการนี้ถูกตรวจสอบไปแล้ว' },
       { status: error ? 500 : 409 }
     );
+  }
+  if (!['payment_review', 'verified'].includes(session.status)) {
+    return NextResponse.json({ message: 'สถานะรายการนี้ไม่สามารถอนุมัติได้' }, { status: 409 });
+  }
+  if (session.status === 'verified' && action === 'reject') {
+    return NextResponse.json({ message: 'รายการที่ยืนยันแล้วไม่สามารถปฏิเสธได้' }, { status: 409 });
   }
 
   const now = new Date();

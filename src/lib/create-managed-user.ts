@@ -10,8 +10,12 @@ import { generatePassword } from 'src/lib/generate-password';
 import { encryptCredential } from 'src/lib/credential-cipher';
 import { isActiveStaffMasterValue } from 'src/lib/staff-master';
 import { linkStaffToSupabaseAuth } from 'src/lib/staff-supabase-auth';
-import { schoolHasFeature, checkSchoolSeatLimit } from 'src/lib/school-subscription';
 import { getEffectiveDepartmentPermissions } from 'src/lib/department-permission-access';
+import {
+  userHasFeature,
+  schoolHasFeature,
+  checkSchoolSeatLimit,
+} from 'src/lib/school-subscription';
 
 import { isStaffType, isEmploymentStatus } from 'src/types/staff-employment';
 
@@ -221,7 +225,9 @@ export async function createManagedUser(
   if (
     (caller.role === 'school_admin' || caller.role === 'teacher') &&
     requiredFeature &&
-    !(await schoolHasFeature(targetSchoolId, requiredFeature))
+    !(caller.role === 'teacher'
+      ? await userHasFeature(caller.sub, targetSchoolId, requiredFeature)
+      : await schoolHasFeature(targetSchoolId, requiredFeature))
   ) {
     return { ok: false, status: 403, message: 'แพ็กเกจโรงเรียนไม่รองรับการสร้างบัญชีประเภทนี้' };
   }
