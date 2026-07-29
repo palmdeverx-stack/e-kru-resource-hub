@@ -8,6 +8,75 @@
     "thai": "ไทย",
     "english": "English"
   },
+  "auth": {
+    "fields": {
+      "firstName": "ชื่อ",
+      "lastName": "นามสกุล",
+      "username": "ชื่อผู้ใช้งาน",
+      "email": "อีเมล",
+      "password": "รหัสผ่าน"
+    },
+    "placeholders": {
+      "firstName": "กรอกชื่อ",
+      "lastName": "กรอกนามสกุล",
+      "username": "กรอกชื่อผู้ใช้งาน",
+      "newUsername": "สร้างชื่อผู้ใช้งาน",
+      "email": "name@example.com",
+      "password6": "6 ตัวอักษรขึ้นไป",
+      "password8": "8 ตัวอักษรขึ้นไป"
+    },
+    "validation": {
+      "firstNameRequired": "กรุณากรอกชื่อ",
+      "lastNameRequired": "กรุณากรอกนามสกุล",
+      "usernameRequired": "กรุณากรอกชื่อผู้ใช้งาน",
+      "emailInvalid": "กรุณากรอกอีเมลที่ถูกต้อง",
+      "passwordRequired": "กรุณากรอกรหัสผ่าน",
+      "passwordMin6": "รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร",
+      "passwordMin8": "รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร",
+      "pinInvalid": "PIN ต้องเป็นตัวเลข 8 หลัก"
+    },
+    "signIn": {
+      "title": "เข้าสู่ Marketplace",
+      "description": "ซื้อและขายสื่อการสอนด้วยบัญชี eKru เดิม หรือบัญชี Marketplace ของคุณ",
+      "schoolPinDescription": "กรอกรหัสโรงเรียน 8 หลักเพื่อเข้าสู่ระบบ",
+      "adminPinDescription": "กรอก PIN ผู้ดูแลระบบ 8 หลักเพื่อเข้าสู่ระบบ",
+      "pinTitle": "ยืนยัน PIN",
+      "noAccount": "ยังไม่มีบัญชี?",
+      "createAccount": "สมัครสมาชิก",
+      "submit": "เข้าสู่ระบบ",
+      "verifyPin": "ยืนยัน PIN",
+      "submitting": "กำลังเข้าสู่ระบบ...",
+      "verifyingPin": "กำลังตรวจสอบ PIN...",
+      "backToCredentials": "กลับไปกรอกชื่อผู้ใช้งาน",
+      "divider": "หรือเข้าสู่ระบบด้วย",
+      "google": "ดำเนินการต่อด้วย Google"
+    },
+    "signUp": {
+      "title": "สมัคร E-KRU Marketplace",
+      "description": "สร้างบัญชีเพื่อซื้อหรือเปิดร้านขายสื่อการสอน",
+      "hasAccount": "มีบัญชีอยู่แล้ว?",
+      "goToSignIn": "เข้าสู่ระบบ",
+      "submit": "สร้างบัญชี",
+      "submitting": "กำลังสร้างบัญชี...",
+      "divider": "หรือสมัครด้วย",
+      "google": "สมัครด้วย Google"
+    },
+    "accessibility": {
+      "showPassword": "แสดงรหัสผ่าน",
+      "hidePassword": "ซ่อนรหัสผ่าน"
+    },
+    "legal": {
+      "agreementPrefix": "เมื่อสมัครสมาชิก ถือว่าฉันยอมรับ",
+      "terms": "ข้อกำหนดการใช้บริการ",
+      "and": "และ",
+      "privacy": "นโยบายความเป็นส่วนตัว",
+      "loadingError": "โหลดเอกสารไม่สำเร็จ",
+      "unavailable": "เอกสารนี้อยู่ระหว่างการจัดทำ กรุณาติดต่อผู้ให้บริการหากต้องการข้อมูลเพิ่มเติม",
+      "document": "เอกสารข้อตกลง",
+      "version": "เวอร์ชัน {{version}}",
+      "closeDocument": "ปิดเอกสาร"
+    }
+  },
   "actions": {
     "signIn": "เข้าสู่ระบบ",
     "signOut": "ลงชื่อออก",

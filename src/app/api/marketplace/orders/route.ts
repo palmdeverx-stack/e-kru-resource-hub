@@ -14,6 +14,14 @@ type RequestedItem = {
   productId: string;
 };
 
+type SalesDealRow = {
+  id: string;
+  product_id: string;
+  school_id: string | null;
+  negotiated_price: number;
+  expires_at: string;
+};
+
 type OrderProduct = {
   id: string;
   title: string;
@@ -23,6 +31,7 @@ type OrderProduct = {
   file_url: string | null;
   cover_url: string | null;
   resource_type: string;
+  license_scope: 'individual' | 'school' | 'teacher' | null;
   images?: Array<{ storage_bucket: string; storage_path: string; [key: string]: unknown }>;
   files?: Array<{ storage_bucket: string; storage_path: string; [key: string]: unknown }>;
 } | null;
@@ -44,7 +53,7 @@ export async function GET(request: Request) {
   const { data: orders, error } = await supabaseAdmin
     .from('marketplace_orders')
     .select(
-      '*, seller:marketplace_sellers(id, display_name, slug, logo_url), items:marketplace_order_items(*, product:marketplace_products(id, title, title_en, short_description, short_description_en, file_url, cover_url, resource_type, images:marketplace_product_images(*), files:marketplace_product_files(*)))'
+      '*, seller:marketplace_sellers(id, display_name, slug, logo_url), items:marketplace_order_items(*, product:marketplace_products(id, title, title_en, short_description, short_description_en, file_url, cover_url, resource_type, license_scope, images:marketplace_product_images(*), files:marketplace_product_files(*)))'
     )
     .eq('buyer_id', caller.sub)
     .order('created_at', { ascending: false });
@@ -90,7 +99,8 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => null);
   const requestedPaymentMethod = String(body?.paymentMethod ?? '');
-  const requestedLicenseSchoolId = String(body?.licenseSchoolId ?? '').trim();
+  let requestedLicenseSchoolId = String(body?.licenseSchoolId ?? '').trim();
+  const salesDealToken = String(body?.salesDealToken ?? '').trim();
   const requestedItems: RequestedItem[] = Array.isArray(body?.items) ? body.items : [];
   const uniqueProductIds = [...new Set(requestedItems.map((item) => String(item.productId)))];
 
@@ -116,8 +126,37 @@ export async function POST(request: Request) {
     );
   }
 
-  const hasFeatureUnlock = products.some((product) => product.resource_type === 'feature_unlock');
-  if (hasFeatureUnlock) {
+  let salesDeal: SalesDealRow | null = null;
+  if (salesDealToken) {
+    const { data: deal, error: dealError } = await supabaseAdmin
+      .from('marketplace_sales_deals')
+      .select('*')
+      .eq('public_token', salesDealToken)
+      .eq('accepted_by', caller.sub)
+      .in('status', ['accepted', 'awaiting_payment'])
+      .maybeSingle();
+    if (
+      dealError ||
+      !deal ||
+      uniqueProductIds.length !== 1 ||
+      deal.product_id !== uniqueProductIds[0] ||
+      new Date(deal.expires_at) <= new Date()
+    ) {
+      return NextResponse.json(
+        { message: dealError?.message ?? 'ข้อเสนอขายไม่ถูกต้อง หมดอายุ หรือไม่ใช่บัญชีที่ยอมรับ' },
+        { status: dealError ? 500 : 409 }
+      );
+    }
+    salesDeal = deal as SalesDealRow;
+    products[0].price = Number(deal.negotiated_price);
+    requestedLicenseSchoolId = deal.school_id ?? requestedLicenseSchoolId;
+  }
+
+  const hasSchoolLicense = products.some(
+    (product) =>
+      product.resource_type === 'feature_unlock' && product.license_scope !== 'individual'
+  );
+  if (hasSchoolLicense) {
     const eligibleSchools = await getEligibleLicenseSchools(caller);
     if (
       !requestedLicenseSchoolId ||
@@ -136,8 +175,9 @@ export async function POST(request: Request) {
       access: await getProductPurchaseAccess({
         productId: product.id,
         buyerId: caller.sub,
-        schoolId: hasFeatureUnlock ? requestedLicenseSchoolId : caller.schoolId,
+        schoolId: hasSchoolLicense ? requestedLicenseSchoolId : caller.schoolId,
         resourceType: product.resource_type,
+        licenseScope: product.license_scope,
       }),
     }))
   );
@@ -241,7 +281,8 @@ export async function POST(request: Request) {
         buyer_id: caller.sub,
         seller_id: sellerId,
         payment_session_id: paymentSession.id,
-        license_school_id: hasFeatureUnlock ? requestedLicenseSchoolId : null,
+        sales_deal_id: salesDeal?.id ?? null,
+        license_school_id: hasSchoolLicense ? requestedLicenseSchoolId : null,
         status: isFree ? 'paid' : 'pending_payment',
         total: grossAmount,
         gross_amount: grossAmount,
@@ -305,6 +346,18 @@ export async function POST(request: Request) {
   let finalPaymentSession = paymentSession;
   if (isFree) {
     await grantFeatureEntitlementsForOrders(createdOrders.map((order) => String(order.id)));
+    if (salesDeal) {
+      await supabaseAdmin
+        .from('marketplace_sales_deals')
+        .update({ status: 'active', updated_at: now.toISOString() })
+        .eq('id', salesDeal.id);
+    }
+  } else if (salesDeal) {
+    await supabaseAdmin
+      .from('marketplace_sales_deals')
+      .update({ status: 'awaiting_payment', updated_at: now.toISOString() })
+      .eq('id', salesDeal.id)
+      .in('status', ['accepted', 'awaiting_payment']);
   }
   if (!isFree && requestedPaymentMethod === 'stripe') {
     try {

@@ -7,13 +7,16 @@ import { useState, useEffect } from 'react';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 
+import { languageOptions } from 'src/locales';
 import { DashboardLayout } from 'src/layouts/dashboard';
+import { LanguagePopover } from 'src/layouts/components/language-popover';
 import { NotificationsMenu } from 'src/layouts/components/notifications-menu';
 
 import { MarketplaceBrand } from 'src/components/marketplace-brand';
 import {
   RiKey2Line,
   RiHome5Line,
+  RiRocketLine,
   RiSchoolLine,
   RiIdCardLine,
   RiSearchLine,
@@ -23,6 +26,7 @@ import {
   RiBankCardLine,
   RiDashboardLine,
   RiSettings3Line,
+  RiFilePaper2Line,
   RiShieldStarLine,
   RiUserFollowLine,
   RiShieldCheckLine,
@@ -67,6 +71,11 @@ const memberNavData: NavSectionProps['data'] = [
         path: '/dashboard/purchases',
         icon: <RiReceiptLine />,
       },
+      {
+        title: 'แอปและสิทธิ์ของฉัน',
+        path: '/dashboard/my-apps',
+        icon: <RiRocketLine />,
+      },
     ],
   },
   {
@@ -87,11 +96,6 @@ const memberNavData: NavSectionProps['data'] = [
         title: 'รายได้ของร้าน',
         path: '/dashboard/seller/finance',
         icon: <RiWallet3Line />,
-      },
-      {
-        title: 'LINE แจ้งเตือน',
-        path: '/dashboard/seller/settings/line',
-        icon: <RiNotification3Line />,
       },
     ],
   },
@@ -226,7 +230,12 @@ const adminNavData: NavSectionProps['data'] = [
         icon: <RiWallet3Line />,
       },
       {
-        title: 'LINE แจ้งเตือน',
+        title: 'ข้อเสนอขายโรงเรียน',
+        path: '/dashboard/seller/deals',
+        icon: <RiFilePaper2Line />,
+      },
+      {
+        title: 'LINE แจ้งเตือนร้านค้า',
         path: '/dashboard/seller/settings/line',
         icon: <RiNotification3Line />,
       },
@@ -256,6 +265,7 @@ type Props = {
 export default function Layout({ children }: Props) {
   const { user } = useAuthContext();
   const [canViewSchoolEntitlements, setCanViewSchoolEntitlements] = useState(false);
+  const [canUseSellerLine, setCanUseSellerLine] = useState(false);
 
   useEffect(() => {
     if (user?.role !== 'teacher' && user?.role !== 'marketplace_user') {
@@ -289,10 +299,47 @@ export default function Layout({ children }: Props) {
     return () => controller.abort();
   }, [user?.id, user?.role]);
 
+  useEffect(() => {
+    if (!user?.role || user.role === 'master_admin') {
+      setCanUseSellerLine(user?.role === 'master_admin');
+      return undefined;
+    }
+
+    setCanUseSellerLine(false);
+    const controller = new AbortController();
+
+    fetch('/api/marketplace/seller/line-settings?access=1', {
+      cache: 'no-store',
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) return { allowed: false };
+        return response.json() as Promise<{ allowed?: boolean }>;
+      })
+      .then((result) => setCanUseSellerLine(Boolean(result.allowed)))
+      .catch((error) => {
+        if ((error as Error).name !== 'AbortError') setCanUseSellerLine(false);
+      });
+
+    return () => controller.abort();
+  }, [user?.id, user?.role]);
+
   const navData =
     user?.role === 'master_admin'
       ? adminNavData
       : memberNavData.map((section) => {
+          if (section.subheader === 'ร้านค้าของฉัน') {
+            const lineItems = canUseSellerLine
+                ? [
+                  {
+                    title: 'LINE แจ้งเตือนร้านค้า',
+                    path: '/dashboard/seller/settings/line',
+                    icon: <RiNotification3Line />,
+                  },
+                ]
+              : [];
+            return { ...section, items: [...section.items, ...lineItems] };
+          }
           if (section.subheader !== 'บัญชีของฉัน') return section;
           const roleItems =
             user?.role === 'school_admin'
@@ -341,7 +388,8 @@ export default function Layout({ children }: Props) {
             ),
             rightArea: (
               <Stack direction="row" spacing={1} alignItems="center">
-                <NotificationsMenu />
+                <LanguagePopover showTranslateIcon data={languageOptions} />
+                <NotificationsMenu scope="marketplace" />
                 <MarketplaceAccountMenu />
               </Stack>
             ),

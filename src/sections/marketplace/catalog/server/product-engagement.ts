@@ -62,12 +62,16 @@ export async function getProductPurchaseAccess({
   productId,
   buyerId,
   schoolId,
+  schoolIds,
   resourceType,
+  licenseScope,
 }: {
   productId: string;
   buyerId?: string;
   schoolId?: string | null;
+  schoolIds?: string[];
   resourceType: string;
+  licenseScope?: 'individual' | 'school' | 'teacher' | null;
 }): Promise<MarketplaceProductPurchaseAccess> {
   if (!buyerId) {
     return {
@@ -79,7 +83,27 @@ export async function getProductPurchaseAccess({
   }
 
   if (resourceType === 'feature_unlock') {
-    if (!schoolId) {
+    if (licenseScope === 'individual') {
+      const { data: licenses } = await supabaseAdmin
+        .from('marketplace_user_licenses')
+        .select('expires_at')
+        .eq('buyer_id', buyerId)
+        .eq('product_id', productId)
+        .eq('status', 'active')
+        .order('expires_at', { ascending: false })
+        .limit(1);
+      const expiresAt = licenses?.[0]?.expires_at ?? null;
+      const isActive = Boolean(expiresAt && new Date(expiresAt).getTime() > Date.now());
+      return {
+        canPurchase: !isActive,
+        hasPurchased: Boolean(licenses?.length),
+        accessExpiresAt: expiresAt,
+        message: isActive ? 'สิทธิ์ส่วนบุคคลนี้ยังใช้งานอยู่' : null,
+      };
+    }
+
+    const targetSchoolIds = schoolIds?.length ? schoolIds : schoolId ? [schoolId] : [];
+    if (!targetSchoolIds.length) {
       return {
         canPurchase: false,
         hasPurchased: false,
@@ -89,19 +113,24 @@ export async function getProductPurchaseAccess({
     }
     const { data: licenses } = await supabaseAdmin
       .from('marketplace_school_licenses')
-      .select('expires_at')
-      .eq('school_id', schoolId)
+      .select('school_id,expires_at')
+      .in('school_id', targetSchoolIds)
       .eq('product_id', productId)
       .eq('status', 'active')
-      .order('expires_at', { ascending: false })
-      .limit(1);
-    const expiresAt = licenses?.[0]?.expires_at ?? null;
-    const isActive = Boolean(expiresAt && new Date(expiresAt).getTime() > Date.now());
+      .gt('expires_at', new Date().toISOString());
+    const licensedSchoolIds = new Set((licenses ?? []).map((license) => license.school_id));
+    const canPurchase = targetSchoolIds.some((id) => !licensedSchoolIds.has(id));
+    const expiresAt = canPurchase
+      ? null
+      : ((licenses ?? [])
+          .map((license) => license.expires_at)
+          .sort()
+          .at(-1) ?? null);
     return {
-      canPurchase: !isActive,
+      canPurchase,
       hasPurchased: Boolean(licenses?.length),
       accessExpiresAt: expiresAt,
-      message: isActive ? 'สิทธิ์ Subscription นี้ยังใช้งานอยู่' : null,
+      message: canPurchase ? null : 'ทุกโรงเรียนที่คุณดูแลมีสิทธิ์ Subscription นี้อยู่แล้ว',
     };
   }
 

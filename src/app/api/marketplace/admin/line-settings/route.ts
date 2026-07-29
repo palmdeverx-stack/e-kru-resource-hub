@@ -89,6 +89,7 @@ export async function GET(request: Request) {
       hasAccessToken: Boolean(settings?.channel_access_token_encrypted),
       notifyNewSeller: settings?.notify_new_seller ?? true,
       notifyProductApproval: settings?.notify_product_approval ?? true,
+      allowSellerNotifications: settings?.allow_seller_notifications ?? false,
       lineDisplayName: settings?.line_display_name ?? null,
       lineLinkedAt: settings?.line_linked_at ?? null,
     },
@@ -134,7 +135,8 @@ export async function PATCH(request: Request) {
     parsedWebhook.pathname.replace(/\/+$/, '') !== expectedPath ||
     Boolean(parsedWebhook.search || parsedWebhook.hash) ||
     typeof body?.notifyNewSeller !== 'boolean' ||
-    typeof body?.notifyProductApproval !== 'boolean'
+    typeof body?.notifyProductApproval !== 'boolean' ||
+    typeof body?.allowSellerNotifications !== 'boolean'
   ) {
     return NextResponse.json({ message: 'ข้อมูลการเชื่อมต่อ LINE ไม่ถูกต้อง' }, { status: 400 });
   }
@@ -166,6 +168,7 @@ export async function PATCH(request: Request) {
       is_enabled: isEnabled,
       notify_new_seller: body.notifyNewSeller,
       notify_product_approval: body.notifyProductApproval,
+      allow_seller_notifications: body.allowSellerNotifications,
       ...(channelSecret && { channel_secret_encrypted: encryptLineCredential(channelSecret) }),
       ...(accessToken && { channel_access_token_encrypted: encryptLineCredential(accessToken) }),
       updated_at: new Date().toISOString(),

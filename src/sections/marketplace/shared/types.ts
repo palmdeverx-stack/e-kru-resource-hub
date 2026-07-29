@@ -77,6 +77,7 @@ export type MarketplaceSubscriptionPlan = {
   code: string;
   name: string;
   description: string | null;
+  plan_scope: 'school' | 'individual';
   billing_cycle: 'monthly' | 'yearly' | 'custom';
   price: number;
   currency: string;
@@ -237,7 +238,7 @@ export type MarketplaceProduct = {
   grants_feature_keys?: string[];
   grants_plan_code?: string | null;
   grant_duration_days?: number | null;
-  license_scope?: 'school' | 'teacher';
+  license_scope?: 'individual' | 'school' | 'teacher';
   license_seat_count?: number;
   license_max_teachers?: number | null;
   license_max_students?: number | null;
@@ -321,6 +322,7 @@ export type MarketplaceOrder = {
           | 'file_url'
           | 'cover_url'
           | 'resource_type'
+          | 'license_scope'
         > & {
           images?: MarketplaceProductImage[];
           files?: MarketplaceProductFile[];
@@ -385,7 +387,7 @@ export type ProductInput = {
   grantsFeatureKeys?: string[];
   grantsPlanCode?: string;
   grantDurationDays?: number;
-  licenseScope?: 'school' | 'teacher';
+  licenseScope?: 'individual' | 'school' | 'teacher';
   licenseSeatCount?: number;
   licenseMaxTeachers?: number;
   licenseMaxStudents?: number;

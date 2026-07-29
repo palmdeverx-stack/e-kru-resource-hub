@@ -90,6 +90,7 @@ const EMPTY_MARKETPLACE_FORM: MarketplaceLineSettingsInput = {
   isEnabled: false,
   notifyNewSeller: true,
   notifyProductApproval: true,
+  allowSellerNotifications: false,
 };
 
 function MarketplaceLineNotificationSettings() {
@@ -132,6 +133,7 @@ function MarketplaceLineNotificationSettings() {
       isEnabled: query.data.integration.isEnabled,
       notifyNewSeller: query.data.integration.notifyNewSeller,
       notifyProductApproval: query.data.integration.notifyProductApproval,
+      allowSellerNotifications: query.data.integration.allowSellerNotifications,
     });
   }, [query.data]);
 
@@ -337,6 +339,18 @@ function MarketplaceLineNotificationSettings() {
                 <Switch
                   checked={form.isEnabled}
                   onChange={(event) => setField('isEnabled', event.target.checked)}
+                />
+              }
+            />
+            <FormControlLabel
+              sx={{ mt: 1, display: 'flex' }}
+              label="อนุญาตให้ผู้ขายใช้เมนู LINE แจ้งเตือนร้านค้า"
+              control={
+                <Switch
+                  checked={form.allowSellerNotifications}
+                  onChange={(event) =>
+                    setField('allowSellerNotifications', event.target.checked)
+                  }
                 />
               }
             />

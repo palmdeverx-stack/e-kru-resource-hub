@@ -261,12 +261,13 @@ export async function deleteProduct(id: string) {
 export async function createOrder(
   items: Array<{ productId: string }>,
   paymentMethod: string,
-  licenseSchoolId?: string
+  licenseSchoolId?: string,
+  salesDealToken?: string
 ) {
   const response = await fetch('/api/marketplace/orders', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ items, paymentMethod, licenseSchoolId }),
+    body: JSON.stringify({ items, paymentMethod, licenseSchoolId, salesDealToken }),
   });
   return parseResponse<{ orders: MarketplaceOrder[]; paymentSession: MarketplacePaymentSession }>(
     response

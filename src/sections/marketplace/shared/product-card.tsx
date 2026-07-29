@@ -99,7 +99,7 @@ export function MarketplaceProductCard({
           <Chip
             size="small"
             color="primary"
-            label="e-KRU License"
+            label="E-KRU License"
             sx={{ position: 'absolute', top: 10, left: 10, fontWeight: 700 }}
           />
         )}

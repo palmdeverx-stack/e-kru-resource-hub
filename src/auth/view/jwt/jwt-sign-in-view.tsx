@@ -1,24 +1,25 @@
 'use client';
 
 import * as z from 'zod';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useBoolean } from 'minimal-shared/hooks';
 import { useMutation } from '@tanstack/react-query';
 import { zodResolver } from '@hookform/resolvers/zod';
 
 import Box from '@mui/material/Box';
-import Chip from '@mui/material/Chip';
+import Link from '@mui/material/Link';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import InputAdornment from '@mui/material/InputAdornment';
 
+import { paths } from 'src/routes/paths';
+import { RouterLink } from 'src/routes/components';
 import { useRouter, useSearchParams } from 'src/routes/hooks';
 
-import { CONFIG } from 'src/global-config';
+import { useTranslate } from 'src/locales';
 
-import { Image } from 'src/components/image';
 import { RemixIcon } from 'src/components/remix-icon';
 import { Form, Field } from 'src/components/hook-form';
 
@@ -26,6 +27,7 @@ import { useAuthContext } from '../../hooks';
 import { FormHead } from '../../components/form-head';
 import { FormDivider } from '../../components/form-divider';
 import { getErrorMessage, getHomePathForRole } from '../../utils';
+import { MarketplaceAuthBrand } from '../../components/marketplace-auth-brand';
 import { verifySignInPin, signInWithGoogle, signInWithPassword } from '../../context/jwt';
 
 // ----------------------------------------------------------------------
@@ -47,6 +49,7 @@ export const SignInSchema = z.object({
 
 export function JwtSignInView() {
   const router = useRouter();
+  const { t } = useTranslate();
   const searchParams = useSearchParams();
   const requestedReturnTo = searchParams.get('returnTo');
   const returnTo =
@@ -68,8 +71,23 @@ export function JwtSignInView() {
     pin: '',
   };
 
+  const localizedSchema = useMemo(
+    () =>
+      z.object({
+        username: z.string().min(1, { error: t('auth.validation.usernameRequired') }),
+        password: z
+          .string()
+          .min(1, { error: t('auth.validation.passwordRequired') })
+          .min(6, { error: t('auth.validation.passwordMin6') }),
+        pin: z.string().refine((value) => value === '' || /^\d{8}$/.test(value), {
+          error: t('auth.validation.pinInvalid'),
+        }),
+      }),
+    [t]
+  );
+
   const methods = useForm({
-    resolver: zodResolver(SignInSchema),
+    resolver: zodResolver(localizedSchema),
     defaultValues,
     reValidateMode: 'onBlur',
   });
@@ -106,7 +124,7 @@ export function JwtSignInView() {
   const onSubmit = handleSubmit(async (data) => {
     if (pinChallenge) {
       if (!/^\d{8}$/.test(data.pin)) {
-        methods.setError('pin', { message: 'PIN ต้องเป็นตัวเลข 8 หลัก' });
+        methods.setError('pin', { message: t('auth.validation.pinInvalid') });
         return;
       }
       verifyPinMutation.mutate({ pinChallengeToken: pinChallenge.token, pin: data.pin });
@@ -127,8 +145,8 @@ export function JwtSignInView() {
         <>
           <Field.Text
             name="username"
-            label="ชื่อผู้ใช้งาน"
-            placeholder="กรอกชื่อผู้ใช้งาน"
+            label={t('auth.fields.username')}
+            placeholder={t('auth.placeholders.username')}
             slotProps={{
               inputLabel: { shrink: true },
               input: {
@@ -144,8 +162,8 @@ export function JwtSignInView() {
           <Box sx={{ gap: 1.5, display: 'flex', flexDirection: 'column' }}>
             <Field.Text
               name="password"
-              label="รหัสผ่าน"
-              placeholder="6 ตัวอักษรขึ้นไป"
+              label={t('auth.fields.password')}
+              placeholder={t('auth.placeholders.password6')}
               type={showPassword.value ? 'text' : 'password'}
               slotProps={{
                 inputLabel: { shrink: true },
@@ -160,7 +178,11 @@ export function JwtSignInView() {
                       <IconButton
                         onClick={showPassword.onToggle}
                         edge="end"
-                        aria-label={showPassword.value ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
+                        aria-label={
+                          showPassword.value
+                            ? t('auth.accessibility.hidePassword')
+                            : t('auth.accessibility.showPassword')
+                        }
                       >
                         <RemixIcon
                           icon={showPassword.value ? 'solar:eye-bold' : 'solar:eye-closed-bold'}
@@ -192,7 +214,9 @@ export function JwtSignInView() {
         type="submit"
         variant="contained"
         loading={signInMutation.isPending || verifyPinMutation.isPending}
-        loadingIndicator={pinChallenge ? 'กำลังตรวจสอบ PIN...' : 'กำลังเข้าสู่ระบบ...'}
+        loadingIndicator={
+          pinChallenge ? t('auth.signIn.verifyingPin') : t('auth.signIn.submitting')
+        }
         sx={(theme) => ({
           mt: 1,
           py: 1.4,
@@ -206,7 +230,7 @@ export function JwtSignInView() {
           },
         })}
       >
-        {pinChallenge ? 'ยืนยัน PIN' : 'เข้าสู่ระบบ'}
+        {pinChallenge ? t('auth.signIn.verifyPin') : t('auth.signIn.submit')}
       </Button>
 
       {pinChallenge && (
@@ -218,7 +242,7 @@ export function JwtSignInView() {
             verifyPinMutation.reset();
           }}
         >
-          กลับไปกรอกชื่อผู้ใช้งาน
+          {t('auth.signIn.backToCredentials')}
         </Button>
       )}
     </Box>
@@ -226,25 +250,25 @@ export function JwtSignInView() {
 
   return (
     <Box sx={{ width: 1, color: 'text.primary' }}>
-      <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', mb: 2 }}>
-        <Image src={`${CONFIG.assetsDir}/logo/logo-tran-ver.svg`} />
-      </Box>
-
-      <Chip
-        color="primary"
-        variant="soft"
-        label="eKru Marketplace"
-        sx={{ mb: 2, fontWeight: 700 }}
-      />
+      <MarketplaceAuthBrand />
 
       <FormHead
-        title={pinChallenge ? 'ยืนยัน PIN' : 'เข้าสู่ Marketplace'}
+        title={pinChallenge ? t('auth.signIn.pinTitle') : t('auth.signIn.title')}
         description={
-          pinChallenge?.role === 'school_admin'
-            ? 'กรอกรหัสโรงเรียน 8 หลักเพื่อเข้าสู่ระบบ'
-            : pinChallenge
-              ? 'กรอก PIN ผู้ดูแลระบบ 8 หลักเพื่อเข้าสู่ระบบ'
-              : 'ซื้อและขายสื่อการสอนด้วยบัญชี eKru เดิม หรือบัญชี Marketplace ของคุณ'
+          pinChallenge?.role === 'school_admin' ? (
+            t('auth.signIn.schoolPinDescription')
+          ) : pinChallenge ? (
+            t('auth.signIn.adminPinDescription')
+          ) : (
+            <>
+              {t('auth.signIn.description')}
+              <br />
+              {t('auth.signIn.noAccount')}{' '}
+              <Link component={RouterLink} href={paths.auth.jwt.signUp} variant="subtitle2">
+                {t('auth.signIn.createAccount')}
+              </Link>
+            </>
+          )
         }
         sx={{ mt: 0.5, mb: 3, textAlign: 'left' }}
       />
@@ -261,7 +285,7 @@ export function JwtSignInView() {
 
       {!pinChallenge && (
         <>
-          <FormDivider label="หรือเข้าสู่ระบบด้วย" />
+          <FormDivider label={t('auth.signIn.divider')} />
           <Button
             fullWidth
             size="large"
@@ -272,7 +296,7 @@ export function JwtSignInView() {
             onClick={() => googleMutation.mutate()}
             sx={{ py: 1.35, bgcolor: 'background.paper' }}
           >
-            ดำเนินการต่อด้วย Google
+            {t('auth.signIn.google')}
           </Button>
         </>
       )}

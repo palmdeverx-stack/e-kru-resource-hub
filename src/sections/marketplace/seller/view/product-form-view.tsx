@@ -124,7 +124,7 @@ const initialForm = {
   grantsFeatureKeys: [] as string[],
   grantsPlanCode: '',
   grantDurationDays: '30',
-  licenseScope: 'school' as 'school' | 'teacher',
+  licenseScope: 'school' as 'individual' | 'school' | 'teacher',
   licenseSeatCount: '1',
   licenseMaxTeachers: '',
   licenseMaxStudents: '',
@@ -282,6 +282,9 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
   const selectedSubscriptionPlan = subscriptionPlans.find(
     (plan) => plan.code === form.grantsPlanCode
   );
+  const compatibleSubscriptionPlans = subscriptionPlans.filter(
+    (plan) => plan.plan_scope === (form.licenseScope === 'individual' ? 'individual' : 'school')
+  );
   const isFileOptional =
     selectedMediaType?.delivery_mode === 'service' ||
     selectedMediaType?.delivery_mode === 'feature_unlock';
@@ -361,7 +364,8 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
             label: 'กำหนดระยะเวลาของ License',
             completed: Number(form.grantDurationDays) > 0,
           },
-          ...(form.grantsFeatureKeys.length === SCHOOL_FEATURES.length
+          ...(form.licenseScope === 'school' &&
+          form.grantsFeatureKeys.length === SCHOOL_FEATURES.length
             ? [
                 {
                   label: 'กำหนด Plan Code และข้อจำกัดแพ็กเกจทั้งระบบ',
@@ -934,7 +938,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                     fullWidth
                     required
                     select
-                    label="ชนิดสินค้า"
+                    label="รูปแบบสินค้า"
                     value={form.productKind}
                     onChange={(event) => {
                       const productKind = event.target.value as 'resource' | 'license';
@@ -959,7 +963,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                   >
                     <MenuItem value="resource">สื่อการสอน / สินค้าทั่วไป</MenuItem>
                     {user?.role === 'master_admin' && (
-                      <MenuItem value="license">License / Package ระบบ e-KRU</MenuItem>
+                      <MenuItem value="license">แพ็กเกจ E-KRU / สิทธิ์ใช้งานระบบ</MenuItem>
                     )}
                   </TextField>
                 </Grid>
@@ -1039,33 +1043,33 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                       <TextField
                         fullWidth
                         select
-                        label="รูปแบบ License"
+                        label="ขอบเขต License"
                         value={form.licenseScope}
                         onChange={(event) => {
-                          const licenseScope = event.target.value as 'school' | 'teacher';
+                          const licenseScope = event.target.value as
+                            | 'individual'
+                            | 'school'
+                            | 'teacher';
                           setForm((current) => ({
                             ...current,
                             licenseScope,
+                            grantsPlanCode: '',
                             grantsFeatureKeys:
                               licenseScope === 'teacher'
                                 ? current.grantsFeatureKeys.filter((key) =>
                                     key.startsWith('teacher.')
                                   )
                                 : current.grantsFeatureKeys,
-                            ...(licenseScope === 'teacher'
-                              ? {
-                                  grantsPlanCode: '',
-                                  licenseMaxTeachers: '',
-                                  licenseMaxStudents: '',
-                                  licenseMaxSchoolAdmins: '',
-                                  licenseLineQuota: '',
-                                }
-                              : {}),
+                            licenseMaxTeachers: '',
+                            licenseMaxStudents: '',
+                            licenseMaxSchoolAdmins: '',
+                            licenseLineQuota: '',
                           }));
                         }}
                       >
+                        <MenuItem value="individual">บุคคล — ไม่ต้องสังกัดโรงเรียน</MenuItem>
                         <MenuItem value="school">ทั้งโรงเรียน</MenuItem>
-                        <MenuItem value="teacher">License รายครู</MenuItem>
+                        <MenuItem value="teacher">รายครูภายใต้โรงเรียน</MenuItem>
                       </TextField>
                     </Grid>
                     <Grid size={{ xs: 12, sm: 6 }}>
@@ -1155,7 +1159,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                         />
                       </Grid>
                     )}
-                    {form.licenseScope === 'school' && (
+                    {form.licenseScope !== 'teacher' && (
                       <Grid size={{ xs: 12 }}>
                         <TextField
                           fullWidth
@@ -1164,7 +1168,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                           value={form.grantsPlanCode}
                           disabled={subscriptionPlansLoading}
                           onChange={(event) => {
-                            const plan = subscriptionPlans.find(
+                            const plan = compatibleSubscriptionPlans.find(
                               (item) => item.code === event.target.value
                             );
                             setForm((current) =>
@@ -1201,7 +1205,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                               {form.grantsPlanCode} (ไม่พบหรือปิดใช้งานแล้ว)
                             </MenuItem>
                           )}
-                          {subscriptionPlans.map((plan) => (
+                          {compatibleSubscriptionPlans.map((plan) => (
                             <MenuItem key={plan.id} value={plan.code}>
                               {plan.name} ({plan.code})
                             </MenuItem>
@@ -1209,29 +1213,30 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                         </TextField>
                       </Grid>
                     )}
-                    {[
-                      ['licenseMaxSchoolAdmins', 'จำนวนผู้ดูแลสูงสุด'],
-                      ['licenseMaxTeachers', 'จำนวนครูสูงสุด'],
-                      ['licenseMaxStudents', 'จำนวนนักเรียนสูงสุด'],
-                      ['licenseLineQuota', 'LINE quota'],
-                    ].map(([key, label]) => (
-                      <Grid key={key} size={{ xs: 12, sm: 6 }}>
-                        <TextField
-                          fullWidth
-                          type="number"
-                          label={label}
-                          disabled={Boolean(selectedSubscriptionPlan)}
-                          value={form[key as keyof typeof form] as string}
-                          slotProps={{ htmlInput: { min: 0, step: 1 } }}
-                          onChange={(event) =>
-                            setForm((current) => ({
-                              ...current,
-                              [key]: event.target.value,
-                            }))
-                          }
-                        />
-                      </Grid>
-                    ))}
+                    {form.licenseScope === 'school' &&
+                      [
+                        ['licenseMaxSchoolAdmins', 'จำนวนผู้ดูแลสูงสุด'],
+                        ['licenseMaxTeachers', 'จำนวนครูสูงสุด'],
+                        ['licenseMaxStudents', 'จำนวนนักเรียนสูงสุด'],
+                        ['licenseLineQuota', 'LINE quota'],
+                      ].map(([key, label]) => (
+                        <Grid key={key} size={{ xs: 12, sm: 6 }}>
+                          <TextField
+                            fullWidth
+                            type="number"
+                            label={label}
+                            disabled={Boolean(selectedSubscriptionPlan)}
+                            value={form[key as keyof typeof form] as string}
+                            slotProps={{ htmlInput: { min: 0, step: 1 } }}
+                            onChange={(event) =>
+                              setForm((current) => ({
+                                ...current,
+                                [key]: event.target.value,
+                              }))
+                            }
+                          />
+                        </Grid>
+                      ))}
                   </>
                 )}
               </Grid>

@@ -47,8 +47,8 @@ export function MarketplaceLegalDocumentView({ documentType }: Props) {
   }, [documentType]);
 
   return (
-    <Box sx={{ bgcolor: 'background.neutral', py: { xs: 5, md: 9 } }}>
-      <Container maxWidth="md">
+    <Box sx={{ bgcolor: 'background.default', py: { xs: 5, md: 9 }, height: 400 }}>
+      <Container maxWidth="xl">
         {loading ? (
           <Box sx={{ minHeight: 360, display: 'grid', placeItems: 'center' }}>
             <CircularProgress />
@@ -136,4 +136,3 @@ export function MarketplaceLegalDocumentView({ documentType }: Props) {
     </Box>
   );
 }
-

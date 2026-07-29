@@ -15,7 +15,6 @@ import { languageOptions } from 'src/locales';
 import { Logo } from 'src/components/logo';
 
 import { AuthCenteredContent } from './content';
-import { SettingsButton } from '../components/settings-button';
 import { LanguagePopover } from '../components/language-popover';
 import { MainSection, LayoutSection, HeaderSection } from '../core';
 
@@ -40,7 +39,13 @@ export function AuthCenteredLayout({
   layoutQuery = 'md',
 }: AuthCenteredLayoutProps) {
   const renderHeader = () => {
-    const headerSlotProps: HeaderSectionProps['slotProps'] = { container: { maxWidth: false } };
+    const headerSlotProps: HeaderSectionProps['slotProps'] = {
+      container: {
+        maxWidth: 'xl',
+        sx: { px: { xs: 1.5, sm: 3 } },
+      },
+    };
+    const customHeaderSlots = slotProps?.header?.slots;
 
     const headerSlots: HeaderSectionProps['slots'] = {
       topArea: (
@@ -51,15 +56,24 @@ export function AuthCenteredLayout({
       leftArea: (
         <>
           {/** @slot Logo */}
-          <Logo />
+          {customHeaderSlots?.leftArea ?? <Logo />}
         </>
       ),
       rightArea: (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 1.5 } }}>
-          <LanguagePopover showTranslateIcon data={languageOptions} />
+        <Box
+          sx={{ display: 'flex', flexShrink: 0, alignItems: 'center', gap: { xs: 0.25, sm: 0.5 } }}
+        >
+          <LanguagePopover
+            showTranslateIcon
+            data={languageOptions}
+            sx={{ width: { xs: 36, sm: 40 }, height: { xs: 36, sm: 40 } }}
+          />
 
           {/** @slot Settings button */}
-          <SettingsButton />
+          {/* <SettingsButton
+            aria-label="ตั้งค่าการแสดงผล"
+            sx={{ width: { xs: 36, sm: 40 }, height: { xs: 36, sm: 40 } }}
+          /> */}
         </Box>
       ),
     };
@@ -69,10 +83,10 @@ export function AuthCenteredLayout({
         disableElevation
         layoutQuery={layoutQuery}
         {...slotProps?.header}
-        slots={{ ...headerSlots, ...slotProps?.header?.slots }}
+        slots={{ ...headerSlots, ...customHeaderSlots, leftArea: headerSlots.leftArea }}
         slotProps={merge(headerSlotProps, slotProps?.header?.slotProps ?? {})}
         sx={[
-          { position: { [layoutQuery]: 'fixed' } },
+          { position: { [layoutQuery]: 'fixed' }, color: 'text.primary' },
           ...(Array.isArray(slotProps?.header?.sx) ? slotProps.header.sx : [slotProps?.header?.sx]),
         ]}
       />

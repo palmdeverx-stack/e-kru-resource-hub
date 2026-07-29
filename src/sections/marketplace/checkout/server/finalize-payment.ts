@@ -27,6 +27,13 @@ export async function finalizeMarketplacePayment(input: FinalizeInput) {
   const orders = (session.orders ?? []) as Array<Record<string, unknown>>;
   if (session.status === 'verified') {
     await grantFeatureEntitlementsForOrders(orders.map((order) => String(order.id)));
+    const salesDealIds = orders.map((order) => String(order.sales_deal_id ?? '')).filter(Boolean);
+    if (salesDealIds.length) {
+      await supabaseAdmin
+        .from('marketplace_sales_deals')
+        .update({ status: 'active', updated_at: new Date().toISOString() })
+        .in('id', salesDealIds);
+    }
     return { alreadyProcessed: true, availableAt: session.reviewed_at };
   }
   if (!input.allowedStatuses.includes(session.status)) {
@@ -118,29 +125,44 @@ export async function finalizeMarketplacePayment(input: FinalizeInput) {
   // Payment remains verified if entitlement creation fails, while the thrown
   // error makes Stripe/admin retry the idempotent reconciliation path.
   const licenses = await grantFeatureEntitlementsForOrders(orders.map((order) => String(order.id)));
+  const salesDealIds = orders.map((order) => String(order.sales_deal_id ?? '')).filter(Boolean);
+  if (salesDealIds.length) {
+    await supabaseAdmin
+      .from('marketplace_sales_deals')
+      .update({ status: 'active', updated_at: now.toISOString() })
+      .in('id', salesDealIds);
+  }
 
   if (licenses.length) {
-    const schoolIds = [...new Set(licenses.map((license) => String(license.school_id)))];
-    const [{ data: schoolAdmins }, { data: marketplaceAdmins }] = await Promise.all([
-      supabaseAdmin
-        .from('app_users')
-        .select('id,school_id')
-        .eq('role', 'school_admin')
-        .in('school_id', schoolIds)
-        .eq('is_active', true),
-      supabaseAdmin
-        .from('app_users')
-        .select('id,school_id')
-        .eq('role', 'master_admin')
-        .eq('is_active', true),
-    ]);
+    const schoolIds = [
+      ...new Set(licenses.map((license) => String(license.school_id ?? '')).filter(Boolean)),
+    ];
+    const schoolAdmins = schoolIds.length
+      ? (
+          await supabaseAdmin
+            .from('app_users')
+            .select('id,school_id')
+            .eq('role', 'school_admin')
+            .in('school_id', schoolIds)
+            .eq('is_active', true)
+        ).data
+      : [];
+    const { data: marketplaceAdmins } = await supabaseAdmin
+      .from('app_users')
+      .select('id,school_id')
+      .eq('role', 'master_admin')
+      .eq('is_active', true);
     const recipients = [...(schoolAdmins ?? []), ...(marketplaceAdmins ?? [])];
     await createNotifications(
       recipients.map((recipient) => ({
         userId: recipient.id,
         schoolId: recipient.school_id,
-        type: 'marketplace_school_license_created',
-        title: 'เปิดใช้งาน License โรงเรียนแล้ว',
+        type: schoolIds.length
+          ? 'marketplace_school_license_created'
+          : 'marketplace_user_license_created',
+        title: schoolIds.length
+          ? 'เปิดใช้งาน License โรงเรียนแล้ว'
+          : 'เปิดใช้งาน License บุคคลแล้ว',
         body: `สร้าง License ${licenses.length} รายการจากคำสั่งซื้อที่ชำระสำเร็จ`,
         link: '/dashboard/licenses',
       }))

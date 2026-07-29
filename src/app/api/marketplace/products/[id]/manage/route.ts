@@ -242,7 +242,7 @@ export async function PATCH(request: Request, { params }: Context) {
   }
   if (body.licenseScope !== undefined) {
     const licenseScope = String(body.licenseScope);
-    if (!['school', 'teacher'].includes(licenseScope)) {
+    if (!['individual', 'school', 'teacher'].includes(licenseScope)) {
       return NextResponse.json({ message: 'รูปแบบ License ไม่ถูกต้อง' }, { status: 400 });
     }
     update.license_scope = licenseScope;
@@ -290,16 +290,17 @@ export async function PATCH(request: Request, { params }: Context) {
         { status: 403 }
       );
     }
-    if (String(body.licenseScope ?? 'school') !== 'school') {
+    const licenseScope = String(body.licenseScope ?? 'school');
+    if (licenseScope === 'teacher') {
       return NextResponse.json(
-        { message: 'แพ็กเกจ eKru รองรับ License แบบทั้งโรงเรียนเท่านั้น' },
+        { message: 'แพ็กเกจ eKru ไม่รองรับ License แบบ Seat รายครู' },
         { status: 400 }
       );
     }
     const { data: plan, error: planError } = await supabaseAdmin
       .from('subscription_plans')
       .select(
-        'code,billing_cycle,max_school_admins,max_teachers,max_students,max_line_notifications,enabled_features'
+        'code,plan_scope,billing_cycle,max_school_admins,max_teachers,max_students,max_line_notifications,enabled_features'
       )
       .eq('code', requestedPlanCode)
       .eq('is_active', true)
@@ -308,6 +309,18 @@ export async function PATCH(request: Request, { params }: Context) {
       return NextResponse.json(
         { message: planError?.message ?? 'ไม่พบแพ็กเกจ eKru ที่เปิดใช้งาน' },
         { status: planError ? 500 : 400 }
+      );
+    }
+    const expectedPlanScope = licenseScope === 'individual' ? 'individual' : 'school';
+    if (plan.plan_scope !== expectedPlanScope) {
+      return NextResponse.json(
+        {
+          message:
+            expectedPlanScope === 'individual'
+              ? 'แพ็กเกจนี้สำหรับโรงเรียน ไม่สามารถขายเป็นสิทธิ์บุคคลได้'
+              : 'แพ็กเกจนี้สำหรับบุคคล ไม่สามารถขายให้โรงเรียนได้',
+        },
+        { status: 400 }
       );
     }
     update.grants_plan_code = plan.code;
@@ -450,7 +463,8 @@ export async function PATCH(request: Request, { params }: Context) {
       if (product.license_scope === 'teacher' && !(Number(product.license_seat_count) > 0)) {
         return NextResponse.json({ message: 'กรุณาระบุจำนวน Seat ครู' }, { status: 400 });
       }
-      const isFullSystem = featureKeys.length === ALL_SCHOOL_FEATURE_KEYS.length;
+      const isFullSystem =
+        product.license_scope === 'school' && featureKeys.length === ALL_SCHOOL_FEATURE_KEYS.length;
       if (
         isFullSystem &&
         (!product.grants_plan_code ||

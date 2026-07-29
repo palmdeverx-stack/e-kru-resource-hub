@@ -9,7 +9,7 @@ import { parsePlanPayload } from '../plan-payload';
 
 type RouteParams = { params: Promise<{ id: string }> };
 const PLAN_FIELDS =
-  'id, code, name, description, billing_cycle, price, currency, max_school_admins, max_teachers, max_students, max_line_notifications, enabled_features, is_active, sort_order, created_at, updated_at';
+  'id, code, name, description, plan_scope, billing_cycle, price, currency, max_school_admins, max_teachers, max_students, max_line_notifications, enabled_features, is_active, sort_order, created_at, updated_at';
 
 export async function PATCH(request: Request, { params }: RouteParams) {
   const caller = requireRole(request, ['master_admin']);

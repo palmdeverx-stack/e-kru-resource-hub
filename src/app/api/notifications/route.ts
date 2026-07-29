@@ -18,13 +18,16 @@ export async function GET(request: Request) {
     return NextResponse.json({ message: 'ไม่มีสิทธิ์เข้าถึง' }, { status: 403 });
   }
 
-  const { data, error } = await supabaseAdmin
+  const marketplaceOnly = new URL(request.url).searchParams.get('scope') === 'marketplace';
+  let query = supabaseAdmin
     .from('notifications')
     .select('id, type, title, body, link, read_at, created_at')
     .eq('user_id', caller.sub)
     .order('created_at', { ascending: false })
     .limit(30);
+  if (marketplaceOnly) query = query.like('type', 'marketplace_%');
 
+  const { data, error } = await query;
   if (error) {
     return NextResponse.json({ message: error.message }, { status: 500 });
   }

@@ -15,7 +15,7 @@ type OrderItemRow = {
     grants_feature_keys: string[] | null;
     grants_plan_code: string | null;
     grant_duration_days: number | null;
-    license_scope: 'school' | 'teacher' | null;
+    license_scope: 'individual' | 'school' | 'teacher' | null;
     license_seat_count: number | null;
     license_max_teachers: number | null;
     license_max_students: number | null;
@@ -52,9 +52,6 @@ export async function grantFeatureEntitlementsForOrders(orderIds: string[]) {
   const licenses = [];
   for (const item of featureItems) {
     const product = item.product!;
-    const schoolId = item.order?.license_school_id;
-    if (!schoolId) throw new Error(`ไม่พบโรงเรียนของผู้ซื้อในคำสั่งซื้อ ${item.order_id}`);
-
     const featureKeys = [
       ...new Set(
         product.grants_feature_keys?.length
@@ -65,6 +62,67 @@ export async function grantFeatureEntitlementsForOrders(orderIds: string[]) {
       ),
     ] as SchoolFeatureKey[];
     const startsAt = new Date();
+
+    if (product.license_scope === 'individual') {
+      const buyerId = item.order?.buyer_id;
+      if (!buyerId) throw new Error(`ไม่พบผู้ซื้อในคำสั่งซื้อ ${item.order_id}`);
+
+      const { data: previousLicense } = await supabaseAdmin
+        .from('marketplace_user_licenses')
+        .select('id,expires_at')
+        .eq('buyer_id', buyerId)
+        .eq('product_id', product.id)
+        .eq('status', 'active')
+        .order('expires_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const expiryBase =
+        previousLicense?.expires_at && new Date(previousLicense.expires_at) > startsAt
+          ? new Date(previousLicense.expires_at)
+          : startsAt;
+      const expiresAt = new Date(
+        expiryBase.getTime() + Number(product.grant_duration_days) * 24 * 60 * 60 * 1000
+      ).toISOString();
+      const { data: existingLicense, error: existingError } = await supabaseAdmin
+        .from('marketplace_user_licenses')
+        .select('*')
+        .eq('order_item_id', item.id)
+        .maybeSingle();
+      if (existingError) throw existingError;
+      let license = existingLicense;
+
+      if (!license) {
+        const inserted = await supabaseAdmin
+          .from('marketplace_user_licenses')
+          .insert({
+            buyer_id: buyerId,
+            product_id: product.id,
+            order_id: item.order_id,
+            order_item_id: item.id,
+            feature_keys: featureKeys,
+            grants_plan_code: product.grants_plan_code,
+            duration_days: product.grant_duration_days,
+            renewed_from_license_id: previousLicense?.id ?? null,
+            starts_at: startsAt.toISOString(),
+            expires_at: expiresAt,
+          })
+          .select('*')
+          .single();
+        if (inserted.error) throw inserted.error;
+        license = inserted.data;
+        await supabaseAdmin.from('marketplace_user_license_events').insert({
+          license_id: license.id,
+          event_type: previousLicense ? 'renewed' : 'created',
+          order_id: item.order_id,
+        });
+      }
+      licenses.push(license);
+      continue;
+    }
+
+    const schoolId = item.order?.license_school_id;
+    if (!schoolId) throw new Error(`ไม่พบโรงเรียนของผู้ซื้อในคำสั่งซื้อ ${item.order_id}`);
+
     const { data: previousLicense } = await supabaseAdmin
       .from('marketplace_school_licenses')
       .select('id,expires_at')

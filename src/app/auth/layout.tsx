@@ -12,7 +12,7 @@ export default function Layout({ children }: Props) {
       slotProps={{
         header: {
           slots: {
-            leftArea: <MarketplaceBrand />,
+            leftArea: <MarketplaceBrand compact />,
           },
         },
       }}

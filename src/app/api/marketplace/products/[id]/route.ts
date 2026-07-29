@@ -4,6 +4,7 @@ import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { requireAuthenticated } from 'src/lib/auth-token';
 
 import { withMediaUrls } from 'src/sections/marketplace/seller/server/product-media';
+import { getEligibleLicenseSchools } from 'src/sections/marketplace/checkout/server/school-targets';
 import {
   getProductEngagement,
   getProductPurchaseAccess,
@@ -30,13 +31,19 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   const publicProduct = (await withMediaUrls(product)) as Record<string, unknown>;
   delete publicProduct.file_url;
+  const eligibleSchools =
+    caller && product.resource_type === 'feature_unlock' && product.license_scope !== 'individual'
+      ? await getEligibleLicenseSchools(caller)
+      : [];
   const [engagement, purchaseAccess] = await Promise.all([
     getProductEngagement(id, caller?.sub),
     getProductPurchaseAccess({
       productId: id,
       buyerId: caller?.sub,
       schoolId: caller?.schoolId,
+      schoolIds: eligibleSchools.map((school) => school.id),
       resourceType: product.resource_type,
+      licenseScope: product.license_scope,
     }),
   ]);
   publicProduct.engagement = engagement;

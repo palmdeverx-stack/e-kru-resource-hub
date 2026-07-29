@@ -27,21 +27,30 @@ type AppNotification = {
   created_at: string;
 };
 
-async function fetchNotifications(): Promise<{
+type NotificationsScope = 'all' | 'marketplace';
+
+async function fetchNotifications(scope: NotificationsScope): Promise<{
   notifications: AppNotification[];
   unreadCount: number;
 }> {
-  const response = await fetch('/api/notifications');
+  const response = await fetch(
+    scope === 'marketplace' ? '/api/notifications?scope=marketplace' : '/api/notifications'
+  );
   if (!response.ok) return { notifications: [], unreadCount: 0 };
   return response.json();
 }
 
-async function markRead(ids?: string[]) {
-  await fetch('/api/notifications/mark-read', {
+async function markRead(scope: NotificationsScope, ids?: string[]) {
+  await fetch(
+    scope === 'marketplace'
+      ? '/api/notifications/mark-read?scope=marketplace'
+      : '/api/notifications/mark-read',
+    {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ids }),
-  });
+    }
+  );
 }
 
 function timeAgo(iso: string): string {
@@ -54,14 +63,18 @@ function timeAgo(iso: string): string {
   return `${Math.floor(hours / 24)} วันที่แล้ว`;
 }
 
-export function NotificationsMenu() {
+type NotificationsMenuProps = {
+  scope?: NotificationsScope;
+};
+
+export function NotificationsMenu({ scope = 'all' }: NotificationsMenuProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
 
   const { data } = useQuery({
-    queryKey: ['notifications'],
-    queryFn: fetchNotifications,
+    queryKey: ['notifications', scope],
+    queryFn: () => fetchNotifications(scope),
     refetchInterval: 30_000,
   });
 
@@ -69,13 +82,13 @@ export function NotificationsMenu() {
   const unreadCount = data?.unreadCount ?? 0;
 
   const markAllReadMutation = useMutation({
-    mutationFn: () => markRead(),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+    mutationFn: () => markRead(scope),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications', scope] }),
   });
 
   const markOneReadMutation = useMutation({
-    mutationFn: (id: string) => markRead([id]),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+    mutationFn: (id: string) => markRead(scope, [id]),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications', scope] }),
   });
 
   const handleClick = (notification: AppNotification) => {

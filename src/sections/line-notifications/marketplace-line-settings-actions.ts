@@ -9,6 +9,7 @@ export type MarketplaceLineSettings = {
     hasAccessToken: boolean;
     notifyNewSeller: boolean;
     notifyProductApproval: boolean;
+    allowSellerNotifications: boolean;
     lineDisplayName: string | null;
     lineLinkedAt: string | null;
   };
@@ -44,6 +45,7 @@ export type MarketplaceLineSettingsInput = {
   isEnabled: boolean;
   notifyNewSeller: boolean;
   notifyProductApproval: boolean;
+  allowSellerNotifications: boolean;
 };
 
 async function parse<T>(response: Response, fallback: string): Promise<T> {

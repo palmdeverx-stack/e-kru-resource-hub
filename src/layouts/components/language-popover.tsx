@@ -9,6 +9,7 @@ import { usePopover } from 'minimal-shared/hooks';
 
 import MenuList from '@mui/material/MenuList';
 import MenuItem from '@mui/material/MenuItem';
+import { useTheme } from '@mui/material/styles';
 import IconButton from '@mui/material/IconButton';
 
 import { useTranslate } from 'src/locales';
@@ -35,6 +36,7 @@ export function LanguagePopover({
   showTranslateIcon = false,
   ...other
 }: LanguagePopoverProps) {
+  const theme = useTheme();
   const { open, anchorEl, onClose, onOpen } = usePopover();
 
   const { t, onChangeLang, currentLang } = useTranslate();
@@ -75,7 +77,7 @@ export function LanguagePopover({
         aria-label={t('language.select', { defaultValue: 'เลือกภาษา' })}
         onClick={onOpen}
         sx={[
-          (theme) => ({
+          () => ({
             p: 0,
             width: 40,
             height: 40,
@@ -86,7 +88,7 @@ export function LanguagePopover({
         {...other}
       >
         {showTranslateIcon ? (
-          <RiTranslate2 aria-hidden="true" size={22} />
+          <RiTranslate2 aria-hidden="true" size={22} color={theme.palette.text.primary} />
         ) : (
           <FlagIcon code={currentLang.countryCode} />
         )}

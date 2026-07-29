@@ -281,6 +281,7 @@ create table if not exists public.marketplace_line_settings (
   is_enabled boolean not null default false,
   notify_new_seller boolean not null default true,
   notify_product_approval boolean not null default true,
+  allow_seller_notifications boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -543,9 +544,12 @@ alter table public.marketplace_products
   add column if not exists grants_feature_key text;
 alter table public.marketplace_products
   add column if not exists grant_duration_days integer;
+alter table public.subscription_plans
+  add column if not exists plan_scope text not null default 'school'
+    check (plan_scope in ('school', 'individual'));
 alter table public.marketplace_products
   add column if not exists license_scope text not null default 'school'
-    check (license_scope in ('school', 'teacher'));
+    check (license_scope in ('individual', 'school', 'teacher'));
 alter table public.marketplace_products
   add column if not exists license_seat_count integer not null default 1
     check (license_seat_count > 0);
@@ -758,6 +762,43 @@ create index if not exists marketplace_school_licenses_school_idx
   on public.marketplace_school_licenses (school_id, expires_at desc);
 create index if not exists marketplace_school_licenses_features_idx
   on public.marketplace_school_licenses using gin (feature_keys);
+
+create table if not exists public.marketplace_user_licenses (
+  id uuid primary key default gen_random_uuid(),
+  buyer_id uuid not null,
+  product_id uuid not null references public.marketplace_products(id) on delete restrict,
+  order_id uuid not null references public.marketplace_orders(id) on delete restrict,
+  order_item_id uuid not null unique references public.marketplace_order_items(id) on delete restrict,
+  feature_keys text[] not null default '{}',
+  grants_plan_code text,
+  duration_days integer not null check (duration_days > 0),
+  starts_at timestamptz not null default now(),
+  expires_at timestamptz not null,
+  status text not null default 'active'
+    check (status in ('active', 'renewed', 'expired', 'revoked', 'refunded')),
+  revoked_at timestamptz,
+  revoke_reason text,
+  renewed_from_license_id uuid
+    references public.marketplace_user_licenses(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists marketplace_user_licenses_buyer_idx
+  on public.marketplace_user_licenses (buyer_id, expires_at desc);
+create index if not exists marketplace_user_licenses_features_idx
+  on public.marketplace_user_licenses using gin (feature_keys);
+
+create table if not exists public.marketplace_user_license_events (
+  id uuid primary key default gen_random_uuid(),
+  license_id uuid not null references public.marketplace_user_licenses(id) on delete restrict,
+  event_type text not null
+    check (event_type in ('created', 'renewed', 'expired', 'revoked', 'refunded')),
+  order_id uuid references public.marketplace_orders(id) on delete set null,
+  payment_session_id uuid,
+  reason text,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
 
 create table if not exists public.marketplace_school_license_events (
   id uuid primary key default gen_random_uuid(),
@@ -1133,8 +1174,58 @@ alter table public.marketplace_product_reviews enable row level security;
 alter table public.marketplace_product_downloads enable row level security;
 alter table public.marketplace_product_collections enable row level security;
 alter table public.marketplace_school_licenses enable row level security;
+alter table public.marketplace_user_licenses enable row level security;
+alter table public.marketplace_user_license_events enable row level security;
 alter table public.marketplace_teacher_license_assignments enable row level security;
 alter table public.school_feature_purchases enable row level security;
+
+create table if not exists public.marketplace_sales_deals (
+  id uuid primary key default gen_random_uuid(),
+  public_token uuid not null unique default gen_random_uuid(),
+  seller_id uuid not null references public.marketplace_sellers(id) on delete restrict,
+  product_id uuid not null references public.marketplace_products(id) on delete restrict,
+  school_id uuid references public.schools(id) on delete restrict,
+  school_name text not null,
+  school_code text,
+  school_email text not null,
+  contact_name text not null,
+  contact_position text,
+  contact_phone text,
+  quantity integer not null default 1 check (quantity > 0),
+  list_price numeric(12,2) not null check (list_price >= 0),
+  discount_amount numeric(12,2) not null default 0 check (discount_amount >= 0),
+  negotiated_price numeric(12,2) not null check (negotiated_price >= 0),
+  terms_snapshot text not null,
+  expires_at timestamptz not null,
+  status text not null default 'draft',
+  accepted_by uuid,
+  accepted_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create table if not exists public.marketplace_contract_signatures (
+  id uuid primary key default gen_random_uuid(),
+  sales_deal_id uuid not null unique
+    references public.marketplace_sales_deals(id) on delete restrict,
+  signer_user_id uuid not null,
+  signer_name text not null,
+  signer_position text,
+  signer_email text,
+  terms_accepted boolean not null,
+  authority_confirmed boolean not null,
+  pdpa_accepted boolean not null,
+  signed_ip inet,
+  signed_user_agent text,
+  signed_at timestamptz not null default now()
+);
+alter table public.marketplace_orders
+  add column if not exists sales_deal_id uuid
+    references public.marketplace_sales_deals(id) on delete set null;
+create unique index if not exists marketplace_orders_sales_deal_key
+  on public.marketplace_orders (sales_deal_id)
+  where sales_deal_id is not null;
+alter table public.marketplace_sales_deals enable row level security;
+alter table public.marketplace_contract_signatures enable row level security;
 
 -- Application APIs use the server-only service role. No anonymous table writes
 -- are allowed; public product reads are intentionally exposed through the API.

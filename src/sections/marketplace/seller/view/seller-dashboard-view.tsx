@@ -187,7 +187,7 @@ export function MarketplaceSellerDashboardView() {
                 <Chip color="success" size="medium" label="เปิดขายแล้ว" />
               </Stack>
               <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-                {seller.bio || 'ร้านค้าบน eKru Marketplace'}
+                {seller.bio || 'ร้านค้าบน E-KRU Marketplace'}
               </Typography>
             </Box>
             <Stack direction="row" spacing={1}>

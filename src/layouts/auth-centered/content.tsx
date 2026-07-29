@@ -23,15 +23,17 @@ export function AuthCenteredContent({
       className={mergeClasses([layoutClasses.content, className])}
       sx={[
         (theme) => ({
-          py: 5,
-          px: 3,
+          py: { xs: 3, sm: 4 },
+          px: { xs: 2.5, sm: 4 },
           width: 1,
           zIndex: 2,
-          borderRadius: 2,
+          border: `1px solid ${theme.vars.palette.divider}`,
+          borderRadius: 3,
           display: 'flex',
           flexDirection: 'column',
           maxWidth: 'var(--layout-auth-content-width)',
           bgcolor: theme.vars.palette.background.default,
+          boxShadow: theme.customShadows.z16,
         }),
         ...(Array.isArray(sx) ? sx : [sx]),
       ]}

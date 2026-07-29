@@ -68,6 +68,37 @@ export async function revokeSchoolLicense(
   return license;
 }
 
+export async function revokeUserLicense(
+  licenseId: string,
+  status: 'refunded' | 'revoked',
+  reason: string,
+  paymentSessionId?: string
+) {
+  const { data: license, error } = await supabaseAdmin
+    .from('marketplace_user_licenses')
+    .select('*')
+    .eq('id', licenseId)
+    .eq('status', 'active')
+    .maybeSingle();
+  if (error) throw error;
+  if (!license) return null;
+
+  const now = new Date().toISOString();
+  await supabaseAdmin
+    .from('marketplace_user_licenses')
+    .update({ status, revoked_at: now, revoke_reason: reason, updated_at: now })
+    .eq('id', license.id)
+    .eq('status', 'active');
+  await supabaseAdmin.from('marketplace_user_license_events').insert({
+    license_id: license.id,
+    event_type: status,
+    order_id: license.order_id,
+    payment_session_id: paymentSessionId ?? null,
+    reason,
+  });
+  return license;
+}
+
 export async function revokeLicensesForPaymentSession(
   paymentSessionId: string,
   status: 'refunded' | 'revoked',
@@ -87,10 +118,17 @@ export async function revokeLicensesForPaymentSession(
     .in('order_id', orderIds)
     .eq('status', 'active');
   if (licenseError) throw licenseError;
-  if (!licenses?.length) return [];
-
-  for (const license of licenses) {
+  for (const license of licenses ?? []) {
     await revokeSchoolLicense(license.id, status, reason, paymentSessionId);
   }
-  return licenses;
+  const { data: userLicenses, error: userLicenseError } = await supabaseAdmin
+    .from('marketplace_user_licenses')
+    .select('*')
+    .in('order_id', orderIds)
+    .eq('status', 'active');
+  if (userLicenseError) throw userLicenseError;
+  for (const license of userLicenses ?? []) {
+    await revokeUserLicense(license.id, status, reason, paymentSessionId);
+  }
+  return [...(licenses ?? []), ...(userLicenses ?? [])];
 }

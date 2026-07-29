@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -40,6 +41,7 @@ import {
 
 export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMode?: boolean }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { currentLang } = useTranslate();
   const { authenticated, loading } = useAuthContext();
   const { items, subtotal, clearCart } = useMarketplaceCart();
@@ -52,7 +54,15 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
   const [error, setError] = useState('');
   const [schools, setSchools] = useState<Array<{ id: string; name: string }>>([]);
   const [licenseSchoolId, setLicenseSchoolId] = useState('');
-  const hasLicenseProduct = items.some((item) => item.product.resource_type === 'feature_unlock');
+  const salesDealToken = searchParams.get('dealToken') ?? '';
+  const hasIndividualLicense = items.some(
+    (item) =>
+      item.product.resource_type === 'feature_unlock' && item.product.license_scope === 'individual'
+  );
+  const hasSchoolLicense = items.some(
+    (item) =>
+      item.product.resource_type === 'feature_unlock' && item.product.license_scope !== 'individual'
+  );
   const productsHref = dashboardMode
     ? paths.marketplace.dashboardProducts
     : paths.marketplace.products;
@@ -78,7 +88,7 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
   }, []);
 
   useEffect(() => {
-    if (!authenticated || !hasLicenseProduct) return;
+    if (!authenticated || !hasSchoolLicense || salesDealToken) return;
     getEligibleLicenseSchools()
       .then(({ schools: result }) => {
         setSchools(result);
@@ -87,7 +97,7 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
       .catch((schoolError) =>
         setError(schoolError instanceof Error ? schoolError.message : 'โหลดโรงเรียนไม่สำเร็จ')
       );
-  }, [authenticated, hasLicenseProduct]);
+  }, [authenticated, hasSchoolLicense, salesDealToken]);
 
   const submitOrder = async () => {
     setSubmitting(true);
@@ -103,7 +113,8 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
       const result = await createOrder(
         items.map((item) => ({ productId: item.product.id })),
         paymentMethod,
-        hasLicenseProduct ? licenseSchoolId : undefined
+        hasSchoolLicense ? licenseSchoolId : undefined,
+        salesDealToken || undefined
       );
       clearCart();
       if (result.paymentSession.payment_method === 'free') {
@@ -188,7 +199,19 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
 
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} alignItems="flex-start">
         <Stack spacing={3} sx={{ flex: 1, width: 1 }}>
-          {hasLicenseProduct && (
+          {hasIndividualLicense && (
+            <Alert severity="success" icon={<RiShieldCheckLine />}>
+              License แบบบุคคลจะผูกกับบัญชีนี้โดยตรง ไม่ต้องเลือกโรงเรียน
+            </Alert>
+          )}
+
+          {hasSchoolLicense && salesDealToken && (
+            <Alert severity="success" icon={<RiShieldCheckLine />}>
+              โรงเรียนปลายทางและราคาถูกกำหนดจากข้อเสนอขายที่ลงนามแล้ว
+            </Alert>
+          )}
+
+          {hasSchoolLicense && !salesDealToken && (
             <Card sx={{ p: 3 }}>
               <Typography variant="h5">โรงเรียนที่จะรับ License</Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 2 }}>
@@ -290,7 +313,7 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
             loading={submitting}
             disabled={
               !availableMethods[paymentMethod as keyof typeof availableMethods] ||
-              (hasLicenseProduct && !licenseSchoolId)
+              (hasSchoolLicense && !salesDealToken && !licenseSchoolId)
             }
             onClick={submitOrder}
           >

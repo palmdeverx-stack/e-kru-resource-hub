@@ -353,9 +353,15 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                             <Button
                               size="small"
                               component={RouterLink}
-                              href={paths.marketplace.licenses}
+                              href={
+                                product?.license_scope === 'individual'
+                                  ? paths.marketplace.personalEntitlements
+                                  : paths.marketplace.licenses
+                              }
                             >
-                              จัดการ License
+                              {product?.license_scope === 'individual'
+                                ? 'ดูสิทธิ์ของฉัน'
+                                : 'จัดการ License'}
                             </Button>
                           </Stack>
                         )}

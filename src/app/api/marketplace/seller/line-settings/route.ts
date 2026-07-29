@@ -25,11 +25,32 @@ async function findSeller(caller: Caller) {
   return result.data;
 }
 
+async function sellerLineAllowed(caller: Caller) {
+  if (caller.role === 'master_admin') return true;
+  const { data, error } = await supabaseAdmin
+    .from('marketplace_line_settings')
+    .select('allow_seller_notifications')
+    .eq('id', 'default')
+    .maybeSingle();
+  if (error) throw error;
+  return data?.allow_seller_notifications === true;
+}
+
 export async function GET(request: Request) {
   const caller = requireAuthenticated(request);
   if (!caller) return NextResponse.json({ message: 'กรุณาเข้าสู่ระบบ' }, { status: 401 });
 
   try {
+    const allowed = await sellerLineAllowed(caller);
+    if (new URL(request.url).searchParams.get('access') === '1') {
+      return NextResponse.json({ allowed });
+    }
+    if (!allowed) {
+      return NextResponse.json(
+        { message: 'Super Admin ยังไม่อนุญาตให้ใช้ LINE แจ้งเตือนร้านค้า' },
+        { status: 403 }
+      );
+    }
     const seller = await findSeller(caller);
     if (!seller) return NextResponse.json({ message: 'กรุณาสมัครเปิดร้านก่อน' }, { status: 404 });
 
@@ -75,6 +96,12 @@ export async function PATCH(request: Request) {
   const body = await request.json().catch(() => null);
 
   try {
+    if (!(await sellerLineAllowed(caller))) {
+      return NextResponse.json(
+        { message: 'Super Admin ยังไม่อนุญาตให้ใช้ LINE แจ้งเตือนร้านค้า' },
+        { status: 403 }
+      );
+    }
     const seller = await findSeller(caller);
     if (!seller) return NextResponse.json({ message: 'กรุณาสมัครเปิดร้านก่อน' }, { status: 404 });
 
@@ -140,6 +167,12 @@ export async function POST(request: Request) {
   }
 
   try {
+    if (!(await sellerLineAllowed(caller))) {
+      return NextResponse.json(
+        { message: 'Super Admin ยังไม่อนุญาตให้ใช้ LINE แจ้งเตือนร้านค้า' },
+        { status: 403 }
+      );
+    }
     const seller = await findSeller(caller);
     if (!seller) return NextResponse.json({ message: 'กรุณาสมัครเปิดร้านก่อน' }, { status: 404 });
     const { data: settings } = await supabaseAdmin

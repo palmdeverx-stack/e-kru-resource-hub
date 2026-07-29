@@ -19,6 +19,7 @@ export async function POST(request: Request) {
   }
 
   const { ids } = (await request.json().catch(() => ({}))) as { ids?: string[] };
+  const marketplaceOnly = new URL(request.url).searchParams.get('scope') === 'marketplace';
 
   let query = supabaseAdmin
     .from('notifications')
@@ -26,6 +27,9 @@ export async function POST(request: Request) {
     .eq('user_id', caller.sub)
     .is('read_at', null);
 
+  if (marketplaceOnly) {
+    query = query.like('type', 'marketplace_%');
+  }
   if (Array.isArray(ids) && ids.length) {
     query = query.in('id', ids);
   }

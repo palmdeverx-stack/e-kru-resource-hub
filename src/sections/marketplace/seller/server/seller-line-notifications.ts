@@ -49,15 +49,23 @@ function formatBaht(value: number) {
 }
 
 export async function notifySellerPaymentReceived(input: PaymentNotificationInput) {
-  const { data: settings } = await supabaseAdmin
-    .from('marketplace_seller_line_settings')
-    .select(
-      'is_enabled, notify_payment_received, channel_access_token_encrypted, line_user_id'
-    )
-    .eq('seller_id', input.sellerId)
-    .maybeSingle();
+  const [{ data: access }, { data: settings }] = await Promise.all([
+    supabaseAdmin
+      .from('marketplace_line_settings')
+      .select('allow_seller_notifications')
+      .eq('id', 'default')
+      .maybeSingle(),
+    supabaseAdmin
+      .from('marketplace_seller_line_settings')
+      .select(
+        'is_enabled, notify_payment_received, channel_access_token_encrypted, line_user_id'
+      )
+      .eq('seller_id', input.sellerId)
+      .maybeSingle(),
+  ]);
 
   if (
+    !access?.allow_seller_notifications ||
     !settings?.is_enabled ||
     !settings.notify_payment_received ||
     !settings.channel_access_token_encrypted ||

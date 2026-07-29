@@ -651,7 +651,7 @@ export function MarketplaceProductDetailView({
                   label: 'สิทธิ์การใช้งาน',
                   value:
                     product.resource_type === 'feature_unlock'
-                      ? `${product.license_scope === 'teacher' ? 'License รายครู' : 'License โรงเรียน'} · ${
+                      ? `${product.license_scope === 'individual' ? 'License บุคคล' : product.license_scope === 'teacher' ? 'License รายครู' : 'License โรงเรียน'} · ${
                           product.grant_duration_days ?? 30
                         } วัน`
                       : 'สิทธิ์ใช้งานต่อรายการสั่งซื้อ',
@@ -1348,9 +1348,11 @@ export function MarketplaceProductDetailView({
             {product.resource_type === 'feature_unlock' && (
               <Alert severity="info" icon={<RiShieldCheckLine />}>
                 <Typography variant="subtitle2">
-                  {product.license_scope === 'teacher'
-                    ? `License สำหรับครู ${product.license_seat_count ?? 1} Seat`
-                    : 'License สำหรับผู้ใช้ทั้งโรงเรียน'}
+                  {product.license_scope === 'individual'
+                    ? 'License ส่วนบุคคล — ไม่ต้องสังกัดโรงเรียน'
+                    : product.license_scope === 'teacher'
+                      ? `License สำหรับครู ${product.license_seat_count ?? 1} Seat`
+                      : 'License สำหรับผู้ใช้ทั้งโรงเรียน'}
                 </Typography>
                 <Typography variant="body2">
                   ใช้งาน {product.grant_duration_days ?? 30} วัน ·{' '}

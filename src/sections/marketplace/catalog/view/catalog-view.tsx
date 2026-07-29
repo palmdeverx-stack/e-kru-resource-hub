@@ -12,6 +12,7 @@ import Button from '@mui/material/Button';
 import Select from '@mui/material/Select';
 import Divider from '@mui/material/Divider';
 import MenuItem from '@mui/material/MenuItem';
+import Skeleton from '@mui/material/Skeleton';
 import Container from '@mui/material/Container';
 import TextField from '@mui/material/TextField';
 import IconButton from '@mui/material/IconButton';
@@ -41,6 +42,14 @@ import { SAMPLE_PRODUCTS, MARKETPLACE_CATEGORIES } from '../../shared/constants'
 import { getProducts, getCategories, getLocalizedProduct } from '../../shared/api';
 import { MarketplaceProductDetailDialog } from '../components/product-detail-dialog';
 
+type PublicStats = {
+  teachers: number;
+  schools: number;
+  externalMembers: number;
+};
+
+const formatCount = (value: number) => new Intl.NumberFormat('th-TH').format(value);
+
 export function MarketplaceCatalogView() {
   const { currentLang } = useTranslate();
   const router = useRouter();
@@ -57,6 +66,8 @@ export function MarketplaceCatalogView() {
   const [categories, setCategories] = useState<string[]>([...MARKETPLACE_CATEGORIES]);
   const [newProducts, setNewProducts] = useState<MarketplaceProduct[]>([]);
   const [newProductsLoading, setNewProductsLoading] = useState(true);
+  const [publicStats, setPublicStats] = useState<PublicStats | null>(null);
+  const [publicStatsLoading, setPublicStatsLoading] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<MarketplaceProduct | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const newProductsScrollRef = useRef<HTMLDivElement | null>(null);
@@ -76,6 +87,26 @@ export function MarketplaceCatalogView() {
       .catch(() => {
         // Keep the built-in category fallback while the master schema is being installed.
       });
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    fetch('/api/marketplace/public-stats', { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error('โหลดสถิติไม่สำเร็จ');
+        return response.json() as Promise<PublicStats>;
+      })
+      .then(setPublicStats)
+      .catch((error) => {
+        if (error instanceof Error && error.name === 'AbortError') return;
+        setPublicStats(null);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setPublicStatsLoading(false);
+      });
+
+    return () => controller.abort();
   }, []);
 
   useEffect(() => {
@@ -273,12 +304,34 @@ export function MarketplaceCatalogView() {
                   </Typography>
                   <Stack direction="row" spacing={4}>
                     <Box>
-                      <Typography variant="h3">0%</Typography>
-                      <Typography variant="caption">ค่าเปิดร้าน</Typography>
+                      {publicStatsLoading ? (
+                        <Skeleton
+                          width={72}
+                          height={42}
+                          sx={{ bgcolor: 'rgba(255,255,255,0.18)' }}
+                        />
+                      ) : (
+                        <Typography variant="h3">
+                          {publicStats
+                            ? formatCount(publicStats.teachers + publicStats.externalMembers)
+                            : '—'}
+                        </Typography>
+                      )}
+                      <Typography variant="caption">ครูและสมาชิก</Typography>
                     </Box>
                     <Box>
-                      <Typography variant="h3">1 บัญชี</Typography>
-                      <Typography variant="caption">ใช้ร่วมกับ eKru</Typography>
+                      {publicStatsLoading ? (
+                        <Skeleton
+                          width={72}
+                          height={42}
+                          sx={{ bgcolor: 'rgba(255,255,255,0.18)' }}
+                        />
+                      ) : (
+                        <Typography variant="h3">
+                          {publicStats ? formatCount(publicStats.schools) : '—'}
+                        </Typography>
+                      )}
+                      <Typography variant="caption">โรงเรียนในระบบ</Typography>
                     </Box>
                   </Stack>
                 </Stack>

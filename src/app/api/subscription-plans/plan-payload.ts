@@ -3,12 +3,14 @@ import { ALL_SCHOOL_FEATURE_KEYS } from 'src/lib/school-subscription-config';
 // ----------------------------------------------------------------------
 
 export const BILLING_CYCLES = ['monthly', 'yearly', 'custom'] as const;
+export const PLAN_SCOPES = ['school', 'individual'] as const;
 const FEATURE_KEYS = new Set<string>(ALL_SCHOOL_FEATURE_KEYS);
 
 export type PlanPayload = {
   code: string;
   name: string;
   description: string | null;
+  plan_scope: (typeof PLAN_SCOPES)[number];
   billing_cycle: (typeof BILLING_CYCLES)[number];
   price: number;
   currency: string;
@@ -29,6 +31,7 @@ export function parsePlanPayload(body: unknown): PlanPayload | null {
   const name = typeof value.name === 'string' ? value.name.trim() : '';
   const description =
     typeof value.description === 'string' ? value.description.trim().slice(0, 500) : '';
+  const planScope = value.planScope ?? 'school';
   const billingCycle = value.billingCycle;
   const price = Number(value.price);
   const maxSchoolAdmins = Number(value.maxSchoolAdmins);
@@ -45,6 +48,7 @@ export function parsePlanPayload(body: unknown): PlanPayload | null {
     !/^[A-Z0-9_-]+$/.test(code) ||
     !name ||
     name.length > 100 ||
+    !PLAN_SCOPES.includes(planScope as (typeof PLAN_SCOPES)[number]) ||
     !BILLING_CYCLES.includes(billingCycle as (typeof BILLING_CYCLES)[number]) ||
     !Number.isFinite(price) ||
     price < 0 ||
@@ -69,6 +73,7 @@ export function parsePlanPayload(body: unknown): PlanPayload | null {
     code,
     name,
     description: description || null,
+    plan_scope: planScope as (typeof PLAN_SCOPES)[number],
     billing_cycle: billingCycle as (typeof BILLING_CYCLES)[number],
     price,
     currency: 'THB',

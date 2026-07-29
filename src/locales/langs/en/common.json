@@ -8,6 +8,75 @@
     "thai": "ไทย",
     "english": "English"
   },
+  "auth": {
+    "fields": {
+      "firstName": "First name",
+      "lastName": "Last name",
+      "username": "Username",
+      "email": "Email",
+      "password": "Password"
+    },
+    "placeholders": {
+      "firstName": "Enter your first name",
+      "lastName": "Enter your last name",
+      "username": "Enter your username",
+      "newUsername": "Create a username",
+      "email": "name@example.com",
+      "password6": "At least 6 characters",
+      "password8": "At least 8 characters"
+    },
+    "validation": {
+      "firstNameRequired": "First name is required",
+      "lastNameRequired": "Last name is required",
+      "usernameRequired": "Username is required",
+      "emailInvalid": "Enter a valid email address",
+      "passwordRequired": "Password is required",
+      "passwordMin6": "Password must be at least 6 characters",
+      "passwordMin8": "Password must be at least 8 characters",
+      "pinInvalid": "PIN must contain exactly 8 digits"
+    },
+    "signIn": {
+      "title": "Sign in to Marketplace",
+      "description": "Buy and sell teaching resources with your existing eKru or Marketplace account.",
+      "schoolPinDescription": "Enter your 8-digit school code to sign in",
+      "adminPinDescription": "Enter your 8-digit administrator PIN to sign in",
+      "pinTitle": "Verify PIN",
+      "noAccount": "Don't have an account?",
+      "createAccount": "Sign up",
+      "submit": "Sign in",
+      "verifyPin": "Verify PIN",
+      "submitting": "Signing in...",
+      "verifyingPin": "Verifying PIN...",
+      "backToCredentials": "Back to username and password",
+      "divider": "Or sign in with",
+      "google": "Continue with Google"
+    },
+    "signUp": {
+      "title": "Join E-KRU Marketplace",
+      "description": "Create an account to buy or sell teaching resources.",
+      "hasAccount": "Already have an account?",
+      "goToSignIn": "Sign in",
+      "submit": "Create account",
+      "submitting": "Creating your account...",
+      "divider": "Or sign up with",
+      "google": "Sign up with Google"
+    },
+    "accessibility": {
+      "showPassword": "Show password",
+      "hidePassword": "Hide password"
+    },
+    "legal": {
+      "agreementPrefix": "By signing up, I agree to",
+      "terms": "Terms of service",
+      "and": "and",
+      "privacy": "Privacy policy",
+      "loadingError": "Unable to load this document",
+      "unavailable": "This document is being prepared. Please contact the service provider for more information.",
+      "document": "Legal document",
+      "version": "Version {{version}}",
+      "closeDocument": "Close document"
+    }
+  },
   "actions": {
     "signIn": "Sign in",
     "signOut": "Sign out",
