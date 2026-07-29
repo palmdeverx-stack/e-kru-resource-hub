@@ -15,8 +15,10 @@ import Typography from '@mui/material/Typography';
 import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
+
 import { useTranslate } from 'src/locales';
 
+import { SplashScreen } from 'src/components/loading-screen';
 import {
   RiQrCodeLine,
   RiBankCardLine,
@@ -26,10 +28,10 @@ import {
 
 import { useAuthContext } from 'src/auth/hooks';
 
-import { createOrder, formatPrice, getLocalizedProduct } from '../../shared/api';
 import { useMarketplaceCart } from '../../cart/cart-context';
+import { createOrder, formatPrice, getLocalizedProduct } from '../../shared/api';
 
-export function MarketplaceCheckoutView() {
+export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMode?: boolean }) {
   const router = useRouter();
   const { currentLang } = useTranslate();
   const { authenticated, loading } = useAuthContext();
@@ -41,6 +43,18 @@ export function MarketplaceCheckoutView() {
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const productsHref = dashboardMode
+    ? paths.marketplace.dashboardProducts
+    : paths.marketplace.products;
+  const successHref = dashboardMode
+    ? paths.marketplace.dashboardCheckoutSuccess
+    : '/checkout/success';
+
+  useEffect(() => {
+    if (!dashboardMode && !loading && authenticated) {
+      router.replace(paths.marketplace.dashboardCheckout);
+    }
+  }, [authenticated, dashboardMode, loading, router]);
 
   useEffect(() => {
     fetch('/api/marketplace/payment-methods')
@@ -61,7 +75,7 @@ export function MarketplaceCheckoutView() {
       if (isDemoCart) {
         await new Promise((resolve) => window.setTimeout(resolve, 650));
         clearCart();
-        router.push('/checkout/success?demo=1');
+        router.push(`${successHref}?demo=1`);
         return;
       }
       const result = await createOrder(
@@ -70,14 +84,18 @@ export function MarketplaceCheckoutView() {
       );
       clearCart();
       if (result.paymentSession.payment_method === 'free') {
-        router.push(`/checkout/success?orders=${result.orders.map((order) => order.id).join(',')}`);
+        router.push(`${successHref}?orders=${result.orders.map((order) => order.id).join(',')}`);
       } else if (
         result.paymentSession.payment_method === 'stripe' &&
         result.paymentSession.stripe_checkout_url
       ) {
         window.location.assign(result.paymentSession.stripe_checkout_url);
       } else {
-        router.push(paths.marketplace.payment(result.paymentSession.id));
+        router.push(
+          dashboardMode
+            ? paths.marketplace.dashboardPayment(result.paymentSession.id)
+            : paths.marketplace.payment(result.paymentSession.id)
+        );
       }
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : 'ไม่สามารถสร้างคำสั่งซื้อได้');
@@ -86,6 +104,10 @@ export function MarketplaceCheckoutView() {
     }
   };
 
+  if (!dashboardMode && (loading || authenticated)) {
+    return <SplashScreen portal={false} />;
+  }
+
   if (!items.length) {
     return (
       <Container maxWidth="sm" sx={{ py: 12, textAlign: 'center' }}>
@@ -93,7 +115,7 @@ export function MarketplaceCheckoutView() {
         <Typography variant="h4" sx={{ mt: 2 }}>
           ไม่มีสินค้าสำหรับ Checkout
         </Typography>
-        <Button component={RouterLink} href="/products" variant="contained" sx={{ mt: 3 }}>
+        <Button component={RouterLink} href={productsHref} variant="contained" sx={{ mt: 3 }}>
           กลับไป Marketplace
         </Button>
       </Container>
@@ -113,7 +135,9 @@ export function MarketplaceCheckoutView() {
           </Typography>
           <Button
             component={RouterLink}
-            href={`${paths.auth.jwt.signIn}?returnTo=/checkout`}
+            href={`${paths.auth.jwt.signIn}?returnTo=${encodeURIComponent(
+              paths.marketplace.dashboardCheckout
+            )}`}
             variant="contained"
             fullWidth
           >
@@ -125,7 +149,7 @@ export function MarketplaceCheckoutView() {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ py: { xs: 4, md: 8 } }}>
+    <Container maxWidth="xl" sx={{ py: { xs: 4, md: 8 } }}>
       <Typography component="h1" variant="h3">
         ชำระเงิน
       </Typography>

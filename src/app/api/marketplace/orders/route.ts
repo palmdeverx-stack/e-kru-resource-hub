@@ -321,8 +321,8 @@ export async function POST(request: Request) {
         payment_intent_data: {
           metadata: { marketplace_payment_session_id: paymentSession.id },
         },
-        success_url: `${origin}/checkout/payment/${paymentSession.id}?stripe=success`,
-        cancel_url: `${origin}/checkout/payment/${paymentSession.id}?stripe=cancelled`,
+        success_url: `${origin}/dashboard/payment/${paymentSession.id}?stripe=success`,
+        cancel_url: `${origin}/dashboard/payment/${paymentSession.id}?stripe=cancelled`,
       });
       if (!stripeSession.url) throw new Error('Stripe ไม่ส่ง Checkout URL กลับมา');
 

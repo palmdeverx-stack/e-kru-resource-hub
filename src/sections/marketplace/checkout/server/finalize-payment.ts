@@ -42,67 +42,54 @@ export async function finalizeMarketplacePayment(input: FinalizeInput) {
   const processorFee = money(Math.max(0, Number(input.processorFee) || 0));
   let allocatedFee = 0;
 
-  const ledgerRows = orders.flatMap((order, index) => {
+  const settlements = orders.map((order, index) => {
     const orderGross = Number(order.gross_amount);
     const orderFee =
       index === orders.length - 1
         ? money(processorFee - allocatedFee)
         : money(processorFee * (orderGross / total));
     allocatedFee = money(allocatedFee + orderFee);
+    const sellerNet = money(Math.max(0, Number(order.seller_net) - orderFee));
 
-    return [
-      {
-        order_id: order.id,
-        seller_id: order.seller_id,
-        account_scope: 'seller',
-        entry_type: 'sale',
-        amount: Number(order.seller_net),
-        available_at: availableAt,
-        description: 'รายได้จากการขายหลังหักค่าธรรมเนียม',
-      },
-      {
-        order_id: order.id,
-        seller_id: order.seller_id,
-        account_scope: 'platform',
-        entry_type: 'commission',
-        amount: Number(order.platform_fee),
-        available_at: now.toISOString(),
-        description: `ค่าธรรมเนียมแพลตฟอร์ม ${Number(order.commission_rate)}%`,
-      },
-      ...(orderFee > 0
-        ? [
-            {
-              order_id: order.id,
-              seller_id: order.seller_id,
-              account_scope: 'platform',
-              entry_type: 'gateway_fee',
-              amount: -orderFee,
-              available_at: now.toISOString(),
-              description: 'ค่าธรรมเนียม Stripe',
-            },
-          ]
-        : []),
-    ];
+    return { order, orderFee, sellerNet };
   });
+
+  const ledgerRows = settlements.flatMap(({ order, sellerNet }) => [
+    {
+      order_id: order.id,
+      seller_id: order.seller_id,
+      account_scope: 'seller',
+      entry_type: 'sale',
+      amount: sellerNet,
+      available_at: availableAt,
+      description: 'รายได้จากการขายหลังหักค่าธรรมเนียม',
+    },
+    {
+      order_id: order.id,
+      seller_id: order.seller_id,
+      account_scope: 'platform',
+      entry_type: 'commission',
+      amount: Number(order.platform_fee),
+      available_at: now.toISOString(),
+      description: `ค่าธรรมเนียมแพลตฟอร์ม ${Number(order.commission_rate)}%`,
+    },
+  ]);
 
   const { error: ledgerError } = await supabaseAdmin
     .from('marketplace_ledger_entries')
-    .upsert(ledgerRows, { onConflict: 'order_id,account_scope,entry_type', ignoreDuplicates: true });
+    .upsert(ledgerRows, {
+      onConflict: 'order_id,account_scope,entry_type',
+      ignoreDuplicates: true,
+    });
   if (ledgerError) throw ledgerError;
 
-  allocatedFee = 0;
-  for (const [index, order] of orders.entries()) {
-    const orderGross = Number(order.gross_amount);
-    const orderFee =
-      index === orders.length - 1
-        ? money(processorFee - allocatedFee)
-        : money(processorFee * (orderGross / total));
-    allocatedFee = money(allocatedFee + orderFee);
+  for (const { order, orderFee, sellerNet } of settlements) {
     const { error: orderError } = await supabaseAdmin
       .from('marketplace_orders')
       .update({
         status: 'paid',
         payment_fee: orderFee,
+        seller_net: sellerNet,
         paid_at: now.toISOString(),
         available_at: availableAt,
         updated_at: now.toISOString(),
@@ -146,13 +133,13 @@ export async function finalizeMarketplacePayment(input: FinalizeInput) {
   // LINE is a secondary channel: a failed notification must never roll back a
   // payment that has already been verified and posted to the ledger.
   await Promise.allSettled(
-    orders.map((order) =>
+    settlements.map(({ order, sellerNet }) =>
       notifySellerPaymentReceived({
         sellerId: String(order.seller_id),
         orderId: String(order.id),
         paymentSessionId: input.paymentSessionId,
         grossAmount: Number(order.gross_amount),
-        sellerNet: Number(order.seller_net),
+        sellerNet,
         availableAt,
       })
     )

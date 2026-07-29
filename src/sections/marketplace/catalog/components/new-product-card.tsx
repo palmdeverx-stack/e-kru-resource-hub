@@ -6,7 +6,6 @@ import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
-import Avatar from '@mui/material/Avatar';
 import Rating from '@mui/material/Rating';
 import Typography from '@mui/material/Typography';
 
@@ -22,6 +21,7 @@ import {
   RiShoppingBag3Line,
 } from 'src/components/remix-icon';
 
+import { MarketplaceSellerLink } from '../../shared/seller-link';
 import { formatPrice, getLocalizedProduct } from '../../shared/api';
 
 const fallbackGradients = [
@@ -52,8 +52,6 @@ export function MarketplaceNewProductCard({
 
   return (
     <Card
-      component={RouterLink}
-      href={paths.marketplace.product(product.id)}
       sx={{
         p: 1.25,
         height: 1,
@@ -76,6 +74,9 @@ export function MarketplaceNewProductCard({
       }}
     >
       <Box
+        component={RouterLink}
+        href={paths.marketplace.product(product.id)}
+        aria-label={`ดูรายละเอียดสินค้า ${content.title}`}
         sx={{
           width: 1,
           minHeight: 230,
@@ -85,6 +86,7 @@ export function MarketplaceNewProductCard({
           borderRadius: 3,
           display: 'grid',
           placeItems: 'center',
+          textDecoration: 'none',
           background: fallbackGradients[colorIndex % fallbackGradients.length],
         }}
       >
@@ -193,24 +195,22 @@ export function MarketplaceNewProductCard({
       </Box>
 
       <Stack spacing={1.5} sx={{ p: 1.25, pt: 2, flexGrow: 1 }}>
-        <Stack direction="row" spacing={1} alignItems="center">
-          <Avatar
-            src={product.seller?.logo_url ?? undefined}
-            alt={product.seller?.display_name}
-            sx={{ width: 30, height: 30, bgcolor: 'primary.lighter', color: 'primary.main' }}
-          >
-            {product.seller?.display_name?.charAt(0) || 'e'}
-          </Avatar>
-          <Typography variant="caption" color="text.secondary" noWrap>
-            {product.seller?.display_name ?? 'ผู้ขาย eKru'}
-          </Typography>
-        </Stack>
+        <MarketplaceSellerLink
+          seller={product.seller}
+          avatarSize={30}
+          nameVariant="caption"
+          nameSx={{ color: 'text.secondary' }}
+        />
 
         <Typography
+          component={RouterLink}
+          href={paths.marketplace.product(product.id)}
           variant="h6"
           sx={{
+            color: 'text.primary',
             minHeight: 56,
             lineHeight: 1.4,
+            textDecoration: 'none',
             overflow: 'hidden',
             display: '-webkit-box',
             WebkitLineClamp: 2,

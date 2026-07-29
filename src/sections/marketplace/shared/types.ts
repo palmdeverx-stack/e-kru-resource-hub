@@ -183,6 +183,7 @@ export type MarketplaceSeller = {
     account_number: string;
     account_name: string;
     promptpay_id: string | null;
+    is_verified?: boolean;
   } | null;
 };
 
@@ -226,10 +227,10 @@ export type MarketplaceProduct = {
   reviewed_by?: string | null;
   rejection_reason?: string | null;
   created_at: string;
-  seller?: Pick<
-    MarketplaceSeller,
-    'id' | 'display_name' | 'seller_type' | 'slug' | 'logo_url'
-  > | null;
+  seller?:
+    | (Pick<MarketplaceSeller, 'id' | 'display_name' | 'seller_type' | 'slug' | 'logo_url'> &
+        Partial<Pick<MarketplaceSeller, 'display_name_en' | 'bio'>>)
+    | null;
   media_type?: Pick<MarketplaceMediaType, 'id' | 'name' | 'delivery_mode'> | null;
   sale_type?: Pick<MarketplaceSaleType, 'id' | 'name' | 'pricing_mode'> | null;
   curriculum?: Pick<MarketplaceCurriculum, 'id' | 'name'> | null;

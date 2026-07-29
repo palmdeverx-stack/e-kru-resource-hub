@@ -68,7 +68,9 @@ export function MarketplaceProductApprovalView() {
     setLoading(true);
     setError('');
     try {
-      const response = await fetch(`/api/marketplace/admin/products?status=${status}`);
+      const response = await fetch(`/api/marketplace/admin/products?status=${status}`, {
+        cache: 'no-store',
+      });
       const result = await response.json();
       if (!response.ok) throw new Error(result.message ?? 'โหลดรายการสินค้าไม่สำเร็จ');
       setProducts(result.products);
@@ -114,7 +116,7 @@ export function MarketplaceProductApprovalView() {
   };
 
   return (
-    <Container maxWidth="xl" sx={{ py: { xs: 3, md: 5 } }}>
+    <Container maxWidth={false} sx={{ py: { xs: 3, md: 5 } }}>
       <Stack
         direction={{ xs: 'column', md: 'row' }}
         justifyContent="space-between"
@@ -164,106 +166,106 @@ export function MarketplaceProductApprovalView() {
               product.cover_url ??
               undefined;
             return (
-            <Grid key={product.id} size={{ xs: 12, lg: 6 }}>
-              <Card sx={{ p: 3, height: 1 }}>
-                <Stack direction="row" spacing={2}>
-                  <Box
-                    sx={{
-                      width: 92,
-                      height: 92,
-                      flexShrink: 0,
-                      display: 'grid',
-                      borderRadius: 2.5,
-                      placeItems: 'center',
-                      bgcolor: 'primary.lighter',
-                      backgroundImage: coverUrl ? `url(${coverUrl})` : undefined,
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
-                    }}
-                  >
-                    {!coverUrl && <RiBookOpenLine size={34} />}
-                  </Box>
-                  <Box sx={{ minWidth: 0, flex: 1 }}>
-                    <Stack direction="row" justifyContent="space-between" spacing={1}>
-                      <Box sx={{ minWidth: 0 }}>
-                        <Typography variant="h6" noWrap>
-                          {product.title}
-                        </Typography>
-                        <Stack direction="row" spacing={0.75} alignItems="center">
-                          <RiStore2Line size={16} />
-                          <Typography variant="body2" color="text.secondary" noWrap>
-                            {product.seller?.display_name ?? 'ไม่พบชื่อร้าน'}
-                          </Typography>
-                        </Stack>
-                      </Box>
-                      <StatusChip status={product.status} />
-                    </Stack>
-                    <Stack direction="row" spacing={0.75} sx={{ mt: 1.25, flexWrap: 'wrap' }}>
-                      <Chip size="small" label={product.category} variant="outlined" />
-                      <Chip
-                        size="small"
-                        label={product.media_type?.name ?? product.resource_type}
-                        variant="outlined"
-                      />
-                      <Chip
-                        size="small"
-                        label={formatPrice(Number(product.price), product.currency)}
-                        color="success"
-                        variant="soft"
-                      />
-                    </Stack>
-                  </Box>
-                </Stack>
-
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{
-                    mt: 2,
-                    display: '-webkit-box',
-                    overflow: 'hidden',
-                    WebkitLineClamp: 3,
-                    WebkitBoxOrient: 'vertical',
-                  }}
-                >
-                  {stripHtml(product.description)}
-                </Typography>
-
-                {product.rejection_reason && (
-                  <Alert severity="error" sx={{ mt: 2 }}>
-                    เหตุผล: {product.rejection_reason}
-                  </Alert>
-                )}
-
-                <Divider sx={{ my: 2 }} />
-                <Stack direction="row" justifyContent="flex-end" spacing={1}>
-                  {product.status !== 'rejected' && (
-                    <Button
-                      color="error"
-                      variant="outlined"
-                      startIcon={<RiCloseLine />}
-                      onClick={() => {
-                        setRejecting(product);
-                        setReason('');
+              <Grid key={product.id} size={{ xs: 12, lg: 6 }}>
+                <Card sx={{ p: 3, height: 1 }}>
+                  <Stack direction="row" spacing={2}>
+                    <Box
+                      sx={{
+                        width: 92,
+                        height: 92,
+                        flexShrink: 0,
+                        display: 'grid',
+                        borderRadius: 2.5,
+                        placeItems: 'center',
+                        bgcolor: 'primary.lighter',
+                        backgroundImage: coverUrl ? `url(${coverUrl})` : undefined,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
                       }}
                     >
-                      ไม่อนุมัติ
-                    </Button>
+                      {!coverUrl && <RiBookOpenLine size={34} />}
+                    </Box>
+                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                      <Stack direction="row" justifyContent="space-between" spacing={1}>
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography variant="h6" noWrap>
+                            {product.title}
+                          </Typography>
+                          <Stack direction="row" spacing={0.75} alignItems="center">
+                            <RiStore2Line size={16} />
+                            <Typography variant="body2" color="text.secondary" noWrap>
+                              {product.seller?.display_name ?? 'ไม่พบชื่อร้าน'}
+                            </Typography>
+                          </Stack>
+                        </Box>
+                        <StatusChip status={product.status} />
+                      </Stack>
+                      <Stack direction="row" spacing={0.75} sx={{ mt: 1.25, flexWrap: 'wrap' }}>
+                        <Chip size="small" label={product.category} variant="outlined" />
+                        <Chip
+                          size="small"
+                          label={product.media_type?.name ?? product.resource_type}
+                          variant="outlined"
+                        />
+                        <Chip
+                          size="small"
+                          label={formatPrice(Number(product.price), product.currency)}
+                          color="success"
+                          variant="soft"
+                        />
+                      </Stack>
+                    </Box>
+                  </Stack>
+
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{
+                      mt: 2,
+                      display: '-webkit-box',
+                      overflow: 'hidden',
+                      WebkitLineClamp: 3,
+                      WebkitBoxOrient: 'vertical',
+                    }}
+                  >
+                    {stripHtml(product.description)}
+                  </Typography>
+
+                  {product.rejection_reason && (
+                    <Alert severity="error" sx={{ mt: 2 }}>
+                      เหตุผล: {product.rejection_reason}
+                    </Alert>
                   )}
-                  {product.status !== 'published' && (
-                    <Button
-                      color="success"
-                      variant="contained"
-                      loading={savingId === product.id}
-                      startIcon={<RiCheckboxCircleLine />}
-                      onClick={() => review(product, 'approve')}
-                    >
-                      อนุมัติและเผยแพร่
-                    </Button>
-                  )}
-                </Stack>
-              </Card>
-            </Grid>
+
+                  <Divider sx={{ my: 2 }} />
+                  <Stack direction="row" justifyContent="flex-end" spacing={1}>
+                    {product.status !== 'rejected' && (
+                      <Button
+                        color="error"
+                        variant="outlined"
+                        startIcon={<RiCloseLine />}
+                        onClick={() => {
+                          setRejecting(product);
+                          setReason('');
+                        }}
+                      >
+                        ไม่อนุมัติ
+                      </Button>
+                    )}
+                    {product.status !== 'published' && (
+                      <Button
+                        color="success"
+                        variant="contained"
+                        loading={savingId === product.id}
+                        startIcon={<RiCheckboxCircleLine />}
+                        onClick={() => review(product, 'approve')}
+                      >
+                        อนุมัติและเผยแพร่
+                      </Button>
+                    )}
+                  </Stack>
+                </Card>
+              </Grid>
             );
           })}
         </Grid>

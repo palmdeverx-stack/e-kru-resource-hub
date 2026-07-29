@@ -25,6 +25,7 @@ import DialogContent from '@mui/material/DialogContent';
 import InputAdornment from '@mui/material/InputAdornment';
 import CircularProgress from '@mui/material/CircularProgress';
 
+import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
 import {
@@ -126,7 +127,7 @@ export function MarketplaceSellerDashboardView() {
   }
 
   return (
-    <Container maxWidth="xl" sx={{ py: { xs: 4, md: 6 } }}>
+    <Container maxWidth={false} sx={{ py: { xs: 4, md: 6 } }}>
       {!!error && (
         <Alert severity="error" sx={{ mb: 3 }}>
           {error}
@@ -156,7 +157,7 @@ export function MarketplaceSellerDashboardView() {
             ครู บุคคลทั่วไป และองค์กรสามารถสร้างร้าน แบ่งปันสื่อการสอน
             และจัดการผลงานได้จากพื้นที่เดียว
           </Typography>
-          <Button component={RouterLink} href="/dashboard/seller/setup" variant="contained">
+          <Button component={RouterLink} href={paths.marketplace.sellerSetup} variant="contained">
             เริ่มเปิดร้าน
           </Button>
         </Card>
@@ -178,19 +179,23 @@ export function MarketplaceSellerDashboardView() {
                 {isSystemStore && (
                   <Chip
                     color="primary"
-                    size="small"
+                    size="medium"
                     icon={<RiShieldStarLine />}
                     label="ร้านทางการ"
                   />
                 )}
-                <Chip color="success" size="small" label="เปิดขายแล้ว" />
+                <Chip color="success" size="medium" label="เปิดขายแล้ว" />
               </Stack>
               <Typography color="text.secondary" sx={{ mt: 0.5 }}>
                 {seller.bio || 'ร้านค้าบน eKru Marketplace'}
               </Typography>
             </Box>
             <Stack direction="row" spacing={1}>
-              <Button component={RouterLink} href="/dashboard/seller/setup" color="inherit">
+              <Button
+                component={RouterLink}
+                href={paths.marketplace.sellerProfileEdit}
+                color="inherit"
+              >
                 แก้ไขร้าน
               </Button>
               <Button
@@ -607,7 +612,7 @@ function SellerReviewState({ seller }: { seller: MarketplaceSeller }) {
       {!isSuspended && (
         <Button
           component={RouterLink}
-          href="/dashboard/seller/setup"
+          href={paths.marketplace.sellerProfileEdit}
           variant={isRejected ? 'contained' : 'outlined'}
           color={isRejected ? 'error' : 'primary'}
           sx={{ mt: 3 }}

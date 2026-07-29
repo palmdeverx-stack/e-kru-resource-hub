@@ -9,9 +9,9 @@ import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
 import Table from '@mui/material/Table';
 import Alert from '@mui/material/Alert';
+import Stack from '@mui/material/Stack';
 import Avatar from '@mui/material/Avatar';
 import Button from '@mui/material/Button';
-import Stack from '@mui/material/Stack';
 import TableRow from '@mui/material/TableRow';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
@@ -103,7 +103,7 @@ export function MarketplaceSellerApprovalView() {
   }
 
   return (
-    <Container maxWidth="xl" sx={{ py: { xs: 3, md: 5 } }}>
+    <Container maxWidth={false} sx={{ py: { xs: 3, md: 5 } }}>
       <Stack direction="row" spacing={1.5} alignItems="center">
         <RiStore2Line size={32} />
         <Box>

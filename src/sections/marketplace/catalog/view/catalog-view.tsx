@@ -39,6 +39,7 @@ import { MarketplaceProductCard } from '../../shared/product-card';
 import { MarketplaceNewProductCard } from '../components/new-product-card';
 import { SAMPLE_PRODUCTS, MARKETPLACE_CATEGORIES } from '../../shared/constants';
 import { getProducts, getCategories, getLocalizedProduct } from '../../shared/api';
+import { MarketplaceProductDetailDialog } from '../components/product-detail-dialog';
 
 export function MarketplaceCatalogView() {
   const { currentLang } = useTranslate();
@@ -56,6 +57,7 @@ export function MarketplaceCatalogView() {
   const [categories, setCategories] = useState<string[]>([...MARKETPLACE_CATEGORIES]);
   const [newProducts, setNewProducts] = useState<MarketplaceProduct[]>([]);
   const [newProductsLoading, setNewProductsLoading] = useState(true);
+  const [selectedProduct, setSelectedProduct] = useState<MarketplaceProduct | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const newProductsScrollRef = useRef<HTMLDivElement | null>(null);
   const requestVersionRef = useRef(0);
@@ -428,7 +430,18 @@ export function MarketplaceCatalogView() {
                 }}
               >
                 {sortedDisplayedProducts.map((product, index) => (
-                  <Grid key={product.id} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+                  <Grid
+                    key={product.id}
+                    size={{ xs: 12, sm: 6, md: 4, lg: 3 }}
+                    onClickCapture={(event) => {
+                      if ((event.target as HTMLElement).closest('[data-marketplace-seller-link]')) {
+                        return;
+                      }
+                      event.preventDefault();
+                      event.stopPropagation();
+                      setSelectedProduct(product);
+                    }}
+                  >
                     <MarketplaceProductCard product={product} colorIndex={index} />
                   </Grid>
                 ))}
@@ -527,13 +540,29 @@ export function MarketplaceCatalogView() {
               }}
             >
               {newProducts.map((newProduct, index) => (
-                <Box key={newProduct.id} sx={{ scrollSnapAlign: 'start' }}>
+                <Box
+                  key={newProduct.id}
+                  onClickCapture={(event) => {
+                    if ((event.target as HTMLElement).closest('[data-marketplace-seller-link]')) {
+                      return;
+                    }
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setSelectedProduct(newProduct);
+                  }}
+                  sx={{ scrollSnapAlign: 'start' }}
+                >
                   <MarketplaceNewProductCard product={newProduct} colorIndex={index} />
                 </Box>
               ))}
             </Box>
           )}
         </Box>
+
+        <MarketplaceProductDetailDialog
+          product={selectedProduct}
+          onClose={() => setSelectedProduct(null)}
+        />
       </Container>
     </>
   );

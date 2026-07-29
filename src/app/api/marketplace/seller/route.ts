@@ -20,10 +20,7 @@ function normalizeSlug(value: string) {
 async function withSellerRelations(seller: Record<string, unknown> | null) {
   if (!seller) return null;
   const [{ data: documents }, { data: payoutAccount }] = await Promise.all([
-    supabaseAdmin
-      .from('marketplace_seller_documents')
-      .select('*')
-      .eq('seller_id', seller.id),
+    supabaseAdmin.from('marketplace_seller_documents').select('*').eq('seller_id', seller.id),
     supabaseAdmin
       .from('marketplace_seller_payout_accounts')
       .select('*')
@@ -62,6 +59,8 @@ export async function GET(request: Request) {
     const result = await provisionEkruSystemSeller(caller.sub, {
       bio: existingSeller?.bio,
       contactEmail: existingSeller?.contact_email,
+      displayName: existingSeller?.display_name,
+      displayNameEn: existingSeller?.display_name_en,
     });
     if (result.error || !result.data) {
       return NextResponse.json(
@@ -80,9 +79,18 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
 
   if (caller.role === 'master_admin') {
+    const displayName = String(body?.displayName ?? '').trim();
+    if (displayName.length < 2 || displayName.length > 120) {
+      return NextResponse.json(
+        { message: 'ชื่อร้านทางการต้องมีความยาว 2–120 ตัวอักษร' },
+        { status: 400 }
+      );
+    }
     const result = await provisionEkruSystemSeller(caller.sub, {
       bio: String(body?.bio ?? '').trim(),
       contactEmail: String(body?.contactEmail ?? '').trim(),
+      displayName,
+      displayNameEn: String(body?.displayNameEn ?? '').trim(),
     });
     if (result.error || !result.data) {
       return NextResponse.json({ message: result.error?.message }, { status: 500 });
@@ -184,7 +192,9 @@ export async function POST(request: Request) {
         reviewed_by: remainsActive ? existing?.reviewed_by : null,
         rejection_reason: action === 'submit' ? null : existing?.rejection_reason,
         seller_agreement_accepted_at:
-          action === 'submit' && body.sellerAgreement ? now : existing?.seller_agreement_accepted_at,
+          action === 'submit' && body.sellerAgreement
+            ? now
+            : existing?.seller_agreement_accepted_at,
         copyright_confirmed_at:
           action === 'submit' && body.copyrightConfirmed ? now : existing?.copyright_confirmed_at,
         fee_agreement_accepted_at:

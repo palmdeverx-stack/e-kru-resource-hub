@@ -42,7 +42,7 @@ export function Logo({
       alt="Single logo"
       src={`${CONFIG.assetsDir}/logo/logo-single.svg`}
       width="100%"
-      height="100%"
+      height="auto"
     />
   );
 
@@ -194,8 +194,8 @@ export function Logo({
       className={mergeClasses([logoClasses.root, className])}
       sx={[
         {
-          width: 40,
-          height: 40,
+          width: '100%',
+          height: 60,
           ...(!isSingle && { width: 102, height: 36 }),
           ...(disabled && { pointerEvents: 'none' }),
         },

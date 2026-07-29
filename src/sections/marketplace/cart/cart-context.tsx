@@ -4,6 +4,8 @@ import type { CartItem, MarketplaceProduct } from '../shared/types';
 
 import { useMemo, useState, useEffect, useContext, useCallback, createContext } from 'react';
 
+import { getProduct } from '../shared/api';
+
 type CartContextValue = {
   items: CartItem[];
   itemCount: number;
@@ -20,17 +22,42 @@ export function MarketplaceCartProvider({ children }: { children: React.ReactNod
   const [items, setItems] = useState<CartItem[]>([]);
 
   useEffect(() => {
+    let active = true;
     try {
       const stored = window.localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored) as Array<{ product?: MarketplaceProduct }>;
         if (Array.isArray(parsed)) {
-          setItems(parsed.filter((item) => item.product).map((item) => ({ product: item.product! })));
+          const storedItems = parsed
+            .filter((item) => item.product)
+            .map((item) => ({ product: item.product! }));
+          setItems(storedItems);
+
+          Promise.allSettled(
+            storedItems.map(async ({ product }) => {
+              if (product.id.startsWith('sample-')) return product;
+              return (await getProduct(product.id)).product;
+            })
+          ).then((results) => {
+            if (!active) return;
+            setItems(
+              results.flatMap((result, index) =>
+                result.status === 'fulfilled'
+                  ? [{ product: result.value }]
+                  : storedItems[index]
+                    ? [storedItems[index]]
+                    : []
+              )
+            );
+          });
         }
       }
     } catch {
       window.localStorage.removeItem(STORAGE_KEY);
     }
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {

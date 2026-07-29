@@ -10,18 +10,24 @@ import { NotificationsMenu } from 'src/layouts/components/notifications-menu';
 
 import { MarketplaceBrand } from 'src/components/marketplace-brand';
 import {
-  RiBankLine,
   RiKey2Line,
   RiHome5Line,
+  RiIdCardLine,
   RiSearchLine,
   RiStore2Line,
-  RiMessage2Line,
+  RiReceiptLine,
+  RiWallet3Line,
+  RiBankCardLine,
   RiDashboardLine,
   RiSettings3Line,
   RiShieldStarLine,
+  RiUserFollowLine,
   RiShieldCheckLine,
-  RiShoppingBag3Line,
-  RiMoneyDollarBoxLine,
+  RiChatSettingsLine,
+  RiSecurePaymentLine,
+  RiNotification3Line,
+  RiShoppingCart2Line,
+  RiExchangeDollarLine,
 } from 'src/components/remix-icon';
 
 import { MarketplaceAccountMenu } from 'src/sections/marketplace/account/components/account-menu';
@@ -34,10 +40,20 @@ const memberNavData: NavSectionProps['data'] = [
     items: [
       {
         title: 'สินค้าทั้งหมด',
-        path: '/products',
+        path: '/dashboard/products',
         deepMatch: false,
         icon: <RiSearchLine />,
       },
+      {
+        title: 'ตะกร้าของฉัน',
+        path: '/dashboard/cart',
+        icon: <RiShoppingCart2Line />,
+      },
+    ],
+  },
+  {
+    subheader: 'บัญชีของฉัน',
+    items: [
       {
         title: 'ภาพรวม',
         path: '/dashboard',
@@ -46,8 +62,13 @@ const memberNavData: NavSectionProps['data'] = [
       {
         title: 'รายการซื้อ',
         path: '/dashboard/purchases',
-        icon: <RiShoppingBag3Line />,
+        icon: <RiReceiptLine />,
       },
+    ],
+  },
+  {
+    subheader: 'ร้านค้าของฉัน',
+    items: [
       {
         title: 'ร้านค้าของฉัน',
         path: '/dashboard/seller',
@@ -57,17 +78,17 @@ const memberNavData: NavSectionProps['data'] = [
       {
         title: 'ข้อมูลร้านค้า',
         path: '/dashboard/seller/profile',
-        icon: <RiStore2Line />,
+        icon: <RiIdCardLine />,
       },
       {
         title: 'รายได้ของร้าน',
         path: '/dashboard/seller/finance',
-        icon: <RiMoneyDollarBoxLine />,
+        icon: <RiWallet3Line />,
       },
       {
         title: 'LINE แจ้งเตือน',
         path: '/dashboard/seller/settings/line',
-        icon: <RiMessage2Line />,
+        icon: <RiNotification3Line />,
       },
     ],
   },
@@ -75,14 +96,24 @@ const memberNavData: NavSectionProps['data'] = [
 
 const adminNavData: NavSectionProps['data'] = [
   {
-    subheader: 'Super Admin',
+    subheader: 'Marketplace',
     items: [
       {
         title: 'สินค้าทั้งหมด',
-        path: '/products',
+        path: '/dashboard/products',
         deepMatch: false,
         icon: <RiSearchLine />,
       },
+      {
+        title: 'ตะกร้าของฉัน',
+        path: '/dashboard/cart',
+        icon: <RiShoppingCart2Line />,
+      },
+    ],
+  },
+  {
+    subheader: 'การดูแล Marketplace',
+    items: [
       {
         title: 'ศูนย์ควบคุม',
         path: '/dashboard',
@@ -91,7 +122,7 @@ const adminNavData: NavSectionProps['data'] = [
       {
         title: 'อนุมัติร้านค้า',
         path: '/dashboard/seller-approvals',
-        icon: <RiStore2Line />,
+        icon: <RiUserFollowLine />,
       },
       {
         title: 'อนุมัติสินค้า',
@@ -101,12 +132,12 @@ const adminNavData: NavSectionProps['data'] = [
       {
         title: 'ตรวจสอบการชำระเงิน',
         path: '/dashboard/payment-reviews',
-        icon: <RiBankLine />,
+        icon: <RiBankCardLine />,
       },
       {
         title: 'โอนเงินผู้ขาย',
         path: '/dashboard/payouts',
-        icon: <RiMoneyDollarBoxLine />,
+        icon: <RiExchangeDollarLine />,
       },
     ],
   },
@@ -154,6 +185,10 @@ const adminNavData: NavSectionProps['data'] = [
             title: 'แท็ก',
             path: '/dashboard/master/tags',
           },
+          {
+            title: 'เอกสารข้อกำหนด',
+            path: '/dashboard/master/legal-documents',
+          },
         ],
       },
     ],
@@ -164,8 +199,13 @@ const adminNavData: NavSectionProps['data'] = [
       {
         title: 'รายการซื้อ',
         path: '/dashboard/purchases',
-        icon: <RiShoppingBag3Line />,
+        icon: <RiReceiptLine />,
       },
+    ],
+  },
+  {
+    subheader: 'ผู้ขาย',
+    items: [
       {
         title: 'ร้านค้าของฉัน',
         path: '/dashboard/seller',
@@ -175,32 +215,32 @@ const adminNavData: NavSectionProps['data'] = [
       {
         title: 'ข้อมูลร้านค้า',
         path: '/dashboard/seller/profile',
-        icon: <RiStore2Line />,
+        icon: <RiIdCardLine />,
       },
       {
         title: 'รายได้ของร้าน',
         path: '/dashboard/seller/finance',
-        icon: <RiMoneyDollarBoxLine />,
+        icon: <RiWallet3Line />,
       },
       {
         title: 'LINE แจ้งเตือน',
         path: '/dashboard/seller/settings/line',
-        icon: <RiMessage2Line />,
+        icon: <RiNotification3Line />,
       },
     ],
   },
   {
-    subheader: 'ตั้งค่า',
+    subheader: 'ตั้งค่าระบบ',
     items: [
       {
         title: 'ตั้งค่า LINE',
         path: '/dashboard/settings/line',
-        icon: <RiMessage2Line />,
+        icon: <RiChatSettingsLine />,
       },
       {
         title: 'ตั้งค่าการเงิน',
         path: '/dashboard/settings/finance',
-        icon: <RiBankLine />,
+        icon: <RiSecurePaymentLine />,
       },
     ],
   },
@@ -216,18 +256,21 @@ export default function Layout({ children }: Props) {
     user?.role === 'master_admin'
       ? adminNavData
       : user?.role === 'school_admin'
-        ? memberNavData.map((section) => ({
-            ...section,
-            items: [
-              ...section.items.slice(0, 3),
-              {
-                title: 'สิทธิ์และ License',
-                path: '/dashboard/licenses',
-                icon: <RiKey2Line />,
-              },
-              ...section.items.slice(3),
-            ],
-          }))
+        ? memberNavData.map((section) =>
+            section.subheader === 'บัญชีของฉัน'
+              ? {
+                  ...section,
+                  items: [
+                    ...section.items,
+                    {
+                      title: 'สิทธิ์และ License',
+                      path: '/dashboard/licenses',
+                      icon: <RiKey2Line />,
+                    },
+                  ],
+                }
+              : section
+          )
         : memberNavData;
 
   return (

@@ -43,7 +43,7 @@ const STEPS = [
 
 export function MarketplaceSellerLineGuideView() {
   return (
-    <Container maxWidth="xl" sx={{ py: { xs: 4, md: 6 } }}>
+    <Container maxWidth={false} sx={{ py: { xs: 4, md: 6 } }}>
       <Button
         component={RouterLink}
         href={paths.marketplace.sellerLineSettings}

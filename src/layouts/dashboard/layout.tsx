@@ -213,7 +213,7 @@ export function DashboardLayout({
           />
 
           {/** @slot Language popover */}
-          <LanguagePopover data={languageOptions} />
+          <LanguagePopover showTranslateIcon data={languageOptions} />
         </Box>
       ),
     };

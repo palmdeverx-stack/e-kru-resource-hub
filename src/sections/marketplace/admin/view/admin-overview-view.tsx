@@ -190,7 +190,7 @@ export function MarketplaceAdminOverviewView() {
     : [];
 
   return (
-    <Container maxWidth="xl" sx={{ py: { xs: 3, md: 5 } }}>
+    <Container maxWidth={false} sx={{ py: { xs: 3, md: 5 } }}>
       <Card
         variant="outlined"
         sx={{

@@ -144,8 +144,11 @@ const HeaderContainer = styled(Container, {
   [theme.breakpoints.up(layoutQuery)]: { height: 'var(--layout-header-desktop-height)' },
 }));
 
-const HeaderCenterArea = styled('div')(() => ({
+const HeaderCenterArea = styled('div')(({ theme }) => ({
   display: 'flex',
   flex: '1 1 auto',
-  justifyContent: 'center',
+  justifyContent: 'flex-start',
+  [theme.breakpoints.up('md')]: {
+    paddingLeft: theme.spacing(0),
+  },
 }));

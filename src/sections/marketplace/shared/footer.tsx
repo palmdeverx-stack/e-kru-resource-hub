@@ -35,9 +35,11 @@ const sellerLinks: FooterLink[] = [
 
 const supportLinks: FooterLink[] = [
   { label: 'เข้าสู่ระบบ', href: paths.auth.jwt.signIn },
-  { label: 'นโยบายความเป็นส่วนตัว', href: paths.legal.privacyPolicy },
-  { label: 'ข้อกำหนดการใช้งาน', href: paths.legal.termsOfService },
-  { label: 'ข้อตกลงการให้บริการ', href: paths.legal.serviceAgreement },
+  { label: 'Terms of Service', href: paths.legal.termsOfService },
+  { label: 'Seller Agreement', href: paths.legal.sellerAgreement },
+  { label: 'Privacy Policy (PDPA)', href: paths.legal.privacyPolicy },
+  { label: 'Copyright & Takedown Policy', href: paths.legal.copyrightTakedown },
+  { label: 'Refund Policy', href: paths.legal.refundPolicy },
 ];
 
 export function MarketplaceFooter() {
@@ -62,8 +64,6 @@ export function MarketplaceFooter() {
               <Stack direction="row" spacing={1.75} alignItems="center">
                 <Box
                   sx={{
-                    width: 52,
-                    height: 52,
                     p: 0.75,
                     display: 'grid',
                     flexShrink: 0,
@@ -129,9 +129,15 @@ export function MarketplaceFooter() {
           alignItems={{ xs: 'flex-start', sm: 'center' }}
           spacing={1}
         >
-          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
-            © {year} E-KRU Marketplace. All rights reserved.
-          </Typography>
+          <Stack>
+            <Typography variant="caption">
+              © {year} E-KRU Marketplace. All rights reserved.
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
+              Developed by CODE FOR CAT.
+            </Typography>
+          </Stack>
+
           <Stack direction="row" spacing={2}>
             <Link
               component={RouterLink}

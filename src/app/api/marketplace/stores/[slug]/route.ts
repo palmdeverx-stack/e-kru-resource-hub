@@ -8,12 +8,25 @@ type Context = { params: Promise<{ slug: string }> };
 
 export async function GET(_request: Request, { params }: Context) {
   const { slug } = await params;
-  const { data: seller, error } = await supabaseAdmin
+  const identifier = decodeURIComponent(slug);
+  let { data: seller, error } = await supabaseAdmin
     .from('marketplace_sellers')
     .select('id, display_name, display_name_en, slug, logo_url, cover_url, bio, seller_type')
-    .eq('slug', decodeURIComponent(slug))
+    .eq('slug', identifier)
     .eq('status', 'active')
     .maybeSingle();
+
+  if (!seller && !error && /^[0-9a-f-]{36}$/i.test(identifier)) {
+    const sellerById = await supabaseAdmin
+      .from('marketplace_sellers')
+      .select('id, display_name, display_name_en, slug, logo_url, cover_url, bio, seller_type')
+      .eq('id', identifier)
+      .eq('status', 'active')
+      .maybeSingle();
+    seller = sellerById.data;
+    error = sellerById.error;
+  }
+
   if (error || !seller) {
     return NextResponse.json(
       { message: error?.message ?? 'ไม่พบร้านค้า' },

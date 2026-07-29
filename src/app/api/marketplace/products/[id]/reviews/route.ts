@@ -45,6 +45,13 @@ export async function POST(request: Request, { params }: Context) {
     );
   }
 
+  const { data: existingReview } = await supabaseAdmin
+    .from('marketplace_product_reviews')
+    .select('id')
+    .eq('product_id', productId)
+    .eq('buyer_id', caller.sub)
+    .maybeSingle();
+
   const now = new Date().toISOString();
   const { error } = await supabaseAdmin.from('marketplace_product_reviews').upsert(
     {
@@ -62,5 +69,8 @@ export async function POST(request: Request, { params }: Context) {
   }
 
   const engagement = await getProductEngagement(productId, caller.sub);
-  return NextResponse.json({ engagement, message: 'บันทึกรีวิวแล้ว' });
+  return NextResponse.json({
+    engagement,
+    message: existingReview ? 'แก้ไขรีวิวเรียบร้อยแล้ว' : 'เผยแพร่รีวิวเรียบร้อยแล้ว',
+  });
 }

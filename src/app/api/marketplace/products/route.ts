@@ -39,6 +39,7 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const mine = url.searchParams.get('mine') === '1';
   const category = url.searchParams.get('category');
+  const requestedSellerId = url.searchParams.get('sellerId')?.trim();
   const search = url.searchParams.get('q')?.trim();
   const page = Math.max(1, Number.parseInt(url.searchParams.get('page') ?? '1', 10) || 1);
   const limit = Math.min(
@@ -65,12 +66,13 @@ export async function GET(request: Request) {
   let query = supabaseAdmin
     .from('marketplace_products')
     .select(
-      '*, seller:marketplace_sellers(id, display_name, seller_type, slug, logo_url), media_type:marketplace_media_types(id, name, delivery_mode), sale_type:marketplace_sale_types(id, name, pricing_mode), grade_levels:marketplace_product_grade_levels(grade_level:marketplace_grade_levels(id,name)), images:marketplace_product_images(*), reviews:marketplace_product_reviews(rating)'
+      '*, seller:marketplace_sellers(id, display_name, display_name_en, seller_type, slug, logo_url, bio), media_type:marketplace_media_types(id, name, delivery_mode), sale_type:marketplace_sale_types(id, name, pricing_mode), grade_levels:marketplace_product_grade_levels(grade_level:marketplace_grade_levels(id,name)), images:marketplace_product_images(*), reviews:marketplace_product_reviews(rating)'
     )
     .order('created_at', { ascending: false })
     .range(offset, offset + limit);
 
   query = mine ? query.eq('seller_id', sellerId) : query.eq('status', 'published');
+  if (!mine && requestedSellerId) query = query.eq('seller_id', requestedSellerId);
   if (category && category !== 'all') query = query.eq('category', category);
   if (search) {
     const safeSearch = search.replace(/[^\p{L}\p{N}\s_-]/gu, '').trim();

@@ -71,7 +71,7 @@ export function MarketplaceFinanceSettingsView() {
   if (loading) return <CircularProgress sx={{ m: 6 }} />;
 
   return (
-    <Container maxWidth="xl" sx={{ py: { xs: 4, md: 6 } }}>
+    <Container maxWidth={false} sx={{ py: { xs: 4, md: 6 } }}>
       <Typography component="h1" variant="h3">
         ตั้งค่าการเงิน Marketplace
       </Typography>
@@ -105,9 +105,7 @@ export function MarketplaceFinanceSettingsView() {
               <Switch
                 checked={form.stripeEnabled}
                 disabled={!form.stripeConfigured}
-                onChange={(event) =>
-                  setForm({ ...form, stripeEnabled: event.target.checked })
-                }
+                onChange={(event) => setForm({ ...form, stripeEnabled: event.target.checked })}
               />
             }
             label="เปิดรับชำระผ่าน Stripe Checkout"

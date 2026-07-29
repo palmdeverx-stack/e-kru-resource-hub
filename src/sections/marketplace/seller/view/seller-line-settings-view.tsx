@@ -138,7 +138,7 @@ export function MarketplaceSellerLineSettingsView() {
   }
 
   return (
-    <Container maxWidth="xl" sx={{ py: { xs: 4, md: 6 } }}>
+    <Container maxWidth={false} sx={{ py: { xs: 4, md: 6 } }}>
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
         spacing={2}

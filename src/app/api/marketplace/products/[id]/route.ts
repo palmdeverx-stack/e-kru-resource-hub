@@ -15,7 +15,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const { data: product, error } = await supabaseAdmin
     .from('marketplace_products')
     .select(
-      '*, seller:marketplace_sellers(id, display_name, seller_type, slug, logo_url), media_type:marketplace_media_types(id, name, delivery_mode), sale_type:marketplace_sale_types(id, name, pricing_mode), curriculum:marketplace_curricula(id, name), grade_levels:marketplace_product_grade_levels(grade_level:marketplace_grade_levels(id, name)), tags:marketplace_product_tags(tag:marketplace_tags(id, name)), images:marketplace_product_images(*)'
+      '*, seller:marketplace_sellers(id, display_name, display_name_en, seller_type, slug, logo_url, bio), media_type:marketplace_media_types(id, name, delivery_mode), sale_type:marketplace_sale_types(id, name, pricing_mode), curriculum:marketplace_curricula(id, name), grade_levels:marketplace_product_grade_levels(grade_level:marketplace_grade_levels(id, name)), tags:marketplace_product_tags(tag:marketplace_tags(id, name)), images:marketplace_product_images(*)'
     )
     .eq('id', id)
     .eq('status', 'published')

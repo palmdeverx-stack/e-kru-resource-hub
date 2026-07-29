@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect } from 'react';
+
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
@@ -8,17 +10,42 @@ import Divider from '@mui/material/Divider';
 import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
 
+import { paths } from 'src/routes/paths';
+import { useRouter } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
+
 import { useTranslate } from 'src/locales';
 
+import { SplashScreen } from 'src/components/loading-screen';
 import { RiDeleteBinLine, RiArrowLeftLine, RiShoppingBag3Line } from 'src/components/remix-icon';
 
-import { formatPrice, getLocalizedProduct } from '../../shared/api';
-import { useMarketplaceCart } from '../cart-context';
+import { useAuthContext } from 'src/auth/hooks';
 
-export function MarketplaceCartView() {
+import { useMarketplaceCart } from '../cart-context';
+import { MarketplaceSellerLink } from '../../shared/seller-link';
+import { formatPrice, getLocalizedProduct } from '../../shared/api';
+
+export function MarketplaceCartView({ dashboardMode = false }: { dashboardMode?: boolean }) {
+  const router = useRouter();
   const { currentLang } = useTranslate();
+  const { authenticated, loading } = useAuthContext();
   const { items, subtotal, removeItem } = useMarketplaceCart();
+  const productsHref = dashboardMode
+    ? paths.marketplace.dashboardProducts
+    : paths.marketplace.products;
+  const checkoutHref = dashboardMode
+    ? paths.marketplace.dashboardCheckout
+    : paths.marketplace.checkout;
+
+  useEffect(() => {
+    if (!dashboardMode && !loading && authenticated) {
+      router.replace(paths.marketplace.dashboardCart);
+    }
+  }, [authenticated, dashboardMode, loading, router]);
+
+  if (!dashboardMode && (loading || authenticated)) {
+    return <SplashScreen portal={false} />;
+  }
 
   if (!items.length) {
     return (
@@ -45,7 +72,7 @@ export function MarketplaceCartView() {
         </Typography>
         <Button
           component={RouterLink}
-          href="/products"
+          href={productsHref}
           variant="contained"
           startIcon={<RiArrowLeftLine />}
         >
@@ -56,7 +83,7 @@ export function MarketplaceCartView() {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ py: { xs: 4, md: 8 } }}>
+    <Container maxWidth={false} sx={{ py: { xs: 4, md: 8 } }}>
       <Typography component="h1" variant="h3">
         ตะกร้าของฉัน
       </Typography>
@@ -88,9 +115,17 @@ export function MarketplaceCartView() {
                   <Typography variant="subtitle1">
                     {getLocalizedProduct(product, currentLang.value).title}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {product.seller?.display_name ?? 'ผู้ขาย eKru'} · {product.category}
-                  </Typography>
+                  <Stack direction="row" spacing={0.75} alignItems="center">
+                    <MarketplaceSellerLink
+                      seller={product.seller}
+                      avatarSize={24}
+                      nameVariant="body2"
+                      nameSx={{ color: 'text.secondary' }}
+                    />
+                    <Typography variant="body2" color="text.secondary">
+                      · {product.category}
+                    </Typography>
+                  </Stack>
                   <Typography variant="h6" color="primary.main">
                     {formatPrice(Number(product.price), product.currency)}
                   </Typography>
@@ -136,12 +171,12 @@ export function MarketplaceCartView() {
               size="large"
               variant="contained"
               component={RouterLink}
-              href="/checkout"
+              href={checkoutHref}
               fullWidth
             >
               ดำเนินการชำระเงิน
             </Button>
-            <Button component={RouterLink} href="/products" color="inherit" fullWidth>
+            <Button component={RouterLink} href={productsHref} color="inherit" fullWidth>
               เลือกสินค้าต่อ
             </Button>
           </Stack>

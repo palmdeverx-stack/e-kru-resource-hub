@@ -6,15 +6,16 @@ import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
-import Avatar from '@mui/material/Avatar';
 import Rating from '@mui/material/Rating';
 import Typography from '@mui/material/Typography';
 
-import { useTranslate } from 'src/locales';
 import { RouterLink } from 'src/routes/components';
+
+import { useTranslate } from 'src/locales';
 
 import { RiFileLine, RiBookOpenLine, RiGraduationCapLine } from 'src/components/remix-icon';
 
+import { MarketplaceSellerLink } from './seller-link';
 import { formatPrice, getLocalizedProduct } from './api';
 
 export function MarketplaceProductCard({
@@ -43,8 +44,6 @@ export function MarketplaceProductCard({
 
   return (
     <Card
-      component={RouterLink}
-      href={`/product/${product.id}`}
       variant="outlined"
       sx={{
         p: 1.5,
@@ -65,6 +64,9 @@ export function MarketplaceProductCard({
       }}
     >
       <Box
+        component={RouterLink}
+        href={`/product/${product.id}`}
+        aria-label={`ดูรายละเอียดสินค้า ${content.title}`}
         sx={{
           width: 1,
           position: 'relative',
@@ -73,6 +75,7 @@ export function MarketplaceProductCard({
           borderRadius: 2,
           display: 'grid',
           placeItems: 'center',
+          textDecoration: 'none',
           bgcolor: fallbackColors[colorIndex % fallbackColors.length],
         }}
       >
@@ -104,16 +107,13 @@ export function MarketplaceProductCard({
 
       <Stack spacing={1.4} sx={{ px: 0.75, pt: 1.5, flexGrow: 1 }}>
         <Stack direction="row" spacing={1} alignItems="center">
-          <Avatar
-            src={product.seller?.logo_url ?? undefined}
-            alt={product.seller?.display_name}
-            sx={{ width: 28, height: 28, bgcolor: 'primary.lighter', color: 'primary.main' }}
-          >
-            {product.seller?.display_name?.charAt(0) || 'e'}
-          </Avatar>
-          <Typography variant="caption" color="text.secondary" noWrap sx={{ flexGrow: 1 }}>
-            {product.seller?.display_name ?? 'ผู้ขาย eKru'}
-          </Typography>
+          <MarketplaceSellerLink
+            seller={product.seller}
+            avatarSize={28}
+            nameVariant="caption"
+            sx={{ minWidth: 0, flexGrow: 1 }}
+            nameSx={{ color: 'text.secondary' }}
+          />
           {product.category && (
             <Chip
               size="small"
@@ -126,10 +126,14 @@ export function MarketplaceProductCard({
         </Stack>
 
         <Typography
+          component={RouterLink}
+          href={`/product/${product.id}`}
           variant="subtitle1"
           sx={{
+            color: 'text.primary',
             minHeight: 48,
             lineHeight: 1.45,
+            textDecoration: 'none',
             overflow: 'hidden',
             display: '-webkit-box',
             WebkitLineClamp: 2,

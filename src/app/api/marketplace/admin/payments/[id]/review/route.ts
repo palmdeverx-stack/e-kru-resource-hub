@@ -73,7 +73,7 @@ export async function PATCH(request: Request, { params }: Context) {
         type: 'marketplace_payment_rejected',
         title: 'สลิปชำระเงินไม่ผ่านการตรวจสอบ',
         body: reason,
-        link: `/checkout/payment/${id}`,
+        link: `/dashboard/payment/${id}`,
       },
     ]);
     return NextResponse.json({ success: true });

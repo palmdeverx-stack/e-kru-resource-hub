@@ -79,14 +79,22 @@ export function MarketplacePaymentReviewView() {
   };
 
   return (
-    <Container maxWidth="xl" sx={{ py: { xs: 4, md: 6 } }}>
-      <Typography component="h1" variant="h3">ตรวจสอบการชำระเงิน</Typography>
+    <Container maxWidth={false} sx={{ py: { xs: 4, md: 6 } }}>
+      <Typography component="h1" variant="h3">
+        ตรวจสอบการชำระเงิน
+      </Typography>
       <Typography color="text.secondary" sx={{ mt: 0.5, mb: 4 }}>
         เทียบยอด ผู้รับ เวลา และเลขอ้างอิงบนสลิปก่อนอนุมัติ
       </Typography>
-      {!!error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
+      {!!error && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
+      )}
       {loading ? (
-        <Box sx={{ py: 10, textAlign: 'center' }}><CircularProgress /></Box>
+        <Box sx={{ py: 10, textAlign: 'center' }}>
+          <CircularProgress />
+        </Box>
       ) : sessions.length ? (
         <Stack spacing={2}>
           {sessions.map((session) => (
@@ -96,13 +104,17 @@ export function MarketplacePaymentReviewView() {
                   component="img"
                   src={session.slipUrl || ''}
                   alt="Payment slip"
-                  sx={{ width: 180, height: 240, objectFit: 'contain', bgcolor: 'grey.100', borderRadius: 2 }}
+                  sx={{
+                    width: 180,
+                    height: 240,
+                    objectFit: 'contain',
+                    bgcolor: 'grey.100',
+                    borderRadius: 2,
+                  }}
                 />
                 <Box sx={{ flex: 1 }}>
                   <Stack direction="row" spacing={1} alignItems="center">
-                    <Typography variant="h5">
-                      {formatPrice(Number(session.amount))}
-                    </Typography>
+                    <Typography variant="h5">{formatPrice(Number(session.amount))}</Typography>
                     <Chip size="small" color="warning" label="รอตรวจสอบ" />
                   </Stack>
                   <Typography color="text.secondary">
@@ -112,7 +124,8 @@ export function MarketplacePaymentReviewView() {
                   <Stack spacing={0.5}>
                     {session.orders?.map((order) => (
                       <Typography key={order.id} variant="body2">
-                        {order.seller?.display_name || 'ร้านค้า'} — {formatPrice(Number(order.total))}
+                        {order.seller?.display_name || 'ร้านค้า'} —{' '}
+                        {formatPrice(Number(order.total))}
                       </Typography>
                     ))}
                   </Stack>
@@ -122,14 +135,20 @@ export function MarketplacePaymentReviewView() {
                     color="error"
                     variant="outlined"
                     startIcon={<RiCloseLine />}
-                    onClick={() => { setReviewing({ session, action: 'reject' }); setValue(''); }}
+                    onClick={() => {
+                      setReviewing({ session, action: 'reject' });
+                      setValue('');
+                    }}
                   >
                     ไม่อนุมัติ
                   </Button>
                   <Button
                     variant="contained"
                     startIcon={<RiCheckboxCircleLine />}
-                    onClick={() => { setReviewing({ session, action: 'approve' }); setValue(''); }}
+                    onClick={() => {
+                      setReviewing({ session, action: 'approve' });
+                      setValue('');
+                    }}
                   >
                     อนุมัติสลิป
                   </Button>
@@ -141,7 +160,9 @@ export function MarketplacePaymentReviewView() {
       ) : (
         <Card sx={{ py: 9, textAlign: 'center' }}>
           <RiCheckboxCircleLine size={48} />
-          <Typography variant="h5" sx={{ mt: 2 }}>ไม่มีสลิปรอตรวจสอบ</Typography>
+          <Typography variant="h5" sx={{ mt: 2 }}>
+            ไม่มีสลิปรอตรวจสอบ
+          </Typography>
         </Card>
       )}
 
@@ -162,7 +183,9 @@ export function MarketplacePaymentReviewView() {
           />
         </DialogContent>
         <DialogActions>
-          <Button color="inherit" onClick={() => setReviewing(null)}>ยกเลิก</Button>
+          <Button color="inherit" onClick={() => setReviewing(null)}>
+            ยกเลิก
+          </Button>
           <Button
             color={reviewing?.action === 'approve' ? 'primary' : 'error'}
             variant="contained"

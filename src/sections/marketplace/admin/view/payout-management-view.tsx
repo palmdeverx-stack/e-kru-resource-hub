@@ -41,7 +41,9 @@ export function MarketplacePayoutManagementView() {
   const [available, setAvailable] = useState<AvailableSeller[]>([]);
   const [payouts, setPayouts] = useState<Payout[]>([]);
   const [loading, setLoading] = useState(true);
-  const [reviewing, setReviewing] = useState<{ payout: Payout; status: 'paid' | 'failed' } | null>(null);
+  const [reviewing, setReviewing] = useState<{ payout: Payout; status: 'paid' | 'failed' } | null>(
+    null
+  );
   const [value, setValue] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -107,65 +109,109 @@ export function MarketplacePayoutManagementView() {
   };
 
   return (
-    <Container maxWidth="xl" sx={{ py: { xs: 4, md: 6 } }}>
-      <Typography component="h1" variant="h3">โอนเงินให้ผู้ขาย</Typography>
+    <Container maxWidth={false} sx={{ py: { xs: 4, md: 6 } }}>
+      <Typography component="h1" variant="h3">
+        โอนเงินให้ผู้ขาย
+      </Typography>
       <Typography color="text.secondary" sx={{ mt: 0.5, mb: 4 }}>
         สร้างรายการจากยอดที่พ้นระยะพัก แล้วบันทึกผลหลังโอนผ่านธนาคาร
       </Typography>
-      {!!error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
-      {loading ? <Box sx={{ py: 8, textAlign: 'center' }}><CircularProgress /></Box> : (
+      {!!error && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
+      )}
+      {loading ? (
+        <Box sx={{ py: 8, textAlign: 'center' }}>
+          <CircularProgress />
+        </Box>
+      ) : (
         <Stack spacing={4}>
           <Box>
-            <Typography variant="h5" sx={{ mb: 2 }}>ยอดพร้อมทำรอบ</Typography>
+            <Typography variant="h5" sx={{ mb: 2 }}>
+              ยอดพร้อมทำรอบ
+            </Typography>
             <Stack spacing={2}>
-              {available.length ? available.map((item) => (
-                <Card key={item.sellerId} sx={{ p: 3 }}>
-                  <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2}>
-                    <div>
-                      <Typography variant="h6">{item.seller?.display_name || item.sellerId}</Typography>
-                      <Typography color="text.secondary">
-                        {item.account
-                          ? `${item.account.bank_name} · ${item.account.account_number} · ${item.account.account_name}`
-                          : 'ยังไม่มีบัญชีรับเงิน'}
-                      </Typography>
-                    </div>
-                    <Stack direction="row" spacing={2} alignItems="center">
-                      <Typography variant="h5" color="success.main">{formatPrice(item.amount)}</Typography>
-                      <Button
-                        variant="contained"
-                        disabled={!item.account}
-                        loading={saving}
-                        onClick={() => createPayout(item.sellerId)}
-                      >
-                        สร้างรายการโอน
-                      </Button>
+              {available.length ? (
+                available.map((item) => (
+                  <Card key={item.sellerId} sx={{ p: 3 }}>
+                    <Stack
+                      direction={{ xs: 'column', md: 'row' }}
+                      justifyContent="space-between"
+                      spacing={2}
+                    >
+                      <div>
+                        <Typography variant="h6">
+                          {item.seller?.display_name || item.sellerId}
+                        </Typography>
+                        <Typography color="text.secondary">
+                          {item.account
+                            ? `${item.account.bank_name} · ${item.account.account_number} · ${item.account.account_name}`
+                            : 'ยังไม่มีบัญชีรับเงิน'}
+                        </Typography>
+                      </div>
+                      <Stack direction="row" spacing={2} alignItems="center">
+                        <Typography variant="h5" color="success.main">
+                          {formatPrice(item.amount)}
+                        </Typography>
+                        <Button
+                          variant="contained"
+                          disabled={!item.account}
+                          loading={saving}
+                          onClick={() => createPayout(item.sellerId)}
+                        >
+                          สร้างรายการโอน
+                        </Button>
+                      </Stack>
                     </Stack>
-                  </Stack>
-                </Card>
-              )) : <Alert severity="info">ยังไม่มียอดที่พร้อมทำรอบ</Alert>}
+                  </Card>
+                ))
+              ) : (
+                <Alert severity="info">ยังไม่มียอดที่พร้อมทำรอบ</Alert>
+              )}
             </Stack>
           </Box>
 
           <Box>
-            <Typography variant="h5" sx={{ mb: 2 }}>รายการโอนล่าสุด</Typography>
+            <Typography variant="h5" sx={{ mb: 2 }}>
+              รายการโอนล่าสุด
+            </Typography>
             <Stack spacing={2}>
               {payouts.map((payout) => (
                 <Card key={payout.id} sx={{ p: 3 }}>
-                  <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2}>
+                  <Stack
+                    direction={{ xs: 'column', md: 'row' }}
+                    justifyContent="space-between"
+                    spacing={2}
+                  >
                     <div>
                       <Typography variant="h6">
-                        {payout.seller?.display_name || 'ผู้ขาย'} · {formatPrice(Number(payout.amount))}
+                        {payout.seller?.display_name || 'ผู้ขาย'} ·{' '}
+                        {formatPrice(Number(payout.amount))}
                       </Typography>
                       <Typography color="text.secondary">
-                        {payout.bank_name_snapshot} · {payout.account_number_snapshot} · {payout.account_name_snapshot}
+                        {payout.bank_name_snapshot} · {payout.account_number_snapshot} ·{' '}
+                        {payout.account_name_snapshot}
                       </Typography>
                     </div>
                     {payout.status === 'pending' ? (
                       <Stack direction="row" spacing={1}>
-                        <Button color="error" onClick={() => { setReviewing({ payout, status: 'failed' }); setValue(''); }}>
+                        <Button
+                          color="error"
+                          onClick={() => {
+                            setReviewing({ payout, status: 'failed' });
+                            setValue('');
+                          }}
+                        >
                           โอนไม่สำเร็จ
                         </Button>
-                        <Button variant="contained" onClick={() => { setReviewing({ payout, status: 'paid' }); setValue(''); }}>
+                        <Button
+                          variant="contained"
+                          onClick={() => {
+                            setReviewing({ payout, status: 'paid' });
+                            setValue('');
+                          }}
+                        >
                           บันทึกว่าโอนแล้ว
                         </Button>
                       </Stack>
@@ -184,7 +230,9 @@ export function MarketplacePayoutManagementView() {
       )}
 
       <Dialog open={Boolean(reviewing)} onClose={() => setReviewing(null)} fullWidth maxWidth="sm">
-        <DialogTitle>{reviewing?.status === 'paid' ? 'ยืนยันการโอน' : 'บันทึกว่าโอนไม่สำเร็จ'}</DialogTitle>
+        <DialogTitle>
+          {reviewing?.status === 'paid' ? 'ยืนยันการโอน' : 'บันทึกว่าโอนไม่สำเร็จ'}
+        </DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
@@ -199,8 +247,15 @@ export function MarketplacePayoutManagementView() {
         </DialogContent>
         <Divider />
         <DialogActions>
-          <Button color="inherit" onClick={() => setReviewing(null)}>ยกเลิก</Button>
-          <Button variant="contained" loading={saving} disabled={value.trim().length < 3} onClick={finishPayout}>
+          <Button color="inherit" onClick={() => setReviewing(null)}>
+            ยกเลิก
+          </Button>
+          <Button
+            variant="contained"
+            loading={saving}
+            disabled={value.trim().length < 3}
+            onClick={finishPayout}
+          >
             ยืนยัน
           </Button>
         </DialogActions>

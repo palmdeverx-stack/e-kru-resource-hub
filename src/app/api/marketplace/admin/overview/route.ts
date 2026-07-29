@@ -6,7 +6,10 @@ import { supabaseAdmin } from 'src/lib/supabase-admin';
 export async function GET(request: Request) {
   const caller = requireRole(request, ['master_admin']);
   if (!caller) {
-    return NextResponse.json({ message: 'ไม่มีสิทธิ์เข้าถึงศูนย์ควบคุม Marketplace' }, { status: 403 });
+    return NextResponse.json(
+      { message: 'ไม่มีสิทธิ์เข้าถึงศูนย์ควบคุม Marketplace' },
+      { status: 403 }
+    );
   }
 
   const [
@@ -107,18 +110,13 @@ export async function GET(request: Request) {
   }
 
   const orders = ordersResult.data ?? [];
-  const completedOrders = orders.filter((order) =>
-    ['paid', 'completed'].includes(order.status)
-  );
+  const completedOrders = orders.filter((order) => ['paid', 'completed'].includes(order.status));
   const grossSales = completedOrders.reduce((sum, order) => sum + Number(order.total), 0);
   const platformRevenue = completedOrders.reduce(
-    (sum, order) => sum + Number(order.platform_fee) - Number(order.payment_fee),
+    (sum, order) => sum + Number(order.platform_fee),
     0
   );
-  const sellerRevenue = completedOrders.reduce(
-    (sum, order) => sum + Number(order.seller_net),
-    0
-  );
+  const sellerRevenue = completedOrders.reduce((sum, order) => sum + Number(order.seller_net), 0);
   const pendingPayouts = pendingPayoutsResult.data ?? [];
 
   return NextResponse.json({
@@ -126,10 +124,7 @@ export async function GET(request: Request) {
       grossSales,
       platformRevenue,
       sellerRevenue,
-      pendingPayoutAmount: pendingPayouts.reduce(
-        (sum, payout) => sum + Number(payout.amount),
-        0
-      ),
+      pendingPayoutAmount: pendingPayouts.reduce((sum, payout) => sum + Number(payout.amount), 0),
       orderCount: orders.length,
       activeSellerCount: sellersResult.count ?? 0,
       publishedProductCount: productsResult.count ?? 0,

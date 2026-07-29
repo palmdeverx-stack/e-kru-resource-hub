@@ -32,14 +32,15 @@ import Autocomplete from '@mui/material/Autocomplete';
 import CircularProgress from '@mui/material/CircularProgress';
 
 import { useRouter } from 'src/routes/hooks';
-import { useTranslate } from 'src/locales';
 
+import { useTranslate } from 'src/locales';
 import { SCHOOL_FEATURES } from 'src/lib/school-subscription-config';
 
 import { Upload } from 'src/components/upload';
 import { Editor } from 'src/components/editor';
 import {
   RemixIcon,
+  RiEyeLine,
   RiSaveLine,
   RiImageAddLine,
   RiFileList3Line,
@@ -94,6 +95,12 @@ const MAX_PRODUCT_FILE_SIZE = 50 * 1024 * 1024;
 
 type Props = {
   productId?: string;
+};
+
+type PendingProductFile = {
+  key: string;
+  file: File;
+  isPreview: boolean;
 };
 
 const initialForm = {
@@ -152,6 +159,9 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
   const [pendingPreviewImages, setPendingPreviewImages] = useState<File[]>([]);
   const [pendingDeletedImageIds, setPendingDeletedImageIds] = useState<string[]>([]);
   const [files, setFiles] = useState<MarketplaceProductFile[]>([]);
+  const [pendingProductFiles, setPendingProductFiles] = useState<PendingProductFile[]>([]);
+  const [pendingDeletedFileIds, setPendingDeletedFileIds] = useState<string[]>([]);
+  const [pendingFilePreview, setPendingFilePreview] = useState<Record<string, boolean>>({});
   const [form, setForm] = useState(initialForm);
 
   useEffect(() => {
@@ -219,6 +229,9 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
     setPendingPreviewImages([]);
     setPendingDeletedImageIds([]);
     setFiles(product.files ?? []);
+    setPendingProductFiles([]);
+    setPendingDeletedFileIds([]);
+    setPendingFilePreview({});
     setRejectionReason(product.status === 'rejected' ? (product.rejection_reason ?? null) : null);
   }, []);
 
@@ -247,6 +260,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
   const visibleImages = images.filter((image) => !pendingDeletedImageIds.includes(image.id));
   const coverImage = visibleImages.find((image) => image.is_cover) ?? visibleImages[0];
   const previewImages = visibleImages.filter((image) => image.id !== coverImage?.id);
+  const visibleFiles = files.filter((file) => !pendingDeletedFileIds.includes(file.id));
   const previewInEnglish = currentLang.value === 'en';
   const previewTitle = (previewInEnglish && form.titleEn.trim()) || form.title;
   const previewShortDescription =
@@ -300,7 +314,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
       ? [
           {
             label: 'อัปโหลดไฟล์สินค้าอย่างน้อย 1 ไฟล์',
-            completed: files.length > 0,
+            completed: visibleFiles.length + pendingProductFiles.length > 0,
           },
         ]
       : []),
@@ -411,6 +425,69 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
     }
   };
 
+  const syncPendingFiles = async (id: string) => {
+    let updatedFiles = files;
+    setFilesUploading(true);
+    try {
+      for (const fileId of pendingDeletedFileIds) {
+        const result = await deleteProductFile(id, fileId);
+        updatedFiles = result.files;
+        setFiles(updatedFiles);
+        setPendingDeletedFileIds((current) => current.filter((item) => item !== fileId));
+      }
+
+      const existingPreviewChanges = Object.entries(pendingFilePreview).filter(
+        ([fileId]) => !pendingDeletedFileIds.includes(fileId)
+      );
+      for (const [fileId, isPreview] of existingPreviewChanges) {
+        const result = await setProductFilePreview(id, fileId, isPreview);
+        updatedFiles = result.files;
+        setFiles(updatedFiles);
+        setPendingFilePreview((current) => {
+          const next = { ...current };
+          delete next[fileId];
+          return next;
+        });
+      }
+
+      if (pendingProductFiles.length) {
+        const previousIds = new Set(updatedFiles.map((file) => file.id));
+        const uploaded = await uploadProductFiles(
+          id,
+          pendingProductFiles.map((item) => item.file)
+        );
+        updatedFiles = uploaded.files;
+        setFiles(updatedFiles);
+        setPendingProductFiles([]);
+
+        const newFiles = updatedFiles.filter((file) => !previousIds.has(file.id));
+        const matchedIds = new Set<string>();
+        for (const pendingFile of pendingProductFiles.filter((item) => item.isPreview)) {
+          const uploadedFile = newFiles.find(
+            (file) =>
+              !matchedIds.has(file.id) &&
+              file.file_name === pendingFile.file.name &&
+              Number(file.file_size) === pendingFile.file.size
+          );
+          if (uploadedFile) {
+            matchedIds.add(uploadedFile.id);
+            const result = await setProductFilePreview(id, uploadedFile.id, true);
+            updatedFiles = result.files;
+            setFiles(updatedFiles);
+          }
+        }
+      }
+
+      setFiles(updatedFiles);
+      setPendingProductFiles([]);
+      setPendingDeletedFileIds([]);
+      setPendingFilePreview({});
+      return updatedFiles;
+    } finally {
+      setFilesUploading(false);
+    }
+  };
+
   const saveProduct = async (submit = false) => {
     if (form.title.trim().length < 3) {
       setError('กรุณากรอกชื่อสินค้าอย่างน้อย 3 ตัวอักษร');
@@ -427,6 +504,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
       const id = await ensureDraft();
       await updateProduct(id, productInput(false));
       await syncPendingImages(id);
+      await syncPendingFiles(id);
       const { product } = submit
         ? await updateProduct(id, productInput(true))
         : await getManagedProduct(id);
@@ -470,20 +548,22 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
     setPendingPreviewImages((current) => [...current, ...dropped]);
   };
 
-  const handleFileDrop = async (dropped: File[]) => {
+  const handleFileDrop = (dropped: File[]) => {
     if (!dropped.length) return;
-    setFilesUploading(true);
-    setError('');
-    try {
-      const id = await ensureDraft();
-      const { files: updated } = await uploadProductFiles(id, dropped);
-      setFiles(updated);
-      router.replace(`/dashboard/seller/products/${id}/edit`);
-    } catch (uploadError) {
-      setError(uploadError instanceof Error ? uploadError.message : 'อัปโหลดไฟล์ไม่สำเร็จ');
-    } finally {
-      setFilesUploading(false);
+    const availableSlots = 20 - visibleFiles.length - pendingProductFiles.length;
+    if (dropped.length > availableSlots) {
+      setError(`เพิ่มไฟล์สินค้าได้อีกไม่เกิน ${Math.max(availableSlots, 0)} ไฟล์`);
+      return;
     }
+    setError('');
+    setPendingProductFiles((current) => [
+      ...current,
+      ...dropped.map((file) => ({
+        key: crypto.randomUUID(),
+        file,
+        isPreview: false,
+      })),
+    ]);
   };
 
   const handleImageDelete = async (imageId: string) => {
@@ -493,26 +573,36 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
     setError('');
   };
 
-  const handleFileDelete = async (fileId: string) => {
-    if (!productId) return;
-    try {
-      const { files: updated } = await deleteProductFile(productId, fileId);
-      setFiles(updated);
-    } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : 'ลบไฟล์ไม่สำเร็จ');
-    }
+  const handleFileDelete = (fileId: string) => {
+    setPendingDeletedFileIds((current) =>
+      current.includes(fileId) ? current : [...current, fileId]
+    );
+    setError('');
   };
 
-  const handleTogglePreview = async (fileId: string, isPreview: boolean) => {
-    if (!productId) return;
-    try {
-      const { files: updated } = await setProductFilePreview(productId, fileId, isPreview);
-      setFiles(updated);
-    } catch (previewError) {
-      setError(
-        previewError instanceof Error ? previewError.message : 'ตั้งค่าไฟล์ตัวอย่างไม่สำเร็จ'
-      );
-    }
+  const handleTogglePreview = (fileId: string, isPreview: boolean) => {
+    setPendingFilePreview((current) => ({ ...current, [fileId]: isPreview }));
+    setError('');
+  };
+
+  const handlePendingFileDelete = (key: string) => {
+    setPendingProductFiles((current) => current.filter((item) => item.key !== key));
+  };
+
+  const handlePendingFilePreview = (key: string, isPreview: boolean) => {
+    setPendingProductFiles((current) =>
+      current.map((item) => (item.key === key ? { ...item, isPreview } : item))
+    );
+  };
+
+  const openPendingFile = (file: File) => {
+    const objectUrl = URL.createObjectURL(file);
+    const anchor = document.createElement('a');
+    anchor.href = objectUrl;
+    anchor.target = '_blank';
+    anchor.rel = 'noopener noreferrer';
+    anchor.click();
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
   };
 
   if (initializing) {
@@ -524,7 +614,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
   }
 
   return (
-    <Container maxWidth="xl" sx={{ py: { xs: 4, md: 6 } }}>
+    <Container maxWidth={false} sx={{ py: { xs: 4, md: 6 } }}>
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
         alignItems={{ sm: 'center' }}
@@ -1007,6 +1097,12 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                     onRemoveAll={() => setPendingPreviewImages([])}
                     sx={{ height: 170 }}
                   />
+                  {!!pendingPreviewImages.length && (
+                    <Alert severity="info" variant="outlined">
+                      ภาพพรีวิวใหม่ {pendingPreviewImages.length} รูปเป็นไฟล์ชั่วคราว
+                      และจะอัปโหลดเมื่อกดบันทึกเท่านั้น
+                    </Alert>
+                  )}
                   {!!previewImages.length && (
                     <Grid container spacing={1.5}>
                       {previewImages.map((image) => (
@@ -1059,7 +1155,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                         ไฟล์สินค้า {isFileOptional ? '(ไม่บังคับ)' : '*'}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        PDF, DOCX, PPTX, XLSX, ZIP หรือรูปภาพ ไม่เกิน 50MB ต่อไฟล์
+                        PDF, DOC/DOCX, PPT/PPTX, XLS/XLSX, ZIP หรือรูปภาพ ไม่เกิน 50MB ต่อไฟล์
                       </Typography>
                       {isFileOptional && selectedMediaType && (
                         <Alert severity="info" variant="outlined">
@@ -1076,40 +1172,131 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                         onDrop={handleFileDrop}
                         sx={{ height: 170 }}
                       />
-                      {!!files.length && (
+                      {!!pendingProductFiles.length && (
+                        <Alert severity="info" variant="outlined">
+                          ไฟล์ใหม่ {pendingProductFiles.length} ไฟล์ยังไม่ได้อัปโหลดเข้าระบบ
+                          สามารถตรวจสอบไฟล์ได้ก่อน แล้วกดบันทึกเพื่อยืนยันการอัปโหลด
+                        </Alert>
+                      )}
+                      {!!pendingProductFiles.length && (
                         <Stack spacing={1}>
-                          {files.map((file) => (
+                          <Typography variant="subtitle2">ไฟล์ใหม่ (รอบันทึก)</Typography>
+                          {pendingProductFiles.map((item) => (
                             <Stack
-                              key={file.id}
-                              direction="row"
-                              alignItems="center"
-                              spacing={1.5}
+                              key={item.key}
+                              direction={{ xs: 'column', sm: 'row' }}
+                              alignItems={{ xs: 'stretch', sm: 'center' }}
+                              spacing={1.25}
                               sx={{
                                 p: 1.5,
                                 border: '1px solid',
-                                borderColor: 'divider',
+                                borderColor: 'primary.light',
                                 borderRadius: 1.5,
+                                bgcolor: 'primary.lighter',
                               }}
                             >
                               <RemixIcon icon="solar:file-text-bold-duotone" width={22} />
                               <Box sx={{ flexGrow: 1, minWidth: 0 }}>
                                 <Typography variant="body2" noWrap>
-                                  {file.file_name}
+                                  {item.file.name}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  {(item.file.size / 1024 / 1024).toLocaleString('th-TH', {
+                                    maximumFractionDigits: 2,
+                                  })}{' '}
+                                  MB · ยังไม่ได้อัปโหลด
                                 </Typography>
                               </Box>
+                              <Button
+                                size="small"
+                                color="inherit"
+                                variant="outlined"
+                                startIcon={<RiEyeLine />}
+                                onClick={() => openPendingFile(item.file)}
+                              >
+                                ดูไฟล์
+                              </Button>
                               <Chip
                                 size="small"
-                                label={file.is_preview ? 'ไฟล์ตัวอย่าง' : 'ตั้งเป็นตัวอย่าง'}
-                                color={file.is_preview ? 'primary' : 'default'}
-                                onClick={() => handleTogglePreview(file.id, !file.is_preview)}
+                                label={item.isPreview ? 'ไฟล์ตัวอย่าง' : 'ตั้งเป็นตัวอย่าง'}
+                                color={item.isPreview ? 'primary' : 'default'}
+                                onClick={() => handlePendingFilePreview(item.key, !item.isPreview)}
                                 sx={{ cursor: 'pointer' }}
                               />
-                              <IconButton size="small" onClick={() => handleFileDelete(file.id)}>
+                              <IconButton
+                                size="small"
+                                onClick={() => handlePendingFileDelete(item.key)}
+                              >
                                 <RemixIcon icon="mingcute:close-line" width={16} />
                               </IconButton>
                             </Stack>
                           ))}
                         </Stack>
+                      )}
+                      {!!visibleFiles.length && (
+                        <Stack spacing={1}>
+                          <Typography variant="subtitle2">ไฟล์ที่บันทึกแล้ว</Typography>
+                          {visibleFiles.map((file) => {
+                            const isPreview = pendingFilePreview[file.id] ?? file.is_preview;
+                            return (
+                              <Stack
+                                key={file.id}
+                                direction={{ xs: 'column', sm: 'row' }}
+                                alignItems={{ xs: 'stretch', sm: 'center' }}
+                                spacing={1.25}
+                                sx={{
+                                  p: 1.5,
+                                  border: '1px solid',
+                                  borderColor: 'divider',
+                                  borderRadius: 1.5,
+                                }}
+                              >
+                                <RemixIcon icon="solar:file-text-bold-duotone" width={22} />
+                                <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                                  <Typography variant="body2" noWrap>
+                                    {file.file_name}
+                                  </Typography>
+                                  <Typography variant="caption" color="text.secondary">
+                                    {(Number(file.file_size) / 1024 / 1024).toLocaleString(
+                                      'th-TH',
+                                      {
+                                        maximumFractionDigits: 2,
+                                      }
+                                    )}{' '}
+                                    MB
+                                  </Typography>
+                                </Box>
+                                <Button
+                                  component="a"
+                                  href={file.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  size="small"
+                                  color="inherit"
+                                  variant="outlined"
+                                  startIcon={<RiEyeLine />}
+                                >
+                                  ดูไฟล์
+                                </Button>
+                                <Chip
+                                  size="small"
+                                  label={isPreview ? 'ไฟล์ตัวอย่าง' : 'ตั้งเป็นตัวอย่าง'}
+                                  color={isPreview ? 'primary' : 'default'}
+                                  onClick={() => handleTogglePreview(file.id, !isPreview)}
+                                  sx={{ cursor: 'pointer' }}
+                                />
+                                <IconButton size="small" onClick={() => handleFileDelete(file.id)}>
+                                  <RemixIcon icon="mingcute:close-line" width={16} />
+                                </IconButton>
+                              </Stack>
+                            );
+                          })}
+                        </Stack>
+                      )}
+                      {!!pendingDeletedFileIds.length && (
+                        <Typography variant="caption" color="warning.dark">
+                          มีไฟล์รอลบ {pendingDeletedFileIds.length} ไฟล์ การลบจะมีผลเมื่อกดบันทึก
+                        </Typography>
                       )}
                     </Stack>
                   </>
@@ -1250,7 +1437,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
               </Stack>
               <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1.5 }}>
                 {user?.role === 'master_admin'
-                  ? 'สินค้าร้าน eKru จะเผยแพร่ทันที'
+                  ? 'สินค้าจากร้านค้าทางการจะเผยแพร่ทันที'
                   : 'สินค้าจะแสดงใน Marketplace หลังผู้ดูแลอนุมัติ'}
               </Typography>
             </Card>

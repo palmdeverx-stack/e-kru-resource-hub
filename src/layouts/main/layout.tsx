@@ -100,14 +100,15 @@ export function MainLayout({
       ),
       rightArea: (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 1.5 } }}>
-          <LanguagePopover data={languageOptions} />
-
           {/** @slot Settings button */}
           {/* <SettingsButton /> */}
 
           {/** @slot Sign in button */}
           <SignInButton />
           <AccountPopover />
+
+          {/** @slot Language popover */}
+          <LanguagePopover showTranslateIcon data={languageOptions} />
         </Box>
       ),
     };

@@ -62,6 +62,7 @@ export async function getMarketplaceSubjects() {
 export async function getProducts(params?: {
   q?: string;
   category?: string;
+  sellerId?: string;
   mine?: boolean;
   page?: number;
   limit?: number;
@@ -71,11 +72,12 @@ export async function getProducts(params?: {
   if (params?.category && params.category !== 'all') {
     searchParams.set('category', params.category);
   }
+  if (params?.sellerId) searchParams.set('sellerId', params.sellerId);
   if (params?.mine) searchParams.set('mine', '1');
   if (params?.page) searchParams.set('page', String(params.page));
   if (params?.limit) searchParams.set('limit', String(params.limit));
 
-  const response = await fetch(`/api/marketplace/products?${searchParams}`);
+  const response = await fetch(`/api/marketplace/products?${searchParams}`, { cache: 'no-store' });
   return parseResponse<{
     products: MarketplaceProduct[];
     hasMore?: boolean;
@@ -85,8 +87,41 @@ export async function getProducts(params?: {
 }
 
 export async function getProduct(id: string) {
-  const response = await fetch(`/api/marketplace/products/${id}`);
+  const response = await fetch(`/api/marketplace/products/${id}`, { cache: 'no-store' });
   return parseResponse<{ product: MarketplaceProduct }>(response);
+}
+
+export async function getProductCollections() {
+  const response = await fetch('/api/marketplace/product-collections', { cache: 'no-store' });
+  return parseResponse<{
+    favorites: MarketplaceProduct[];
+    bookmarks: MarketplaceProduct[];
+    setupRequired?: boolean;
+  }>(response);
+}
+
+export async function getProductPreference(productId: string) {
+  const response = await fetch(
+    `/api/marketplace/product-collections?productId=${encodeURIComponent(productId)}`,
+    { cache: 'no-store' }
+  );
+  return parseResponse<{
+    preference: { favorite: boolean; bookmark: boolean };
+    setupRequired?: boolean;
+  }>(response);
+}
+
+export async function updateProductCollection(
+  productId: string,
+  collectionType: 'favorite' | 'bookmark',
+  active: boolean
+) {
+  const response = await fetch('/api/marketplace/product-collections', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ productId, collectionType, active }),
+  });
+  return parseResponse<{ active: boolean }>(response);
 }
 
 export async function recordProductView(id: string, visitorId: string) {
@@ -124,7 +159,7 @@ export async function saveProductReview(id: string, rating: number, comment: str
 }
 
 export async function getSeller() {
-  const response = await fetch('/api/marketplace/seller');
+  const response = await fetch('/api/marketplace/seller', { cache: 'no-store' });
   return parseResponse<{ seller: MarketplaceSeller | null }>(response);
 }
 
@@ -199,7 +234,7 @@ export async function setProductFilePreview(productId: string, fileId: string, i
 }
 
 export async function getManagedProduct(id: string) {
-  const response = await fetch(`/api/marketplace/products/${id}/manage`);
+  const response = await fetch(`/api/marketplace/products/${id}/manage`, { cache: 'no-store' });
   return parseResponse<{ product: MarketplaceProduct }>(response);
 }
 
@@ -229,7 +264,7 @@ export async function createOrder(items: Array<{ productId: string }>, paymentMe
 }
 
 export async function getPaymentSession(id: string) {
-  const response = await fetch(`/api/marketplace/payments/${id}`);
+  const response = await fetch(`/api/marketplace/payments/${id}`, { cache: 'no-store' });
   return parseResponse<{ paymentSession: MarketplacePaymentSession }>(response);
 }
 
@@ -244,17 +279,17 @@ export async function uploadPaymentSlip(id: string, file: File) {
 }
 
 export async function getMyOrders() {
-  const response = await fetch('/api/marketplace/orders');
+  const response = await fetch('/api/marketplace/orders', { cache: 'no-store' });
   return parseResponse<{ orders: MarketplaceOrder[] }>(response);
 }
 
 export async function getMyOrder(id: string) {
-  const response = await fetch(`/api/marketplace/orders/${id}`);
+  const response = await fetch(`/api/marketplace/orders/${id}`, { cache: 'no-store' });
   return parseResponse<{ order: MarketplaceOrder }>(response);
 }
 
 export async function getSchoolLicenses() {
-  const response = await fetch('/api/marketplace/licenses');
+  const response = await fetch('/api/marketplace/licenses', { cache: 'no-store' });
   return parseResponse<{
     licenses: MarketplaceSchoolLicense[];
     teachers: MarketplaceLicenseTeacher[];

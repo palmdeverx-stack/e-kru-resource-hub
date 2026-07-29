@@ -7,11 +7,18 @@ import Button from '@mui/material/Button';
 import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
 
+import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
 import { RiCheckLine, RiDownloadCloud2Line } from 'src/components/remix-icon';
 
-export function MarketplaceOrderSuccessView({ demo = false }: { demo?: boolean }) {
+export function MarketplaceOrderSuccessView({
+  demo = false,
+  dashboardMode = false,
+}: {
+  demo?: boolean;
+  dashboardMode?: boolean;
+}) {
   return (
     <Container maxWidth="sm" sx={{ py: { xs: 8, md: 12 } }}>
       <Card sx={{ p: { xs: 3, sm: 5 }, textAlign: 'center' }}>
@@ -46,7 +53,11 @@ export function MarketplaceOrderSuccessView({ demo = false }: { demo?: boolean }
           >
             ดูรายการซื้อของฉัน
           </Button>
-          <Button component={RouterLink} href="/products" color="inherit">
+          <Button
+            component={RouterLink}
+            href={dashboardMode ? paths.marketplace.dashboardProducts : paths.marketplace.products}
+            color="inherit"
+          >
             กลับไปเลือกสื่อ
           </Button>
         </Stack>

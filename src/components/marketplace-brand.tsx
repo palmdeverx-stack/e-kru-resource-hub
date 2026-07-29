@@ -1,7 +1,6 @@
 'use client';
 
 import Stack from '@mui/material/Stack';
-import Typography from '@mui/material/Typography';
 
 import { Logo } from 'src/components/logo';
 
@@ -12,8 +11,8 @@ type MarketplaceBrandProps = {
 export function MarketplaceBrand({ compact = false }: MarketplaceBrandProps) {
   return (
     <Stack direction="row" spacing={1.25} alignItems="center">
-      <Logo />
-      {!compact && (
+      <Logo sx={{ width: 'auto', height: 80 }} />
+      {/* {!compact && (
         <Stack spacing={0} sx={{ minWidth: 0 }}>
           <Typography variant="subtitle1" noWrap>
             eKru Marketplace
@@ -22,7 +21,7 @@ export function MarketplaceBrand({ compact = false }: MarketplaceBrandProps) {
             ตลาดสื่อการสอน
           </Typography>
         </Stack>
-      )}
+      )} */}
     </Stack>
   );
 }

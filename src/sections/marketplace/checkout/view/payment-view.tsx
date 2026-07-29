@@ -16,8 +16,11 @@ import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
 
+import { paths } from 'src/routes/paths';
+import { useRouter } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 
+import { SplashScreen } from 'src/components/loading-screen';
 import {
   RiQrCodeLine,
   RiBankCardLine,
@@ -25,9 +28,19 @@ import {
   RiCheckboxCircleLine,
 } from 'src/components/remix-icon';
 
+import { useAuthContext } from 'src/auth/hooks';
+
 import { formatPrice, getPaymentSession, uploadPaymentSlip } from '../../shared/api';
 
-export function MarketplacePaymentView({ paymentId }: { paymentId: string }) {
+export function MarketplacePaymentView({
+  paymentId,
+  dashboardMode = false,
+}: {
+  paymentId: string;
+  dashboardMode?: boolean;
+}) {
+  const router = useRouter();
+  const { authenticated, loading: authLoading } = useAuthContext();
   const [session, setSession] = useState<MarketplacePaymentSession | null>(null);
   const [qrImage, setQrImage] = useState('');
   const [file, setFile] = useState<File | null>(null);
@@ -49,11 +62,21 @@ export function MarketplacePaymentView({ paymentId }: { paymentId: string }) {
   }, [paymentId]);
 
   useEffect(() => {
+    if (!dashboardMode && !authLoading && authenticated) {
+      router.replace(paths.marketplace.dashboardPayment(paymentId));
+    }
+  }, [authenticated, authLoading, dashboardMode, paymentId, router]);
+
+  useEffect(() => {
     if (!session?.promptpayPayload) return;
     QRCode.toDataURL(session.promptpayPayload, { width: 360, margin: 2 })
       .then(setQrImage)
       .catch(() => setError('สร้าง QR PromptPay ไม่สำเร็จ'));
   }, [session?.promptpayPayload]);
+
+  if (!dashboardMode && (authLoading || authenticated)) {
+    return <SplashScreen portal={false} />;
+  }
 
   const submitSlip = async () => {
     if (!file) return;
@@ -134,14 +157,10 @@ export function MarketplacePaymentView({ paymentId }: { paymentId: string }) {
               ยอดชำระ {formatPrice(Number(session.amount))}
             </Typography>
             <Typography color="text.secondary" sx={{ mt: 1, mb: 3 }}>
-              Stripe Checkout รองรับช่องทางที่เปิดไว้ใน Stripe Dashboard
-              และจะยืนยันคำสั่งซื้อผ่าน webhook เท่านั้น
+              Stripe Checkout รองรับช่องทางที่เปิดไว้ใน Stripe Dashboard และจะยืนยันคำสั่งซื้อผ่าน
+              webhook เท่านั้น
             </Typography>
-            <Stack
-              direction={{ xs: 'column', sm: 'row' }}
-              spacing={1.5}
-              justifyContent="center"
-            >
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="center">
               {session.status === 'pending_payment' && session.stripe_checkout_url && (
                 <Button
                   href={session.stripe_checkout_url}
@@ -157,73 +176,73 @@ export function MarketplacePaymentView({ paymentId }: { paymentId: string }) {
             </Stack>
           </Card>
         ) : (
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} alignItems="stretch">
-          <Card sx={{ p: 3, flex: 1, textAlign: 'center' }}>
-            <RiQrCodeLine size={28} />
-            <Typography variant="h5" sx={{ mt: 1 }}>
-              ยอดชำระ {formatPrice(Number(session.amount))}
-            </Typography>
-            {qrImage && !verified && (
-              <Box
-                component="img"
-                src={qrImage}
-                alt="PromptPay QR Code"
-                sx={{ width: 280, maxWidth: 1, my: 2 }}
-              />
-            )}
-            <Typography variant="subtitle1">
-              {session.account_name_snapshot || 'บัญชีรับเงิน eKru Marketplace'}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              กรุณาตรวจสอบชื่อผู้รับในแอปธนาคารก่อนยืนยันทุกครั้ง
-            </Typography>
-          </Card>
-
-          <Card sx={{ p: 3, flex: 1 }}>
-            <Typography variant="h5">หลักฐานการชำระเงิน</Typography>
-            <Divider sx={{ my: 2 }} />
-            {awaitingReview || verified ? (
-              <Stack spacing={2}>
-                <Chip
-                  color={verified ? 'success' : 'warning'}
-                  label={verified ? 'ตรวจสอบแล้ว' : 'รอตรวจสอบ'}
-                  sx={{ alignSelf: 'flex-start' }}
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} alignItems="stretch">
+            <Card sx={{ p: 3, flex: 1, textAlign: 'center' }}>
+              <RiQrCodeLine size={28} />
+              <Typography variant="h5" sx={{ mt: 1 }}>
+                ยอดชำระ {formatPrice(Number(session.amount))}
+              </Typography>
+              {qrImage && !verified && (
+                <Box
+                  component="img"
+                  src={qrImage}
+                  alt="PromptPay QR Code"
+                  sx={{ width: 280, maxWidth: 1, my: 2 }}
                 />
-                <Typography color="text.secondary">
-                  ไฟล์: {session.slip_file_name || 'แนบสลิปแล้ว'}
-                </Typography>
-                {session.slipUrl && (
-                  <Button href={session.slipUrl} target="_blank" variant="outlined">
-                    เปิดดูสลิป
-                  </Button>
-                )}
-              </Stack>
-            ) : (
-              <Stack spacing={2}>
-                <Button component="label" variant="outlined" startIcon={<RiUploadCloud2Line />}>
-                  เลือกภาพสลิป
-                  <input
-                    hidden
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+              )}
+              <Typography variant="subtitle1">
+                {session.account_name_snapshot || 'บัญชีรับเงิน eKru Marketplace'}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                กรุณาตรวจสอบชื่อผู้รับในแอปธนาคารก่อนยืนยันทุกครั้ง
+              </Typography>
+            </Card>
+
+            <Card sx={{ p: 3, flex: 1 }}>
+              <Typography variant="h5">หลักฐานการชำระเงิน</Typography>
+              <Divider sx={{ my: 2 }} />
+              {awaitingReview || verified ? (
+                <Stack spacing={2}>
+                  <Chip
+                    color={verified ? 'success' : 'warning'}
+                    label={verified ? 'ตรวจสอบแล้ว' : 'รอตรวจสอบ'}
+                    sx={{ alignSelf: 'flex-start' }}
                   />
-                </Button>
-                <Typography variant="body2" color="text.secondary">
-                  {file?.name || 'รองรับ JPG, PNG, WebP ขนาดไม่เกิน 5 MB'}
-                </Typography>
-                <Button
-                  variant="contained"
-                  loading={submitting}
-                  disabled={!file}
-                  onClick={submitSlip}
-                >
-                  ส่งสลิปให้ตรวจสอบ
-                </Button>
-              </Stack>
-            )}
-          </Card>
-        </Stack>
+                  <Typography color="text.secondary">
+                    ไฟล์: {session.slip_file_name || 'แนบสลิปแล้ว'}
+                  </Typography>
+                  {session.slipUrl && (
+                    <Button href={session.slipUrl} target="_blank" variant="outlined">
+                      เปิดดูสลิป
+                    </Button>
+                  )}
+                </Stack>
+              ) : (
+                <Stack spacing={2}>
+                  <Button component="label" variant="outlined" startIcon={<RiUploadCloud2Line />}>
+                    เลือกภาพสลิป
+                    <input
+                      hidden
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+                    />
+                  </Button>
+                  <Typography variant="body2" color="text.secondary">
+                    {file?.name || 'รองรับ JPG, PNG, WebP ขนาดไม่เกิน 5 MB'}
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    loading={submitting}
+                    disabled={!file}
+                    onClick={submitSlip}
+                  >
+                    ส่งสลิปให้ตรวจสอบ
+                  </Button>
+                </Stack>
+              )}
+            </Card>
+          </Stack>
         )}
 
         <Button component={RouterLink} href="/dashboard/purchases" color="inherit">
