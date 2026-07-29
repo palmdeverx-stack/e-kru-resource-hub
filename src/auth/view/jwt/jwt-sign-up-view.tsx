@@ -20,9 +20,10 @@ import { RouterLink } from 'src/routes/components';
 import { RemixIcon } from 'src/components/remix-icon';
 import { Form, Field } from 'src/components/hook-form';
 
-import { signUp } from '../../context/jwt';
 import { getErrorMessage } from '../../utils';
 import { FormHead } from '../../components/form-head';
+import { FormDivider } from '../../components/form-divider';
+import { signUp, signInWithGoogle } from '../../context/jwt';
 import { SignUpTerms } from '../../components/sign-up-terms';
 
 // ----------------------------------------------------------------------
@@ -69,6 +70,10 @@ export function JwtSignUpView() {
     },
   });
 
+  const googleMutation = useMutation({
+    mutationFn: () => signInWithGoogle(),
+  });
+
   const onSubmit = handleSubmit(async (data) => {
     signUpMutation.mutate({
       username: data.username,
@@ -79,7 +84,8 @@ export function JwtSignUpView() {
     });
   });
 
-  const errorMessage = signUpMutation.error ? getErrorMessage(signUpMutation.error) : null;
+  const authError = googleMutation.error ?? signUpMutation.error;
+  const errorMessage = authError ? getErrorMessage(authError) : null;
 
   const renderForm = () => (
     <Box sx={{ gap: 3, display: 'flex', flexDirection: 'column' }}>
@@ -157,6 +163,20 @@ export function JwtSignUpView() {
       <Form methods={methods} onSubmit={onSubmit}>
         {renderForm()}
       </Form>
+
+      <FormDivider label="หรือสมัครด้วย" />
+      <Button
+        fullWidth
+        size="large"
+        color="inherit"
+        variant="outlined"
+        loading={googleMutation.isPending}
+        startIcon={<RemixIcon width={22} icon="socials:google" />}
+        onClick={() => googleMutation.mutate()}
+        sx={{ py: 1.35, bgcolor: 'background.paper' }}
+      >
+        สมัครด้วย Google
+      </Button>
 
       <SignUpTerms />
     </>

@@ -24,8 +24,9 @@ import { Form, Field } from 'src/components/hook-form';
 
 import { useAuthContext } from '../../hooks';
 import { FormHead } from '../../components/form-head';
+import { FormDivider } from '../../components/form-divider';
 import { getErrorMessage, getHomePathForRole } from '../../utils';
-import { verifySignInPin, signInWithPassword } from '../../context/jwt';
+import { verifySignInPin, signInWithGoogle, signInWithPassword } from '../../context/jwt';
 
 // ----------------------------------------------------------------------
 
@@ -98,6 +99,10 @@ export function JwtSignInView() {
     },
   });
 
+  const googleMutation = useMutation({
+    mutationFn: () => signInWithGoogle(returnTo),
+  });
+
   const onSubmit = handleSubmit(async (data) => {
     if (pinChallenge) {
       if (!/^\d{8}$/.test(data.pin)) {
@@ -111,7 +116,9 @@ export function JwtSignInView() {
     signInMutation.mutate({ username: data.username, password: data.password });
   });
 
-  const error = pinChallenge ? verifyPinMutation.error : signInMutation.error;
+  const error = pinChallenge
+    ? verifyPinMutation.error
+    : (googleMutation.error ?? signInMutation.error);
   const errorMessage = error ? getErrorMessage(error) : null;
 
   const renderForm = () => (
@@ -251,6 +258,24 @@ export function JwtSignInView() {
       <Form methods={methods} onSubmit={onSubmit}>
         {renderForm()}
       </Form>
+
+      {!pinChallenge && (
+        <>
+          <FormDivider label="หรือเข้าสู่ระบบด้วย" />
+          <Button
+            fullWidth
+            size="large"
+            color="inherit"
+            variant="outlined"
+            loading={googleMutation.isPending}
+            startIcon={<RemixIcon width={22} icon="socials:google" />}
+            onClick={() => googleMutation.mutate()}
+            sx={{ py: 1.35, bgcolor: 'background.paper' }}
+          >
+            ดำเนินการต่อด้วย Google
+          </Button>
+        </>
+      )}
     </Box>
   );
 }

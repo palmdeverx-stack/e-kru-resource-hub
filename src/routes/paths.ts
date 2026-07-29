@@ -28,6 +28,7 @@ export const paths = {
       signIn: `${ROOTS.AUTH}/sign-in`,
       signUp: `${ROOTS.AUTH}/sign-up`,
       verifyEmail: `${ROOTS.AUTH}/verify-email`,
+      googleCallback: `${ROOTS.AUTH}/google/callback`,
       changePassword: `${ROOTS.AUTH}/jwt/change-password`,
       acceptLegal: `${ROOTS.AUTH}/jwt/accept-legal`,
     },

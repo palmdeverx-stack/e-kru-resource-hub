@@ -2,12 +2,15 @@
 
 import type { RemixiconComponentType } from '@remixicon/react';
 
+import { useState, useEffect } from 'react';
+
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Grid from '@mui/material/Grid';
 import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
+import Skeleton from '@mui/material/Skeleton';
 import Container from '@mui/material/Container';
 import Accordion from '@mui/material/Accordion';
 import Typography from '@mui/material/Typography';
@@ -30,8 +33,8 @@ import {
   RiUserStarLine,
   RiBookOpenLine,
   RiBookReadLine,
-  RiArrowDownLine,
   RiFileList3Line,
+  RiArrowRightLine,
   RiArrowDownSLine,
   RiUploadCloudLine,
   RiShieldCheckLine,
@@ -47,11 +50,21 @@ const categories = [
   { label: 'แบบทดสอบ', icon: RiShieldCheckLine },
 ];
 
-const trustMetrics = [
-  { value: '15,000+', label: 'คุณครู' },
-  { value: '120,000+', label: 'สื่อการสอน' },
-  { value: '500+', label: 'โรงเรียน' },
+type PublicStats = {
+  teachers: number;
+  products: number;
+  schools: number;
+  activeSellers: number;
+  completedOrders: number;
+};
+
+const trustMetrics: Array<{ key: keyof PublicStats; label: string }> = [
+  { key: 'teachers', label: 'คุณครู' },
+  { key: 'products', label: 'สื่อการสอน' },
+  { key: 'schools', label: 'โรงเรียน' },
 ];
+
+const formatCount = (value: number) => new Intl.NumberFormat('th-TH').format(value);
 
 const benefits = [
   {
@@ -85,17 +98,49 @@ const benefits = [
 ];
 
 const buyerSteps = [
-  { label: 'สมัครสมาชิก', icon: RiUserAddLine },
-  { label: 'ค้นหา', icon: RiSearchLine },
-  { label: 'ดาวน์โหลด', icon: RiDownloadLine },
-  { label: 'นำไปใช้', icon: RiBookReadLine },
+  {
+    label: 'สมัครสมาชิก',
+    description: 'ใช้บัญชีเดียวกับระบบ E-KRU',
+    icon: RiUserAddLine,
+  },
+  {
+    label: 'ค้นหาสื่อ',
+    description: 'เลือกตามวิชา ระดับชั้น และประเภทสื่อ',
+    icon: RiSearchLine,
+  },
+  {
+    label: 'ซื้อและดาวน์โหลด',
+    description: 'ชำระเงินปลอดภัยและรับไฟล์ในบัญชี',
+    icon: RiDownloadLine,
+  },
+  {
+    label: 'นำไปใช้',
+    description: 'เปิดดูสิทธิ์และใช้กับห้องเรียนได้ทันที',
+    icon: RiBookReadLine,
+  },
 ];
 
 const sellerSteps = [
-  { label: 'สมัครผู้ขาย', icon: RiStore2Line },
-  { label: 'อัปโหลดสื่อ', icon: RiUploadCloudLine },
-  { label: 'รออนุมัติ', icon: RiTimeLine },
-  { label: 'รับรายได้', icon: RiWallet3Line },
+  {
+    label: 'สมัครเปิดร้าน',
+    description: 'ส่งข้อมูลร้านและยืนยันตัวตนผู้ขาย',
+    icon: RiStore2Line,
+  },
+  {
+    label: 'อัปโหลดสื่อ',
+    description: 'ใส่รายละเอียด ราคา และไฟล์สินค้า',
+    icon: RiUploadCloudLine,
+  },
+  {
+    label: 'ส่งตรวจสอบ',
+    description: 'ทีมงานตรวจคุณภาพก่อนเผยแพร่',
+    icon: RiTimeLine,
+  },
+  {
+    label: 'เริ่มรับรายได้',
+    description: 'ติดตามยอดขายและรอบโอนได้โปร่งใส',
+    icon: RiWallet3Line,
+  },
 ];
 
 const audiences = [
@@ -150,6 +195,25 @@ const faqs = [
 ];
 
 export function MarketplaceLandingView() {
+  const [publicStats, setPublicStats] = useState<PublicStats | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    fetch('/api/marketplace/public-stats', { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error('โหลดสถิติไม่สำเร็จ');
+        return response.json() as Promise<PublicStats>;
+      })
+      .then(setPublicStats)
+      .catch((error) => {
+        if (error instanceof Error && error.name === 'AbortError') return;
+        setPublicStats(null);
+      });
+
+    return () => controller.abort();
+  }, []);
+
   return (
     <>
       <Box
@@ -181,7 +245,7 @@ export function MarketplaceLandingView() {
                   }}
                 >
                   พื้นที่รวมสื่อการสอน
-                  <Box component="span" sx={{ display: 'block', color: 'primary.main' }}>
+                  <Box component="span" sx={{ display: 'block', color: 'primary.main', mt: 2 }}>
                     จากครู เพื่อครู
                   </Box>
                 </Typography>
@@ -240,12 +304,32 @@ export function MarketplaceLandingView() {
                   </Typography>
                   <Grid container spacing={2}>
                     <Grid size={{ xs: 6 }}>
-                      <Typography variant="h4">1 บัญชี</Typography>
-                      <Typography variant="caption">ใช้ร่วมกับ E-KRU</Typography>
+                      {publicStats ? (
+                        <Typography variant="h4">
+                          {formatCount(publicStats.activeSellers)}
+                        </Typography>
+                      ) : (
+                        <Skeleton
+                          width={72}
+                          height={40}
+                          sx={{ bgcolor: 'rgba(255,255,255,0.14)' }}
+                        />
+                      )}
+                      <Typography variant="caption">ร้านค้าที่ผ่านอนุมัติ</Typography>
                     </Grid>
                     <Grid size={{ xs: 6 }}>
-                      <Typography variant="h4">0 บาท</Typography>
-                      <Typography variant="caption">ค่าเปิดร้าน</Typography>
+                      {publicStats ? (
+                        <Typography variant="h4">
+                          {formatCount(publicStats.completedOrders)}
+                        </Typography>
+                      ) : (
+                        <Skeleton
+                          width={72}
+                          height={40}
+                          sx={{ bgcolor: 'rgba(255,255,255,0.14)' }}
+                        />
+                      )}
+                      <Typography variant="caption">คำสั่งซื้อสำเร็จ</Typography>
                     </Grid>
                   </Grid>
                 </Stack>
@@ -280,9 +364,18 @@ export function MarketplaceLandingView() {
                     borderColor: { sm: 'rgba(255,255,255,0.18)' },
                   }}
                 >
-                  <Typography variant="h2" sx={{ color: 'common.white' }}>
-                    {metric.value}
-                  </Typography>
+                  {publicStats ? (
+                    <Typography variant="h2" sx={{ color: 'common.white' }}>
+                      {formatCount(publicStats[metric.key])}
+                    </Typography>
+                  ) : (
+                    <Skeleton
+                      width={120}
+                      height={58}
+                      animation="wave"
+                      sx={{ mx: 'auto', bgcolor: 'rgba(255,255,255,0.14)' }}
+                    />
+                  )}
                   <Typography sx={{ mt: 0.5, color: 'rgba(255,255,255,0.72)' }}>
                     {metric.label}
                   </Typography>
@@ -389,29 +482,70 @@ export function MarketplaceLandingView() {
         </Stack>
       </Container>
 
-      <Box sx={{ py: { xs: 7, md: 10 }, bgcolor: 'background.neutral' }}>
-        <Container maxWidth="xl">
-          <Stack spacing={5}>
+      <Box
+        sx={{
+          py: { xs: 8, md: 12 },
+          position: 'relative',
+          overflow: 'hidden',
+          background:
+            'radial-gradient(circle at 8% 15%, rgba(21,101,245,0.12), transparent 25%), radial-gradient(circle at 92% 82%, rgba(22,163,106,0.12), transparent 25%), linear-gradient(180deg, #F8FBFF 0%, #F3F8FF 100%)',
+          '&::before': {
+            top: 54,
+            left: '6%',
+            width: 84,
+            height: 84,
+            content: '""',
+            opacity: 0.35,
+            position: 'absolute',
+            borderRadius: '50%',
+            border: '1px dashed',
+            borderColor: 'primary.light',
+          },
+          '&::after': {
+            right: '7%',
+            bottom: 46,
+            width: 118,
+            height: 118,
+            content: '""',
+            opacity: 0.25,
+            position: 'absolute',
+            borderRadius: 5,
+            border: '1px dashed',
+            borderColor: 'success.light',
+            transform: 'rotate(12deg)',
+          },
+        }}
+      >
+        <Container maxWidth="xl" sx={{ position: 'relative', zIndex: 1 }}>
+          <Stack spacing={{ xs: 4, md: 6 }}>
             <SectionHeading
               eyebrow="HOW IT WORKS"
               title="วิธีใช้งาน"
-              description="เริ่มต้นได้ง่าย ไม่ว่าคุณต้องการซื้อสื่อหรือสร้างรายได้จากผลงาน"
+              description="เลือกเส้นทางของคุณ แล้วเริ่มต้นกับ E-KRU Marketplace ได้ใน 4 ขั้นตอน"
             />
-            <Grid container spacing={3}>
+            <Grid container spacing={{ xs: 2.5, md: 3.5 }}>
               <Grid size={{ xs: 12, md: 6 }}>
                 <ProcessCard
+                  eyebrow="I WANT TO LEARN"
                   title="สำหรับผู้ซื้อ"
                   description="ค้นหาสื่อที่ต้องการและนำไปใช้ได้ทันที"
                   steps={buyerSteps}
                   color="primary"
+                  actionLabel="เลือกดูสื่อการสอน"
+                  actionHref={paths.marketplace.products}
+                  headerIcon={RiShoppingBag3Line}
                 />
               </Grid>
               <Grid size={{ xs: 12, md: 6 }}>
                 <ProcessCard
+                  eyebrow="I WANT TO SELL"
                   title="สำหรับผู้ขาย"
                   description="เปิดร้าน ส่งผลงานตรวจสอบ และเริ่มสร้างรายได้"
                   steps={sellerSteps}
                   color="success"
+                  actionLabel="เริ่มสมัครเป็นผู้ขาย"
+                  actionHref={paths.marketplace.sellerSetup}
+                  headerIcon={RiStore2Line}
                 />
               </Grid>
             </Grid>
@@ -601,66 +735,153 @@ function SectionHeading({
 }
 
 function ProcessCard({
+  eyebrow,
   title,
   description,
   steps,
   color,
+  actionLabel,
+  actionHref,
+  headerIcon: HeaderIcon,
 }: {
+  eyebrow: string;
   title: string;
   description: string;
-  steps: Array<{ label: string; icon: RemixiconComponentType }>;
+  steps: Array<{ label: string; description: string; icon: RemixiconComponentType }>;
   color: 'primary' | 'success';
+  actionLabel: string;
+  actionHref: string;
+  headerIcon: RemixiconComponentType;
 }) {
   return (
-    <Card variant="outlined" sx={{ p: { xs: 3, md: 4 }, height: 1, borderRadius: 3 }}>
-      <Chip size="small" color={color} variant="soft" label={title} />
-      <Typography variant="h5" sx={{ mt: 2 }}>
+    <Card
+      sx={{
+        p: { xs: 2.5, sm: 3, md: 4 },
+        height: 1,
+        borderRadius: 4,
+        border: '1px solid',
+        borderColor: `${color}.lighter`,
+        boxShadow: '0 20px 60px rgba(17, 44, 94, 0.08)',
+        transition: 'transform 200ms ease, box-shadow 200ms ease',
+        '&:hover': {
+          transform: 'translateY(-5px)',
+          boxShadow: '0 26px 70px rgba(17, 44, 94, 0.14)',
+        },
+      }}
+    >
+      <Stack direction="row" spacing={2} alignItems="center">
+        <Box
+          sx={{
+            width: 64,
+            height: 64,
+            display: 'grid',
+            flexShrink: 0,
+            borderRadius: 3,
+            placeItems: 'center',
+            color: `${color}.main`,
+            background: (theme) =>
+              `linear-gradient(145deg, ${theme.vars.palette[color].lighter}, ${theme.vars.palette.background.paper})`,
+            boxShadow: (theme) => `inset 0 0 0 1px ${theme.vars.palette[color].lighter}`,
+          }}
+        >
+          <HeaderIcon size={31} />
+        </Box>
+        <Box>
+          <Typography
+            variant="overline"
+            sx={{ color: `${color}.main`, fontWeight: 800, letterSpacing: 1.1 }}
+          >
+            {eyebrow}
+          </Typography>
+          <Typography variant="h4">{title}</Typography>
+        </Box>
+      </Stack>
+      <Typography color="text.secondary" sx={{ mt: 2, lineHeight: 1.75 }}>
         {description}
       </Typography>
-      <Stack spacing={1.25} sx={{ mt: 3 }}>
+
+      <Stack sx={{ mt: 3.5 }}>
         {steps.map((step, index) => {
           const Icon = step.icon;
+          const isLast = index === steps.length - 1;
           return (
-            <Stack key={step.label} spacing={1.25}>
+            <Stack key={step.label} direction="row" spacing={2} sx={{ position: 'relative' }}>
+              <Stack alignItems="center" sx={{ width: 42, flexShrink: 0 }}>
+                <Box
+                  sx={{
+                    zIndex: 1,
+                    width: 42,
+                    height: 42,
+                    display: 'grid',
+                    borderRadius: '50%',
+                    placeItems: 'center',
+                    color: 'common.white',
+                    bgcolor: `${color}.main`,
+                    boxShadow: (theme) => `0 0 0 6px ${theme.vars.palette[color].lighter}`,
+                  }}
+                >
+                  <Typography variant="subtitle2">{String(index + 1).padStart(2, '0')}</Typography>
+                </Box>
+                {!isLast && (
+                  <Box
+                    sx={{
+                      width: 2,
+                      flex: 1,
+                      minHeight: 34,
+                      my: 0.75,
+                      bgcolor: `${color}.lighter`,
+                    }}
+                  />
+                )}
+              </Stack>
               <Stack
                 direction="row"
                 spacing={1.5}
                 alignItems="center"
                 sx={{
-                  p: 1.5,
-                  borderRadius: 2,
-                  bgcolor: `${color}.lighter`,
-                  color: `${color}.darker`,
+                  flex: 1,
+                  minWidth: 0,
+                  pb: isLast ? 0 : 2.5,
                 }}
               >
                 <Box
                   sx={{
-                    width: 38,
-                    height: 38,
+                    width: 46,
+                    height: 46,
                     display: 'grid',
                     flexShrink: 0,
-                    borderRadius: 1.5,
+                    borderRadius: 2,
                     placeItems: 'center',
                     color: `${color}.main`,
-                    bgcolor: 'background.paper',
+                    bgcolor: `${color}.lighter`,
                   }}
                 >
-                  <Icon size={21} />
+                  <Icon size={23} />
                 </Box>
-                <Typography variant="subtitle1">{step.label}</Typography>
-                <Typography variant="caption" sx={{ ml: 'auto !important', opacity: 0.65 }}>
-                  {String(index + 1).padStart(2, '0')}
-                </Typography>
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography variant="subtitle1">{step.label}</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
+                    {step.description}
+                  </Typography>
+                </Box>
               </Stack>
-              {index < steps.length - 1 && (
-                <Box sx={{ display: 'grid', placeItems: 'center', color: `${color}.main` }}>
-                  <RiArrowDownLine size={20} />
-                </Box>
-              )}
             </Stack>
           );
         })}
       </Stack>
+
+      <Button
+        fullWidth
+        size="large"
+        color={color}
+        variant="soft"
+        component={RouterLink}
+        href={actionHref}
+        endIcon={<RiArrowRightLine />}
+        sx={{ mt: 3.5, py: 1.4 }}
+      >
+        {actionLabel}
+      </Button>
     </Card>
   );
 }

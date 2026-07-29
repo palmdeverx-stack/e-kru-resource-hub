@@ -83,6 +83,23 @@ export const signInWithPassword = async ({
   return result.user;
 };
 
+export const signInWithGoogle = async (returnTo?: string | null): Promise<void> => {
+  const { getSupabaseBrowserClient } = await import('src/lib/supabase-browser');
+  const callbackUrl = new URL('/auth/google/callback', window.location.origin);
+  if (returnTo?.startsWith('/') && !returnTo.startsWith('//')) {
+    callbackUrl.searchParams.set('returnTo', returnTo);
+  }
+
+  const { error } = await getSupabaseBrowserClient().auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: callbackUrl.toString(),
+      queryParams: { prompt: 'select_account' },
+    },
+  });
+  if (error) throw error;
+};
+
 export const verifySignInPin = async ({
   pinChallengeToken,
   pin,
@@ -168,5 +185,13 @@ export const signOut = async (): Promise<void> => {
 
   if (!response.ok) {
     throw new Error('ไม่สามารถออกจากระบบได้');
+  }
+
+  try {
+    const { getSupabaseBrowserClient } = await import('src/lib/supabase-browser');
+    await getSupabaseBrowserClient().auth.signOut({ scope: 'local' });
+  } catch {
+    // The application cookie is already cleared. A missing/expired optional
+    // Supabase browser session must not prevent a normal sign-out.
   }
 };
