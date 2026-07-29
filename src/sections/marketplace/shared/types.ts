@@ -129,7 +129,12 @@ export type MarketplaceSchoolLicense = {
   seat_count: number;
   starts_at: string;
   expires_at: string;
-  status: 'active' | 'revoked';
+  status: 'active' | 'renewed' | 'expired' | 'revoked' | 'refunded';
+  grants_plan_code?: string | null;
+  max_teachers?: number | null;
+  max_students?: number | null;
+  max_school_admins?: number | null;
+  line_quota?: number | null;
   product?: Pick<MarketplaceProduct, 'id' | 'title'> | null;
   assignments?: Array<{
     id: string;
@@ -214,9 +219,14 @@ export type MarketplaceProduct = {
   resource_type: ResourceType;
   grants_feature_key?: string | null;
   grants_feature_keys?: string[];
+  grants_plan_code?: string | null;
   grant_duration_days?: number | null;
   license_scope?: 'school' | 'teacher';
   license_seat_count?: number;
+  license_max_teachers?: number | null;
+  license_max_students?: number | null;
+  license_max_school_admins?: number | null;
+  license_line_quota?: number | null;
   price: number;
   currency: string;
   cover_url: string | null;
@@ -357,8 +367,13 @@ export type ProductInput = {
   price?: number;
   grantsFeatureKey?: string;
   grantsFeatureKeys?: string[];
+  grantsPlanCode?: string;
   grantDurationDays?: number;
   licenseScope?: 'school' | 'teacher';
   licenseSeatCount?: number;
+  licenseMaxTeachers?: number;
+  licenseMaxStudents?: number;
+  licenseMaxSchoolAdmins?: number;
+  licenseLineQuota?: number;
   submit?: boolean;
 };

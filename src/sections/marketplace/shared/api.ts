@@ -252,15 +252,24 @@ export async function deleteProduct(id: string) {
   return parseResponse<{ success: true }>(response);
 }
 
-export async function createOrder(items: Array<{ productId: string }>, paymentMethod: string) {
+export async function createOrder(
+  items: Array<{ productId: string }>,
+  paymentMethod: string,
+  licenseSchoolId?: string
+) {
   const response = await fetch('/api/marketplace/orders', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ items, paymentMethod }),
+    body: JSON.stringify({ items, paymentMethod, licenseSchoolId }),
   });
   return parseResponse<{ orders: MarketplaceOrder[]; paymentSession: MarketplacePaymentSession }>(
     response
   );
+}
+
+export async function getEligibleLicenseSchools() {
+  const response = await fetch('/api/marketplace/checkout/schools', { cache: 'no-store' });
+  return parseResponse<{ schools: Array<{ id: string; name: string }> }>(response);
 }
 
 export async function getPaymentSession(id: string) {

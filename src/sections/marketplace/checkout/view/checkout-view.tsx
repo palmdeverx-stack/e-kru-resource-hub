@@ -9,6 +9,8 @@ import Radio from '@mui/material/Radio';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
+import MenuItem from '@mui/material/MenuItem';
+import TextField from '@mui/material/TextField';
 import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
 
@@ -29,7 +31,12 @@ import {
 import { useAuthContext } from 'src/auth/hooks';
 
 import { useMarketplaceCart } from '../../cart/cart-context';
-import { createOrder, formatPrice, getLocalizedProduct } from '../../shared/api';
+import {
+  createOrder,
+  formatPrice,
+  getLocalizedProduct,
+  getEligibleLicenseSchools,
+} from '../../shared/api';
 
 export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMode?: boolean }) {
   const router = useRouter();
@@ -43,6 +50,9 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [schools, setSchools] = useState<Array<{ id: string; name: string }>>([]);
+  const [licenseSchoolId, setLicenseSchoolId] = useState('');
+  const hasLicenseProduct = items.some((item) => item.product.resource_type === 'feature_unlock');
   const productsHref = dashboardMode
     ? paths.marketplace.dashboardProducts
     : paths.marketplace.products;
@@ -67,6 +77,18 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
       .catch(() => undefined);
   }, []);
 
+  useEffect(() => {
+    if (!authenticated || !hasLicenseProduct) return;
+    getEligibleLicenseSchools()
+      .then(({ schools: result }) => {
+        setSchools(result);
+        if (result.length === 1) setLicenseSchoolId(result[0].id);
+      })
+      .catch((schoolError) =>
+        setError(schoolError instanceof Error ? schoolError.message : 'โหลดโรงเรียนไม่สำเร็จ')
+      );
+  }, [authenticated, hasLicenseProduct]);
+
   const submitOrder = async () => {
     setSubmitting(true);
     setError('');
@@ -80,7 +102,8 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
       }
       const result = await createOrder(
         items.map((item) => ({ productId: item.product.id })),
-        paymentMethod
+        paymentMethod,
+        hasLicenseProduct ? licenseSchoolId : undefined
       );
       clearCart();
       if (result.paymentSession.payment_method === 'free') {
@@ -165,6 +188,35 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
 
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} alignItems="flex-start">
         <Stack spacing={3} sx={{ flex: 1, width: 1 }}>
+          {hasLicenseProduct && (
+            <Card sx={{ p: 3 }}>
+              <Typography variant="h5">โรงเรียนที่จะรับ License</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 2 }}>
+                เลือกโรงเรียนที่คุณเป็นผู้ดูแล ระบบจะออกสิทธิ์ให้โรงเรียนนี้หลังชำระเงินสำเร็จ
+              </Typography>
+              <TextField
+                fullWidth
+                required
+                select
+                label="โรงเรียนปลายทาง"
+                value={licenseSchoolId}
+                onChange={(event) => setLicenseSchoolId(event.target.value)}
+              >
+                <MenuItem value="">เลือกโรงเรียน</MenuItem>
+                {schools.map((school) => (
+                  <MenuItem key={school.id} value={school.id}>
+                    {school.name}
+                  </MenuItem>
+                ))}
+              </TextField>
+              {!schools.length && (
+                <Alert severity="warning" sx={{ mt: 2 }}>
+                  ไม่พบโรงเรียนที่บัญชีนี้มีสิทธิ์เป็นผู้ดูแล
+                </Alert>
+              )}
+            </Card>
+          )}
+
           <Card sx={{ p: 3 }}>
             <Typography variant="h5">วิธีชำระเงิน</Typography>
             <Stack spacing={1.5} sx={{ mt: 2 }}>
@@ -236,7 +288,10 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
             size="large"
             variant="contained"
             loading={submitting}
-            disabled={!availableMethods[paymentMethod as keyof typeof availableMethods]}
+            disabled={
+              !availableMethods[paymentMethod as keyof typeof availableMethods] ||
+              (hasLicenseProduct && !licenseSchoolId)
+            }
             onClick={submitOrder}
           >
             {paymentMethod === 'stripe' ? 'ไปยัง Stripe Checkout' : 'สร้าง QR ชำระเงิน'}

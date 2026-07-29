@@ -264,6 +264,25 @@ export async function PATCH(request: Request, { params }: Context) {
     }
     update.grant_duration_days = grantDurationDays;
   }
+  if (body.grantsPlanCode !== undefined) {
+    update.grants_plan_code = String(body.grantsPlanCode).trim() || null;
+  }
+  for (const [inputKey, column] of [
+    ['licenseMaxTeachers', 'license_max_teachers'],
+    ['licenseMaxStudents', 'license_max_students'],
+    ['licenseMaxSchoolAdmins', 'license_max_school_admins'],
+    ['licenseLineQuota', 'license_line_quota'],
+  ] as const) {
+    if (body[inputKey] === undefined) continue;
+    const value = Number(body[inputKey]);
+    if (!Number.isInteger(value) || value < 0) {
+      return NextResponse.json(
+        { message: 'ข้อจำกัด License ต้องเป็นเลขจำนวนเต็มตั้งแต่ 0' },
+        { status: 400 }
+      );
+    }
+    update[column] = value;
+  }
   if (body.saleTypeId !== undefined) {
     const saleTypeId = String(body.saleTypeId).trim();
     if (saleTypeId) {
@@ -393,6 +412,23 @@ export async function PATCH(request: Request, { params }: Context) {
       }
       if (product.license_scope === 'teacher' && !(Number(product.license_seat_count) > 0)) {
         return NextResponse.json({ message: 'กรุณาระบุจำนวน Seat ครู' }, { status: 400 });
+      }
+      const isFullSystem = featureKeys.length === ALL_SCHOOL_FEATURE_KEYS.length;
+      if (
+        isFullSystem &&
+        (!product.grants_plan_code ||
+          product.license_max_teachers == null ||
+          product.license_max_students == null ||
+          product.license_max_school_admins == null ||
+          product.license_line_quota == null)
+      ) {
+        return NextResponse.json(
+          {
+            message:
+              'แพ็กเกจ eKru ทั้งระบบต้องระบุ Plan Code จำนวนครู นักเรียน ผู้ดูแล และ LINE quota ให้ครบ',
+          },
+          { status: 400 }
+        );
       }
     }
 

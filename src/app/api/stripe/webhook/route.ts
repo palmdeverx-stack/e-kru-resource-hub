@@ -6,10 +6,8 @@ import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { createNotifications } from 'src/lib/notifications';
 
 import { finalizeMarketplacePayment } from 'src/sections/marketplace/checkout/server/finalize-payment';
-import {
-  getStripe,
-  getStripeWebhookSecret,
-} from 'src/sections/marketplace/checkout/server/stripe';
+import { revokeLicensesForPaymentSession } from 'src/sections/marketplace/checkout/server/license-lifecycle';
+import { getStripe, getStripeWebhookSecret } from 'src/sections/marketplace/checkout/server/stripe';
 
 export const runtime = 'nodejs';
 
@@ -21,9 +19,7 @@ async function getProcessorFee(paymentIntentId: string | null) {
     });
     const charge = typeof intent.latest_charge === 'object' ? intent.latest_charge : null;
     const transaction =
-      charge && typeof charge.balance_transaction === 'object'
-        ? charge.balance_transaction
-        : null;
+      charge && typeof charge.balance_transaction === 'object' ? charge.balance_transaction : null;
     return transaction ? Number(transaction.fee) / 100 : 0;
   } catch {
     return 0;
@@ -84,6 +80,70 @@ async function markStripePaymentFailed(
   return local.id;
 }
 
+async function refundStripePayment(charge: Stripe.Charge) {
+  const paymentIntentId =
+    typeof charge.payment_intent === 'string' ? charge.payment_intent : charge.payment_intent?.id;
+  if (!paymentIntentId) throw new Error('Stripe refund ไม่มี Payment Intent');
+  const { data: session, error } = await supabaseAdmin
+    .from('marketplace_payment_sessions')
+    .select('id,buyer_id')
+    .eq('stripe_payment_intent_id', paymentIntentId)
+    .maybeSingle();
+  if (error || !session) throw error ?? new Error('ไม่พบรายการชำระเงินสำหรับ Refund');
+
+  await revokeLicensesForPaymentSession(session.id, 'refunded', 'Stripe คืนเงินให้ผู้ซื้อ');
+  const now = new Date().toISOString();
+  await supabaseAdmin
+    .from('marketplace_orders')
+    .update({ status: 'refunded', updated_at: now })
+    .eq('payment_session_id', session.id)
+    .in('status', ['paid', 'completed']);
+  await createNotifications([
+    {
+      userId: session.buyer_id,
+      schoolId: null,
+      type: 'marketplace_payment_refunded',
+      title: 'รายการได้รับการคืนเงินแล้ว',
+      body: 'License จากคำสั่งซื้อนี้ถูกยกเลิกและเก็บไว้ในประวัติ',
+      link: '/dashboard/purchases',
+    },
+  ]);
+  return session.id;
+}
+
+async function markPaymentIntentFailed(intent: Stripe.PaymentIntent) {
+  const paymentSessionId = intent.metadata?.marketplace_payment_session_id;
+  if (!paymentSessionId)
+    throw new Error('Stripe Payment Intent ไม่มี marketplace_payment_session_id');
+  const reason = intent.last_payment_error?.message ?? 'Stripe แจ้งว่าการชำระเงินไม่สำเร็จ';
+  const now = new Date().toISOString();
+  const { data: session, error } = await supabaseAdmin
+    .from('marketplace_payment_sessions')
+    .update({ status: 'rejected', rejection_reason: reason, updated_at: now })
+    .eq('id', paymentSessionId)
+    .eq('status', 'pending_payment')
+    .select('id,buyer_id')
+    .maybeSingle();
+  if (error) throw error;
+  if (!session) return paymentSessionId;
+  await supabaseAdmin
+    .from('marketplace_orders')
+    .update({ status: 'payment_rejected', updated_at: now })
+    .eq('payment_session_id', paymentSessionId)
+    .eq('status', 'pending_payment');
+  await createNotifications([
+    {
+      userId: session.buyer_id,
+      schoolId: null,
+      type: 'marketplace_stripe_rejected',
+      title: 'การชำระผ่าน Stripe ไม่สำเร็จ',
+      body: reason,
+      link: `/checkout/payment/${paymentSessionId}`,
+    },
+  ]);
+  return paymentSessionId;
+}
+
 export async function POST(request: Request) {
   const signature = request.headers.get('stripe-signature');
   if (!signature) {
@@ -131,7 +191,7 @@ export async function POST(request: Request) {
         const paymentIntentId =
           typeof stripeSession.payment_intent === 'string'
             ? stripeSession.payment_intent
-            : stripeSession.payment_intent?.id ?? null;
+            : (stripeSession.payment_intent?.id ?? null);
         const processorFee = await getProcessorFee(paymentIntentId);
         await finalizeMarketplacePayment({
           paymentSessionId: local.id,
@@ -152,6 +212,10 @@ export async function POST(request: Request) {
         'rejected',
         'Stripe แจ้งว่าการชำระเงินไม่สำเร็จ'
       );
+    } else if (event.type === 'charge.refunded') {
+      paymentSessionId = await refundStripePayment(event.data.object as Stripe.Charge);
+    } else if (event.type === 'payment_intent.payment_failed') {
+      paymentSessionId = await markPaymentIntentFailed(event.data.object as Stripe.PaymentIntent);
     } else {
       await supabaseAdmin
         .from('marketplace_stripe_events')

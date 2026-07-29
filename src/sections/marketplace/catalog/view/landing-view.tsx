@@ -54,12 +54,14 @@ type PublicStats = {
   teachers: number;
   products: number;
   schools: number;
+  externalMembers: number;
   activeSellers: number;
   completedOrders: number;
 };
 
 const trustMetrics: Array<{ key: keyof PublicStats; label: string }> = [
   { key: 'teachers', label: 'คุณครู' },
+  { key: 'externalMembers', label: 'สมาชิกทั่วไป' },
   { key: 'products', label: 'สื่อการสอน' },
   { key: 'schools', label: 'โรงเรียน' },
 ];
@@ -355,18 +357,25 @@ export function MarketplaceLandingView() {
           </Typography>
           <Grid container>
             {trustMetrics.map((metric, index) => (
-              <Grid key={metric.label} size={{ xs: 12, sm: 4 }}>
+              <Grid key={metric.label} size={{ xs: 6, md: 3 }}>
                 <Box
                   sx={{
                     py: { xs: 2, sm: 1 },
                     textAlign: 'center',
-                    borderRight: { sm: index < trustMetrics.length - 1 ? '1px solid' : 0 },
-                    borderColor: { sm: 'rgba(255,255,255,0.18)' },
+                    borderRight: {
+                      xs: index % 2 === 0 ? '1px solid' : 0,
+                      md: index < trustMetrics.length - 1 ? '1px solid' : 0,
+                    },
+                    borderBottom: {
+                      xs: index < 2 ? '1px solid' : 0,
+                      md: 0,
+                    },
+                    borderColor: 'rgba(255,255,255,0.18)',
                   }}
                 >
                   {publicStats ? (
                     <Typography variant="h2" sx={{ color: 'common.white' }}>
-                      {formatCount(publicStats[metric.key])}
+                      {formatCount(publicStats[metric.key] ?? 0)}
                     </Typography>
                   ) : (
                     <Skeleton

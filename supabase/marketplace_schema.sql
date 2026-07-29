@@ -8,6 +8,7 @@ create table if not exists public.marketplace_users (
   auth_user_id uuid not null unique,
   username text not null,
   email text not null,
+  display_name text,
   first_name text not null,
   last_name text not null,
   role text not null default 'marketplace_user'
@@ -16,6 +17,13 @@ create table if not exists public.marketplace_users (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.marketplace_users
+  add column if not exists display_name text;
+
+update public.marketplace_users
+set display_name = trim(concat_ws(' ', first_name, last_name))
+where display_name is null or trim(display_name) = '';
 
 create unique index if not exists marketplace_users_username_lower_key
   on public.marketplace_users (lower(username));
@@ -543,6 +551,12 @@ alter table public.marketplace_products
     check (license_seat_count > 0);
 alter table public.marketplace_products
   add column if not exists grants_feature_keys text[] not null default '{}';
+alter table public.marketplace_products
+  add column if not exists grants_plan_code text,
+  add column if not exists license_max_teachers integer check (license_max_teachers >= 0),
+  add column if not exists license_max_students integer check (license_max_students >= 0),
+  add column if not exists license_max_school_admins integer check (license_max_school_admins >= 0),
+  add column if not exists license_line_quota integer check (license_line_quota >= 0);
 
 update public.marketplace_products
 set grants_feature_keys = array[grants_feature_key]
@@ -724,9 +738,19 @@ create table if not exists public.marketplace_school_licenses (
   license_scope text not null check (license_scope in ('school', 'teacher')),
   feature_keys text[] not null default '{}',
   seat_count integer not null default 1 check (seat_count > 0),
+  grants_plan_code text,
+  max_teachers integer check (max_teachers >= 0),
+  max_students integer check (max_students >= 0),
+  max_school_admins integer check (max_school_admins >= 0),
+  line_quota integer check (line_quota >= 0),
+  duration_days integer check (duration_days > 0),
   starts_at timestamptz not null default now(),
   expires_at timestamptz not null,
-  status text not null default 'active' check (status in ('active', 'revoked')),
+  status text not null default 'active'
+    check (status in ('active', 'renewed', 'expired', 'revoked', 'refunded')),
+  revoked_at timestamptz,
+  revoke_reason text,
+  renewed_from_license_id uuid references public.marketplace_school_licenses(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -734,6 +758,18 @@ create index if not exists marketplace_school_licenses_school_idx
   on public.marketplace_school_licenses (school_id, expires_at desc);
 create index if not exists marketplace_school_licenses_features_idx
   on public.marketplace_school_licenses using gin (feature_keys);
+
+create table if not exists public.marketplace_school_license_events (
+  id uuid primary key default gen_random_uuid(),
+  license_id uuid not null references public.marketplace_school_licenses(id) on delete restrict,
+  event_type text not null
+    check (event_type in ('created', 'renewed', 'expired', 'revoked', 'refunded')),
+  order_id uuid references public.marketplace_orders(id) on delete set null,
+  payment_session_id uuid,
+  reason text,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
 
 create table if not exists public.marketplace_teacher_license_assignments (
   id uuid primary key default gen_random_uuid(),
@@ -874,6 +910,8 @@ alter table public.marketplace_orders
   add column if not exists seller_net numeric(12, 2),
   add column if not exists paid_at timestamptz,
   add column if not exists available_at timestamptz;
+alter table public.marketplace_orders
+  add column if not exists license_school_id uuid references public.schools(id) on delete restrict;
 
 update public.marketplace_orders
 set gross_amount = coalesce(gross_amount, total),
@@ -1061,6 +1099,13 @@ alter table public.marketplace_line_deliveries enable row level security;
 -- Marketplace notifications target master admins who are not tied to a school.
 alter table if exists public.notifications
   alter column school_id drop not null;
+alter table if exists public.notifications
+  drop constraint if exists notifications_user_id_fkey;
+alter table if exists public.notifications
+  add column if not exists source_id uuid;
+create unique index if not exists notifications_invitation_source_key
+  on public.notifications (user_id, type, source_id)
+  where source_id is not null and type = 'marketplace_school_invitation';
 alter table public.marketplace_email_verifications enable row level security;
 alter table public.marketplace_sellers enable row level security;
 alter table public.marketplace_seller_documents enable row level security;

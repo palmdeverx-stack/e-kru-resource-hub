@@ -30,7 +30,7 @@ export async function GET(request: Request) {
   }
 
   return NextResponse.json({
-    notifications: data,
-    unreadCount: data.filter((notification) => !notification.read_at).length,
+    notifications: data ?? [],
+    unreadCount: (data ?? []).filter((notification) => !notification.read_at).length,
   });
 }

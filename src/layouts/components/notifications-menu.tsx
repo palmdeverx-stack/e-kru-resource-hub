@@ -13,7 +13,7 @@ import Typography from '@mui/material/Typography';
 
 import { useRouter } from 'src/routes/hooks';
 
-import { RiNotification3Line } from 'src/components/remix-icon';
+import { RiSchoolLine, RiArrowRightLine, RiNotification3Line } from 'src/components/remix-icon';
 
 // ----------------------------------------------------------------------
 
@@ -98,7 +98,15 @@ export function NotificationsMenu() {
         onClose={() => setAnchorEl(null)}
         slotProps={{ paper: { sx: { width: 360, maxHeight: 440 } } }}
       >
-        <Box sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Box
+          sx={{
+            px: 2,
+            py: 1.5,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
           <Typography variant="subtitle1">การแจ้งเตือน</Typography>
           {!!unreadCount && (
             <Typography
@@ -131,7 +139,32 @@ export function NotificationsMenu() {
               bgcolor: notification.read_at ? 'transparent' : 'action.hover',
             }}
           >
-            <Box sx={{ minWidth: 0 }}>
+            <Box
+              sx={{
+                width: 36,
+                height: 36,
+                mr: 1.25,
+                display: 'grid',
+                flexShrink: 0,
+                borderRadius: '50%',
+                placeItems: 'center',
+                color:
+                  notification.type === 'marketplace_school_invitation'
+                    ? 'primary.main'
+                    : 'text.secondary',
+                bgcolor:
+                  notification.type === 'marketplace_school_invitation'
+                    ? 'primary.lighter'
+                    : 'action.hover',
+              }}
+            >
+              {notification.type === 'marketplace_school_invitation' ? (
+                <RiSchoolLine size={19} />
+              ) : (
+                <RiNotification3Line size={18} />
+              )}
+            </Box>
+            <Box sx={{ minWidth: 0, flex: 1 }}>
               <Typography variant="subtitle2">{notification.title}</Typography>
               {notification.body && (
                 <Typography variant="body2" sx={{ color: 'text.secondary' }}>
@@ -141,6 +174,21 @@ export function NotificationsMenu() {
               <Typography variant="caption" sx={{ color: 'text.disabled' }}>
                 {timeAgo(notification.created_at)}
               </Typography>
+              {notification.type === 'marketplace_school_invitation' && (
+                <Typography
+                  variant="caption"
+                  sx={{
+                    mt: 0.5,
+                    gap: 0.5,
+                    display: 'flex',
+                    fontWeight: 700,
+                    alignItems: 'center',
+                    color: 'primary.main',
+                  }}
+                >
+                  ดูและตอบรับคำเชิญ <RiArrowRightLine size={15} />
+                </Typography>
+              )}
             </Box>
           </MenuItem>
         ))}

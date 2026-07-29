@@ -65,6 +65,7 @@ export async function POST(request: Request) {
       auth_user_id: authData.user.id,
       username,
       email,
+      display_name: `${firstName} ${lastName}`.trim(),
       first_name: firstName,
       last_name: lastName,
       is_active: false,

@@ -7,6 +7,7 @@ export async function GET() {
     teachersResult,
     productsResult,
     schoolsResult,
+    externalMembersResult,
     sellersResult,
     completedOrdersResult,
   ] = await Promise.all([
@@ -24,6 +25,10 @@ export async function GET() {
       .select('id', { count: 'exact', head: true })
       .eq('is_active', true),
     supabaseAdmin
+      .from('marketplace_users')
+      .select('id', { count: 'exact', head: true })
+      .eq('is_active', true),
+    supabaseAdmin
       .from('marketplace_sellers')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'active'),
@@ -37,6 +42,7 @@ export async function GET() {
     teachersResult,
     productsResult,
     schoolsResult,
+    externalMembersResult,
     sellersResult,
     completedOrdersResult,
   ].find((result) => result.error)?.error;
@@ -49,6 +55,7 @@ export async function GET() {
       teachers: teachersResult.count ?? 0,
       products: productsResult.count ?? 0,
       schools: schoolsResult.count ?? 0,
+      externalMembers: externalMembersResult.count ?? 0,
       activeSellers: sellersResult.count ?? 0,
       completedOrders: completedOrdersResult.count ?? 0,
       updatedAt: new Date().toISOString(),

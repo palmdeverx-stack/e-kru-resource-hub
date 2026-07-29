@@ -28,21 +28,35 @@ export async function POST(request: Request, { params }: Context) {
   const license = await loadLicense(id, caller.schoolId).catch(() => null);
   if (!license) return NextResponse.json({ message: 'ไม่พบ License' }, { status: 404 });
   if (license.license_scope !== 'teacher') {
-    return NextResponse.json({ message: 'License นี้เปิดใช้ทั้งโรงเรียน ไม่ต้องเพิ่มครู' }, { status: 400 });
+    return NextResponse.json(
+      { message: 'License นี้เปิดใช้ทั้งโรงเรียน ไม่ต้องเพิ่มครู' },
+      { status: 400 }
+    );
   }
   if (license.status !== 'active' || new Date(license.expires_at).getTime() <= Date.now()) {
     return NextResponse.json({ message: 'License หมดอายุหรือถูกยกเลิกแล้ว' }, { status: 409 });
   }
 
-  const { data: teacher } = await supabaseAdmin
-    .from('app_users')
-    .select('id')
-    .eq('id', teacherId)
-    .eq('school_id', caller.schoolId)
-    .eq('role', 'teacher')
-    .eq('is_active', true)
-    .maybeSingle();
-  if (!teacher) return NextResponse.json({ message: 'ไม่พบครูในโรงเรียนนี้' }, { status: 404 });
+  const [{ data: appTeacher }, { data: invitedTeacher }] = await Promise.all([
+    supabaseAdmin
+      .from('app_users')
+      .select('id')
+      .eq('id', teacherId)
+      .eq('school_id', caller.schoolId)
+      .eq('role', 'teacher')
+      .eq('is_active', true)
+      .maybeSingle(),
+    supabaseAdmin
+      .from('marketplace_school_members')
+      .select('id')
+      .eq('marketplace_user_id', teacherId)
+      .eq('school_id', caller.schoolId)
+      .eq('membership_role', 'teacher')
+      .maybeSingle(),
+  ]);
+  if (!appTeacher && !invitedTeacher) {
+    return NextResponse.json({ message: 'ไม่พบครูในโรงเรียนนี้' }, { status: 404 });
+  }
 
   const { count } = await supabaseAdmin
     .from('marketplace_teacher_license_assignments')

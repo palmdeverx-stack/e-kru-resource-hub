@@ -2,6 +2,8 @@
 
 import type { NavSectionProps } from 'src/components/nav-section';
 
+import { useState, useEffect } from 'react';
+
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 
@@ -12,6 +14,7 @@ import { MarketplaceBrand } from 'src/components/marketplace-brand';
 import {
   RiKey2Line,
   RiHome5Line,
+  RiSchoolLine,
   RiIdCardLine,
   RiSearchLine,
   RiStore2Line,
@@ -252,26 +255,65 @@ type Props = {
 
 export default function Layout({ children }: Props) {
   const { user } = useAuthContext();
+  const [canViewSchoolEntitlements, setCanViewSchoolEntitlements] = useState(false);
+
+  useEffect(() => {
+    if (user?.role !== 'teacher' && user?.role !== 'marketplace_user') {
+      setCanViewSchoolEntitlements(false);
+      return undefined;
+    }
+
+    setCanViewSchoolEntitlements(false);
+    const controller = new AbortController();
+
+    const loadSchoolEntitlementAccess = async () => {
+      try {
+        const response = await fetch('/api/marketplace/school-entitlements?summary=1', {
+          cache: 'no-store',
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          setCanViewSchoolEntitlements(false);
+          return;
+        }
+        const data = (await response.json()) as { canViewSchoolEntitlements?: boolean };
+        setCanViewSchoolEntitlements(Boolean(data.canViewSchoolEntitlements));
+      } catch (error) {
+        if ((error as Error).name !== 'AbortError') {
+          setCanViewSchoolEntitlements(false);
+        }
+      }
+    };
+
+    void loadSchoolEntitlementAccess();
+    return () => controller.abort();
+  }, [user?.id, user?.role]);
+
   const navData =
     user?.role === 'master_admin'
       ? adminNavData
-      : user?.role === 'school_admin'
-        ? memberNavData.map((section) =>
-            section.subheader === 'บัญชีของฉัน'
-              ? {
-                  ...section,
-                  items: [
-                    ...section.items,
+      : memberNavData.map((section) => {
+          if (section.subheader !== 'บัญชีของฉัน') return section;
+          const roleItems =
+            user?.role === 'school_admin'
+              ? [
+                  {
+                    title: 'สิทธิ์และ License',
+                    path: '/dashboard/licenses',
+                    icon: <RiKey2Line />,
+                  },
+                ]
+              : canViewSchoolEntitlements
+                ? [
                     {
-                      title: 'สิทธิ์และ License',
-                      path: '/dashboard/licenses',
-                      icon: <RiKey2Line />,
+                      title: 'สิทธิ์จากโรงเรียน',
+                      path: '/dashboard/school-entitlements',
+                      icon: <RiSchoolLine />,
                     },
-                  ],
-                }
-              : section
-          )
-        : memberNavData;
+                  ]
+                : [];
+          return { ...section, items: [...section.items, ...roleItems] };
+        });
 
   return (
     <DashboardLayout

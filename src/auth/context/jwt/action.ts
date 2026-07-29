@@ -80,7 +80,20 @@ export const signInWithPassword = async ({
     return result as PinChallenge;
   }
 
-  return result.user;
+  const user = result.user as AppUser;
+  if (user.role === 'marketplace_user' && user.email) {
+    const { getSupabaseBrowserClient } = await import('src/lib/supabase-browser');
+    const { error } = await getSupabaseBrowserClient().auth.signInWithPassword({
+      email: user.email,
+      password,
+    });
+    if (error) {
+      await fetch('/api/auth/sign-out', { method: 'POST', cache: 'no-store' });
+      throw new Error('สร้าง session สำหรับยืนยันคำเชิญไม่สำเร็จ กรุณาลองเข้าสู่ระบบใหม่');
+    }
+  }
+
+  return user;
 };
 
 export const signInWithGoogle = async (returnTo?: string | null): Promise<void> => {
@@ -121,7 +134,8 @@ export const signUp = async ({
   email,
   firstName,
   lastName,
-}: SignUpParams): Promise<SignUpResult> => (await postJson('/api/auth/sign-up', {
+}: SignUpParams): Promise<SignUpResult> =>
+  (await postJson('/api/auth/sign-up', {
     username,
     password,
     email,

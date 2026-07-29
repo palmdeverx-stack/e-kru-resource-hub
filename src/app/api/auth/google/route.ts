@@ -181,6 +181,7 @@ export async function POST(request: Request) {
       auth_user_id: authUser.id,
       username,
       email,
+      display_name: `${profile.firstName} ${profile.lastName}`.trim(),
       first_name: profile.firstName,
       last_name: profile.lastName,
       is_active: true,

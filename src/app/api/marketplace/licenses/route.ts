@@ -9,7 +9,11 @@ export async function GET(request: Request) {
     return NextResponse.json({ message: 'เฉพาะผู้ดูแลโรงเรียนเท่านั้น' }, { status: 403 });
   }
 
-  const [{ data: licenses, error }, { data: teachers, error: teacherError }] = await Promise.all([
+  const [
+    { data: licenses, error },
+    { data: teachers, error: teacherError },
+    { data: invitedTeachers, error: invitedTeacherError },
+  ] = await Promise.all([
     supabaseAdmin
       .from('marketplace_school_licenses')
       .select(
@@ -24,12 +28,31 @@ export async function GET(request: Request) {
       .eq('role', 'teacher')
       .eq('is_active', true)
       .order('first_name'),
+    supabaseAdmin
+      .from('marketplace_school_members')
+      .select('marketplace_user:marketplace_users(id,username,first_name,last_name)')
+      .eq('school_id', caller.schoolId)
+      .eq('membership_role', 'teacher'),
   ]);
-  if (error || teacherError) {
+  if (error || teacherError || invitedTeacherError) {
     return NextResponse.json(
-      { message: error?.message ?? teacherError?.message ?? 'โหลดข้อมูล License ไม่สำเร็จ' },
+      {
+        message:
+          error?.message ??
+          teacherError?.message ??
+          invitedTeacherError?.message ??
+          'โหลดข้อมูล License ไม่สำเร็จ',
+      },
       { status: 500 }
     );
+  }
+
+  const teacherMap = new Map((teachers ?? []).map((teacher) => [teacher.id, teacher]));
+  for (const row of invitedTeachers ?? []) {
+    const teacher = Array.isArray(row.marketplace_user)
+      ? row.marketplace_user[0]
+      : row.marketplace_user;
+    if (teacher) teacherMap.set(teacher.id, { ...teacher, avatar_url: null });
   }
 
   return NextResponse.json({
@@ -39,6 +62,6 @@ export async function GET(request: Request) {
         (assignment: { revoked_at: string | null }) => !assignment.revoked_at
       ),
     })),
-    teachers: teachers ?? [],
+    teachers: [...teacherMap.values()],
   });
 }

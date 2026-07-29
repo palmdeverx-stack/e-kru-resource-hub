@@ -117,7 +117,35 @@ export async function finalizeMarketplacePayment(input: FinalizeInput) {
 
   // Payment remains verified if entitlement creation fails, while the thrown
   // error makes Stripe/admin retry the idempotent reconciliation path.
-  await grantFeatureEntitlementsForOrders(orders.map((order) => String(order.id)));
+  const licenses = await grantFeatureEntitlementsForOrders(orders.map((order) => String(order.id)));
+
+  if (licenses.length) {
+    const schoolIds = [...new Set(licenses.map((license) => String(license.school_id)))];
+    const [{ data: schoolAdmins }, { data: marketplaceAdmins }] = await Promise.all([
+      supabaseAdmin
+        .from('app_users')
+        .select('id,school_id')
+        .eq('role', 'school_admin')
+        .in('school_id', schoolIds)
+        .eq('is_active', true),
+      supabaseAdmin
+        .from('app_users')
+        .select('id,school_id')
+        .eq('role', 'master_admin')
+        .eq('is_active', true),
+    ]);
+    const recipients = [...(schoolAdmins ?? []), ...(marketplaceAdmins ?? [])];
+    await createNotifications(
+      recipients.map((recipient) => ({
+        userId: recipient.id,
+        schoolId: recipient.school_id,
+        type: 'marketplace_school_license_created',
+        title: 'เปิดใช้งาน License โรงเรียนแล้ว',
+        body: `สร้าง License ${licenses.length} รายการจากคำสั่งซื้อที่ชำระสำเร็จ`,
+        link: '/dashboard/licenses',
+      }))
+    );
+  }
 
   await createNotifications([
     {

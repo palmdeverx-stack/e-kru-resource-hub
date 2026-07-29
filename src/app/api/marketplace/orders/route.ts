@@ -6,6 +6,7 @@ import { requireAuthenticated } from 'src/lib/auth-token';
 import { withMediaUrls } from 'src/sections/marketplace/seller/server/product-media';
 import { money, getFinanceSettings } from 'src/sections/marketplace/admin/server/finance';
 import { getStripe, isStripeConfigured } from 'src/sections/marketplace/checkout/server/stripe';
+import { getEligibleLicenseSchools } from 'src/sections/marketplace/checkout/server/school-targets';
 import { getProductPurchaseAccess } from 'src/sections/marketplace/catalog/server/product-engagement';
 import { grantFeatureEntitlementsForOrders } from 'src/sections/marketplace/checkout/server/grant-feature-entitlements';
 
@@ -89,6 +90,7 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => null);
   const requestedPaymentMethod = String(body?.paymentMethod ?? '');
+  const requestedLicenseSchoolId = String(body?.licenseSchoolId ?? '').trim();
   const requestedItems: RequestedItem[] = Array.isArray(body?.items) ? body.items : [];
   const uniqueProductIds = [...new Set(requestedItems.map((item) => String(item.productId)))];
 
@@ -102,7 +104,7 @@ export async function POST(request: Request) {
   const { data: products, error: productError } = await supabaseAdmin
     .from('marketplace_products')
     .select(
-      'id, seller_id, title, price, currency, status, resource_type, grants_feature_key, grants_feature_keys, grant_duration_days, license_scope, license_seat_count, seller:marketplace_sellers(owner_role)'
+      'id, seller_id, title, price, currency, status, resource_type, grants_feature_key, grants_feature_keys, grants_plan_code, grant_duration_days, license_scope, license_seat_count, license_max_teachers, license_max_students, license_max_school_admins, license_line_quota, seller:marketplace_sellers(owner_role)'
     )
     .in('id', uniqueProductIds)
     .eq('status', 'published');
@@ -115,11 +117,17 @@ export async function POST(request: Request) {
   }
 
   const hasFeatureUnlock = products.some((product) => product.resource_type === 'feature_unlock');
-  if (hasFeatureUnlock && (caller.role !== 'school_admin' || !caller.schoolId)) {
-    return NextResponse.json(
-      { message: 'สินค้านี้ซื้อได้เฉพาะบัญชีผู้ดูแลโรงเรียน (school_admin) เท่านั้น' },
-      { status: 400 }
-    );
+  if (hasFeatureUnlock) {
+    const eligibleSchools = await getEligibleLicenseSchools(caller);
+    if (
+      !requestedLicenseSchoolId ||
+      !eligibleSchools.some((school) => school.id === requestedLicenseSchoolId)
+    ) {
+      return NextResponse.json(
+        { message: 'กรุณาเลือกโรงเรียนที่คุณมีสิทธิ์เป็นผู้ดูแลก่อนชำระเงิน' },
+        { status: 403 }
+      );
+    }
   }
 
   const purchaseAccess = await Promise.all(
@@ -128,7 +136,7 @@ export async function POST(request: Request) {
       access: await getProductPurchaseAccess({
         productId: product.id,
         buyerId: caller.sub,
-        schoolId: caller.schoolId,
+        schoolId: hasFeatureUnlock ? requestedLicenseSchoolId : caller.schoolId,
         resourceType: product.resource_type,
       }),
     }))
@@ -233,6 +241,7 @@ export async function POST(request: Request) {
         buyer_id: caller.sub,
         seller_id: sellerId,
         payment_session_id: paymentSession.id,
+        license_school_id: hasFeatureUnlock ? requestedLicenseSchoolId : null,
         status: isFree ? 'paid' : 'pending_payment',
         total: grossAmount,
         gross_amount: grossAmount,

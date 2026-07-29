@@ -13,11 +13,16 @@ type OrderItemRow = {
     resource_type: string;
     grants_feature_key: string | null;
     grants_feature_keys: string[] | null;
+    grants_plan_code: string | null;
     grant_duration_days: number | null;
     license_scope: 'school' | 'teacher' | null;
     license_seat_count: number | null;
+    license_max_teachers: number | null;
+    license_max_students: number | null;
+    license_max_school_admins: number | null;
+    license_line_quota: number | null;
   } | null;
-  order: { buyer_id: string } | null;
+  order: { buyer_id: string; license_school_id: string | null } | null;
 };
 
 /**
@@ -31,7 +36,7 @@ export async function grantFeatureEntitlementsForOrders(orderIds: string[]) {
   const { data, error } = await supabaseAdmin
     .from('marketplace_order_items')
     .select(
-      'id, order_id, product:marketplace_products(id, resource_type, grants_feature_key, grants_feature_keys, grant_duration_days, license_scope, license_seat_count), order:marketplace_orders(buyer_id)'
+      'id, order_id, product:marketplace_products(id, resource_type, grants_feature_key, grants_feature_keys, grants_plan_code, grant_duration_days, license_scope, license_seat_count, license_max_teachers, license_max_students, license_max_school_admins, license_line_quota), order:marketplace_orders(buyer_id,license_school_id)'
     )
     .in('order_id', orderIds);
   if (error) throw error;
@@ -44,23 +49,10 @@ export async function grantFeatureEntitlementsForOrders(orderIds: string[]) {
   );
   if (!featureItems.length) return [];
 
-  const buyerIds = [
-    ...new Set(featureItems.map((item) => item.order?.buyer_id).filter((id): id is string => !!id)),
-  ];
-  const { data: buyers, error: buyerError } = await supabaseAdmin
-    .from('app_users')
-    .select('id, school_id')
-    .in('id', buyerIds);
-  if (buyerError) throw buyerError;
-  const schoolByBuyer = new Map<string, string | null>(
-    (buyers ?? []).map((row: { id: string; school_id: string | null }) => [row.id, row.school_id])
-  );
-
   const licenses = [];
   for (const item of featureItems) {
     const product = item.product!;
-    const buyerId = item.order?.buyer_id;
-    const schoolId = buyerId ? schoolByBuyer.get(buyerId) : null;
+    const schoolId = item.order?.license_school_id;
     if (!schoolId) throw new Error(`ไม่พบโรงเรียนของผู้ซื้อในคำสั่งซื้อ ${item.order_id}`);
 
     const featureKeys = [
@@ -73,8 +65,21 @@ export async function grantFeatureEntitlementsForOrders(orderIds: string[]) {
       ),
     ] as SchoolFeatureKey[];
     const startsAt = new Date();
+    const { data: previousLicense } = await supabaseAdmin
+      .from('marketplace_school_licenses')
+      .select('id,expires_at')
+      .eq('school_id', schoolId)
+      .eq('product_id', product.id)
+      .eq('status', 'active')
+      .order('expires_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const expiryBase =
+      previousLicense?.expires_at && new Date(previousLicense.expires_at) > startsAt
+        ? new Date(previousLicense.expires_at)
+        : startsAt;
     const expiresAt = new Date(
-      startsAt.getTime() + Number(product.grant_duration_days) * 24 * 60 * 60 * 1000
+      expiryBase.getTime() + Number(product.grant_duration_days) * 24 * 60 * 60 * 1000
     ).toISOString();
 
     const { data: existingLicense, error: licenseError } = await supabaseAdmin
@@ -95,7 +100,14 @@ export async function grantFeatureEntitlementsForOrders(orderIds: string[]) {
           order_item_id: item.id,
           license_scope: product.license_scope ?? 'school',
           feature_keys: featureKeys,
-          seat_count: product.license_scope === 'teacher' ? product.license_seat_count ?? 1 : 1,
+          seat_count: product.license_scope === 'teacher' ? (product.license_seat_count ?? 1) : 1,
+          grants_plan_code: product.grants_plan_code,
+          max_teachers: product.license_max_teachers,
+          max_students: product.license_max_students,
+          max_school_admins: product.license_max_school_admins,
+          line_quota: product.license_line_quota,
+          duration_days: product.grant_duration_days,
+          renewed_from_license_id: previousLicense?.id ?? null,
           starts_at: startsAt.toISOString(),
           expires_at: expiresAt,
         })
@@ -103,6 +115,11 @@ export async function grantFeatureEntitlementsForOrders(orderIds: string[]) {
         .single();
       if (inserted.error) throw inserted.error;
       license = inserted.data;
+      await supabaseAdmin.from('marketplace_school_license_events').insert({
+        license_id: license.id,
+        event_type: previousLicense ? 'renewed' : 'created',
+        order_id: item.order_id,
+      });
     }
 
     if (license.license_scope === 'school') {

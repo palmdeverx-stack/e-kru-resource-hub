@@ -17,6 +17,10 @@ const AREA_ROLES: Array<{ prefix: string; roles: AppRole[] }> = [
   { prefix: '/dashboard/settings', roles: ['master_admin'] },
   { prefix: '/dashboard/licenses', roles: ['school_admin'] },
   {
+    prefix: '/dashboard/school-entitlements',
+    roles: ['teacher', 'marketplace_user'],
+  },
+  {
     prefix: '/dashboard',
     roles: ['master_admin', 'school_admin', 'teacher', 'student', 'marketplace_user'],
   },
@@ -52,10 +56,7 @@ export function proxy(request: NextRequest) {
 
   if (!caller) {
     const signInUrl = new URL(paths.auth.jwt.signIn, request.url);
-    signInUrl.searchParams.set(
-      'returnTo',
-      `${request.nextUrl.pathname}${request.nextUrl.search}`
-    );
+    signInUrl.searchParams.set('returnTo', `${request.nextUrl.pathname}${request.nextUrl.search}`);
     return NextResponse.redirect(signInUrl);
   }
 

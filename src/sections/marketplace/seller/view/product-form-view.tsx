@@ -120,9 +120,14 @@ const initialForm = {
   saleTypeId: '',
   price: '0',
   grantsFeatureKeys: [] as string[],
+  grantsPlanCode: '',
   grantDurationDays: '30',
   licenseScope: 'school' as 'school' | 'teacher',
   licenseSeatCount: '1',
+  licenseMaxTeachers: '',
+  licenseMaxStudents: '',
+  licenseMaxSchoolAdmins: '',
+  licenseLineQuota: '',
 };
 
 function plainTextLength(html: string) {
@@ -220,9 +225,14 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
         : product.grants_feature_key
           ? [product.grants_feature_key]
           : [],
+      grantsPlanCode: product.grants_plan_code ?? '',
       grantDurationDays: String(product.grant_duration_days ?? 30),
       licenseScope: product.license_scope ?? 'school',
       licenseSeatCount: String(product.license_seat_count ?? 1),
+      licenseMaxTeachers: String(product.license_max_teachers ?? ''),
+      licenseMaxStudents: String(product.license_max_students ?? ''),
+      licenseMaxSchoolAdmins: String(product.license_max_school_admins ?? ''),
+      licenseLineQuota: String(product.license_line_quota ?? ''),
     });
     setImages(product.images ?? []);
     setPendingCover(null);
@@ -328,6 +338,19 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
             label: 'กำหนดระยะเวลาของ License',
             completed: Number(form.grantDurationDays) > 0,
           },
+          ...(form.grantsFeatureKeys.length === SCHOOL_FEATURES.length
+            ? [
+                {
+                  label: 'กำหนด Plan Code และข้อจำกัดแพ็กเกจทั้งระบบ',
+                  completed:
+                    Boolean(form.grantsPlanCode.trim()) &&
+                    form.licenseMaxTeachers !== '' &&
+                    form.licenseMaxStudents !== '' &&
+                    form.licenseMaxSchoolAdmins !== '' &&
+                    form.licenseLineQuota !== '',
+                },
+              ]
+            : []),
           ...(form.licenseScope === 'teacher'
             ? [
                 {
@@ -358,12 +381,27 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
     price: Number(form.price) || 0,
     grantsFeatureKey: isLicenseProduct ? form.grantsFeatureKeys[0] || undefined : undefined,
     grantsFeatureKeys: isLicenseProduct ? form.grantsFeatureKeys : [],
+    grantsPlanCode: isLicenseProduct ? form.grantsPlanCode.trim() || undefined : undefined,
     grantDurationDays:
       isLicenseProduct && form.grantsFeatureKeys.length
         ? Number(form.grantDurationDays)
         : undefined,
     licenseScope: form.licenseScope,
     licenseSeatCount: form.licenseScope === 'teacher' ? Number(form.licenseSeatCount) || 1 : 1,
+    licenseMaxTeachers:
+      isLicenseProduct && form.licenseMaxTeachers !== ''
+        ? Number(form.licenseMaxTeachers)
+        : undefined,
+    licenseMaxStudents:
+      isLicenseProduct && form.licenseMaxStudents !== ''
+        ? Number(form.licenseMaxStudents)
+        : undefined,
+    licenseMaxSchoolAdmins:
+      isLicenseProduct && form.licenseMaxSchoolAdmins !== ''
+        ? Number(form.licenseMaxSchoolAdmins)
+        : undefined,
+    licenseLineQuota:
+      isLicenseProduct && form.licenseLineQuota !== '' ? Number(form.licenseLineQuota) : undefined,
     ...(submit && { submit: true }),
   });
 
@@ -1014,6 +1052,22 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                       />
                     </Grid>
                     <Grid size={{ xs: 12 }}>
+                      {form.licenseScope === 'school' && (
+                        <Stack direction="row" justifyContent="flex-end" sx={{ mb: 1 }}>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={() =>
+                              setForm((current) => ({
+                                ...current,
+                                grantsFeatureKeys: SCHOOL_FEATURES.map((feature) => feature.key),
+                              }))
+                            }
+                          >
+                            เลือกฟีเจอร์ eKru ทั้งระบบ
+                          </Button>
+                        </Stack>
+                      )}
                       <Autocomplete
                         multiple
                         disableCloseOnSelect
@@ -1062,6 +1116,42 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                         />
                       </Grid>
                     )}
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <TextField
+                        fullWidth
+                        label="Plan Code"
+                        value={form.grantsPlanCode}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            grantsPlanCode: event.target.value,
+                          }))
+                        }
+                        helperText="ใช้เชื่อมกับ subscription_plans เช่น FULL_SYSTEM"
+                      />
+                    </Grid>
+                    {[
+                      ['licenseMaxSchoolAdmins', 'จำนวนผู้ดูแลสูงสุด'],
+                      ['licenseMaxTeachers', 'จำนวนครูสูงสุด'],
+                      ['licenseMaxStudents', 'จำนวนนักเรียนสูงสุด'],
+                      ['licenseLineQuota', 'LINE quota'],
+                    ].map(([key, label]) => (
+                      <Grid key={key} size={{ xs: 12, sm: 6 }}>
+                        <TextField
+                          fullWidth
+                          type="number"
+                          label={label}
+                          value={form[key as keyof typeof form] as string}
+                          slotProps={{ htmlInput: { min: 0, step: 1 } }}
+                          onChange={(event) =>
+                            setForm((current) => ({
+                              ...current,
+                              [key]: event.target.value,
+                            }))
+                          }
+                        />
+                      </Grid>
+                    ))}
                   </>
                 )}
               </Grid>
