@@ -376,6 +376,7 @@ export type MarketplaceOrder = {
           | 'grants_plan_code'
           | 'grant_duration_days'
           | 'external_links'
+          | 'purchase_benefits_html'
         > & {
           images?: MarketplaceProductImage[];
           files?: MarketplaceProductFile[];
