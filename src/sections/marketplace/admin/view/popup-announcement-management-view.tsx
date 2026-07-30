@@ -238,7 +238,7 @@ export function PopupAnnouncementManagementView() {
           <Stack direction="row" spacing={1.5} alignItems="center">
             <RiNotification3Line size={30} />
             <Typography component="h1" variant="h3">
-              Popup Banner ประกาศ
+              ประกาศ
             </Typography>
           </Stack>
           <Typography color="text.secondary" sx={{ mt: 0.5 }}>
@@ -250,8 +250,16 @@ export function PopupAnnouncementManagementView() {
         </Button>
       </Stack>
 
-      {error && <Alert severity="error" sx={{ mt: 3 }}>{error}</Alert>}
-      {message && <Alert severity="success" sx={{ mt: 3 }}>{message}</Alert>}
+      {error && (
+        <Alert severity="error" sx={{ mt: 3 }}>
+          {error}
+        </Alert>
+      )}
+      {message && (
+        <Alert severity="success" sx={{ mt: 3 }}>
+          {message}
+        </Alert>
+      )}
 
       <Card sx={{ mt: 3 }}>
         <TableContainer>
@@ -334,7 +342,7 @@ export function PopupAnnouncementManagementView() {
       </Card>
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="md">
-        <DialogTitle>{editing ? 'แก้ไขประกาศ' : 'สร้าง Popup Banner'}</DialogTitle>
+        <DialogTitle>{editing ? 'แก้ไขประกาศ' : 'สร้างประกาศ'}</DialogTitle>
         <DialogContent dividers>
           <Stack spacing={2.5}>
             <TextField
@@ -342,7 +350,9 @@ export function PopupAnnouncementManagementView() {
               label="หัวข้อประกาศ"
               value={form.title}
               inputProps={{ maxLength: 150 }}
-              onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, title: event.target.value }))
+              }
             />
             <TextField
               required
@@ -424,7 +434,9 @@ export function PopupAnnouncementManagementView() {
               }
             >
               {Object.entries(AUDIENCE_LABELS).map(([value, label]) => (
-                <MenuItem key={value} value={value}>{label}</MenuItem>
+                <MenuItem key={value} value={value}>
+                  {label}
+                </MenuItem>
               ))}
             </TextField>
             {form.audience === 'roles' && (
@@ -444,7 +456,9 @@ export function PopupAnnouncementManagementView() {
                 }
               >
                 {ROLE_OPTIONS.map((role) => (
-                  <MenuItem key={role.value} value={role.value}>{role.label}</MenuItem>
+                  <MenuItem key={role.value} value={role.value}>
+                    {role.label}
+                  </MenuItem>
                 ))}
               </TextField>
             )}
@@ -495,7 +509,9 @@ export function PopupAnnouncementManagementView() {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button color="inherit" onClick={() => setDialogOpen(false)}>ยกเลิก</Button>
+          <Button color="inherit" onClick={() => setDialogOpen(false)}>
+            ยกเลิก
+          </Button>
           <Button
             variant="contained"
             loading={saving}
@@ -515,8 +531,12 @@ export function PopupAnnouncementManagementView() {
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button color="inherit" onClick={() => setDeleting(null)}>ยกเลิก</Button>
-          <Button color="error" variant="contained" loading={saving} onClick={remove}>ลบประกาศ</Button>
+          <Button color="inherit" onClick={() => setDeleting(null)}>
+            ยกเลิก
+          </Button>
+          <Button color="error" variant="contained" loading={saving} onClick={remove}>
+            ลบประกาศ
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

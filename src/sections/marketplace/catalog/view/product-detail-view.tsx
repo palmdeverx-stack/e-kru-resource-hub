@@ -52,6 +52,7 @@ import { useAuthContext } from 'src/auth/hooks';
 import { findSampleProduct } from '../../shared/constants';
 import { useMarketplaceCart } from '../../cart/cart-context';
 import { getMarketplacePricing } from '../../shared/pricing';
+import { hasAnalyticsConsent } from '../../legal/cookie-consent';
 import { MarketplaceSellerLink } from '../../shared/seller-link';
 import { MARKETPLACE_SELLER_LINE_FEATURE } from '../../seller/line-feature';
 import {
@@ -138,20 +139,22 @@ export function MarketplaceProductDetailView({
         setKeptReviewImageIds(myReview?.images.map((image) => image.id) ?? []);
         setReviewEditing(!myReview);
 
-        let visitorId = window.localStorage.getItem(VISITOR_STORAGE_KEY);
-        if (!visitorId) {
-          visitorId = window.crypto.randomUUID();
-          window.localStorage.setItem(VISITOR_STORAGE_KEY, visitorId);
-        }
-        recordProductView(productId, visitorId)
-          .then(({ views }) =>
-            setProduct((current) =>
-              current?.engagement
-                ? { ...current, engagement: { ...current.engagement, views } }
-                : current
+        if (hasAnalyticsConsent()) {
+          let visitorId = window.localStorage.getItem(VISITOR_STORAGE_KEY);
+          if (!visitorId) {
+            visitorId = window.crypto.randomUUID();
+            window.localStorage.setItem(VISITOR_STORAGE_KEY, visitorId);
+          }
+          recordProductView(productId, visitorId)
+            .then(({ views }) =>
+              setProduct((current) =>
+                current?.engagement
+                  ? { ...current, engagement: { ...current.engagement, views } }
+                  : current
+              )
             )
-          )
-          .catch(() => undefined);
+            .catch(() => undefined);
+        }
       })
       .catch(() => setProduct(null))
       .finally(() => setLoading(false));

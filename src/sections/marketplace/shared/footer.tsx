@@ -21,6 +21,8 @@ import {
   RiCustomerService2Line,
 } from 'src/components/remix-icon';
 
+import { OPEN_COOKIE_SETTINGS_EVENT } from '../legal/cookie-consent';
+
 type FooterLink = {
   label: string;
   href: string;
@@ -52,11 +54,13 @@ const sellerLinks: FooterLink[] = [
 
 const supportLinks: FooterLink[] = [
   { label: 'เข้าสู่ระบบ', href: paths.auth.jwt.signIn },
+  { label: 'เอกสารกฎหมายทั้งหมด', href: paths.legal.center },
   { label: 'Terms of Service', href: paths.legal.termsOfService },
   { label: 'Seller Agreement', href: paths.legal.sellerAgreement },
   { label: 'Privacy Policy (PDPA)', href: paths.legal.privacyPolicy },
   { label: 'Copyright & Takedown Policy', href: paths.legal.copyrightTakedown },
   { label: 'Refund Policy', href: paths.legal.refundPolicy },
+  { label: 'Cookie Policy', href: paths.legal.cookiePolicy },
 ];
 
 export function MarketplaceFooter() {
@@ -178,6 +182,22 @@ export function MarketplaceFooter() {
           </Stack>
 
           <Stack direction="row" spacing={2}>
+            <Link
+              component="button"
+              type="button"
+              underline="hover"
+              onClick={() => window.dispatchEvent(new Event(OPEN_COOKIE_SETTINGS_EVENT))}
+              sx={{
+                p: 0,
+                border: 0,
+                cursor: 'pointer',
+                bgcolor: 'transparent',
+                typography: 'caption',
+                color: 'rgba(255,255,255,0.5)',
+              }}
+            >
+              ตั้งค่าคุกกี้
+            </Link>
             <Link
               component={RouterLink}
               href={paths.legal.privacyPolicy}

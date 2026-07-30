@@ -20,6 +20,9 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import CircularProgress from '@mui/material/CircularProgress';
 
+import { paths } from 'src/routes/paths';
+import { RouterLink } from 'src/routes/components';
+
 import { RiCloseLine, RiErrorWarningLine, RiCheckboxCircleLine } from 'src/components/remix-icon';
 
 import { formatPrice } from '../../shared/api';
@@ -113,12 +116,21 @@ export function MarketplacePaymentReviewView() {
         <Card sx={{ p: 3, mb: 3, border: '1px solid', borderColor: 'error.light' }}>
           <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2 }}>
             <RiErrorWarningLine size={28} />
-            <Box>
+            <Box sx={{ flex: 1 }}>
               <Typography variant="h5">ข้อพิพาทการชำระเงิน</Typography>
               <Typography variant="body2" color="text.secondary">
                 ระบบระงับสิทธิ์และยอดผู้ขายไว้แล้ว กรุณาตรวจหลักฐานก่อนครบกำหนด
               </Typography>
             </Box>
+            <Button
+              size="small"
+              variant="outlined"
+              component={RouterLink}
+              href={paths.legal.complaintDisputePolicy}
+              target="_blank"
+            >
+              ดูนโยบายข้อพิพาท
+            </Button>
           </Stack>
           <Stack spacing={1.5}>
             {disputes.map((dispute) => (

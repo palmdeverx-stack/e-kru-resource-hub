@@ -20,6 +20,7 @@ import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
+import Link from '@mui/material/Link';
 import Alert from '@mui/material/Alert';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
@@ -32,7 +33,9 @@ import Typography from '@mui/material/Typography';
 import Autocomplete from '@mui/material/Autocomplete';
 import CircularProgress from '@mui/material/CircularProgress';
 
+import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
+import { RouterLink } from 'src/routes/components';
 
 import { useTranslate } from 'src/locales';
 import { SCHOOL_FEATURES } from 'src/lib/school-subscription-config';
@@ -2097,6 +2100,29 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                   ข้อมูลครบถ้วน พร้อมส่งให้ผู้ดูแลตรวจสอบ
                 </Alert>
               )}
+
+              <Alert severity="info" variant="outlined" sx={{ mt: 2 }}>
+                เมื่อส่งตรวจ คุณยืนยันว่าสินค้าเป็นไปตาม{' '}
+                <Link
+                  component={RouterLink}
+                  href={paths.legal.productContentPolicy}
+                  target="_blank"
+                >
+                  นโยบายสินค้า
+                </Link>
+                ,{' '}
+                <Link component={RouterLink} href={paths.legal.copyrightTakedown} target="_blank">
+                  นโยบายลิขสิทธิ์
+                </Link>{' '}
+                และ{' '}
+                <Link
+                  component={RouterLink}
+                  href={paths.legal.digitalProductLicense}
+                  target="_blank"
+                >
+                  สิทธิการใช้สินค้าดิจิทัล
+                </Link>
+              </Alert>
 
               <Stack spacing={1.25} sx={{ mt: 3 }}>
                 <Button

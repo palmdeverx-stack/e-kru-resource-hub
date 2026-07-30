@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
+import Link from '@mui/material/Link';
 import Alert from '@mui/material/Alert';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
@@ -14,6 +15,9 @@ import TextField from '@mui/material/TextField';
 import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
+
+import { paths } from 'src/routes/paths';
+import { RouterLink } from 'src/routes/components';
 
 import {
   RiBugLine,
@@ -235,6 +239,13 @@ export function MarketplaceFeedbackView() {
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
           ยิ่งระบุขั้นตอนและผลลัพธ์ที่ต้องการชัดเจน ทีมงานยิ่งตรวจสอบและนำไปพัฒนาต่อได้เร็ว
         </Typography>
+        <Alert severity="info" sx={{ mt: 2 }}>
+          หากเป็นเรื่องการชำระเงิน การคืนเงิน หรือ Chargeback กรุณาอ่าน{' '}
+          <Link component={RouterLink} href={paths.legal.complaintDisputePolicy} target="_blank">
+            นโยบายข้อร้องเรียนและข้อพิพาท
+          </Link>{' '}
+          ก่อนส่งเรื่อง
+        </Alert>
 
         <Box
           sx={{

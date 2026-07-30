@@ -47,14 +47,16 @@ export function MarketplaceLegalDocumentView({ documentType }: Props) {
   }, [documentType]);
 
   return (
-    <Box sx={{ bgcolor: 'background.default', py: { xs: 5, md: 9 }, height: 400 }}>
-      <Container maxWidth="xl">
+    <Box sx={{ bgcolor: 'background.default', py: { xs: 3 }, minHeight: 400 }}>
+      <Container maxWidth="lg">
         {loading ? (
           <Box sx={{ minHeight: 360, display: 'grid', placeItems: 'center' }}>
             <CircularProgress />
           </Box>
         ) : error ? (
           <Alert severity="error">{error}</Alert>
+        ) : !document && documentType === 'cookie_policy' ? (
+          <CookiePolicyFallback />
         ) : !document ? (
           <Alert severity="info">
             เอกสารนี้อยู่ระหว่างการจัดทำ กรุณาติดต่อผู้ให้บริการหากต้องการข้อมูลเพิ่มเติม
@@ -134,5 +136,67 @@ export function MarketplaceLegalDocumentView({ documentType }: Props) {
         )}
       </Container>
     </Box>
+  );
+}
+
+function CookiePolicyFallback() {
+  return (
+    <Card sx={{ p: { xs: 2.5, sm: 4, md: 6 } }}>
+      <Stack direction="row" spacing={1.5} alignItems="center">
+        <Box
+          sx={{
+            width: 48,
+            height: 48,
+            display: 'grid',
+            flexShrink: 0,
+            borderRadius: 2,
+            placeItems: 'center',
+            color: 'primary.main',
+            bgcolor: 'primary.lighter',
+          }}
+        >
+          <RiShieldCheckLine size={25} />
+        </Box>
+        <Box>
+          <Typography component="h1" variant="h3">
+            Cookie Policy
+          </Typography>
+          <Typography color="text.secondary" sx={{ mt: 0.5 }}>
+            การใช้คุกกี้และเทคโนโลยีจัดเก็บข้อมูลของ E-KRU Marketplace
+          </Typography>
+        </Box>
+      </Stack>
+      <Divider sx={{ my: 4 }} />
+      <Stack spacing={3}>
+        <Box>
+          <Typography variant="h5">คุกกี้ที่จำเป็น</Typography>
+          <Typography color="text.secondary" sx={{ mt: 1, lineHeight: 1.8 }}>
+            ใช้สำหรับการเข้าสู่ระบบ ความปลอดภัย การตั้งค่าหน้าจอ ตะกร้าสินค้า
+            การจดจำประกาศที่ปิดแล้ว และการบันทึกตัวเลือกคุกกี้
+            ส่วนนี้จำเป็นต่อการทำงานของเว็บไซต์และไม่สามารถปิดจากแถบตั้งค่าได้
+          </Typography>
+        </Box>
+        <Box>
+          <Typography variant="h5">ข้อมูลการเข้าชม</Typography>
+          <Typography color="text.secondary" sx={{ mt: 1, lineHeight: 1.8 }}>
+            เมื่อเลือก “ยอมรับทั้งหมด” ระบบจะสร้างตัวระบุแบบสุ่มบนอุปกรณ์
+            เพื่อบันทึกจำนวนการเปิดดูสินค้าและปรับปรุงประสบการณ์ใช้งาน
+            ระบบจะไม่สร้างตัวระบุนี้เมื่อเลือก “เฉพาะที่จำเป็น”
+          </Typography>
+        </Box>
+        <Box>
+          <Typography variant="h5">ระยะเวลาและการเปลี่ยนตัวเลือก</Typography>
+          <Typography color="text.secondary" sx={{ mt: 1, lineHeight: 1.8 }}>
+            ระบบจดจำตัวเลือกคุกกี้เป็นเวลาไม่เกิน 1 ปี คุณสามารถเปลี่ยนตัวเลือกได้ทุกเมื่อจากปุ่ม
+            “ตั้งค่าคุกกี้” ที่ส่วนท้ายเว็บไซต์
+            และสามารถลบคุกกี้หรือข้อมูลเว็บไซต์ผ่านการตั้งค่าเบราว์เซอร์ได้
+          </Typography>
+        </Box>
+      </Stack>
+      <Alert severity="info" sx={{ mt: 4 }}>
+        ผู้ดูแลระบบสามารถจัดทำและเผยแพร่ Cookie Policy
+        ฉบับเต็มแทนข้อความสรุปนี้ได้จากเมนูเอกสารข้อกำหนด Marketplace
+      </Alert>
+    </Card>
   );
 }

@@ -45,7 +45,14 @@ export async function captureOrderEvidence({
       .from('marketplace_legal_documents')
       .select('id,document_type,title,summary,content_html,version,effective_at,published_at')
       .eq('status', 'published')
-      .in('document_type', ['terms_of_service', 'refund_policy', 'privacy_policy']),
+      .in('document_type', [
+        'terms_of_service',
+        'refund_policy',
+        'privacy_policy',
+        'digital_product_license',
+        'payment_payout_policy',
+        'subscription_policy',
+      ]),
   ]);
   const context = requestContext(request);
   const acceptedAt = new Date().toISOString();

@@ -337,7 +337,15 @@ create table if not exists public.marketplace_legal_documents (
         'seller_agreement',
         'privacy_policy',
         'copyright_takedown',
-        'refund_policy'
+        'refund_policy',
+        'cookie_policy',
+        'digital_product_license',
+        'payment_payout_policy',
+        'product_content_policy',
+        'complaint_dispute_policy',
+        'child_data_policy',
+        'data_processing_agreement',
+        'subscription_policy'
       )
     ),
   title text not null,
@@ -396,6 +404,54 @@ values
     'นโยบายการคืนเงิน',
     'เงื่อนไขและขั้นตอนขอคืนเงินสำหรับสินค้าดิจิทัลและ License',
     '<h2>1. สินค้าที่ขอคืนเงินได้</h2><p>กรุณาระบุกรณีไฟล์เสีย สื่อไม่ตรงรายละเอียด หรือไม่สามารถใช้งานได้</p><h2>2. ระยะเวลายื่นคำขอ</h2><p>กรุณาระบุจำนวนวันและหลักฐานที่ต้องใช้</p><h2>3. วิธีคืนเงิน</h2><p>กรุณาระบุระยะเวลาดำเนินการและช่องทางคืนเงิน</p>'
+  ),
+  (
+    'cookie_policy',
+    'นโยบายคุกกี้ E-KRU Marketplace',
+    'อธิบายการใช้คุกกี้และเทคโนโลยีจัดเก็บข้อมูลบนอุปกรณ์ของผู้ใช้',
+    '<h2>1. คุกกี้ที่จำเป็น</h2><p>ระบบใช้คุกกี้สำหรับการเข้าสู่ระบบ ความปลอดภัย การตั้งค่าหน้าจอ และการจดจำตัวเลือกคุกกี้</p><h2>2. การจัดเก็บข้อมูลบนอุปกรณ์</h2><p>ระบบอาจจัดเก็บตะกร้าสินค้า การปิดประกาศ และตัวระบุการเข้าชมไว้บนอุปกรณ์เพื่อให้บริการและปรับปรุงประสบการณ์ใช้งาน</p><h2>3. การจัดการตัวเลือก</h2><p>ผู้ใช้สามารถเลือกเฉพาะคุกกี้ที่จำเป็นหรือยอมรับทั้งหมด และกลับมาเปลี่ยนตัวเลือกได้จากส่วนท้ายของเว็บไซต์</p>'
+  ),
+  (
+    'digital_product_license',
+    'ใบอนุญาตใช้สินค้าดิจิทัล',
+    'กำหนดสิทธิที่ผู้ซื้อได้รับ ขอบเขตผู้ใช้ การทำสำเนา และข้อห้ามในการแจกจ่ายต่อ',
+    '<h2>1. สิทธิที่ได้รับ</h2><p>กรุณาระบุสิทธิสำหรับบุคคล ห้องเรียน โรงเรียน หรือองค์กรให้ชัดเจน</p><h2>2. สิ่งที่อนุญาต</h2><p>กรุณาระบุการพิมพ์ การแก้ไข การนำไปใช้สอน และจำนวนผู้ใช้งาน</p><h2>3. ข้อห้าม</h2><p>กรุณาระบุข้อห้ามเรื่องการขายต่อ แจกจ่าย อัปโหลดสาธารณะ และส่งต่อบัญชี</p>'
+  ),
+  (
+    'payment_payout_policy',
+    'นโยบายการชำระเงิน ค่าธรรมเนียม และการโอนให้ผู้ขาย',
+    'อธิบายช่องทางชำระเงิน ค่าธรรมเนียม ระยะพักยอด รายรับสุทธิ และรอบโอนเงิน',
+    '<h2>1. การรับชำระเงิน</h2><p>กรุณาระบุช่องทาง สถานะ และเวลายืนยันยอด</p><h2>2. ค่าธรรมเนียม</h2><p>กรุณาระบุค่าคอมมิชชัน ค่าธรรมเนียมผู้ให้บริการ และตัวอย่างรายรับสุทธิ</p><h2>3. การโอนเงิน</h2><p>กรุณาระบุระยะพักยอด ยอดขั้นต่ำ รอบโอน ภาษี และการปรับยอดจากการคืนเงินหรือ Chargeback</p>'
+  ),
+  (
+    'product_content_policy',
+    'นโยบายสินค้าและเนื้อหา',
+    'มาตรฐานสินค้าที่อนุญาต เนื้อหาต้องห้าม ข้อมูลที่ต้องแสดง และขั้นตอนตรวจสอบ',
+    '<h2>1. สินค้าที่อนุญาต</h2><p>กรุณาระบุประเภท คุณภาพ และข้อมูลขั้นต่ำของสินค้า</p><h2>2. เนื้อหาต้องห้าม</h2><p>กรุณาระบุเนื้อหาผิดกฎหมาย อันตราย ละเมิดสิทธิ ทำให้เข้าใจผิด หรือเปิดเผยข้อมูลส่วนบุคคล</p><h2>3. การตรวจสอบ</h2><p>กรุณาระบุขั้นตอนอนุมัติ การแก้ไข การซ่อน และการอุทธรณ์</p>'
+  ),
+  (
+    'complaint_dispute_policy',
+    'นโยบายข้อร้องเรียนและข้อพิพาท',
+    'ช่องทาง หลักฐาน ระยะเวลาดำเนินการ และผลของข้อร้องเรียน การทุจริต และ Chargeback',
+    '<h2>1. การแจ้งปัญหา</h2><p>กรุณาระบุช่องทาง ระยะเวลา และข้อมูลที่ผู้ร้องต้องส่ง</p><h2>2. การตรวจสอบ</h2><p>กรุณาระบุขั้นตอนขอหลักฐาน การพักยอด และกรอบเวลาตอบกลับ</p><h2>3. ผลการพิจารณาและอุทธรณ์</h2><p>กรุณาระบุวิธีคืนเงิน ปรับยอด จำกัดบัญชี และช่องทางอุทธรณ์</p>'
+  ),
+  (
+    'child_data_policy',
+    'นโยบายข้อมูลเด็กและนักเรียน',
+    'หลักเกณฑ์การเก็บ ใช้ เปิดเผย และปกป้องข้อมูลเด็ก นักเรียน และผู้ปกครอง',
+    '<h2>1. ข้อมูลที่เกี่ยวข้อง</h2><p>กรุณาระบุข้อมูลนักเรียน ผลการเรียน ภาพ เสียง ห้องเรียน และข้อมูลผู้ปกครอง</p><h2>2. ฐานกฎหมายและความยินยอม</h2><p>กรุณาระบุบทบาทของโรงเรียน ครู ผู้ปกครอง และผู้ควบคุมข้อมูล</p><h2>3. ความปลอดภัยและสิทธิ</h2><p>กรุณาระบุการจำกัดสิทธิ ระยะเวลาเก็บ การลบ และช่องทางใช้สิทธิ</p>'
+  ),
+  (
+    'data_processing_agreement',
+    'ข้อตกลงการประมวลผลข้อมูล (DPA)',
+    'หน้าที่ของผู้ควบคุมและผู้ประมวลผลข้อมูลสำหรับโรงเรียน องค์กร และผู้ให้บริการภายนอก',
+    '<h2>1. บทบาทและคำสั่ง</h2><p>กรุณาระบุคู่สัญญา ขอบเขต วัตถุประสงค์ และระยะเวลาประมวลผล</p><h2>2. มาตรการรักษาความมั่นคงปลอดภัย</h2><p>กรุณาระบุการควบคุมสิทธิ การเข้ารหัส สำรองข้อมูล และการแจ้งเหตุละเมิด</p><h2>3. ผู้ประมวลผลช่วงต่อและการคืนข้อมูล</h2><p>กรุณาระบุรายชื่อ/ประเภทผู้ให้บริการ การโอนข้อมูล และวิธีคืนหรือลบข้อมูลเมื่อสิ้นสุดบริการ</p>'
+  ),
+  (
+    'subscription_policy',
+    'นโยบายแพ็กเกจ การต่ออายุ และการยกเลิก',
+    'เงื่อนไขการซื้อฟีเจอร์แบบซื้อขาด แบบโควต้า และแพ็กเกจที่มีรอบเวลา',
+    '<h2>1. รูปแบบการซื้อ</h2><p>กรุณาแยกซื้อขาด แพ็กเกจตามระยะเวลา และบริการที่ตัดโควต้า</p><h2>2. การเริ่มใช้งานและต่ออายุ</h2><p>กรุณาระบุวันเริ่มใช้ การต่ออายุอัตโนมัติ การเปลี่ยนราคา และโควต้าคงเหลือ</p><h2>3. การยกเลิกและคืนเงิน</h2><p>กรุณาระบุผลเมื่อยกเลิก การหมดอายุ การใช้โควต้า และกรณีขอคืนเงิน</p>'
   )
 on conflict (document_type) do nothing;
 
@@ -1280,9 +1336,16 @@ create table if not exists public.marketplace_school_onboardings (
   expires_at timestamptz not null,
   completed_at timestamptz,
   school_id uuid references public.schools(id) on delete restrict,
+  child_data_accepted boolean not null default false,
+  dpa_accepted boolean not null default false,
+  legal_documents_snapshot jsonb not null default '[]'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+alter table public.marketplace_school_onboardings
+  add column if not exists child_data_accepted boolean not null default false,
+  add column if not exists dpa_accepted boolean not null default false,
+  add column if not exists legal_documents_snapshot jsonb not null default '[]'::jsonb;
 create index if not exists marketplace_school_onboardings_buyer_idx
   on public.marketplace_school_onboardings (buyer_id, created_at desc);
 create index if not exists marketplace_orders_seller_available_idx
@@ -1556,10 +1619,19 @@ create table if not exists public.marketplace_contract_signatures (
   terms_accepted boolean not null,
   authority_confirmed boolean not null,
   pdpa_accepted boolean not null,
+  child_data_accepted boolean not null default false,
+  dpa_accepted boolean not null default false,
+  subscription_accepted boolean not null default false,
+  legal_documents_snapshot jsonb not null default '[]'::jsonb,
   signed_ip inet,
   signed_user_agent text,
   signed_at timestamptz not null default now()
 );
+alter table public.marketplace_contract_signatures
+  add column if not exists child_data_accepted boolean not null default false,
+  add column if not exists dpa_accepted boolean not null default false,
+  add column if not exists subscription_accepted boolean not null default false,
+  add column if not exists legal_documents_snapshot jsonb not null default '[]'::jsonb;
 alter table public.marketplace_orders
   add column if not exists sales_deal_id uuid
     references public.marketplace_sales_deals(id) on delete set null;

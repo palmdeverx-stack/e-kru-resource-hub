@@ -23,7 +23,6 @@ import {
   RiStore2Line,
   RiReceiptLine,
   RiWallet3Line,
-  RiBankCardLine,
   RiFeedbackLine,
   RiDashboardLine,
   RiSettings3Line,
@@ -152,11 +151,6 @@ const adminNavData: NavSectionProps['data'] = [
         icon: <RiShieldCheckLine />,
       },
       {
-        title: 'ตรวจสอบการชำระเงิน',
-        path: '/dashboard/payment-reviews',
-        icon: <RiBankCardLine />,
-      },
-      {
         title: 'ใบเสร็จรับเงิน',
         path: '/dashboard/receipts',
         icon: <RiReceiptLine />,
@@ -217,7 +211,7 @@ const adminNavData: NavSectionProps['data'] = [
             path: '/dashboard/master/legal-documents',
           },
           {
-            title: 'Popup Banner ประกาศ',
+            title: 'ประกาศ',
             path: '/dashboard/master/popup-announcements',
           },
         ],
@@ -424,19 +418,33 @@ export default function Layout({ children }: Props) {
     return () => controller.abort();
   }, [user?.id, user?.role]);
 
-  const navData =
-    isMarketplaceAdmin(user?.role)
-      ? adminNavData
-      : memberNavData.map((section) => {
-          if (section.subheader === 'ร้านค้าของฉัน') {
-            const sellerItems = hasSubmittedSeller
-              ? section.items
-              : section.items.filter(
-                  (item) =>
-                    item.path !== '/dashboard/seller/profile' &&
-                    item.path !== '/dashboard/seller/finance'
-                );
-            const lineItems = canUseSellerLine && hasSubmittedSeller
+  const adminNavigation =
+    user?.role === 'super_admin'
+      ? adminNavData.map((section) =>
+          section.subheader === 'ผู้ขาย'
+            ? {
+                ...section,
+                items: section.items.filter(
+                  (item) => item.path !== '/dashboard/seller/settings/line'
+                ),
+              }
+            : section
+        )
+      : adminNavData;
+
+  const navData = isMarketplaceAdmin(user?.role)
+    ? adminNavigation
+    : memberNavData.map((section) => {
+        if (section.subheader === 'ร้านค้าของฉัน') {
+          const sellerItems = hasSubmittedSeller
+            ? section.items
+            : section.items.filter(
+                (item) =>
+                  item.path !== '/dashboard/seller/profile' &&
+                  item.path !== '/dashboard/seller/finance'
+              );
+          const lineItems =
+            canUseSellerLine && hasSubmittedSeller
               ? [
                   {
                     title: 'LINE แจ้งเตือนร้านค้า',
@@ -445,32 +453,32 @@ export default function Layout({ children }: Props) {
                   },
                 ]
               : [];
-            return { ...section, items: [...sellerItems, ...lineItems] };
-          }
-          if (section.subheader !== 'บัญชีของฉัน') return section;
-          const visibleAccountItems = referralEnabled
-            ? section.items
-            : section.items.filter((item) => item.path !== '/dashboard/referrals');
-          const roleItems =
-            user?.role === 'school_admin'
+          return { ...section, items: [...sellerItems, ...lineItems] };
+        }
+        if (section.subheader !== 'บัญชีของฉัน') return section;
+        const visibleAccountItems = referralEnabled
+          ? section.items
+          : section.items.filter((item) => item.path !== '/dashboard/referrals');
+        const roleItems =
+          user?.role === 'school_admin'
+            ? [
+                {
+                  title: 'สิทธิ์และ License',
+                  path: '/dashboard/licenses',
+                  icon: <RiKey2Line />,
+                },
+              ]
+            : canViewSchoolEntitlements
               ? [
                   {
-                    title: 'สิทธิ์และ License',
-                    path: '/dashboard/licenses',
-                    icon: <RiKey2Line />,
+                    title: 'สิทธิ์จากโรงเรียน',
+                    path: '/dashboard/school-entitlements',
+                    icon: <RiSchoolLine />,
                   },
                 ]
-              : canViewSchoolEntitlements
-                ? [
-                    {
-                      title: 'สิทธิ์จากโรงเรียน',
-                      path: '/dashboard/school-entitlements',
-                      icon: <RiSchoolLine />,
-                    },
-                  ]
-                : [];
-          return { ...section, items: [...visibleAccountItems, ...roleItems] };
-        });
+              : [];
+        return { ...section, items: [...visibleAccountItems, ...roleItems] };
+      });
 
   return (
     <DashboardLayout

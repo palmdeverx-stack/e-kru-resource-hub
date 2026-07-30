@@ -1,6 +1,7 @@
 'use client';
 
 import type { MarketplaceSeller } from '../../shared/types';
+import type { LegalDocumentType, MarketplaceLegalDocument } from '../../legal/types';
 
 import { useRef, useState, useEffect } from 'react';
 
@@ -29,6 +30,8 @@ import CircularProgress from '@mui/material/CircularProgress';
 
 import { useRouter, useSearchParams } from 'src/routes/hooks';
 
+import { Editor } from 'src/components/editor';
+import { editorClasses } from 'src/components/editor/classes';
 import {
   RiBankLine,
   RiFileLine,
@@ -88,6 +91,7 @@ type AgreementKey = 'sellerAgreement' | 'copyrightConfirmed' | 'feeAgreement' | 
 
 type Agreement = {
   key: AgreementKey;
+  documentType: LegalDocumentType;
   title: string;
   checkboxLabel: string;
   introduction: string;
@@ -97,6 +101,7 @@ type Agreement = {
 const AGREEMENTS: Agreement[] = [
   {
     key: 'sellerAgreement',
+    documentType: 'seller_agreement',
     title: 'ข้อตกลงการเป็นผู้ขาย E-KRU Marketplace',
     checkboxLabel: 'ยอมรับข้อตกลงการเป็นผู้ขาย',
     introduction:
@@ -131,6 +136,7 @@ const AGREEMENTS: Agreement[] = [
   },
   {
     key: 'copyrightConfirmed',
+    documentType: 'copyright_takedown',
     title: 'คำยืนยันสิทธิและลิขสิทธิ์ของสื่อ',
     checkboxLabel: 'ยืนยันว่าเป็นเจ้าของลิขสิทธิ์หรือมีสิทธินำมาจำหน่าย',
     introduction:
@@ -165,6 +171,7 @@ const AGREEMENTS: Agreement[] = [
   },
   {
     key: 'feeAgreement',
+    documentType: 'payment_payout_policy',
     title: 'ข้อตกลงค่าธรรมเนียมและการรับเงิน',
     checkboxLabel: 'ยอมรับการหักค่าธรรมเนียมและรอบการโอนเงิน',
     introduction:
@@ -199,6 +206,7 @@ const AGREEMENTS: Agreement[] = [
   },
   {
     key: 'pdpaAccepted',
+    documentType: 'privacy_policy',
     title: 'ประกาศความเป็นส่วนตัวสำหรับผู้ขาย',
     checkboxLabel: 'รับทราบและยอมรับการประมวลผลข้อมูลส่วนบุคคล (PDPA)',
     introduction:
@@ -288,6 +296,25 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
   const [error, setError] = useState('');
   const [openAgreement, setOpenAgreement] = useState<Agreement | null>(null);
   const [agreementRead, setAgreementRead] = useState(initialAgreementRead);
+  const [legalDocuments, setLegalDocuments] = useState<MarketplaceLegalDocument[]>([]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch('/api/marketplace/legal-documents', {
+      cache: 'no-store',
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message ?? 'โหลดเอกสารข้อตกลงไม่สำเร็จ');
+        setLegalDocuments(result.items ?? []);
+      })
+      .catch((loadError) => {
+        if (loadError instanceof DOMException && loadError.name === 'AbortError') return;
+        setError(loadError instanceof Error ? loadError.message : 'โหลดเอกสารข้อตกลงไม่สำเร็จ');
+      });
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     getSeller()
@@ -1056,6 +1083,13 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
       </Card>
       <AgreementReadDialog
         agreement={openAgreement}
+        document={
+          openAgreement
+            ? (legalDocuments.find(
+                (document) => document.document_type === openAgreement.documentType
+              ) ?? null)
+            : null
+        }
         onClose={() => setOpenAgreement(null)}
         onRead={(key) => {
           setAgreementRead((current) => ({ ...current, [key]: true }));
@@ -1068,10 +1102,12 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
 
 function AgreementReadDialog({
   agreement,
+  document,
   onClose,
   onRead,
 }: {
   agreement: Agreement | null;
+  document: MarketplaceLegalDocument | null;
   onClose: () => void;
   onRead: (key: AgreementKey) => void;
 }) {
@@ -1099,22 +1135,57 @@ function AgreementReadDialog({
             overscrollBehavior: 'contain',
           }}
         >
-          <Typography color="text.secondary" sx={{ mb: 3 }}>
-            {agreement?.introduction}
-          </Typography>
-          <Stack spacing={3}>
-            {agreement?.sections.map((section) => (
-              <Box key={section.heading}>
-                <Typography variant="subtitle1">{section.heading}</Typography>
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ mt: 0.75, lineHeight: 1.8 }}
-                >
-                  {section.content}
+          {document ? (
+            <>
+              <Alert severity="success" sx={{ mb: 2 }}>
+                เอกสารฉบับเผยแพร่ เวอร์ชัน {document.version}
+              </Alert>
+              {document.summary && (
+                <Typography color="text.secondary" sx={{ mb: 3 }}>
+                  {document.summary}
                 </Typography>
-              </Box>
-            ))}
+              )}
+              <Editor
+                editable={false}
+                value={document.content_html}
+                sx={{
+                  minHeight: 0,
+                  border: 0,
+                  opacity: '1 !important',
+                  [`.${editorClasses.toolbar.root}`]: { display: 'none' },
+                  [`.${editorClasses.content.root}`]: {
+                    overflow: 'visible',
+                    bgcolor: 'transparent',
+                    '& .tiptap.ProseMirror': { px: 0 },
+                  },
+                }}
+              />
+            </>
+          ) : (
+            <>
+              <Alert severity="warning" sx={{ mb: 2 }}>
+                ยังไม่มีเอกสารฉบับเผยแพร่ ระบบจะแสดงข้อความสำรองชั่วคราว
+              </Alert>
+              <Typography color="text.secondary" sx={{ mb: 3 }}>
+                {agreement?.introduction}
+              </Typography>
+              <Stack spacing={3}>
+                {agreement?.sections.map((section) => (
+                  <Box key={section.heading}>
+                    <Typography variant="subtitle1">{section.heading}</Typography>
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ mt: 0.75, lineHeight: 1.8 }}
+                    >
+                      {section.content}
+                    </Typography>
+                  </Box>
+                ))}
+              </Stack>
+            </>
+          )}
+          <Stack spacing={3}>
             <Alert severity={reachedEnd ? 'success' : 'info'}>
               {reachedEnd
                 ? 'คุณอ่านถึงท้ายเอกสารแล้ว กดยืนยันการอ่านเพื่อปลดล็อก Checkbox'
@@ -1242,8 +1313,8 @@ function UploadField({
             )}
           </Stack>
           <Typography variant="caption" color="text.secondary">
-            รองรับ JPG, PNG, WebP{accept !== 'image/*' ? ' หรือ PDF' : ''} ขนาดไม่เกิน{' '}
-            {maxSizeMb} MB
+            รองรับ JPG, PNG, WebP{accept !== 'image/*' ? ' หรือ PDF' : ''} ขนาดไม่เกิน {maxSizeMb}{' '}
+            MB
           </Typography>
         </Box>
         {pendingFile && (

@@ -131,7 +131,20 @@ export function MarketplacePaymentView({
             ยืนยันการชำระเงินแล้ว สินค้าของคุณพร้อมใช้งาน
           </Alert>
         ) : session.status === 'disputed' ? (
-          <Alert severity="error">
+          <Alert
+            severity="error"
+            action={
+              <Button
+                size="small"
+                color="inherit"
+                component={RouterLink}
+                href={paths.legal.complaintDisputePolicy}
+                target="_blank"
+              >
+                อ่านนโยบาย
+              </Button>
+            }
+          >
             รายการนี้อยู่ระหว่างข้อพิพาทกับธนาคาร ระบบระงับสิทธิ์ชั่วคราวจนกว่าจะทราบผล
           </Alert>
         ) : isStripe && session.status === 'pending_payment' ? (

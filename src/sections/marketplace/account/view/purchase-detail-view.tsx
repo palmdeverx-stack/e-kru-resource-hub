@@ -116,6 +116,26 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
         กลับไปรายการซื้อ
       </Button>
 
+      {order.status === 'disputed' && (
+        <Alert
+          severity="error"
+          sx={{ mb: 3 }}
+          action={
+            <Button
+              size="small"
+              color="inherit"
+              component={RouterLink}
+              href={paths.legal.complaintDisputePolicy}
+              target="_blank"
+            >
+              อ่านนโยบาย
+            </Button>
+          }
+        >
+          คำสั่งซื้อนี้อยู่ระหว่างข้อพิพาท ระบบระงับสิทธิ์ชั่วคราวจนกว่าจะทราบผล
+        </Alert>
+      )}
+
       <Card
         sx={{
           p: { xs: 2.5, md: 4 },

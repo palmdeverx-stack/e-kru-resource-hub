@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
+import Link from '@mui/material/Link';
 import Alert from '@mui/material/Alert';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
@@ -20,6 +21,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 
 import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
+import { RouterLink } from 'src/routes/components';
 
 import { RiFilePaper2Line, RiShieldCheckLine } from 'src/components/remix-icon';
 
@@ -57,6 +59,9 @@ export function QuoteAcceptanceView({ token }: { token: string }) {
   const [authorityConfirmed, setAuthorityConfirmed] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [pdpaAccepted, setPdpaAccepted] = useState(false);
+  const [childDataAccepted, setChildDataAccepted] = useState(false);
+  const [dpaAccepted, setDpaAccepted] = useState(false);
+  const [subscriptionAccepted, setSubscriptionAccepted] = useState(false);
 
   useEffect(() => {
     fetch(`/api/marketplace/quotes/${token}`, { cache: 'no-store' })
@@ -105,6 +110,9 @@ export function QuoteAcceptanceView({ token }: { token: string }) {
           authorityConfirmed,
           termsAccepted,
           pdpaAccepted,
+          childDataAccepted,
+          dpaAccepted,
+          subscriptionAccepted,
         }),
       });
       const result = await response.json();
@@ -180,9 +188,7 @@ export function QuoteAcceptanceView({ token }: { token: string }) {
             {new Intl.DateTimeFormat('th-TH', {
               dateStyle: 'long',
               timeZone: 'Asia/Bangkok',
-            }).format(
-              new Date(deal.expires_at)
-            )}
+            }).format(new Date(deal.expires_at))}
           </Alert>
           <Divider />
           <Box>
@@ -219,7 +225,14 @@ export function QuoteAcceptanceView({ token }: { token: string }) {
                     onChange={(e) => setTermsAccepted(e.target.checked)}
                   />
                 }
-                label="ยอมรับราคา เงื่อนไข และข้อตกลงการใช้บริการ"
+                label={
+                  <Typography variant="body2">
+                    ยอมรับราคา เงื่อนไข และ{' '}
+                    <Link component={RouterLink} href={paths.legal.termsOfService} target="_blank">
+                      ข้อตกลงการใช้บริการ
+                    </Link>
+                  </Typography>
+                }
               />
               <FormControlLabel
                 control={
@@ -228,12 +241,84 @@ export function QuoteAcceptanceView({ token }: { token: string }) {
                     onChange={(e) => setPdpaAccepted(e.target.checked)}
                   />
                 }
-                label="ยอมรับนโยบายความเป็นส่วนตัว (PDPA)"
+                label={
+                  <Typography variant="body2">
+                    ยอมรับ{' '}
+                    <Link component={RouterLink} href={paths.legal.privacyPolicy} target="_blank">
+                      นโยบายความเป็นส่วนตัว (PDPA)
+                    </Link>
+                  </Typography>
+                }
+              />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={childDataAccepted}
+                    onChange={(e) => setChildDataAccepted(e.target.checked)}
+                  />
+                }
+                label={
+                  <Typography variant="body2">
+                    รับทราบ{' '}
+                    <Link component={RouterLink} href={paths.legal.childDataPolicy} target="_blank">
+                      นโยบายข้อมูลเด็กและนักเรียน
+                    </Link>
+                  </Typography>
+                }
+              />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={dpaAccepted}
+                    onChange={(e) => setDpaAccepted(e.target.checked)}
+                  />
+                }
+                label={
+                  <Typography variant="body2">
+                    ยอมรับ{' '}
+                    <Link
+                      component={RouterLink}
+                      href={paths.legal.dataProcessingAgreement}
+                      target="_blank"
+                    >
+                      ข้อตกลงการประมวลผลข้อมูล (DPA)
+                    </Link>
+                  </Typography>
+                }
+              />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={subscriptionAccepted}
+                    onChange={(e) => setSubscriptionAccepted(e.target.checked)}
+                  />
+                }
+                label={
+                  <Typography variant="body2">
+                    ยอมรับ{' '}
+                    <Link
+                      component={RouterLink}
+                      href={paths.legal.subscriptionPolicy}
+                      target="_blank"
+                    >
+                      นโยบายแพ็กเกจ การต่ออายุ และการยกเลิก
+                    </Link>
+                  </Typography>
+                }
               />
               <Button
                 size="large"
                 variant="contained"
                 loading={saving}
+                disabled={
+                  signerName.trim().length < 2 ||
+                  !authorityConfirmed ||
+                  !termsAccepted ||
+                  !pdpaAccepted ||
+                  !childDataAccepted ||
+                  !dpaAccepted ||
+                  !subscriptionAccepted
+                }
                 startIcon={<RiShieldCheckLine />}
                 onClick={accept}
               >

@@ -90,7 +90,10 @@ export async function POST(request: Request, { params }: Context) {
     signerName.length < 2 ||
     body?.authorityConfirmed !== true ||
     body?.termsAccepted !== true ||
-    body?.pdpaAccepted !== true
+    body?.pdpaAccepted !== true ||
+    body?.childDataAccepted !== true ||
+    body?.dpaAccepted !== true ||
+    body?.subscriptionAccepted !== true
   ) {
     return NextResponse.json(
       { message: 'กรุณากรอกชื่อผู้ลงนามและยืนยันข้อตกลงให้ครบ' },
@@ -174,6 +177,20 @@ export async function POST(request: Request, { params }: Context) {
 
   const now = new Date().toISOString();
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || null;
+  const { data: legalDocuments, error: legalDocumentsError } = await supabaseAdmin
+    .from('marketplace_legal_documents')
+    .select('document_type,title,version,effective_at,content_html')
+    .eq('status', 'published')
+    .in('document_type', [
+      'terms_of_service',
+      'privacy_policy',
+      'child_data_policy',
+      'data_processing_agreement',
+      'subscription_policy',
+    ]);
+  if (legalDocumentsError) {
+    return NextResponse.json({ message: legalDocumentsError.message }, { status: 500 });
+  }
   const { error: signatureError } = await supabaseAdmin
     .from('marketplace_contract_signatures')
     .insert({
@@ -185,6 +202,10 @@ export async function POST(request: Request, { params }: Context) {
       terms_accepted: true,
       authority_confirmed: true,
       pdpa_accepted: true,
+      child_data_accepted: true,
+      dpa_accepted: true,
+      subscription_accepted: true,
+      legal_documents_snapshot: legalDocuments ?? [],
       signed_ip: ip,
       signed_user_agent: request.headers.get('user-agent'),
     });

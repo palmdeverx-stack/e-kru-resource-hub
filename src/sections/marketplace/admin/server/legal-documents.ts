@@ -13,6 +13,14 @@ export const LEGAL_DOCUMENT_TYPES = [
   'privacy_policy',
   'copyright_takedown',
   'refund_policy',
+  'cookie_policy',
+  'digital_product_license',
+  'payment_payout_policy',
+  'product_content_policy',
+  'complaint_dispute_policy',
+  'child_data_policy',
+  'data_processing_agreement',
+  'subscription_policy',
 ] as const;
 
 export type LegalDocumentType = (typeof LEGAL_DOCUMENT_TYPES)[number];
@@ -23,10 +31,18 @@ const TYPE_TITLES: Record<LegalDocumentType, string> = {
   privacy_policy: 'นโยบายความเป็นส่วนตัว (PDPA)',
   copyright_takedown: 'นโยบายลิขสิทธิ์และการนำเนื้อหาออก',
   refund_policy: 'นโยบายการคืนเงิน',
+  cookie_policy: 'นโยบายคุกกี้',
+  digital_product_license: 'ใบอนุญาตใช้สินค้าดิจิทัล',
+  payment_payout_policy: 'นโยบายการชำระเงิน ค่าธรรมเนียม และการโอนให้ผู้ขาย',
+  product_content_policy: 'นโยบายสินค้าและเนื้อหา',
+  complaint_dispute_policy: 'นโยบายข้อร้องเรียนและข้อพิพาท',
+  child_data_policy: 'นโยบายข้อมูลเด็กและนักเรียน',
+  data_processing_agreement: 'ข้อตกลงการประมวลผลข้อมูล (DPA)',
+  subscription_policy: 'นโยบายแพ็กเกจ การต่ออายุ และการยกเลิก',
 };
 
 function isMaster(request: Request) {
-  return requireRole(request, ['master_admin']);
+  return requireRole(request, ['master_admin', 'super_admin']);
 }
 
 function plainText(html: string) {
@@ -53,7 +69,8 @@ function inputFrom(body: Record<string, unknown>, callerId: string) {
   if (!LEGAL_DOCUMENT_TYPES.includes(documentType)) return { error: 'ประเภทเอกสารไม่ถูกต้อง' };
   if (title.length < 3 || title.length > 180) return { error: 'ชื่อเอกสารต้องมี 3–180 ตัวอักษร' };
   if (summary.length > 500) return { error: 'คำอธิบายย่อต้องไม่เกิน 500 ตัวอักษร' };
-  if (plainText(contentHtml).length < 20) return { error: 'เนื้อหาเอกสารต้องมีอย่างน้อย 20 ตัวอักษร' };
+  if (plainText(contentHtml).length < 20)
+    return { error: 'เนื้อหาเอกสารต้องมีอย่างน้อย 20 ตัวอักษร' };
   if (/<script|javascript:|on\w+\s*=/i.test(contentHtml)) {
     return { error: 'เนื้อหาเอกสารมีโค้ดที่ไม่อนุญาต' };
   }
@@ -69,8 +86,7 @@ function inputFrom(body: Record<string, unknown>, callerId: string) {
       !effectiveAtIso
     ) {
       return {
-        error:
-          'ก่อนเผยแพร่ กรุณาระบุชื่อบุคคลผู้ให้บริการ ที่อยู่ อีเมล และวันที่เริ่มมีผลให้ครบ',
+        error: 'ก่อนเผยแพร่ กรุณาระบุชื่อบุคคลผู้ให้บริการ ที่อยู่ อีเมล และวันที่เริ่มมีผลให้ครบ',
       };
     }
   }
@@ -102,10 +118,7 @@ export async function listLegalDocuments(request: Request) {
   if (includeDrafts && !isMaster(request)) {
     return NextResponse.json({ message: 'ไม่มีสิทธิ์ดูเอกสารฉบับร่าง' }, { status: 403 });
   }
-  let query = supabaseAdmin
-    .from('marketplace_legal_documents')
-    .select('*')
-    .order('document_type');
+  let query = supabaseAdmin.from('marketplace_legal_documents').select('*').order('document_type');
   if (!includeDrafts) query = query.eq('status', 'published');
   const { data, error } = await query;
   if (error) {

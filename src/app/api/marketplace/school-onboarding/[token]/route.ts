@@ -33,9 +33,14 @@ export async function POST(request: Request, context: RouteContext) {
   const body = await request.json().catch(() => null);
   const name = String(body?.name ?? '').trim();
   const code = String(body?.code ?? '').replace(/\D/g, '');
-  if (name.length < 2 || !/^\d{8}$/.test(code)) {
+  if (
+    name.length < 2 ||
+    !/^\d{8}$/.test(code) ||
+    body?.childDataAccepted !== true ||
+    body?.dpaAccepted !== true
+  ) {
     return NextResponse.json(
-      { message: 'กรุณากรอกชื่อโรงเรียนและรหัสโรงเรียน 8 หลัก' },
+      { message: 'กรุณากรอกข้อมูลโรงเรียนและยอมรับเอกสารที่เกี่ยวข้องให้ครบ' },
       { status: 400 }
     );
   }
@@ -124,14 +129,29 @@ export async function POST(request: Request, context: RouteContext) {
     );
   }
 
-  await supabaseAdmin
+  const { data: legalDocuments, error: legalDocumentsError } = await supabaseAdmin
+    .from('marketplace_legal_documents')
+    .select('document_type,title,version,effective_at,content_html')
+    .eq('status', 'published')
+    .in('document_type', ['child_data_policy', 'data_processing_agreement']);
+  if (legalDocumentsError) {
+    return NextResponse.json({ message: legalDocumentsError.message }, { status: 500 });
+  }
+
+  const { error: onboardingUpdateError } = await supabaseAdmin
     .from('marketplace_school_onboardings')
     .update({
       school_id: school.id,
+      child_data_accepted: true,
+      dpa_accepted: true,
+      legal_documents_snapshot: legalDocuments ?? [],
       completed_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
     .eq('id', onboarding.id);
+  if (onboardingUpdateError) {
+    return NextResponse.json({ message: onboardingUpdateError.message }, { status: 500 });
+  }
 
   return NextResponse.json({ school, success: true });
 }

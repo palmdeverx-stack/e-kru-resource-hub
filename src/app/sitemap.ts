@@ -19,6 +19,15 @@ const staticRoutes: Array<{
   { path: '/service-agreement', changeFrequency: 'monthly', priority: 0.3 },
   { path: '/refund-policy', changeFrequency: 'monthly', priority: 0.3 },
   { path: '/copyright-takedown-policy', changeFrequency: 'monthly', priority: 0.3 },
+  { path: '/cookie-policy', changeFrequency: 'monthly', priority: 0.3 },
+  { path: '/legal', changeFrequency: 'monthly', priority: 0.3 },
+  { path: '/legal/digital-product-license', changeFrequency: 'monthly', priority: 0.3 },
+  { path: '/legal/payment-payout-policy', changeFrequency: 'monthly', priority: 0.3 },
+  { path: '/legal/product-content-policy', changeFrequency: 'monthly', priority: 0.3 },
+  { path: '/legal/complaint-dispute-policy', changeFrequency: 'monthly', priority: 0.3 },
+  { path: '/legal/child-student-data-policy', changeFrequency: 'monthly', priority: 0.3 },
+  { path: '/legal/data-processing-agreement', changeFrequency: 'monthly', priority: 0.3 },
+  { path: '/legal/subscription-renewal-policy', changeFrequency: 'monthly', priority: 0.3 },
 ];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {

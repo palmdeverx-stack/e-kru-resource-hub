@@ -312,7 +312,7 @@ export function MarketplaceReceiptManagementView() {
           },
         }}
       />
-      <Container maxWidth={false} sx={{ py: { xs: 4, md: 6 } }}>
+      <Container maxWidth={false} sx={{ py: { xs: 3 } }}>
         <Stack
           direction={{ xs: 'column', md: 'row' }}
           justifyContent="space-between"

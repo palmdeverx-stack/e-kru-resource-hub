@@ -80,6 +80,7 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
     (item) =>
       item.product.resource_type === 'feature_unlock' && item.product.license_scope !== 'individual'
   );
+  const hasFeatureProduct = hasIndividualLicense || hasSchoolLicense;
   const productsHref = dashboardMode
     ? paths.marketplace.dashboardProducts
     : paths.marketplace.products;
@@ -504,13 +505,38 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
             label={
               <Typography variant="body2" color="text.secondary">
                 ฉันตรวจสอบรายละเอียดสินค้าและยอมรับ{' '}
-                <Link component={RouterLink} href="/terms-of-service" target="_blank">
+                <Link component={RouterLink} href={paths.legal.termsOfService} target="_blank">
                   ข้อกำหนดการใช้บริการ
                 </Link>{' '}
                 และ{' '}
-                <Link component={RouterLink} href="/refund-policy" target="_blank">
+                <Link component={RouterLink} href={paths.legal.refundPolicy} target="_blank">
                   นโยบายคืนเงิน
+                </Link>{' '}
+                รวมถึง{' '}
+                <Link
+                  component={RouterLink}
+                  href={paths.legal.digitalProductLicense}
+                  target="_blank"
+                >
+                  สิทธิการใช้สินค้าดิจิทัล
+                </Link>{' '}
+                และ{' '}
+                <Link component={RouterLink} href={paths.legal.paymentPayoutPolicy} target="_blank">
+                  เงื่อนไขการชำระเงิน
                 </Link>
+                {hasFeatureProduct && (
+                  <>
+                    {' '}
+                    และ{' '}
+                    <Link
+                      component={RouterLink}
+                      href={paths.legal.subscriptionPolicy}
+                      target="_blank"
+                    >
+                      นโยบายแพ็กเกจและการยกเลิก
+                    </Link>
+                  </>
+                )}
               </Typography>
             }
           />

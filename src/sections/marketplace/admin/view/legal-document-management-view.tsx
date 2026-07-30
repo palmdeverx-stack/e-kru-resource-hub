@@ -1,9 +1,6 @@
 'use client';
 
-import type {
-  LegalDocumentType,
-  MarketplaceLegalDocument,
-} from '../../legal/types';
+import type { LegalDocumentType, MarketplaceLegalDocument } from '../../legal/types';
 
 import { useState, useEffect, useCallback } from 'react';
 
@@ -27,6 +24,7 @@ import DialogTitle from '@mui/material/DialogTitle';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import TableContainer from '@mui/material/TableContainer';
+import TablePagination from '@mui/material/TablePagination';
 import CircularProgress from '@mui/material/CircularProgress';
 
 import { paths } from 'src/routes/paths';
@@ -47,6 +45,7 @@ import { useAuthContext } from 'src/auth/hooks';
 
 import {
   LEGAL_DOCUMENT_TYPES,
+  LEGAL_DOCUMENT_USAGE,
   LEGAL_DOCUMENT_LABELS,
 } from '../../legal/types';
 
@@ -84,6 +83,14 @@ const PUBLIC_PATHS: Record<LegalDocumentType, string> = {
   privacy_policy: paths.legal.privacyPolicy,
   copyright_takedown: paths.legal.copyrightTakedown,
   refund_policy: paths.legal.refundPolicy,
+  cookie_policy: paths.legal.cookiePolicy,
+  digital_product_license: paths.legal.digitalProductLicense,
+  payment_payout_policy: paths.legal.paymentPayoutPolicy,
+  product_content_policy: paths.legal.productContentPolicy,
+  complaint_dispute_policy: paths.legal.complaintDisputePolicy,
+  child_data_policy: paths.legal.childDataPolicy,
+  data_processing_agreement: paths.legal.dataProcessingAgreement,
+  subscription_policy: paths.legal.subscriptionPolicy,
 };
 
 async function parseResponse(response: Response) {
@@ -107,6 +114,8 @@ export function MarketplaceLegalDocumentManagementView() {
   const [deleting, setDeleting] = useState<MarketplaceLegalDocument | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState<LegalForm>(initialForm);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -125,10 +134,15 @@ export function MarketplaceLegalDocumentManagementView() {
   }, []);
 
   useEffect(() => {
-    if (user?.role === 'master_admin') load();
+    if (user?.role === 'master_admin' || user?.role === 'super_admin') load();
   }, [load, user?.role]);
 
-  if (user?.role !== 'master_admin') {
+  useEffect(() => {
+    const lastPage = Math.max(0, Math.ceil(items.length / rowsPerPage) - 1);
+    setPage((current) => Math.min(current, lastPage));
+  }, [items.length, rowsPerPage]);
+
+  if (user?.role !== 'master_admin' && user?.role !== 'super_admin') {
     return (
       <Box sx={{ p: 4 }}>
         <Alert severity="error">เมนูนี้สำหรับ Super Admin เท่านั้น</Alert>
@@ -139,6 +153,7 @@ export function MarketplaceLegalDocumentManagementView() {
   const missingTypes = LEGAL_DOCUMENT_TYPES.filter(
     (type) => !items.some((item) => item.document_type === type)
   );
+  const paginatedItems = items.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   const openCreate = () => {
     setEditing(null);
@@ -183,9 +198,7 @@ export function MarketplaceLegalDocumentManagementView() {
       );
       setDialogOpen(false);
       setMessage(
-        form.status === 'published'
-          ? 'บันทึกและเผยแพร่เอกสารแล้ว'
-          : 'บันทึกเอกสารฉบับร่างแล้ว'
+        form.status === 'published' ? 'บันทึกและเผยแพร่เอกสารแล้ว' : 'บันทึกเอกสารฉบับร่างแล้ว'
       );
       await load();
     } catch (saveError) {
@@ -230,7 +243,7 @@ export function MarketplaceLegalDocumentManagementView() {
             </Typography>
           </Stack>
           <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-            จัดการฉบับร่าง เวอร์ชัน วันที่มีผล และข้อมูลบุคคลผู้ให้บริการ
+            ศูนย์กลางเอกสารทุกจุดของระบบ แก้เนื้อหาที่นี่ครั้งเดียวแล้วเผยแพร่ไปยังหน้าที่เกี่ยวข้อง
           </Typography>
         </Box>
         <Button
@@ -269,19 +282,27 @@ export function MarketplaceLegalDocumentManagementView() {
               <TableHead>
                 <TableRow>
                   <TableCell>เอกสาร</TableCell>
-                  <TableCell>ผู้ให้บริการ</TableCell>
-                  <TableCell>เวอร์ชัน / วันที่มีผล</TableCell>
+                  <TableCell sx={{ minWidth: 150 }}>ใช้ที่ส่วนใด</TableCell>
+                  <TableCell sx={{ minWidth: 150 }}>ผู้ให้บริการ</TableCell>
+                  <TableCell sx={{ minWidth: 150 }}>เวอร์ชัน / วันที่มีผล</TableCell>
                   <TableCell align="center">สถานะ</TableCell>
-                  <TableCell align="right">จัดการ</TableCell>
+                  <TableCell align="right" sx={{ minWidth: 140 }}>
+                    จัดการ
+                  </TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {items.map((item) => (
+                {paginatedItems.map((item) => (
                   <TableRow key={item.id} hover>
                     <TableCell>
                       <Typography variant="subtitle2">{item.title}</Typography>
                       <Typography variant="caption" color="text.secondary">
                         {LEGAL_DOCUMENT_LABELS[item.document_type]}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" color="text.secondary">
+                        {LEGAL_DOCUMENT_USAGE[item.document_type]}
                       </Typography>
                     </TableCell>
                     <TableCell>
@@ -320,11 +341,7 @@ export function MarketplaceLegalDocumentManagementView() {
                       <IconButton onClick={() => openEdit(item)} aria-label="แก้ไข">
                         <RiEditLine />
                       </IconButton>
-                      <IconButton
-                        color="error"
-                        onClick={() => setDeleting(item)}
-                        aria-label="ลบ"
-                      >
+                      <IconButton color="error" onClick={() => setDeleting(item)} aria-label="ลบ">
                         <RiDeleteBinLine />
                       </IconButton>
                     </TableCell>
@@ -333,6 +350,22 @@ export function MarketplaceLegalDocumentManagementView() {
               </TableBody>
             </Table>
           </TableContainer>
+        )}
+        {!loading && (
+          <TablePagination
+            component="div"
+            count={items.length}
+            page={page}
+            rowsPerPage={rowsPerPage}
+            rowsPerPageOptions={[5, 10, 25]}
+            labelRowsPerPage="แถวต่อหน้า"
+            labelDisplayedRows={({ from, to, count }) => `${from}–${to} จาก ${count}`}
+            onPageChange={(_, nextPage) => setPage(nextPage)}
+            onRowsPerPageChange={(event) => {
+              setRowsPerPage(Number(event.target.value));
+              setPage(0);
+            }}
+          />
         )}
       </Card>
 
@@ -346,7 +379,9 @@ export function MarketplaceLegalDocumentManagementView() {
         <DialogContent dividers>
           <Stack spacing={3}>
             <Alert severity="info">
-              หน้าสาธารณะจะแสดงเฉพาะเอกสารสถานะ “เผยแพร่” เท่านั้น
+              เอกสารนี้ใช้ที่: {LEGAL_DOCUMENT_USAGE[form.documentType]}
+              <br />
+              หน้าสาธารณะและจุดยอมรับข้อตกลงจะแสดงเฉพาะสถานะ “เผยแพร่” เท่านั้น
             </Alert>
             <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
               <TextField

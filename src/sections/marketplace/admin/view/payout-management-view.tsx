@@ -109,7 +109,7 @@ export function MarketplacePayoutManagementView() {
   };
 
   return (
-    <Container maxWidth={false} sx={{ py: { xs: 4, md: 6 } }}>
+    <Container maxWidth={false} sx={{ py: { xs: 3 } }}>
       <Typography component="h1" variant="h3">
         โอนเงินให้ผู้ขาย
       </Typography>

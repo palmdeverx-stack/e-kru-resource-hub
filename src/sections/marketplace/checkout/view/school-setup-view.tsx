@@ -4,13 +4,16 @@ import { useState, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
+import Link from '@mui/material/Link';
 import Alert from '@mui/material/Alert';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
+import Checkbox from '@mui/material/Checkbox';
 import TextField from '@mui/material/TextField';
 import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
+import FormControlLabel from '@mui/material/FormControlLabel';
 
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
@@ -27,6 +30,8 @@ export function MarketplaceSchoolSetupView({ token }: { token: string }) {
   const [saving, setSaving] = useState(false);
   const [completed, setCompleted] = useState(false);
   const [error, setError] = useState('');
+  const [childDataAccepted, setChildDataAccepted] = useState(false);
+  const [dpaAccepted, setDpaAccepted] = useState(false);
 
   useEffect(() => {
     fetch(`/api/marketplace/school-onboarding/${token}`)
@@ -54,7 +59,7 @@ export function MarketplaceSchoolSetupView({ token }: { token: string }) {
       const response = await fetch(`/api/marketplace/school-onboarding/${token}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, code }),
+        body: JSON.stringify({ name, code, childDataAccepted, dpaAccepted }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.message ?? 'สร้างโรงเรียนไม่สำเร็จ');
@@ -150,11 +155,49 @@ export function MarketplaceSchoolSetupView({ token }: { token: string }) {
               onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 8))}
               slotProps={{ htmlInput: { inputMode: 'numeric' } }}
             />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={childDataAccepted}
+                  onChange={(event) => setChildDataAccepted(event.target.checked)}
+                />
+              }
+              label={
+                <Typography variant="body2">
+                  รับทราบ{' '}
+                  <Link component={RouterLink} href={paths.legal.childDataPolicy} target="_blank">
+                    นโยบายข้อมูลเด็กและนักเรียน
+                  </Link>
+                </Typography>
+              }
+            />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={dpaAccepted}
+                  onChange={(event) => setDpaAccepted(event.target.checked)}
+                />
+              }
+              label={
+                <Typography variant="body2">
+                  ยอมรับ{' '}
+                  <Link
+                    component={RouterLink}
+                    href={paths.legal.dataProcessingAgreement}
+                    target="_blank"
+                  >
+                    ข้อตกลงการประมวลผลข้อมูล (DPA)
+                  </Link>
+                </Typography>
+              }
+            />
             <Button
               size="large"
               variant="contained"
               loading={saving}
-              disabled={name.trim().length < 2 || code.length !== 8}
+              disabled={
+                name.trim().length < 2 || code.length !== 8 || !childDataAccepted || !dpaAccepted
+              }
               onClick={submit}
             >
               สร้างโรงเรียนและเปิดใช้งาน License

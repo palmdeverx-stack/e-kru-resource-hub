@@ -5,12 +5,14 @@ import { useState, useEffect, useCallback } from 'react';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
+import Link from '@mui/material/Link';
 import Alert from '@mui/material/Alert';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Switch from '@mui/material/Switch';
 import Dialog from '@mui/material/Dialog';
 import Divider from '@mui/material/Divider';
+import Checkbox from '@mui/material/Checkbox';
 import TextField from '@mui/material/TextField';
 import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
@@ -86,6 +88,7 @@ export function MarketplaceSellerLineSettingsView() {
   const [testing, setTesting] = useState(false);
   const [buying, setBuying] = useState(false);
   const [error, setError] = useState('');
+  const [subscriptionAccepted, setSubscriptionAccepted] = useState(false);
   const [success, setSuccess] = useState('');
   const [purchaseRequired, setPurchaseRequired] = useState(false);
   const [purchaseProductId, setPurchaseProductId] = useState<string | null>(null);
@@ -132,6 +135,10 @@ export function MarketplaceSellerLineSettingsView() {
 
   const buyNow = async (productId = purchaseProductId) => {
     if (!productId) return;
+    if (!subscriptionAccepted) {
+      setError('กรุณายอมรับนโยบายแพ็กเกจก่อนซื้อ');
+      return;
+    }
     setBuying(true);
     setError('');
     try {
@@ -249,6 +256,7 @@ export function MarketplaceSellerLineSettingsView() {
                     fullWidth
                     variant="contained"
                     loading={buying}
+                    disabled={!subscriptionAccepted}
                     startIcon={<RiShoppingCart2Line />}
                     onClick={() => buyNow(option.productId)}
                     sx={{ mt: 1.5 }}
@@ -258,6 +266,28 @@ export function MarketplaceSellerLineSettingsView() {
                 </Box>
               ))}
             </Stack>
+            <FormControlLabel
+              sx={{ mt: 2, alignItems: 'flex-start' }}
+              control={
+                <Checkbox
+                  checked={subscriptionAccepted}
+                  onChange={(event) => setSubscriptionAccepted(event.target.checked)}
+                  sx={{ mt: -0.75 }}
+                />
+              }
+              label={
+                <Typography variant="body2" color="text.secondary">
+                  ฉันยอมรับ{' '}
+                  <Link
+                    component={RouterLink}
+                    href={paths.legal.subscriptionPolicy}
+                    target="_blank"
+                  >
+                    นโยบายแพ็กเกจ การต่ออายุ และการยกเลิก
+                  </Link>
+                </Typography>
+              }
+            />
             {!!error && (
               <Alert severity="error" sx={{ mt: 2 }}>
                 {error}
