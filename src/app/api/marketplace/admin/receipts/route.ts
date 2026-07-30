@@ -13,10 +13,13 @@ type PaymentOrder = {
   id: string;
   status: string;
   paid_at?: string | null;
+  gross_amount?: number | null;
+  discount_amount?: number | null;
   seller?: { display_name?: string | null } | null;
   items?: Array<{
     title: string;
     unit_price: number;
+    list_unit_price?: number | null;
     quantity: number;
   }>;
 };
@@ -65,23 +68,34 @@ async function getProviderSnapshot(ownerId: string) {
   const { data, error } = await supabaseAdmin
     .from('marketplace_sellers')
     .select(
-      'display_name, company_name, company_tax_id, national_tax_id, business_address, contact_email'
+      'id, display_name, seller_name, company_name, company_tax_id, national_tax_id, business_address, contact_email, phone'
     )
     .eq('owner_id', ownerId)
     .eq('owner_role', 'master_admin')
     .maybeSingle();
 
   if (error) throw new Error(error.message);
-  const providerName = data?.company_name?.trim() || data?.display_name?.trim();
+  const providerName =
+    data?.company_name?.trim() || data?.seller_name?.trim() || data?.display_name?.trim();
   const providerTaxId = data?.company_tax_id || data?.national_tax_id;
   const providerAddress = data?.business_address?.trim();
   if (!data) return null;
+  const { data: signature } = await supabaseAdmin
+    .from('marketplace_seller_documents')
+    .select('storage_bucket, storage_path, mime_type')
+    .eq('seller_id', data.id)
+    .eq('document_type', 'receipt_signature')
+    .maybeSingle();
 
   return {
     provider_name: providerName || null,
     provider_tax_id: providerTaxId || null,
     provider_address: providerAddress || null,
     provider_email: data?.contact_email || null,
+    provider_phone: data?.phone || null,
+    provider_signature_bucket: signature?.storage_bucket || null,
+    provider_signature_path: signature?.storage_path || null,
+    provider_signature_mime_type: signature?.mime_type || null,
   };
 }
 
@@ -94,7 +108,7 @@ export async function GET(request: Request) {
       supabaseAdmin
         .from('marketplace_payment_sessions')
         .select(
-          'id, buyer_id, amount, currency, payment_method, status, bank_transaction_reference, stripe_payment_intent_id, reviewed_at, created_at, orders:marketplace_orders(id, status, paid_at, seller:marketplace_sellers(display_name), items:marketplace_order_items(title, unit_price, quantity))'
+          'id, buyer_id, amount, currency, payment_method, status, submitted_at, bank_transaction_reference, stripe_payment_intent_id, reviewed_at, created_at, orders:marketplace_orders(id, status, paid_at, gross_amount, discount_amount, seller:marketplace_sellers(display_name), items:marketplace_order_items(title, unit_price, list_unit_price, quantity))'
         )
         .eq('status', 'verified')
         .order('reviewed_at', { ascending: false, nullsFirst: false })
@@ -181,7 +195,7 @@ export async function POST(request: Request) {
   const { data: payment, error: paymentError } = await supabaseAdmin
     .from('marketplace_payment_sessions')
     .select(
-      'id, buyer_id, amount, currency, payment_method, status, bank_transaction_reference, stripe_payment_intent_id, orders:marketplace_orders(id, status, seller:marketplace_sellers(display_name), items:marketplace_order_items(title, unit_price, quantity))'
+      'id, buyer_id, amount, currency, payment_method, status, submitted_at, reviewed_at, bank_transaction_reference, stripe_payment_intent_id, orders:marketplace_orders(id, status, paid_at, gross_amount, discount_amount, seller:marketplace_sellers(display_name), items:marketplace_order_items(title, unit_price, list_unit_price, quantity))'
     )
     .eq('id', paymentSessionId)
     .maybeSingle();
@@ -243,10 +257,29 @@ export async function POST(request: Request) {
       sellerName: order.seller?.display_name || 'E-KRU Marketplace',
       title: item.title,
       unitPrice: Number(item.unit_price),
+      listUnitPrice: Number(item.list_unit_price ?? item.unit_price),
       quantity: Number(item.quantity),
       subtotal: Number(item.unit_price) * Number(item.quantity),
     }))
   );
+  const subtotalAmount = paidOrders.reduce(
+    (total, order) =>
+      total + Number(order.gross_amount ?? 0) + Number(order.discount_amount ?? 0),
+    0
+  );
+  const discountAmount = paidOrders.reduce(
+    (total, order) => total + Number(order.discount_amount ?? 0),
+    0
+  );
+  const paidAt =
+    paidOrders
+      .map((order) => order.paid_at)
+      .filter((value): value is string => Boolean(value))
+      .sort()
+      .at(-1) ||
+    payment.reviewed_at ||
+    payment.submitted_at ||
+    issuedAt.toISOString();
 
   const { data: receipt, error } = await supabaseAdmin
     .from('marketplace_receipts')
@@ -266,6 +299,10 @@ export async function POST(request: Request) {
       buyer_tax_id: buyerTaxId || null,
       buyer_address: buyerAddress || null,
       ...provider,
+      paid_at: paidAt,
+      subtotal_amount: Math.max(Number(payment.amount), subtotalAmount),
+      discount_amount: discountAmount,
+      vat_amount: 0,
       notes: notes || null,
       issued_at: issuedAt.toISOString(),
       issued_by: caller.sub,

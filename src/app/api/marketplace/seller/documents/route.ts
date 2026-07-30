@@ -10,7 +10,18 @@ const TYPES = new Set([
   'bank_book',
   'company_certificate',
   'vat_certificate',
+  'receipt_signature',
 ]);
+
+function hasValidSignatureHeader(bytes: Uint8Array, mimeType: string) {
+  if (mimeType === 'image/png') {
+    return (
+      bytes.length >= 8 &&
+      [137, 80, 78, 71, 13, 10, 26, 10].every((value, index) => bytes[index] === value)
+    );
+  }
+  return bytes.length >= 3 && bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255;
+}
 
 export async function POST(request: Request) {
   const caller = requireAuthenticated(request);
@@ -22,19 +33,35 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: 'ประเภทเอกสารหรือไฟล์ไม่ถูกต้อง' }, { status: 400 });
   }
   const isAsset = ['store_logo', 'store_cover'].includes(documentType);
-  const accepted = isAsset
-    ? ['image/jpeg', 'image/png', 'image/webp']
-    : ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
-  const maxSize = isAsset ? 5 * 1024 * 1024 : 10 * 1024 * 1024;
+  const isReceiptSignature = documentType === 'receipt_signature';
+  const accepted = isReceiptSignature
+    ? ['image/jpeg', 'image/png']
+    : isAsset
+      ? ['image/jpeg', 'image/png', 'image/webp']
+      : ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+  const maxSize = isReceiptSignature
+    ? 2 * 1024 * 1024
+    : isAsset
+      ? 5 * 1024 * 1024
+      : 10 * 1024 * 1024;
   if (!accepted.includes(file.type) || file.size > maxSize) {
     return NextResponse.json(
-      { message: `ไฟล์ไม่ถูกต้องหรือมีขนาดเกิน ${isAsset ? 5 : 10} MB` },
+      {
+        message: `ไฟล์ไม่ถูกต้องหรือมีขนาดเกิน ${isReceiptSignature ? 2 : isAsset ? 5 : 10} MB`,
+      },
+      { status: 400 }
+    );
+  }
+  const fileBytes = new Uint8Array(await file.arrayBuffer());
+  if (isReceiptSignature && !hasValidSignatureHeader(fileBytes, file.type)) {
+    return NextResponse.json(
+      { message: 'ไฟล์ลายเซ็นไม่ใช่รูป PNG หรือ JPG ที่ถูกต้อง' },
       { status: 400 }
     );
   }
   const { data: seller } = await supabaseAdmin
     .from('marketplace_sellers')
-    .select('id, status')
+    .select('id, owner_id, status')
     .eq('owner_id', caller.sub)
     .maybeSingle();
   if (!seller) {
@@ -56,7 +83,7 @@ export async function POST(request: Request) {
   const path = `${seller.id}/${documentType}-${Date.now()}.${extension}`;
   const { error: uploadError } = await supabaseAdmin.storage
     .from(bucket)
-    .upload(path, await file.arrayBuffer(), { contentType: file.type });
+    .upload(path, fileBytes, { contentType: file.type });
   if (uploadError) return NextResponse.json({ message: uploadError.message }, { status: 500 });
 
   const { data: previous } = await supabaseAdmin
@@ -86,8 +113,23 @@ export async function POST(request: Request) {
     await supabaseAdmin.storage.from(bucket).remove([path]);
     return NextResponse.json({ message: error?.message }, { status: 500 });
   }
-  if (previous) {
+  if (previous && !isReceiptSignature) {
     await supabaseAdmin.storage.from(previous.storage_bucket).remove([previous.storage_path]);
+  }
+  if (isReceiptSignature) {
+    const { error: receiptUpdateError } = await supabaseAdmin
+      .from('marketplace_receipts')
+      .update({
+        provider_signature_bucket: bucket,
+        provider_signature_path: path,
+        provider_signature_mime_type: file.type,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('issued_by', seller.owner_id)
+      .is('provider_signature_path', null);
+    if (receiptUpdateError) {
+      return NextResponse.json({ message: receiptUpdateError.message }, { status: 500 });
+    }
   }
 
   let url: string | null = null;

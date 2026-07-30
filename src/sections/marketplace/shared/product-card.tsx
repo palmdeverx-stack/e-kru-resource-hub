@@ -111,9 +111,13 @@ export function MarketplaceProductCard({
             sx={{
               width: 1,
               height: 1,
-              objectFit: 'cover',
+              display: 'block',
+              objectFit: { xs: 'contain', sm: 'cover' },
+              objectPosition: 'center',
               transition: 'transform 260ms ease',
-              '.MuiCard-root:hover &': { transform: 'scale(1.045)' },
+              '@media (hover: hover)': {
+                '.MuiCard-root:hover &': { transform: 'scale(1.045)' },
+              },
             }}
           />
         ) : (

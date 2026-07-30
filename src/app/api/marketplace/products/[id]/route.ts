@@ -40,6 +40,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const publicProduct = (await withMediaUrls(product)) as Record<string, unknown>;
   delete publicProduct.file_url;
   delete publicProduct.external_links;
+  delete publicProduct.purchase_benefits_html;
   if (product.seller?.id) {
     const { owner_role: ownerRole, ...sellerDetails } = product.seller;
     publicProduct.seller = {

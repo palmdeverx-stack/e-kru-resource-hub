@@ -311,6 +311,7 @@ export async function GET(request: Request) {
     delete publicProduct.file_url;
     delete publicProduct.files;
     delete publicProduct.external_links;
+    delete publicProduct.purchase_benefits_html;
     return publicProduct;
   });
   return NextResponse.json({

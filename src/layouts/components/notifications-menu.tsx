@@ -46,9 +46,9 @@ async function markRead(scope: NotificationsScope, ids?: string[]) {
       ? '/api/notifications/mark-read?scope=marketplace'
       : '/api/notifications/mark-read',
     {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ids }),
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids }),
     }
   );
 }
@@ -101,7 +101,7 @@ export function NotificationsMenu({ scope = 'all' }: NotificationsMenuProps) {
     <>
       <IconButton aria-label="การแจ้งเตือน" onClick={(event) => setAnchorEl(event.currentTarget)}>
         <Badge badgeContent={unreadCount} color="error">
-          <RiNotification3Line size={22} />
+          <RiNotification3Line size={22} color="text.primary" />
         </Badge>
       </IconButton>
 

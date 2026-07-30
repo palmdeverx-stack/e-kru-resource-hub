@@ -598,7 +598,7 @@ create table if not exists public.marketplace_seller_documents (
   document_type text not null
     check (document_type in (
       'store_logo', 'store_cover', 'identity_card', 'bank_book',
-      'company_certificate', 'vat_certificate'
+      'company_certificate', 'vat_certificate', 'receipt_signature'
     )),
   storage_bucket text not null
     check (storage_bucket in ('marketplace-seller-assets', 'marketplace-seller-documents')),
@@ -640,6 +640,7 @@ create table if not exists public.marketplace_products (
       jsonb_typeof(purchase_benefits) = 'array'
       and jsonb_array_length(purchase_benefits) <= 8
     ),
+  purchase_benefits_html text,
   status text not null default 'pending_review'
     check (status in ('draft', 'pending_review', 'published', 'rejected', 'archived')),
   submitted_at timestamptz,
@@ -694,6 +695,8 @@ alter table public.marketplace_products
   );
 alter table public.marketplace_products
   add column if not exists purchase_benefits jsonb not null default '[]'::jsonb;
+alter table public.marketplace_products
+  add column if not exists purchase_benefits_html text;
 alter table public.marketplace_products
   drop constraint if exists marketplace_products_purchase_benefits_check;
 alter table public.marketplace_products

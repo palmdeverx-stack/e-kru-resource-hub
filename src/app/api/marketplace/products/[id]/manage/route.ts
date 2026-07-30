@@ -15,6 +15,11 @@ import {
   MARKETPLACE_SELLER_LINE_FEATURE_KEY,
   MARKETPLACE_SELLER_LINE_MANAGED_FEATURE_KEY,
 } from 'src/sections/marketplace/seller/line-feature';
+import {
+  hasUnsafePurchaseBenefitsHtml,
+  MAX_PURCHASE_BENEFITS_HTML_LENGTH,
+  MAX_PURCHASE_BENEFITS_TEXT_LENGTH,
+} from 'src/sections/marketplace/shared/purchase-benefits';
 
 const FILE_OPTIONAL_RESOURCE_TYPES = new Set(['service', 'feature_unlock']);
 const MAX_EXTERNAL_LINKS = 3;
@@ -279,6 +284,25 @@ export async function PATCH(request: Request, { params }: Context) {
       );
     }
     update.purchase_benefits = purchaseBenefits;
+  }
+  if (body.purchaseBenefitsHtml !== undefined) {
+    const purchaseBenefitsHtml = String(body.purchaseBenefitsHtml ?? '').trim();
+    if (
+      purchaseBenefitsHtml.length > MAX_PURCHASE_BENEFITS_HTML_LENGTH ||
+      plainTextLength(purchaseBenefitsHtml) > MAX_PURCHASE_BENEFITS_TEXT_LENGTH
+    ) {
+      return NextResponse.json(
+        { message: 'รายละเอียดสิ่งที่ลูกค้าจะได้รับยาวเกินกำหนด' },
+        { status: 400 }
+      );
+    }
+    if (hasUnsafePurchaseBenefitsHtml(purchaseBenefitsHtml)) {
+      return NextResponse.json(
+        { message: 'รายละเอียดสิ่งที่ลูกค้าจะได้รับมีเนื้อหาที่ไม่รองรับ' },
+        { status: 400 }
+      );
+    }
+    update.purchase_benefits_html = purchaseBenefitsHtml || null;
   }
   if (body.category !== undefined) {
     const category = String(body.category).trim();
@@ -691,10 +715,11 @@ export async function PATCH(request: Request, { params }: Context) {
     if (
       !fileOptional &&
       !(product.files as unknown[] | null)?.length &&
-      !(product.external_links as unknown[] | null)?.length
+      !(product.external_links as unknown[] | null)?.length &&
+      plainTextLength(String(product.purchase_benefits_html ?? '')) === 0
     ) {
       return NextResponse.json(
-        { message: 'กรุณาเพิ่มไฟล์หรือลิงก์ส่งมอบอย่างน้อย 1 รายการ' },
+        { message: 'กรุณาเพิ่มไฟล์ ลิงก์ หรือข้อความส่งมอบอย่างน้อย 1 รายการ' },
         { status: 400 }
       );
     }

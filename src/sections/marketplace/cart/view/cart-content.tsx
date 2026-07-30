@@ -27,8 +27,8 @@ import {
 } from 'src/components/remix-icon';
 
 import { useMarketplaceCart } from '../cart-context';
-import { MarketplaceSellerLink } from '../../shared/seller-link';
 import { getMarketplacePricing } from '../../shared/pricing';
+import { MarketplaceSellerLink } from '../../shared/seller-link';
 import { formatPrice, getLocalizedProduct } from '../../shared/api';
 import { MarketplaceProductDetailDialog } from '../../catalog/components/product-detail-dialog';
 
@@ -85,11 +85,15 @@ export function MarketplaceCartContent({
       <Typography component="h1" variant="h3">
         ตะกร้าของฉัน
       </Typography>
-      <Typography color="text.secondary" sx={{ mt: 0.5, mb: 4 }}>
+      <Typography color="text.secondary" sx={{ mt: 0.5, mb: { xs: 2.5, sm: 4 } }}>
         ตรวจสอบรายการก่อนดำเนินการชำระเงิน
       </Typography>
 
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} alignItems="flex-start">
+      <Stack
+        direction={{ xs: 'column', md: 'row' }}
+        spacing={{ xs: 2, md: 3 }}
+        alignItems="flex-start"
+      >
         <Stack spacing={2} sx={{ flex: 1, width: 1 }}>
           {items.map(({ product }) => {
             const content = getLocalizedProduct(product, currentLang.value);
@@ -131,7 +135,8 @@ export function MarketplaceCartContent({
                     sx={{
                       p: 0,
                       width: { xs: 1, sm: 160 },
-                      height: { xs: 190, sm: 160 },
+                      height: { xs: 'auto', sm: 160 },
+                      aspectRatio: { xs: '16 / 9', sm: 'auto' },
                       border: 0,
                       flexShrink: 0,
                       display: 'grid',
@@ -150,9 +155,13 @@ export function MarketplaceCartContent({
                         sx={{
                           width: 1,
                           height: 1,
-                          objectFit: 'cover',
+                          display: 'block',
+                          objectFit: { xs: 'contain', sm: 'cover' },
+                          objectPosition: 'center',
                           transition: 'transform 220ms ease',
-                          '&:hover': { transform: 'scale(1.035)' },
+                          '@media (hover: hover)': {
+                            '&:hover': { transform: 'scale(1.035)' },
+                          },
                         }}
                       />
                     ) : (
@@ -163,7 +172,12 @@ export function MarketplaceCartContent({
                   <Stack spacing={1.25} sx={{ flexGrow: 1, minWidth: 0, py: 0.5 }}>
                     <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                       {product.category && (
-                        <Chip size="small" variant="soft" color="success" label={product.category} />
+                        <Chip
+                          size="small"
+                          variant="soft"
+                          color="success"
+                          label={product.category}
+                        />
                       )}
                       {product.resource_type === 'feature_unlock' && (
                         <Chip size="small" variant="soft" color="primary" label="E-KRU License" />
@@ -247,22 +261,27 @@ export function MarketplaceCartContent({
                           </>
                         )}
                       </Stack>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        startIcon={<RiEyeLine />}
-                        onClick={() => setSelectedProduct(product)}
-                      >
-                        ดูรายละเอียด
-                      </Button>
-                      <Button
-                        size="small"
-                        color="error"
-                        startIcon={<RiDeleteBinLine />}
-                        onClick={() => removeItem(product.id)}
-                      >
-                        นำออก
-                      </Button>
+                      <Stack spacing={1} sx={{ display: 'flex', flexDirection: 'row' }}>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          fullWidth
+                          startIcon={<RiEyeLine />}
+                          sx={{ minWidth: 140 }}
+                          onClick={() => setSelectedProduct(product)}
+                        >
+                          ดูรายละเอียด
+                        </Button>
+                        <Button
+                          size="small"
+                          color="error"
+                          fullWidth
+                          startIcon={<RiDeleteBinLine />}
+                          onClick={() => removeItem(product.id)}
+                        >
+                          นำออก
+                        </Button>
+                      </Stack>
                     </Stack>
                   </Stack>
                 </Stack>
@@ -271,7 +290,14 @@ export function MarketplaceCartContent({
           })}
         </Stack>
 
-        <Card sx={{ p: 3, width: { xs: 1, md: 360 }, position: { md: 'sticky' }, top: 96 }}>
+        <Card
+          sx={{
+            p: { xs: 2, sm: 3 },
+            width: { xs: 1, md: 360 },
+            position: { md: 'sticky' },
+            top: { md: 96 },
+          }}
+        >
           <Typography variant="h5">สรุปคำสั่งซื้อ</Typography>
           <Stack spacing={2} sx={{ mt: 3 }}>
             <Stack direction="row" justifyContent="space-between">

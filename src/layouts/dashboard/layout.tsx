@@ -48,6 +48,7 @@ export type DashboardLayoutProps = LayoutBaseProps & {
     nav?: {
       data?: NavSectionProps['data'];
       headerIdentity?: React.ReactNode;
+      mobileHeaderIdentity?: React.ReactNode;
       mobileBottom?: boolean;
     };
     main?: MainSectionProps;
@@ -76,6 +77,7 @@ export function DashboardLayout({
   const rawNavData = slotProps?.nav?.data ?? dashboardNavData;
   const navData = useTranslatedNavSections(rawNavData);
   const headerIdentity = slotProps?.nav?.headerIdentity;
+  const mobileHeaderIdentity = slotProps?.nav?.mobileHeaderIdentity;
   const mobileBottom = slotProps?.nav?.mobileBottom ?? false;
 
   const isNavMini = settings.state.navLayout === 'mini';
@@ -131,6 +133,18 @@ export function DashboardLayout({
               onClick={onOpen}
               sx={{ mr: 1, ml: -1, [theme.breakpoints.up(mobileNavQuery)]: { display: 'none' } }}
             />
+          )}
+          {!mobileBottom && mobileHeaderIdentity && (
+            <Box
+              sx={{
+                minWidth: 0,
+                display: 'flex',
+                alignItems: 'center',
+                [theme.breakpoints.up(mobileNavQuery)]: { display: 'none' },
+              }}
+            >
+              {mobileHeaderIdentity}
+            </Box>
           )}
           {!mobileBottom && (
             <NavMobile

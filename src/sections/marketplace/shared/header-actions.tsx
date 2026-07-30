@@ -44,7 +44,7 @@ export function MarketplaceHeaderActions() {
         sx={{ width: { xs: 36, sm: 40 }, height: { xs: 36, sm: 40 } }}
       >
         <Badge badgeContent={itemCount} color="primary">
-          <RiShoppingBag3Line />
+          <RiShoppingBag3Line color="text.primary" />
         </Badge>
       </IconButton>
 
@@ -67,10 +67,9 @@ export function MarketplaceHeaderActions() {
               component={RouterLink}
               href={paths.auth.jwt.signUp}
               aria-label="สมัครใช้งาน"
-              color="primary"
               sx={{ display: { xs: 'inline-flex', sm: 'none' }, width: 36, height: 36 }}
             >
-              <RiUserAddLine />
+              <RiUserAddLine color="text.primary" />
             </IconButton>
           </Tooltip>
           <Button
@@ -94,7 +93,7 @@ export function MarketplaceHeaderActions() {
             aria-label="Dashboard"
             sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
           >
-            <RiDashboardLine />
+            <RiDashboardLine color="text.primary" />
           </IconButton>
         </Tooltip>
       )}

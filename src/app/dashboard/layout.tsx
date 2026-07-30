@@ -4,14 +4,21 @@ import type { NavSectionProps } from 'src/components/nav-section';
 
 import { useState, useEffect } from 'react';
 
+import Box from '@mui/material/Box';
+import Badge from '@mui/material/Badge';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
+import Typography from '@mui/material/Typography';
+
+import { paths } from 'src/routes/paths';
+import { RouterLink } from 'src/routes/components';
 
 import { languageOptions } from 'src/locales';
 import { DashboardLayout } from 'src/layouts/dashboard';
 import { LanguagePopover } from 'src/layouts/components/language-popover';
 import { NotificationsMenu } from 'src/layouts/components/notifications-menu';
 
+import { Logo } from 'src/components/logo';
 import { MarketplaceBrand } from 'src/components/marketplace-brand';
 import {
   RiKey2Line,
@@ -40,6 +47,7 @@ import {
   RiExchangeDollarLine,
 } from 'src/components/remix-icon';
 
+import { useMarketplaceCart } from 'src/sections/marketplace/cart/cart-context';
 import { MarketplaceAccountMenu } from 'src/sections/marketplace/account/components/account-menu';
 
 import { useAuthContext } from 'src/auth/hooks';
@@ -302,6 +310,7 @@ function isMarketplaceAdmin(role?: string | null) {
 
 export default function Layout({ children }: Props) {
   const { user } = useAuthContext();
+  const { itemCount } = useMarketplaceCart();
   const [canViewSchoolEntitlements, setCanViewSchoolEntitlements] = useState(false);
   const [canUseSellerLine, setCanUseSellerLine] = useState(false);
   const [hasSubmittedSeller, setHasSubmittedSeller] = useState(false);
@@ -490,6 +499,16 @@ export default function Layout({ children }: Props) {
               <MarketplaceBrand />
             </div>
           ),
+          mobileHeaderIdentity: (
+            <Logo
+              isSingle={false}
+              href="/dashboard"
+              sx={{
+                width: { xs: 96, sm: 126 },
+                height: { xs: 34, sm: 38 },
+              }}
+            />
+          ),
         },
         header: {
           slots: {
@@ -534,9 +553,56 @@ export default function Layout({ children }: Props) {
             '--layout-header-mobile-height': '56px',
           },
         },
+        main: {
+          sx: {
+            pb: {
+              xs: 'calc(88px + max(env(safe-area-inset-bottom), 0px))',
+              sm: 0,
+            },
+          },
+        },
       }}
     >
       {children}
+      <Box
+        sx={{
+          left: 16,
+          right: 16,
+          zIndex: (theme) => theme.zIndex.appBar + 1,
+          display: { xs: 'block', sm: 'none' },
+          position: 'fixed',
+          pointerEvents: 'none',
+          bottom: 'calc(12px + max(env(safe-area-inset-bottom), 0px))',
+        }}
+      >
+        <Button
+          fullWidth
+          size="large"
+          variant="contained"
+          component={RouterLink}
+          href={paths.marketplace.dashboardCart}
+          sx={{
+            px: 2.5,
+            py: 1.35,
+            borderRadius: 999,
+            pointerEvents: 'auto',
+            justifyContent: 'space-between',
+            boxShadow: '0 12px 32px rgba(21, 101, 245, 0.32)',
+          }}
+        >
+          <Stack direction="row" spacing={1.25} alignItems="center">
+            <Badge badgeContent={itemCount} color="error" max={99}>
+              <RiShoppingCart2Line size={22} />
+            </Badge>
+            <Typography component="span" variant="subtitle1" color="inherit">
+              ตะกร้าสินค้า
+            </Typography>
+          </Stack>
+          <Typography component="span" variant="body2" color="inherit">
+            {itemCount ? `${itemCount} รายการ` : 'ยังไม่มีสินค้า'}
+          </Typography>
+        </Button>
+      </Box>
     </DashboardLayout>
   );
 }

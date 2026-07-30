@@ -48,6 +48,7 @@ type ReceiptItem = {
   sellerName: string;
   title: string;
   unitPrice: number;
+  listUnitPrice?: number;
   quantity: number;
   subtotal: number;
 };
@@ -71,6 +72,14 @@ type Receipt = {
   provider_tax_id: string | null;
   provider_address: string | null;
   provider_email: string | null;
+  provider_phone: string | null;
+  provider_signature_bucket?: string | null;
+  provider_signature_path?: string | null;
+  provider_signature_mime_type?: string | null;
+  paid_at: string;
+  subtotal_amount: number;
+  discount_amount: number;
+  vat_amount: number;
   notes: string | null;
   issued_at: string;
   voided_at: string | null;
@@ -101,6 +110,10 @@ type ReceiptProvider = {
   provider_tax_id: string | null;
   provider_address: string | null;
   provider_email: string | null;
+  provider_phone: string | null;
+  provider_signature_bucket?: string | null;
+  provider_signature_path?: string | null;
+  provider_signature_mime_type?: string | null;
 };
 
 type Filter = 'all' | 'pending' | 'issued' | 'void';
@@ -241,6 +254,11 @@ export function MarketplaceReceiptManagementView() {
       provider_tax_id: provider?.provider_tax_id || null,
       provider_address: provider?.provider_address || null,
       provider_email: provider?.provider_email || null,
+      provider_phone: provider?.provider_phone || null,
+      paid_at: new Date().toISOString(),
+      subtotal_amount: 1500,
+      discount_amount: 0,
+      vat_amount: 0,
       notes: 'เอกสารนี้เป็นเพียงตัวอย่างรูปแบบใบเสร็จรับเงิน',
       issued_at: new Date().toISOString(),
       voided_at: null,
@@ -692,9 +710,10 @@ function ReceiptDocument({ receipt }: { receipt: Receipt }) {
           <Typography variant="h4">ใบเสร็จรับเงิน</Typography>
           <Typography color="text.secondary">RECEIPT</Typography>
         </Box>
-        <Box sx={{ textAlign: 'right' }}>
+        <Box sx={{ textAlign: 'right', gap: 2 }}>
           <Typography variant="h6">{receipt.receipt_number}</Typography>
           <Typography variant="body2">วันที่ออก {formatDate(receipt.issued_at)}</Typography>
+          <Typography variant="body2">วันที่ชำระ {formatDate(receipt.paid_at)}</Typography>
           <Chip
             size="small"
             color={
@@ -732,6 +751,9 @@ function ReceiptDocument({ receipt }: { receipt: Receipt }) {
               {receipt.provider_address}
             </Typography>
           )}
+          {!!receipt.provider_phone && (
+            <Typography variant="body2">โทร {receipt.provider_phone}</Typography>
+          )}
           {!!receipt.provider_email && (
             <Typography variant="body2">{receipt.provider_email}</Typography>
           )}
@@ -760,6 +782,9 @@ function ReceiptDocument({ receipt }: { receipt: Receipt }) {
           <Typography variant="subtitle2" sx={{ width: 80, textAlign: 'center' }}>
             จำนวน
           </Typography>
+          <Typography variant="subtitle2" sx={{ width: 110, textAlign: 'right' }}>
+            ราคาต่อหน่วย
+          </Typography>
           <Typography variant="subtitle2" sx={{ width: 130, textAlign: 'right' }}>
             จำนวนเงิน
           </Typography>
@@ -779,6 +804,9 @@ function ReceiptDocument({ receipt }: { receipt: Receipt }) {
             <Typography variant="body2" sx={{ width: 80, textAlign: 'center' }}>
               {item.quantity}
             </Typography>
+            <Typography variant="body2" sx={{ width: 110, textAlign: 'right' }}>
+              {formatPrice(Number(item.unitPrice))}
+            </Typography>
             <Typography variant="body2" sx={{ width: 130, textAlign: 'right' }}>
               {formatPrice(Number(item.subtotal))}
             </Typography>
@@ -786,20 +814,25 @@ function ReceiptDocument({ receipt }: { receipt: Receipt }) {
         ))}
       </Box>
       <Stack alignItems="flex-end" sx={{ mt: 3 }}>
-        <Stack
-          direction="row"
-          justifyContent="space-between"
-          sx={{ width: { xs: '100%', sm: 320 } }}
-        >
-          <Typography variant="h6">รวมทั้งสิ้น</Typography>
-          <Typography variant="h5">{formatPrice(Number(receipt.amount))}</Typography>
+        <Stack spacing={0.75} sx={{ width: { xs: '100%', sm: 340 } }}>
+          <ReceiptTotalRow label="รวมเงิน" value={Number(receipt.subtotal_amount)} />
+          <ReceiptTotalRow label="ส่วนลด" value={-Number(receipt.discount_amount)} />
+          <ReceiptTotalRow label="ภาษีมูลค่าเพิ่ม (VAT ถ้ามี)" value={Number(receipt.vat_amount)} />
+          <Divider />
+          <Stack direction="row" justifyContent="space-between">
+            <Typography variant="h6">ยอดสุทธิ</Typography>
+            <Typography variant="h5">{formatPrice(Number(receipt.amount))}</Typography>
+          </Stack>
         </Stack>
       </Stack>
       <Divider sx={{ my: 3 }} />
+      <Alert severity="success" sx={{ mb: 2 }}>
+        ชำระเงินเรียบร้อยแล้ว · Payment Status: Paid
+      </Alert>
       <Typography variant="body2">วิธีชำระเงิน: {paymentLabels[receipt.payment_method]}</Typography>
-      {!!receipt.transaction_reference && (
-        <Typography variant="body2">เลขอ้างอิง: {receipt.transaction_reference}</Typography>
-      )}
+      <Typography variant="body2">
+        Transaction ID: {receipt.transaction_reference || '-'}
+      </Typography>
       {!!receipt.notes && (
         <Typography variant="body2" sx={{ mt: 1 }}>
           หมายเหตุ: {receipt.notes}
@@ -810,6 +843,28 @@ function ReceiptDocument({ receipt }: { receipt: Receipt }) {
           ยกเลิกเมื่อ {formatDate(receipt.voided_at)} — {receipt.void_reason}
         </Alert>
       )}
+      <Stack direction="row" justifyContent="space-between" alignItems="flex-end" sx={{ mt: 4 }}>
+        <Typography variant="caption" color="text.secondary" sx={{ maxWidth: 360 }}>
+          เอกสารนี้ออกโดยระบบอิเล็กทรอนิกส์ของ E-KRU Marketplace
+          และข้อมูลการชำระเงินได้รับการยืนยันจากระบบแล้ว
+        </Typography>
+        <Box sx={{ width: 220, textAlign: 'center' }}>
+          <Typography variant="body2">ผู้รับเงิน</Typography>
+          <Box sx={{ height: 36, borderBottom: 1, borderColor: 'text.secondary' }} />
+          <Typography variant="body2" sx={{ mt: 0.75 }}>
+            ({receipt.provider_name})
+          </Typography>
+        </Box>
+      </Stack>
     </Box>
+  );
+}
+
+function ReceiptTotalRow({ label, value }: { label: string; value: number }) {
+  return (
+    <Stack direction="row" justifyContent="space-between">
+      <Typography variant="body2">{label}</Typography>
+      <Typography variant="body2">{formatPrice(value)}</Typography>
+    </Stack>
   );
 }

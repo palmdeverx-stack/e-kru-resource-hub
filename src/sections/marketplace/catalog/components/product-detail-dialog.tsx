@@ -6,7 +6,9 @@ import { useRef, useState, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Dialog from '@mui/material/Dialog';
+import { useTheme } from '@mui/material/styles';
 import IconButton from '@mui/material/IconButton';
+import useMediaQuery from '@mui/material/useMediaQuery';
 
 import { RiCloseLine } from 'src/components/remix-icon';
 
@@ -19,6 +21,8 @@ export function MarketplaceProductDetailDialog({
   product: MarketplaceProduct | null;
   onClose: () => void;
 }) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [activeProduct, setActiveProduct] = useState<MarketplaceProduct | null>(product);
 
@@ -37,6 +41,7 @@ export function MarketplaceProductDetailDialog({
     <Dialog
       open={Boolean(product)}
       onClose={onClose}
+      fullScreen={isMobile}
       fullWidth
       maxWidth={false}
       aria-label={activeProduct ? `รายละเอียดสินค้า ${activeProduct.title}` : 'รายละเอียดสินค้า'}
@@ -47,11 +52,12 @@ export function MarketplaceProductDetailDialog({
       slotProps={{
         paper: {
           sx: {
-            m: 0,
-            width: { xs: 1, md: 'calc(100% - 48px)' },
-            height: { xs: 1, md: 'calc(100% - 48px)' },
+            m: { xs: 0, sm: 3 },
+            width: { xs: '100vw', sm: 'calc(100% - 48px)' },
+            height: { xs: '100dvh', sm: 'calc(100% - 48px)' },
+            maxWidth: 'none',
             maxHeight: 'none',
-            borderRadius: { xs: 0, md: 3 },
+            borderRadius: { xs: 0, sm: 3 },
             position: 'relative',
             overflow: 'hidden',
             overscrollBehavior: 'none',
@@ -70,10 +76,10 @@ export function MarketplaceProductDetailDialog({
         aria-label="ปิดรายละเอียดสินค้า"
         onClick={onClose}
         sx={{
-          top: 40,
-          right: 50,
+          top: { xs: 'max(12px, env(safe-area-inset-top))', sm: 40 },
+          right: { xs: 12, sm: 50 },
           zIndex: 5,
-          position: 'fixed',
+          position: 'absolute',
           bgcolor: 'background.paper',
           border: '1px solid',
           borderColor: 'divider',
@@ -89,6 +95,7 @@ export function MarketplaceProductDetailDialog({
         sx={{
           width: 1,
           height: 1,
+          minWidth: 0,
           overflowY: 'auto',
           overscrollBehavior: 'contain',
           WebkitOverflowScrolling: 'touch',

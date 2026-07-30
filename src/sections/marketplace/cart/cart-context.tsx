@@ -23,6 +23,7 @@ const CartContext = createContext<CartContextValue | null>(null);
 
 export function MarketplaceCartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
+  const [storageHydrated, setStorageHydrated] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -57,6 +58,8 @@ export function MarketplaceCartProvider({ children }: { children: React.ReactNod
       }
     } catch {
       window.localStorage.removeItem(STORAGE_KEY);
+    } finally {
+      if (active) setStorageHydrated(true);
     }
     return () => {
       active = false;
@@ -64,8 +67,9 @@ export function MarketplaceCartProvider({ children }: { children: React.ReactNod
   }, []);
 
   useEffect(() => {
+    if (!storageHydrated) return;
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-  }, [items]);
+  }, [items, storageHydrated]);
 
   const addItem = useCallback((product: MarketplaceProduct) => {
     setItems((current) => {

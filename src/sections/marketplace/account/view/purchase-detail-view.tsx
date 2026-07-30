@@ -10,9 +10,17 @@ import Chip from '@mui/material/Chip';
 import Alert from '@mui/material/Alert';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
 import Divider from '@mui/material/Divider';
+import { useTheme } from '@mui/material/styles';
 import Container from '@mui/material/Container';
+import TextField from '@mui/material/TextField';
+import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
+import DialogTitle from '@mui/material/DialogTitle';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
 import CircularProgress from '@mui/material/CircularProgress';
 
 import { paths } from 'src/routes/paths';
@@ -21,8 +29,10 @@ import { RouterLink } from 'src/routes/components';
 import { useTranslate } from 'src/locales';
 
 import {
+  RiEyeLine,
   RiBankLine,
-  RiStore2Line,
+  RiCloseLine,
+  RiDownloadLine,
   RiBankCardLine,
   RiFileTextLine,
   RiArrowLeftLine,
@@ -30,22 +40,34 @@ import {
   RiExternalLinkLine,
   RiShoppingBag3Line,
   RiDownloadCloud2Line,
-  RiCheckboxCircleLine,
 } from 'src/components/remix-icon';
 
 import { getMyOrder, formatPrice } from '../../shared/api';
-import { MarketplaceSellerLink } from '../../shared/seller-link';
+import { hasPurchaseBenefitsContent } from '../../shared/purchase-benefits';
+import { PurchaseBenefitsContent } from '../../shared/purchase-benefits-content';
 
 type Props = {
   orderId: string;
 };
 
 export function MarketplacePurchaseDetailView({ orderId }: Props) {
+  const theme = useTheme();
+  const receiptPreviewFullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const { currentLang } = useTranslate();
   const isEnglish = currentLang.value === 'en';
   const [order, setOrder] = useState<MarketplaceOrder | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [receiptPreviewOpen, setReceiptPreviewOpen] = useState(false);
+  const [receiptFormOpen, setReceiptFormOpen] = useState(false);
+  const [receiptIssuing, setReceiptIssuing] = useState(false);
+  const [receiptIssueError, setReceiptIssueError] = useState('');
+  const [receiptForm, setReceiptForm] = useState({
+    buyerName: '',
+    buyerEmail: '',
+    buyerTaxId: '',
+    buyerAddress: '',
+  });
 
   useEffect(() => {
     getMyOrder(orderId)
@@ -103,6 +125,44 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
     Number(order.discount_amount) || listSubtotal - Number(order.total)
   );
   const paidAt = order.paid_at ?? payment?.reviewed_at ?? null;
+  const receiptPdfUrl = `/api/marketplace/orders/${order.id}/receipt`;
+  const openReceiptForm = () => {
+    setReceiptIssueError('');
+    setReceiptForm({
+      buyerName: order.receipt?.buyer_name ?? '',
+      buyerEmail: order.receipt?.buyer_email ?? '',
+      buyerTaxId: order.receipt?.buyer_tax_id ?? '',
+      buyerAddress: order.receipt?.buyer_address ?? '',
+    });
+    setReceiptFormOpen(true);
+  };
+  const issueReceipt = async () => {
+    setReceiptIssuing(true);
+    setReceiptIssueError('');
+    try {
+      const response = await fetch(receiptPdfUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(receiptForm),
+      });
+      const result = (await response.json()) as {
+        receipt?: NonNullable<MarketplaceOrder['receipt']>;
+        message?: string;
+      };
+      if (!response.ok || !result.receipt) {
+        throw new Error(result.message ?? 'ไม่สามารถออกใบเสร็จรับเงินได้');
+      }
+      setOrder((current) => (current ? { ...current, receipt: result.receipt } : current));
+      setReceiptFormOpen(false);
+      setReceiptPreviewOpen(true);
+    } catch (issueError) {
+      setReceiptIssueError(
+        issueError instanceof Error ? issueError.message : 'ไม่สามารถออกใบเสร็จรับเงินได้'
+      );
+    } finally {
+      setReceiptIssuing(false);
+    }
+  };
 
   return (
     <Container maxWidth={false} sx={{ py: { xs: 3 } }}>
@@ -251,12 +311,6 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                 ดาวน์โหลดไฟล์หรือจัดการ License ของสินค้าที่ซื้อได้จากรายการด้านล่าง
               </Typography>
             </Box>
-            <Chip
-              color="success"
-              variant="soft"
-              icon={<RiCheckboxCircleLine />}
-              label="พร้อมใช้งาน"
-            />
           </Stack>
         </Card>
       )}
@@ -295,7 +349,12 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
       >
         <Stack spacing={3}>
           <Card variant="outlined" sx={{ p: { xs: 2, md: 3 }, borderRadius: 3 }}>
-            <Stack direction="row" justifyContent="space-between" alignItems="center">
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              justifyContent="space-between"
+              alignItems={{ xs: 'flex-start', sm: 'center' }}
+              spacing={1.5}
+            >
               <Box>
                 <Typography variant="h5">สินค้าที่ซื้อ</Typography>
                 <Typography variant="body2" color="text.secondary">
@@ -337,6 +396,7 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                       border: '1px solid',
                       borderColor: 'divider',
                       borderRadius: 2.5,
+                      bgcolor: 'background.paper',
                     }}
                   >
                     <Stack
@@ -346,14 +406,15 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                     >
                       <Box
                         sx={{
-                          width: { xs: '100%', sm: 176 },
-                          aspectRatio: '16 / 10',
+                          width: { xs: '100%', sm: 120 },
+                          aspectRatio: { xs: '16 / 9', sm: '1 / 1' },
                           flexShrink: 0,
                           borderRadius: 2,
                           bgcolor: 'background.neutral',
                           backgroundImage: cover ? `url("${cover}")` : undefined,
-                          backgroundSize: 'cover',
+                          backgroundSize: 'contain',
                           backgroundPosition: 'center',
+                          backgroundRepeat: 'no-repeat',
                           display: 'grid',
                           placeItems: 'center',
                         }}
@@ -402,11 +463,33 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                             size="small"
                             component={RouterLink}
                             href={paths.marketplace.product(product.id)}
-                            sx={{ mt: 1 }}
+                            variant="outlined"
+                            color="inherit"
+                            startIcon={<RiEyeLine />}
+                            sx={{ mt: 1.5 }}
                           >
-                            ดูหน้าสินค้า
+                            ดูรายละเอียดสินค้า
                           </Button>
                         )}
+                        {isPaid &&
+                          product &&
+                          hasPurchaseBenefitsContent(product.purchase_benefits_html, []) && (
+                            <Box
+                              sx={{
+                                p: 1.5,
+                                mt: 2,
+                                borderRadius: 2,
+                                bgcolor: 'primary.lighter',
+                                border: '1px solid',
+                                borderColor: 'primary.light',
+                              }}
+                            >
+                              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                                ข้อความส่งมอบเพิ่มเติม
+                              </Typography>
+                              <PurchaseBenefitsContent html={product.purchase_benefits_html} />
+                            </Box>
+                          )}
                         {product?.resource_type === 'feature_unlock' &&
                           isPaid &&
                           (license ? (
@@ -484,6 +567,9 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                               mt: 2,
                               borderRadius: 2,
                               bgcolor: 'background.neutral',
+                              border: '1px solid',
+                              borderColor: 'divider',
+                              width: '100%',
                             }}
                           >
                             <Stack
@@ -492,7 +578,10 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                               alignItems="center"
                               sx={{ mb: 1.25 }}
                             >
-                              <Typography variant="subtitle2">ไฟล์ดาวน์โหลด</Typography>
+                              <Stack direction="row" spacing={0.75} alignItems="center">
+                                <RiDownloadCloud2Line size={20} />
+                                <Typography variant="subtitle2">ไฟล์ดาวน์โหลด</Typography>
+                              </Stack>
                               {!!product.files?.length && (
                                 <Chip
                                   size="small"
@@ -508,19 +597,35 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                                     <Button
                                       key={file.id}
                                       size="small"
-                                      variant="contained"
-                                      color="inherit"
+                                      variant="outlined"
                                       href={file.url}
                                       target="_blank"
                                       rel="noopener noreferrer"
                                       startIcon={<RiDownloadCloud2Line />}
                                       sx={{
                                         justifyContent: 'flex-start',
+                                        minHeight: 44,
+                                        color: 'text.primary',
+                                        borderColor: 'divider',
                                         bgcolor: 'background.paper',
-                                        '&:hover': { bgcolor: 'grey.100' },
+                                        '&:hover': {
+                                          borderColor: 'primary.main',
+                                          bgcolor: 'primary.lighter',
+                                        },
+                                        '& .MuiButton-startIcon': { color: 'primary.main' },
                                       }}
                                     >
-                                      {file.file_name}
+                                      <Box
+                                        component="span"
+                                        sx={{
+                                          minWidth: 0,
+                                          overflow: 'hidden',
+                                          textOverflow: 'ellipsis',
+                                          whiteSpace: 'nowrap',
+                                        }}
+                                      >
+                                        {file.file_name}
+                                      </Box>
                                     </Button>
                                   ) : (
                                     <Button key={file.id} size="small" variant="outlined" disabled>
@@ -552,6 +657,8 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                               mt: 2,
                               borderRadius: 2,
                               bgcolor: 'primary.lighter',
+                              border: '1px solid',
+                              borderColor: 'primary.light',
                             }}
                           >
                             <Stack
@@ -560,7 +667,10 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                               alignItems="center"
                               sx={{ mb: 1.25 }}
                             >
-                              <Typography variant="subtitle2">ลิงก์ที่ได้รับ</Typography>
+                              <Stack direction="row" spacing={0.75} alignItems="center">
+                                <RiExternalLinkLine size={20} />
+                                <Typography variant="subtitle2">ลิงก์ที่ได้รับ</Typography>
+                              </Stack>
                               <Chip
                                 size="small"
                                 label={`${product.external_links.length} ลิงก์`}
@@ -575,14 +685,20 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                                   href={link.url}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  variant="contained"
-                                  color="inherit"
+                                  variant="outlined"
                                   endIcon={<RiExternalLinkLine />}
                                   sx={{
                                     justifyContent: 'space-between',
+                                    minHeight: 44,
                                     textAlign: 'left',
+                                    color: 'text.primary',
+                                    borderColor: 'primary.light',
                                     bgcolor: 'background.paper',
-                                    '&:hover': { bgcolor: 'grey.100' },
+                                    '&:hover': {
+                                      borderColor: 'primary.main',
+                                      bgcolor: 'primary.lighter',
+                                    },
+                                    '& .MuiButton-endIcon': { color: 'primary.main' },
                                   }}
                                 >
                                   {link.label}
@@ -708,7 +824,7 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                 <Box>
                   <Typography variant="h6">ใบเสร็จรับเงิน</Typography>
                   <Typography variant="caption" color="text.secondary">
-                    เอกสารที่ออกโดยระบบ eKru
+                    เอกสารที่ออกโดยระบบ E-KRU Marketplace
                   </Typography>
                 </Box>
               </Stack>
@@ -729,6 +845,31 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                 {order.receipt.status === 'void' && order.receipt.void_reason && (
                   <Alert severity="error">เหตุผลยกเลิก: {order.receipt.void_reason}</Alert>
                 )}
+                <Typography variant="caption" color="text.secondary">
+                  เปิดดูหรือดาวน์โหลดใบเสร็จได้ทันทีจากหน้านี้
+                </Typography>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+                  <Button
+                    fullWidth
+                    variant="outlined"
+                    startIcon={<RiEyeLine />}
+                    onClick={() => setReceiptPreviewOpen(true)}
+                  >
+                    ดูตัวอย่าง
+                  </Button>
+                  <Button
+                    fullWidth
+                    component="a"
+                    href={`${receiptPdfUrl}?download=1`}
+                    variant="contained"
+                    startIcon={<RiDownloadLine />}
+                  >
+                    ดาวน์โหลด PDF
+                  </Button>
+                </Stack>
+                <Button fullWidth color="inherit" onClick={openReceiptForm}>
+                  แก้ไขข้อมูลผู้รับสำหรับเบิก
+                </Button>
               </Stack>
             </Card>
           )}
@@ -740,12 +881,27 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                 <Typography variant="h6">ใบเสร็จรับเงิน</Typography>
               </Stack>
               <Alert severity="info" sx={{ mt: 2 }}>
-                รายการนี้ชำระเงินแล้ว แต่ระบบยังไม่ได้ออกใบเสร็จรับเงิน
+                รายการนี้ชำระเงินแล้ว คุณสามารถออกใบเสร็จและเปิดดูได้ทันที
               </Alert>
+              {receiptIssueError && (
+                <Alert severity="error" sx={{ mt: 1.5 }}>
+                  {receiptIssueError}
+                </Alert>
+              )}
+              <Button
+                fullWidth
+                variant="contained"
+                loading={receiptIssuing}
+                startIcon={<RiFileTextLine />}
+                onClick={openReceiptForm}
+                sx={{ mt: 2 }}
+              >
+                กรอกข้อมูลและออกใบเสร็จ
+              </Button>
             </Card>
           )}
 
-          <Card variant="outlined" sx={{ p: 3, borderRadius: 3 }}>
+          {/* <Card variant="outlined" sx={{ p: 3, borderRadius: 3 }}>
             <Stack direction="row" spacing={1} alignItems="center">
               <RiStore2Line size={22} />
               <Box>
@@ -762,9 +918,150 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
               nameVariant="subtitle2"
               fallbackName="ร้านค้า eKru"
             />
-          </Card>
+          </Card> */}
         </Stack>
       </Box>
+
+      <Dialog
+        open={receiptFormOpen}
+        onClose={() => !receiptIssuing && setReceiptFormOpen(false)}
+        fullScreen={receiptPreviewFullScreen}
+        fullWidth
+        maxWidth="sm"
+        aria-labelledby="receipt-details-title"
+      >
+        <DialogTitle id="receipt-details-title">ข้อมูลสำหรับออกใบเสร็จรับเงิน</DialogTitle>
+        <DialogContent dividers>
+          <Alert severity="info" sx={{ mb: 2.5 }}>
+            หากใช้เบิกในนามโรงเรียนหรือบริษัท กรุณากรอกชื่อ ที่อยู่ และเลขผู้เสียภาษีของหน่วยงาน
+            ให้ตรงกับข้อมูลที่ฝ่ายการเงินกำหนด
+          </Alert>
+          <Stack spacing={2}>
+            <TextField
+              required
+              fullWidth
+              label="ชื่อผู้รับ / ชื่อโรงเรียน / ชื่อบริษัท"
+              value={receiptForm.buyerName}
+              onChange={(event) =>
+                setReceiptForm((current) => ({ ...current, buyerName: event.target.value }))
+              }
+            />
+            <TextField
+              fullWidth
+              label="เลขประจำตัวผู้เสียภาษี (ถ้ามี)"
+              value={receiptForm.buyerTaxId}
+              onChange={(event) =>
+                setReceiptForm((current) => ({
+                  ...current,
+                  buyerTaxId: event.target.value.replace(/\D/g, '').slice(0, 13),
+                }))
+              }
+              error={Boolean(receiptForm.buyerTaxId && receiptForm.buyerTaxId.length !== 13)}
+              helperText={
+                receiptForm.buyerTaxId && receiptForm.buyerTaxId.length !== 13
+                  ? 'เลขประจำตัวผู้เสียภาษีต้องมี 13 หลัก'
+                  : 'บุคคลทั่วไปเว้นว่างได้'
+              }
+            />
+            <TextField
+              required
+              fullWidth
+              multiline
+              minRows={3}
+              label="ที่อยู่สำหรับออกใบเสร็จ"
+              value={receiptForm.buyerAddress}
+              onChange={(event) =>
+                setReceiptForm((current) => ({ ...current, buyerAddress: event.target.value }))
+              }
+            />
+            <TextField
+              fullWidth
+              type="email"
+              label="อีเมล (ถ้ามี)"
+              value={receiptForm.buyerEmail}
+              onChange={(event) =>
+                setReceiptForm((current) => ({ ...current, buyerEmail: event.target.value }))
+              }
+            />
+            {receiptIssueError && <Alert severity="error">{receiptIssueError}</Alert>}
+            <Typography variant="caption" color="text.secondary">
+              โปรดตรวจสอบข้อมูลให้ถูกต้องก่อนออกใบเสร็จ เนื่องจากเอกสารจะเก็บข้อมูล ณ
+              วันที่ออกไว้เป็นหลักฐาน
+            </Typography>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button disabled={receiptIssuing} onClick={() => setReceiptFormOpen(false)}>
+            ยกเลิก
+          </Button>
+          <Button
+            variant="contained"
+            loading={receiptIssuing}
+            onClick={issueReceipt}
+            disabled={
+              receiptForm.buyerName.trim().length < 2 ||
+              receiptForm.buyerAddress.trim().length < 5 ||
+              Boolean(receiptForm.buyerTaxId && receiptForm.buyerTaxId.length !== 13)
+            }
+          >
+            {order.receipt ? 'บันทึกและเปิดใบเสร็จ' : 'ยืนยันและออกใบเสร็จ'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={receiptPreviewOpen}
+        onClose={() => setReceiptPreviewOpen(false)}
+        fullScreen={receiptPreviewFullScreen}
+        fullWidth
+        maxWidth="lg"
+        aria-labelledby="receipt-preview-title"
+        slotProps={{
+          paper: {
+            sx: {
+              m: { xs: 0, sm: 3 },
+              height: { xs: '100dvh', sm: 'calc(100% - 48px)' },
+              maxHeight: 'none',
+              borderRadius: { xs: 0, sm: 3 },
+            },
+          },
+        }}
+      >
+        <DialogTitle id="receipt-preview-title" sx={{ pr: 7 }}>
+          ตัวอย่างใบเสร็จรับเงิน {order.receipt?.receipt_number}
+          <IconButton
+            aria-label="ปิดตัวอย่างใบเสร็จ"
+            onClick={() => setReceiptPreviewOpen(false)}
+            sx={{ top: 8, right: 8, position: 'absolute' }}
+          >
+            <RiCloseLine />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent
+          dividers
+          sx={{ p: 0, display: 'flex', overflow: 'hidden', bgcolor: 'grey.200' }}
+        >
+          {receiptPreviewOpen && (
+            <Box
+              component="iframe"
+              src={receiptPdfUrl}
+              title={`ใบเสร็จรับเงิน ${order.receipt?.receipt_number ?? ''}`}
+              sx={{ width: 1, height: 1, border: 0, bgcolor: 'common.white' }}
+            />
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: { xs: 2, sm: 3 }, py: 1.5, gap: 2 }}>
+          <Button onClick={() => setReceiptPreviewOpen(false)}>ปิด</Button>
+          <Button
+            component="a"
+            href={`${receiptPdfUrl}?download=1`}
+            variant="contained"
+            startIcon={<RiDownloadLine />}
+          >
+            ดาวน์โหลด PDF
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 }
@@ -780,7 +1077,7 @@ function InfoRow({
 }) {
   return (
     <Stack direction="row" justifyContent="space-between" spacing={2}>
-      <Typography variant="body2" color="text.secondary">
+      <Typography variant="body2" color="text.secondary" sx={{ minWidth: 100 }}>
         {label}
       </Typography>
       <Typography variant="body2" fontWeight={600} textAlign="right" color={valueColor}>

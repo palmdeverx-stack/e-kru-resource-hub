@@ -285,7 +285,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuthContext();
-  const isSystemStore = user?.role === 'master_admin';
+  const isSystemStore = user?.role === 'master_admin' || user?.role === 'super_admin';
   const [seller, setSeller] = useState<MarketplaceSeller | null>(null);
   const [form, setForm] = useState(initialForm);
   const [activeStep, setActiveStep] = useState(0);
@@ -592,6 +592,20 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
               value={form.businessAddress}
               onChange={(e) => update('businessAddress', e.target.value)}
             />
+            <UploadField
+              label="ลายเซ็นอิเล็กทรอนิกส์สำหรับใบเสร็จ"
+              done={hasDocument('receipt_signature')}
+              document={getDocument('receipt_signature')}
+              loading={uploading === 'receipt_signature'}
+              accept="image/png,image/jpeg"
+              aspectRatio="3 / 1"
+              maxSizeMb={2}
+              onFile={(file) => upload('receipt_signature', file)}
+            />
+            <Alert severity="warning">
+              ลายเซ็นนี้จะแสดงในช่องผู้รับเงินของใบเสร็จรับเงิน กรุณาอัปโหลดเฉพาะลายเซ็นของผู้มีอำนาจ
+              แนะนำไฟล์ PNG พื้นหลังโปร่งใส
+            </Alert>
             <TextField
               multiline
               minRows={4}
@@ -1251,9 +1265,11 @@ function UploadField({
 
   const selectFile = (file?: File) => {
     if (!file) return;
-    const acceptsOnlyImages = accept === 'image/*';
-    const supported =
-      file.type.startsWith('image/') || (!acceptsOnlyImages && file.type === 'application/pdf');
+    const acceptedTypes = accept.split(',').map((value) => value.trim());
+    const acceptsOnlyImages = acceptedTypes.every((value) => value.startsWith('image/'));
+    const supported = acceptedTypes.some(
+      (value) => value === file.type || (value === 'image/*' && file.type.startsWith('image/'))
+    );
     if (!supported) {
       setFileError(
         acceptsOnlyImages ? 'กรุณาเลือกไฟล์รูปภาพเท่านั้น' : 'รองรับเฉพาะรูปภาพหรือไฟล์ PDF'
@@ -1313,8 +1329,13 @@ function UploadField({
             )}
           </Stack>
           <Typography variant="caption" color="text.secondary">
-            รองรับ JPG, PNG, WebP{accept !== 'image/*' ? ' หรือ PDF' : ''} ขนาดไม่เกิน {maxSizeMb}{' '}
-            MB
+            รองรับ{' '}
+            {accept.includes('application/pdf')
+              ? 'JPG, PNG, WebP หรือ PDF'
+              : accept === 'image/png,image/jpeg'
+                ? 'JPG หรือ PNG'
+                : 'JPG, PNG หรือ WebP'}{' '}
+            ขนาดไม่เกิน {maxSizeMb} MB
           </Typography>
         </Box>
         {pendingFile && (

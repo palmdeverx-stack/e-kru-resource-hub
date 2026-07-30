@@ -34,7 +34,7 @@ export async function GET(request: Request, { params }: Context) {
   const { data: order, error } = await supabaseAdmin
     .from('marketplace_orders')
     .select(
-      '*, seller:marketplace_sellers(id, display_name, slug, logo_url, owner_role), payment_session:marketplace_payment_sessions(id, amount, currency, payment_method, status, account_name_snapshot, submitted_at, reviewed_at, rejection_reason, bank_transaction_reference, stripe_payment_intent_id, processor_fee, expires_at, created_at), items:marketplace_order_items(*, product:marketplace_products(id, title, title_en, short_description, short_description_en, file_url, cover_url, category, subject_label, resource_type, license_scope, license_seat_count, grants_plan_code, grant_duration_days, external_links, images:marketplace_product_images(*), files:marketplace_product_files(*)))'
+      '*, seller:marketplace_sellers(id, display_name, slug, logo_url, owner_role), payment_session:marketplace_payment_sessions(id, amount, currency, payment_method, status, account_name_snapshot, submitted_at, reviewed_at, rejection_reason, bank_transaction_reference, stripe_payment_intent_id, processor_fee, expires_at, created_at), items:marketplace_order_items(*, product:marketplace_products(id, title, title_en, short_description, short_description_en, file_url, cover_url, category, subject_label, resource_type, license_scope, license_seat_count, grants_plan_code, grant_duration_days, external_links, purchase_benefits, purchase_benefits_html, images:marketplace_product_images(*), files:marketplace_product_files(*)))'
     )
     .eq('id', id)
     .eq('buyer_id', caller.sub)
@@ -51,7 +51,7 @@ export async function GET(request: Request, { params }: Context) {
       ? supabaseAdmin
           .from('marketplace_receipts')
           .select(
-            'id, receipt_number, status, amount, currency, payment_method, transaction_reference, buyer_name, buyer_email, buyer_tax_id, buyer_address, provider_name, provider_tax_id, provider_address, provider_email, notes, issued_at, voided_at, void_reason'
+            'id, receipt_number, status, amount, currency, payment_method, transaction_reference, buyer_name, buyer_email, buyer_tax_id, buyer_address, provider_name, provider_tax_id, provider_address, provider_email, provider_phone, provider_signature_bucket, provider_signature_path, provider_signature_mime_type, paid_at, subtotal_amount, discount_amount, vat_amount, notes, issued_at, voided_at, void_reason'
           )
           .eq('payment_session_id', order.payment_session_id)
           .eq('buyer_id', caller.sub)

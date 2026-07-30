@@ -88,7 +88,7 @@ export function LanguagePopover({
         {...other}
       >
         {showTranslateIcon ? (
-          <RiTranslate2 aria-hidden="true" size={22} color={theme.palette.text.primary} />
+          <RiTranslate2 aria-hidden="true" size={22} color="text.primary" />
         ) : (
           <FlagIcon code={currentLang.countryCode} />
         )}

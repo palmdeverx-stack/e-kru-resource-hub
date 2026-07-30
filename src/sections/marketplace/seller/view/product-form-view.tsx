@@ -61,6 +61,7 @@ import { getMarketplacePricing } from '../../shared/pricing';
 import { MARKETPLACE_CATEGORIES } from '../../shared/constants';
 import { MARKETPLACE_SELLER_LINE_FEATURE } from '../line-feature';
 import { MARKETPLACE_MINIMUM_PAID_PRICE_THB } from '../../shared/payment';
+import { MAX_PURCHASE_BENEFITS_HTML_LENGTH } from '../../shared/purchase-benefits';
 import {
   getTags,
   getCurricula,
@@ -143,6 +144,7 @@ const initialForm = {
   licenseLineQuota: '',
   externalLinks: [] as Array<{ label: string; url: string }>,
   purchaseBenefits: [] as string[],
+  purchaseBenefitsHtml: '',
 };
 
 function plainTextLength(html: string) {
@@ -293,6 +295,8 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
       licenseLineQuota: String(product.license_line_quota ?? ''),
       externalLinks: (product.external_links ?? []).slice(0, MAX_EXTERNAL_LINKS),
       purchaseBenefits: (product.purchase_benefits ?? []).slice(0, MAX_PURCHASE_BENEFITS),
+      purchaseBenefitsHtml:
+        product.purchase_benefits_html ?? '',
     });
     setImages(product.images ?? []);
     setPendingCover(null);
@@ -393,9 +397,11 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
     ...(!isFileOptional
       ? [
           {
-            label: 'เพิ่มไฟล์หรือลิงก์ส่งมอบอย่างน้อย 1 รายการ',
+            label: 'เพิ่มไฟล์ ลิงก์ หรือข้อความส่งมอบอย่างน้อย 1 รายการ',
             completed:
-              visibleFiles.length + pendingProductFiles.length > 0 || form.externalLinks.length > 0,
+              visibleFiles.length + pendingProductFiles.length > 0 ||
+              form.externalLinks.length > 0 ||
+              plainTextLength(form.purchaseBenefitsHtml) > 0,
           },
         ]
       : []),
@@ -500,6 +506,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
       url: link.url.trim(),
     })),
     purchaseBenefits: form.purchaseBenefits.map((item) => item.trim()).filter(Boolean),
+    purchaseBenefitsHtml: form.purchaseBenefitsHtml,
     ...(submit && { submit: true }),
   });
 
@@ -1091,7 +1098,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                 </Grid>
 
                 {!isLicenseProduct ? (
-                  <Grid size={{ xs: 12, sm: 6 }}>
+                  <Grid size={{ xs: 12 }}>
                     <TextField
                       fullWidth
                       required
@@ -1851,11 +1858,80 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                   </Typography>
                 </Stack>
 
+                <Stack
+                  spacing={1.5}
+                  sx={{
+                    p: { xs: 2, md: 2.5 },
+                    borderRadius: 2,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    bgcolor: 'background.paper',
+                  }}
+                >
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Box
+                      sx={{
+                        width: 32,
+                        height: 32,
+                        display: 'grid',
+                        borderRadius: 1,
+                        placeItems: 'center',
+                        color: 'primary.main',
+                        bgcolor: 'primary.lighter',
+                      }}
+                    >
+                      <RemixIcon icon="solar:document-text-bold-duotone" width={18} />
+                    </Box>
+                    <Box>
+                      <Typography variant="subtitle1">
+                        เพิ่มข้อความส่งมอบหลังชำระเงิน (ไม่บังคับ)
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        ผู้ซื้อที่ชำระเงินแล้วเท่านั้นจึงจะเห็นข้อความนี้
+                      </Typography>
+                    </Box>
+                  </Stack>
+                  <Alert severity="info" variant="outlined">
+                    ใช้สำหรับ Prompt, Template, รหัส, ขั้นตอนเข้าใช้งาน
+                    หรือเนื้อหาที่ต้องส่งมอบเพิ่มเติมจากไฟล์และลิงก์
+                  </Alert>
+                  <Editor
+                    fullItem
+                    value={form.purchaseBenefitsHtml}
+                    onChange={(value) =>
+                      setForm((current) => ({ ...current, purchaseBenefitsHtml: value }))
+                    }
+                    placeholder={`ตัวอย่าง\nคุณคือครูผู้เชี่ยวชาญด้านการจัดการเรียนรู้\n\nวิชา: {{subject}}\nระดับชั้น: {{grade}}\nเวลา: {{duration}}`}
+                    sx={{ minHeight: { xs: 320, md: 420 } }}
+                  />
+                  <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={0.75}
+                    justifyContent="space-between"
+                  >
+                    <Typography variant="caption" color="text.secondary">
+                      ข้อความ เช่น {'{{subject}}'} จะถูกเก็บและส่งให้ลูกค้าตามที่พิมพ์
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      color={
+                        form.purchaseBenefitsHtml.length > MAX_PURCHASE_BENEFITS_HTML_LENGTH
+                          ? 'error'
+                          : 'text.secondary'
+                      }
+                      sx={{ whiteSpace: 'nowrap' }}
+                    >
+                      {form.purchaseBenefitsHtml.length.toLocaleString('th-TH')}/
+                      {MAX_PURCHASE_BENEFITS_HTML_LENGTH.toLocaleString('th-TH')} ตัวอักษร
+                    </Typography>
+                  </Stack>
+                </Stack>
+
                 <Box
                   sx={{
                     p: 2.5,
                     borderRadius: 2,
-                    bgcolor: 'background.neutral',
+                    bgcolor: (theme) => theme.palette.success.lighter,
                     border: '1px solid',
                     borderColor: 'divider',
                   }}
@@ -1893,9 +1969,11 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                               } ไฟล์ พร้อมดาวน์โหลดจากรายละเอียดการซื้อ`
                             : form.externalLinks.length > 0
                               ? `ลิงก์ส่งมอบ ${form.externalLinks.length} ลิงก์ พร้อมเปิดจากรายละเอียดการซื้อ`
+                              : plainTextLength(form.purchaseBenefitsHtml) > 0
+                                ? 'ข้อความส่งมอบเพิ่มเติม พร้อมแสดงในรายละเอียดการซื้อหลังชำระเงิน'
                               : isFileOptional
                                 ? 'ผู้ซื้อเข้าดูรายละเอียดและขั้นตอนรับสินค้าหรือบริการได้จากรายการซื้อ'
-                                : 'ยังไม่มีสิ่งที่จะส่งมอบ กรุณาเพิ่มไฟล์หรือลิงก์อย่างน้อย 1 รายการ'}
+                                : 'ยังไม่มีสิ่งที่จะส่งมอบ กรุณาเพิ่มไฟล์ ลิงก์ หรือข้อความอย่างน้อย 1 รายการ'}
                         </Typography>
                       </Stack>
                     )}

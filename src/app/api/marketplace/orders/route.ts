@@ -132,7 +132,7 @@ export async function POST(request: Request) {
   const { data: products, error: productError } = await supabaseAdmin
     .from('marketplace_products')
     .select(
-      'id, seller_id, title, title_en, category, short_description, description, price, list_price, currency, status, resource_type, grants_feature_key, grants_feature_keys, grants_plan_code, grant_duration_days, license_scope, license_seat_count, license_max_teachers, license_max_students, license_max_school_admins, license_line_quota, purchase_benefits, seller:marketplace_sellers(owner_role, commission_rate_override)'
+      'id, seller_id, title, title_en, category, short_description, description, price, list_price, currency, status, resource_type, grants_feature_key, grants_feature_keys, grants_plan_code, grant_duration_days, license_scope, license_seat_count, license_max_teachers, license_max_students, license_max_school_admins, license_line_quota, purchase_benefits, purchase_benefits_html, seller:marketplace_sellers(owner_role, commission_rate_override)'
     )
     .in('id', uniqueProductIds)
     .eq('status', 'published');

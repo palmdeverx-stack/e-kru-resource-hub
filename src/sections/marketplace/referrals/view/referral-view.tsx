@@ -1,6 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import {
+  LineIcon,
+  EmailIcon,
+  WhatsappIcon,
+  FacebookIcon,
+  LineShareButton,
+  EmailShareButton,
+  WhatsappShareButton,
+  FacebookShareButton,
+} from 'react-share';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -18,11 +28,7 @@ import Typography from '@mui/material/Typography';
 import TableContainer from '@mui/material/TableContainer';
 import CircularProgress from '@mui/material/CircularProgress';
 
-import {
-  RiFileCopyLine,
-  RiShareForwardLine,
-  RiMoneyDollarCircleLine,
-} from 'src/components/remix-icon';
+import { RiFileCopyLine, RiMoneyDollarCircleLine } from 'src/components/remix-icon';
 
 type ReferralData = {
   enabled: boolean;
@@ -53,6 +59,7 @@ export function MarketplaceReferralView() {
   const [data, setData] = useState<ReferralData | null>(null);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
+  const [actionError, setActionError] = useState('');
 
   useEffect(() => {
     fetch('/api/marketplace/referrals', { cache: 'no-store' })
@@ -85,22 +92,35 @@ export function MarketplaceReferralView() {
 
   const copyLink = async () => {
     if (!data.code) return;
-    await navigator.clipboard.writeText(data.code.link);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1800);
+    try {
+      await navigator.clipboard.writeText(data.code.link);
+      setActionError('');
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setActionError('ไม่สามารถคัดลอกลิงก์ได้ กรุณาคัดลอกจากช่องลิงก์โดยตรง');
+    }
   };
   const shareLink = async () => {
     if (!data.code) return;
     if (navigator.share) {
-      await navigator.share({
-        title: 'E-KRU Marketplace',
-        text: 'เลือกดูสื่อการสอนคุณภาพจาก E-KRU Marketplace',
-        url: data.code.link,
-      });
+      try {
+        await navigator.share({
+          title: 'E-KRU Marketplace',
+          text: 'เลือกดูสื่อการสอนคุณภาพจาก E-KRU Marketplace',
+          url: data.code.link,
+        });
+        setActionError('');
+      } catch (shareError) {
+        if (shareError instanceof Error && shareError.name === 'AbortError') return;
+        await copyLink();
+      }
     } else {
       await copyLink();
     }
   };
+  const shareUrl = data.code?.link ?? '';
+  const shareTitle = 'เลือกดูสื่อการสอนคุณภาพจาก E-KRU Marketplace';
 
   return (
     <Container maxWidth={false} sx={{ py: { xs: 3 } }}>
@@ -119,6 +139,9 @@ export function MarketplaceReferralView() {
 
       <Card sx={{ p: { xs: 2.5, md: 4 }, mt: 3 }}>
         <Typography variant="h6">ลิงก์แนะนำของคุณ</Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+          Referral Code: {data.code?.value}
+        </Typography>
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} sx={{ mt: 2 }}>
           <TextField
             fullWidth
@@ -133,18 +156,79 @@ export function MarketplaceReferralView() {
           >
             {copied ? 'คัดลอกแล้ว' : 'คัดลอกลิงก์'}
           </Button>
-          <Button
+          {/* <Button
             variant="contained"
             startIcon={<RiShareForwardLine />}
             onClick={shareLink}
             sx={{ flexShrink: 0 }}
           >
-            แชร์
-          </Button>
+            แชร์ช่องทางอื่น
+          </Button> */}
         </Stack>
-        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-          Referral Code: {data.code?.value}
+        <Typography variant="subtitle2" sx={{ mt: 2.5, mb: 1.25 }}>
+          เชิญเพื่อนผ่าน
         </Typography>
+        <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
+          <Box sx={{ textAlign: 'center' }}>
+            <LineShareButton
+              url={shareUrl}
+              title={shareTitle}
+              disabled={!data.code}
+              aria-label="แชร์ลิงก์แนะนำผ่าน LINE"
+            >
+              <LineIcon size={44} round aria-hidden="true" />
+            </LineShareButton>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+              LINE
+            </Typography>
+          </Box>
+          <Box sx={{ textAlign: 'center' }}>
+            <FacebookShareButton
+              url={shareUrl}
+              hashtag="#EKRU"
+              disabled={!data.code}
+              aria-label="แชร์ลิงก์แนะนำผ่าน Facebook"
+            >
+              <FacebookIcon size={44} round aria-hidden="true" />
+            </FacebookShareButton>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+              Facebook
+            </Typography>
+          </Box>
+          <Box sx={{ textAlign: 'center' }}>
+            <WhatsappShareButton
+              url={shareUrl}
+              title={shareTitle}
+              disabled={!data.code}
+              aria-label="แชร์ลิงก์แนะนำผ่าน WhatsApp"
+            >
+              <WhatsappIcon size={44} round aria-hidden="true" />
+            </WhatsappShareButton>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+              WhatsApp
+            </Typography>
+          </Box>
+          <Box sx={{ textAlign: 'center' }}>
+            <EmailShareButton
+              url={shareUrl}
+              subject="ขอแนะนำ E-KRU Marketplace"
+              body={shareTitle}
+              disabled={!data.code}
+              aria-label="ส่งลิงก์แนะนำทางอีเมล"
+            >
+              <EmailIcon size={44} round aria-hidden="true" />
+            </EmailShareButton>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+              อีเมล
+            </Typography>
+          </Box>
+        </Stack>
+
+        {actionError && (
+          <Alert severity="warning" sx={{ mt: 2 }}>
+            {actionError}
+          </Alert>
+        )}
       </Card>
 
       <Box

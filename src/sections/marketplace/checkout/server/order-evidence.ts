@@ -73,6 +73,7 @@ export async function captureOrderEvidence({
     grant_duration_days: product.grant_duration_days ?? null,
     license_line_quota: product.license_line_quota ?? null,
     purchase_benefits: product.purchase_benefits ?? [],
+    purchase_benefits_html: product.purchase_benefits_html ?? null,
   }));
 
   const { error } = await supabaseAdmin.from('marketplace_order_evidence').insert({

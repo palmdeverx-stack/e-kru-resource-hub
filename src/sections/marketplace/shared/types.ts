@@ -269,6 +269,7 @@ export type MarketplaceProduct = {
   file_url?: string | null;
   external_links?: MarketplaceProductLink[];
   purchase_benefits?: string[];
+  purchase_benefits_html?: string | null;
   status: ProductStatus;
   submitted_at?: string | null;
   reviewed_at?: string | null;
@@ -397,6 +398,14 @@ export type MarketplaceOrder = {
     provider_tax_id: string | null;
     provider_address: string | null;
     provider_email: string | null;
+    provider_phone: string | null;
+    provider_signature_bucket: string | null;
+    provider_signature_path: string | null;
+    provider_signature_mime_type: string | null;
+    paid_at: string;
+    subtotal_amount: number;
+    discount_amount: number;
+    vat_amount: number;
     notes: string | null;
     issued_at: string;
     voided_at: string | null;
@@ -494,5 +503,6 @@ export type ProductInput = {
   licenseLineQuota?: number;
   externalLinks?: MarketplaceProductLink[];
   purchaseBenefits?: string[];
+  purchaseBenefitsHtml?: string;
   submit?: boolean;
 };

@@ -1,5 +1,7 @@
 'use client';
 
+import type { LegalDocumentType } from '../../legal/types';
+
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 
@@ -40,12 +42,29 @@ import { useAuthContext } from 'src/auth/hooks';
 import { STRIPE_MINIMUM_THB } from '../../shared/payment';
 import { useMarketplaceCart } from '../../cart/cart-context';
 import { getMarketplacePricing } from '../../shared/pricing';
+import { MarketplaceLegalDocumentDialog } from '../../legal/view/legal-document-dialog';
 import {
   createOrder,
   formatPrice,
   getLocalizedProduct,
   getEligibleLicenseSchools,
 } from '../../shared/api';
+
+type SelectedLegalDocument = {
+  type: LegalDocumentType;
+  title: string;
+  href: string;
+};
+
+const LEGAL_LINK_SX = {
+  p: 0,
+  border: 0,
+  cursor: 'pointer',
+  font: 'inherit',
+  textAlign: 'left',
+  verticalAlign: 'baseline',
+  bgcolor: 'transparent',
+} as const;
 
 export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMode?: boolean }) {
   const router = useRouter();
@@ -61,6 +80,8 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
   const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [acceptedPurchaseTerms, setAcceptedPurchaseTerms] = useState(false);
+  const [selectedLegalDocument, setSelectedLegalDocument] =
+    useState<SelectedLegalDocument | null>(null);
   const [error, setError] = useState('');
   const [schools, setSchools] = useState<Array<{ id: string; name: string }>>([]);
   const [schoolsLoading, setSchoolsLoading] = useState(true);
@@ -505,23 +526,63 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
             label={
               <Typography variant="body2" color="text.secondary">
                 ฉันตรวจสอบรายละเอียดสินค้าและยอมรับ{' '}
-                <Link component={RouterLink} href={paths.legal.termsOfService} target="_blank">
+                <Link
+                  component="button"
+                  type="button"
+                  onClick={() =>
+                    setSelectedLegalDocument({
+                      type: 'terms_of_service',
+                      title: 'ข้อกำหนดการใช้บริการ',
+                      href: paths.legal.termsOfService,
+                    })
+                  }
+                  sx={LEGAL_LINK_SX}
+                >
                   ข้อกำหนดการใช้บริการ
                 </Link>{' '}
                 และ{' '}
-                <Link component={RouterLink} href={paths.legal.refundPolicy} target="_blank">
+                <Link
+                  component="button"
+                  type="button"
+                  onClick={() =>
+                    setSelectedLegalDocument({
+                      type: 'refund_policy',
+                      title: 'นโยบายคืนเงิน',
+                      href: paths.legal.refundPolicy,
+                    })
+                  }
+                  sx={LEGAL_LINK_SX}
+                >
                   นโยบายคืนเงิน
                 </Link>{' '}
                 รวมถึง{' '}
                 <Link
-                  component={RouterLink}
-                  href={paths.legal.digitalProductLicense}
-                  target="_blank"
+                  component="button"
+                  type="button"
+                  onClick={() =>
+                    setSelectedLegalDocument({
+                      type: 'digital_product_license',
+                      title: 'สิทธิการใช้สินค้าดิจิทัล',
+                      href: paths.legal.digitalProductLicense,
+                    })
+                  }
+                  sx={LEGAL_LINK_SX}
                 >
                   สิทธิการใช้สินค้าดิจิทัล
                 </Link>{' '}
                 และ{' '}
-                <Link component={RouterLink} href={paths.legal.paymentPayoutPolicy} target="_blank">
+                <Link
+                  component="button"
+                  type="button"
+                  onClick={() =>
+                    setSelectedLegalDocument({
+                      type: 'payment_payout_policy',
+                      title: 'เงื่อนไขการชำระเงิน',
+                      href: paths.legal.paymentPayoutPolicy,
+                    })
+                  }
+                  sx={LEGAL_LINK_SX}
+                >
                   เงื่อนไขการชำระเงิน
                 </Link>
                 {hasFeatureProduct && (
@@ -529,9 +590,16 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
                     {' '}
                     และ{' '}
                     <Link
-                      component={RouterLink}
-                      href={paths.legal.subscriptionPolicy}
-                      target="_blank"
+                      component="button"
+                      type="button"
+                      onClick={() =>
+                        setSelectedLegalDocument({
+                          type: 'subscription_policy',
+                          title: 'นโยบายแพ็กเกจและการยกเลิก',
+                          href: paths.legal.subscriptionPolicy,
+                        })
+                      }
+                      sx={LEGAL_LINK_SX}
                     >
                       นโยบายแพ็กเกจและการยกเลิก
                     </Link>
@@ -567,6 +635,14 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
           </Button>
         </Card>
       </Stack>
+
+      <MarketplaceLegalDocumentDialog
+        open={Boolean(selectedLegalDocument)}
+        documentType={selectedLegalDocument?.type ?? null}
+        fallbackTitle={selectedLegalDocument?.title ?? 'รายละเอียดข้อกำหนด'}
+        fullPageHref={selectedLegalDocument?.href ?? paths.legal.center}
+        onClose={() => setSelectedLegalDocument(null)}
+      />
     </Container>
   );
 }

@@ -458,9 +458,13 @@ export function MarketplaceProductDetailView({
 
   if (modalMode) {
     return (
-      <Container maxWidth="lg" sx={{ py: { xs: 4, md: 7 } }}>
+      <Container maxWidth="lg" sx={{ py: { xs: 3, sm: 4, md: 7 } }}>
         <Stack spacing={{ xs: 3, md: 4 }}>
-          <Typography component="h1" variant="h3" sx={{ pr: 7 }}>
+          <Typography
+            component="h1"
+            variant="h3"
+            sx={{ pr: { xs: 6.5, sm: 7 }, overflowWrap: 'anywhere' }}
+          >
             {content.title}
           </Typography>
 
@@ -480,15 +484,29 @@ export function MarketplaceProductDetailView({
               backdropFilter: 'blur(12px)',
             }}
           >
-            <Stack direction="row" spacing={1.5} alignItems="center">
+            <Stack
+              direction="row"
+              spacing={1.5}
+              alignItems="center"
+              sx={{ width: { xs: 1, md: 'auto' }, minWidth: 0 }}
+            >
               {sellerAvatar(50)}
-              <Box>
+              <Box sx={{ minWidth: 0 }}>
                 <Stack direction="row" spacing={0.75} alignItems="center">
                   {sellerName()}
                 </Stack>
-                <Stack direction="row" spacing={1} alignItems="center">
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  alignItems="center"
+                  sx={{ minWidth: 0 }}
+                >
                   <Rating size="small" value={engagement.averageRating} precision={0.1} readOnly />
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ whiteSpace: 'nowrap' }}
+                  >
                     {engagement.reviewCount
                       ? `${engagement.averageRating.toFixed(1)} · ${engagement.reviewCount} รีวิว`
                       : 'สินค้าใหม่'}
@@ -497,7 +515,12 @@ export function MarketplaceProductDetailView({
               </Box>
             </Stack>
 
-            <Stack direction="row" spacing={1} alignItems="center">
+            <Stack
+              direction="row"
+              spacing={1}
+              alignItems="center"
+              sx={{ width: { xs: 1, md: 'auto' }, minWidth: 0 }}
+            >
               <IconButton
                 aria-label={favorite ? 'เลิกถูกใจสินค้า' : 'ถูกใจสินค้า'}
                 disabled={collectionSaving}
@@ -544,7 +567,16 @@ export function MarketplaceProductDetailView({
                 startIcon={<RiAddLine />}
                 onClick={handleAdd}
                 color="primary"
-                sx={{ borderRadius: 6, px: { xs: 2, sm: 3 } }}
+                sx={{
+                  minWidth: 0,
+                  flex: { xs: 1, md: 'initial' },
+                  borderRadius: 6,
+                  px: { xs: 1.25, sm: 3 },
+                  lineHeight: 1.35,
+                  '& .MuiButton-startIcon': {
+                    mr: { xs: 0.5, sm: 1 },
+                  },
+                }}
               >
                 {addButtonLabel}
               </Button>
@@ -554,7 +586,8 @@ export function MarketplaceProductDetailView({
           <Box
             sx={{
               p: { xs: 1.5, sm: 3, md: 5 },
-              minHeight: { xs: 380, md: 640 },
+              minHeight: { xs: 0, md: 640 },
+              aspectRatio: { xs: '4 / 3', md: 'auto' },
               display: 'grid',
               position: 'relative',
               overflow: 'hidden',
@@ -631,7 +664,12 @@ export function MarketplaceProductDetailView({
                   <Typography variant="h4">เกี่ยวกับสินค้านี้</Typography>
                   <Typography
                     color="text.secondary"
-                    sx={{ mt: 1.5, lineHeight: 1.9, whiteSpace: 'pre-line' }}
+                    sx={{
+                      mt: 1.5,
+                      lineHeight: 1.9,
+                      whiteSpace: 'pre-line',
+                      overflowWrap: 'anywhere',
+                    }}
                   >
                     {stripHtml(content.description)}
                   </Typography>

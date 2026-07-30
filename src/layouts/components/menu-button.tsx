@@ -9,7 +9,7 @@ import { RiMenuLine } from 'src/components/remix-icon';
 export function MenuButton({ sx, ...other }: IconButtonProps) {
   return (
     <IconButton sx={sx} {...other}>
-      <RiMenuLine size={24} />
+      <RiMenuLine size={24} color="text.primary" />
     </IconButton>
   );
 }
