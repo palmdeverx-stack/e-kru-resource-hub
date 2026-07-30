@@ -28,7 +28,7 @@ export function MarketplaceCartView() {
   }
 
   return (
-    <Container maxWidth="xl" sx={{ py: { xs: 4, md: 8 } }}>
+    <Container maxWidth="lg" sx={{ py: { xs: 4, md: 8 } }}>
       <MarketplaceCartContent
         productsHref={paths.marketplace.products}
         checkoutHref={paths.marketplace.checkout}

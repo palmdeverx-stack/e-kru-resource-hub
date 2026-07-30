@@ -71,6 +71,8 @@ export async function getProducts(params?: {
   sellerId?: string;
   official?: boolean;
   bestSeller?: boolean;
+  price?: 'all' | 'free' | 'paid';
+  gradeGroup?: 'kindergarten' | 'primary' | 'secondary';
   mine?: boolean;
   page?: number;
   limit?: number;
@@ -83,6 +85,8 @@ export async function getProducts(params?: {
   if (params?.sellerId) searchParams.set('sellerId', params.sellerId);
   if (params?.official) searchParams.set('official', '1');
   if (params?.bestSeller) searchParams.set('bestSeller', '1');
+  if (params?.price && params.price !== 'all') searchParams.set('price', params.price);
+  if (params?.gradeGroup) searchParams.set('grade', params.gradeGroup);
   if (params?.mine) searchParams.set('mine', '1');
   if (params?.page) searchParams.set('page', String(params.page));
   if (params?.limit) searchParams.set('limit', String(params.limit));

@@ -138,6 +138,7 @@ create unique index if not exists marketplace_grade_levels_name_lower_key
 
 insert into public.marketplace_grade_levels (code, name, sort_order)
 values
+  ('k1', 'อ.1', 1), ('k2', 'อ.2', 2), ('k3', 'อ.3', 3),
   ('p1', 'ป.1', 10), ('p2', 'ป.2', 20), ('p3', 'ป.3', 30),
   ('p4', 'ป.4', 40), ('p5', 'ป.5', 50), ('p6', 'ป.6', 60),
   ('m1', 'ม.1', 70), ('m2', 'ม.2', 80), ('m3', 'ม.3', 90),
@@ -866,6 +867,35 @@ create table if not exists public.marketplace_product_views (
 );
 create index if not exists marketplace_product_views_product_idx
   on public.marketplace_product_views (product_id);
+
+create or replace function public.marketplace_product_engagement_counts(product_ids uuid[])
+returns table (
+  product_id uuid,
+  views bigint,
+  purchases bigint
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    requested.product_id,
+    (
+      select count(*)
+      from public.marketplace_product_views product_view
+      where product_view.product_id = requested.product_id
+    ) as views,
+    (
+      select coalesce(sum(order_item.quantity), 0)
+      from public.marketplace_order_items order_item
+      join public.marketplace_orders marketplace_order
+        on marketplace_order.id = order_item.order_id
+      where order_item.product_id = requested.product_id
+        and marketplace_order.status in ('paid', 'completed')
+    ) as purchases
+  from unnest(product_ids) as requested(product_id);
+$$;
 
 create table if not exists public.marketplace_product_reviews (
   id uuid primary key default gen_random_uuid(),

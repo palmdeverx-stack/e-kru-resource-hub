@@ -14,7 +14,16 @@ import {
   SELLER_TOOLS_CATEGORY,
 } from 'src/sections/marketplace/seller/server/seller-tools-access';
 
-function withCardRating(product: Record<string, unknown>): Record<string, unknown> {
+type ProductEngagementCount = {
+  product_id: string;
+  views: number | string;
+  purchases: number | string;
+};
+
+function withCardRating(
+  product: Record<string, unknown>,
+  counts?: ProductEngagementCount
+): Record<string, unknown> {
   const reviews = Array.isArray(product.reviews)
     ? (product.reviews as Array<{ rating?: number }>)
     : [];
@@ -26,8 +35,8 @@ function withCardRating(product: Record<string, unknown>): Record<string, unknow
   return {
     ...safeProduct,
     engagement: {
-      views: 0,
-      purchases: 0,
+      views: Number(counts?.views ?? 0),
+      purchases: Number(counts?.purchases ?? 0),
       downloads: 0,
       reviewCount: ratings.length,
       averageRating: ratings.length
@@ -47,6 +56,11 @@ export async function GET(request: Request) {
   const mine = url.searchParams.get('mine') === '1';
   const official = url.searchParams.get('official') === '1';
   const bestSeller = url.searchParams.get('bestSeller') === '1';
+  const priceFilter = url.searchParams.get('price');
+  const requestedGradeGroup = url.searchParams.get('grade');
+  const gradeGroup = ['kindergarten', 'primary', 'secondary'].includes(requestedGradeGroup ?? '')
+    ? requestedGradeGroup
+    : null;
   const category = url.searchParams.get('category');
   const requestedSellerId = url.searchParams.get('sellerId')?.trim();
   const search = url.searchParams.get('q')?.trim();
@@ -56,6 +70,32 @@ export async function GET(request: Request) {
     Math.max(1, Number.parseInt(url.searchParams.get('limit') ?? '48', 10) || 48)
   );
   const offset = (page - 1) * limit;
+
+  let gradeLevelIds: string[] | null = null;
+  if (gradeGroup) {
+    let gradeLevelQuery = supabaseAdmin.from('marketplace_grade_levels').select('id');
+
+    if (gradeGroup === 'kindergarten') {
+      gradeLevelQuery = gradeLevelQuery.or('code.ilike.k%,code.ilike.kg%,name.ilike.%อนุบาล%');
+    } else if (gradeGroup === 'primary') {
+      gradeLevelQuery = gradeLevelQuery.ilike('code', 'p%');
+    } else {
+      gradeLevelQuery = gradeLevelQuery.ilike('code', 'm%');
+    }
+
+    const { data: gradeLevels, error: gradeLevelsError } = await gradeLevelQuery;
+    if (gradeLevelsError) {
+      if (gradeLevelsError.code === '42P01') {
+        return NextResponse.json({ products: [], setupRequired: true });
+      }
+      return NextResponse.json({ message: gradeLevelsError.message }, { status: 500 });
+    }
+
+    gradeLevelIds = (gradeLevels ?? []).map((gradeLevel) => gradeLevel.id);
+    if (!gradeLevelIds.length) {
+      return NextResponse.json({ products: [], hasMore: false, nextPage: null });
+    }
+  }
 
   let sellerId: string | null = null;
   if (mine) {
@@ -128,10 +168,14 @@ export async function GET(request: Request) {
     }
   }
 
+  const gradeLevelsSelect = gradeLevelIds
+    ? 'grade_levels:marketplace_product_grade_levels!inner(grade_level_id,grade_level:marketplace_grade_levels(id,name))'
+    : 'grade_levels:marketplace_product_grade_levels(grade_level:marketplace_grade_levels(id,name))';
+
   let query = supabaseAdmin
     .from('marketplace_products')
     .select(
-      '*, seller:marketplace_sellers(id, display_name, display_name_en, seller_type, slug, logo_url, bio, owner_role), media_type:marketplace_media_types(id, name, delivery_mode), sale_type:marketplace_sale_types(id, name, pricing_mode), grade_levels:marketplace_product_grade_levels(grade_level:marketplace_grade_levels(id,name)), images:marketplace_product_images(*), reviews:marketplace_product_reviews(rating)'
+      `*, seller:marketplace_sellers(id, display_name, display_name_en, seller_type, slug, logo_url, bio, owner_role), media_type:marketplace_media_types(id, name, delivery_mode), sale_type:marketplace_sale_types(id, name, pricing_mode), ${gradeLevelsSelect}, images:marketplace_product_images(*), reviews:marketplace_product_reviews(rating)`
     )
     .order('created_at', { ascending: false });
 
@@ -143,6 +187,9 @@ export async function GET(request: Request) {
   }
   if (!mine && requestedSellerId) query = query.eq('seller_id', requestedSellerId);
   if (category && category !== 'all') query = query.eq('category', category);
+  if (gradeLevelIds) query = query.in('grade_levels.grade_level_id', gradeLevelIds);
+  if (priceFilter === 'free') query = query.eq('price', 0);
+  if (priceFilter === 'paid') query = query.gt('price', 0);
   if (search) {
     const safeSearch = search.replace(/[^\p{L}\p{N}\s_-]/gu, '').trim();
     if (safeSearch) {
@@ -169,6 +216,25 @@ export async function GET(request: Request) {
     : orderedRows;
   const hasMore = pagedRows.length > limit;
   const pageRows = pagedRows.slice(0, limit);
+  const engagementCounts = new Map<string, ProductEngagementCount>();
+  if (pageRows.length) {
+    const { data: countRows, error: countError } = await supabaseAdmin.rpc(
+      'marketplace_product_engagement_counts',
+      { product_ids: pageRows.map((product) => product.id) }
+    );
+    if (countError) {
+      return NextResponse.json(
+        {
+          message: countError.message,
+          setupRequired: countError.code === '42883' || countError.code === 'PGRST202',
+        },
+        { status: 500 }
+      );
+    }
+    ((countRows ?? []) as ProductEngagementCount[]).forEach((count) => {
+      engagementCounts.set(count.product_id, count);
+    });
+  }
   const mineUsage = new Map<
     string,
     { purchases: number; hasOrderReferences: boolean; hasDealReferences: boolean }
@@ -215,7 +281,10 @@ export async function GET(request: Request) {
   }
   const resolved = await Promise.all(pageRows.map((product) => withMediaUrls(product)));
   const safeProducts = resolved.map((resolvedProduct) => {
-    const product = withCardRating(resolvedProduct);
+    const product = withCardRating(
+      resolvedProduct,
+      engagementCounts.get(String(resolvedProduct.id))
+    );
     if (bestSellingProductIds && product.engagement && typeof product.engagement === 'object') {
       product.engagement = {
         ...(product.engagement as Record<string, unknown>),

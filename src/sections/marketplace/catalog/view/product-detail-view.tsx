@@ -34,9 +34,11 @@ import {
   RiCloseLine,
   RiHeartLine,
   RiBook2Line,
+  RiHeartFill,
   RiBookmarkLine,
   RiBookOpenLine,
   RiImageAddLine,
+  RiBookmarkFill,
   RiPriceTag3Line,
   RiArrowLeftLine,
   RiShieldCheckLine,
@@ -506,7 +508,7 @@ export function MarketplaceProductDetailView({
                   color: favorite ? 'primary.main' : 'text.primary',
                 }}
               >
-                <RiHeartLine />
+                {favorite ? <RiHeartFill /> : <RiHeartLine />}
               </IconButton>
               <IconButton
                 aria-label={saved ? 'นำออกจากรายการที่บันทึก' : 'บันทึกสินค้า'}
@@ -518,7 +520,7 @@ export function MarketplaceProductDetailView({
                   color: saved ? 'primary.main' : 'text.primary',
                 }}
               >
-                <RiBookmarkLine />
+                {saved ? <RiBookmarkFill /> : <RiBookmarkLine />}
               </IconButton>
               <IconButton
                 aria-label="แชร์สินค้า"
@@ -541,6 +543,7 @@ export function MarketplaceProductDetailView({
                 disabled={isInCart || purchaseUnavailable}
                 startIcon={<RiAddLine />}
                 onClick={handleAdd}
+                color="primary"
                 sx={{ borderRadius: 6, px: { xs: 2, sm: 3 } }}
               >
                 {addButtonLabel}

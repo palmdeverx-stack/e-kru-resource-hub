@@ -16,6 +16,7 @@ import Skeleton from '@mui/material/Skeleton';
 import Container from '@mui/material/Container';
 import TextField from '@mui/material/TextField';
 import IconButton from '@mui/material/IconButton';
+import ButtonBase from '@mui/material/ButtonBase';
 import Typography from '@mui/material/Typography';
 import InputAdornment from '@mui/material/InputAdornment';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -27,12 +28,22 @@ import { useRouter, useSearchParams } from 'src/routes/hooks';
 import { useTranslate } from 'src/locales';
 
 import {
+  RiTimeLine,
+  RiTodoLine,
   RiSearchLine,
+  RiSchoolLine,
   RiStore2Line,
+  RiGamepadLine,
+  RiQuestionLine,
   RiBookOpenLine,
+  RiBookReadLine,
+  RiBearSmileLine,
+  RiFileList3Line,
   RiArrowLeftSLine,
+  RiArrowRightLine,
   RiShieldCheckLine,
   RiArrowRightSLine,
+  RiPresentationLine,
   RiGraduationCapLine,
 } from 'src/components/remix-icon';
 
@@ -48,13 +59,119 @@ type PublicStats = {
   externalMembers: number;
 };
 
+type PriceFilter = 'all' | 'free' | 'paid';
+type GradeGroup = 'all' | 'kindergarten' | 'primary' | 'secondary';
+
 const formatCount = (value: number) => new Intl.NumberFormat('th-TH').format(value);
+
+const normalizeGradeGroup = (value: string | null): GradeGroup => {
+  if (value === 'kindergarten' || value === 'primary' || value === 'secondary') return value;
+  return 'all';
+};
+
+const matchesGradeGroup = (product: MarketplaceProduct, gradeGroup: GradeGroup) => {
+  if (gradeGroup === 'all') return true;
+
+  const gradeText = [
+    product.title,
+    ...(product.grade_levels ?? []).map(({ grade_level: gradeLevel }) => gradeLevel.name),
+  ].join(' ');
+
+  if (gradeGroup === 'kindergarten') return /อนุบาล|อ\.[1-3]/i.test(gradeText);
+  if (gradeGroup === 'primary') return /ประถม|ป\.[1-6]/i.test(gradeText);
+  return /มัธยม|ม\.[1-6]/i.test(gradeText);
+};
+
+const gradeCollections = [
+  {
+    gradeGroup: 'kindergarten',
+    label: 'อนุบาล',
+    levels: 'อ.1 – อ.3',
+    title: 'เรียนรู้ผ่านการเล่น',
+    description: 'กิจกรรมสร้างสรรค์ แบบฝึกทักษะ และสื่อสีสันสดใสสำหรับเด็กเล็ก',
+    icon: RiBearSmileLine,
+    color: '#C2417A',
+    background: 'linear-gradient(145deg, #FFF1F5 0%, #FDE7F0 100%)',
+  },
+  {
+    gradeGroup: 'primary',
+    label: 'ประถมศึกษา',
+    levels: 'ป.1 – ป.6',
+    title: 'สร้างพื้นฐานให้แข็งแรง',
+    description: 'ใบงาน แผนการสอน และกิจกรรมที่ช่วยให้เข้าใจบทเรียนอย่างเป็นขั้นตอน',
+    icon: RiBookOpenLine,
+    color: '#1565F5',
+    background: 'linear-gradient(145deg, #EDF5FF 0%, #E2EEFF 100%)',
+  },
+  {
+    gradeGroup: 'secondary',
+    label: 'มัธยมศึกษา',
+    levels: 'ม.1 – ม.6',
+    title: 'ต่อยอดความรู้และการคิดวิเคราะห์',
+    description: 'สื่อเนื้อหาเข้มข้น แบบทดสอบ และกิจกรรมเตรียมพร้อมสู่อนาคต',
+    icon: RiSchoolLine,
+    color: '#087F5B',
+    background: 'linear-gradient(145deg, #EAFBF3 0%, #DDF6EA 100%)',
+  },
+] as const;
+
+const teachingGoals = [
+  {
+    title: 'เตรียมแผนการสอน',
+    description: 'วางคาบเรียนได้เร็วขึ้นด้วยแผนพร้อมปรับใช้',
+    category: 'แผนการสอน',
+    icon: RiFileList3Line,
+    color: '#1565F5',
+    background: '#EAF2FF',
+  },
+  {
+    title: 'ฝึกทักษะด้วยใบงาน',
+    description: 'เลือกแบบฝึกหัดพร้อมใช้สำหรับในห้องและการบ้าน',
+    category: 'ใบงาน',
+    icon: RiTodoLine,
+    color: '#16A36A',
+    background: '#E9F8F0',
+  },
+  {
+    title: 'ทำห้องเรียนให้สนุก',
+    description: 'เติมเกม สไลด์ และกิจกรรมให้ผู้เรียนมีส่วนร่วม',
+    category: 'สื่อประกอบ',
+    icon: RiGamepadLine,
+    color: '#8B5CF6',
+    background: '#F2EDFF',
+  },
+  {
+    title: 'วัดผลความเข้าใจ',
+    description: 'ค้นหาแบบทดสอบและเครื่องมือประเมินผล',
+    category: 'แบบทดสอบ',
+    icon: RiQuestionLine,
+    color: '#F59E0B',
+    background: '#FFF5D9',
+  },
+  {
+    title: 'เรียนรู้แบบเป็นขั้นตอน',
+    description: 'ต่อยอดความรู้ด้วยคอร์สและบทเรียนที่จัดไว้แล้ว',
+    category: 'คอร์สเรียน',
+    icon: RiPresentationLine,
+    color: '#E64A78',
+    background: '#FDECF2',
+  },
+  {
+    title: 'ค้นหาไอเดียใหม่',
+    description: 'เปิดดูสื่อทุกประเภทและเลือกสิ่งที่เหมาะกับชั้นเรียน',
+    category: 'all',
+    icon: RiBookReadLine,
+    color: '#0788A8',
+    background: '#E7F7FA',
+  },
+] as const;
 
 export function MarketplaceCatalogView() {
   const { currentLang } = useTranslate();
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestedCategory = searchParams.get('category') || 'all';
+  const requestedGradeGroup = normalizeGradeGroup(searchParams.get('grade'));
   const [products, setProducts] = useState<MarketplaceProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -62,7 +179,9 @@ export function MarketplaceCatalogView() {
   const [hasMore, setHasMore] = useState(false);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState(requestedCategory);
+  const [gradeGroup, setGradeGroup] = useState<GradeGroup>(requestedGradeGroup);
   const [sort, setSort] = useState('popular');
+  const [priceFilter, setPriceFilter] = useState<PriceFilter>('all');
   const [categories, setCategories] = useState<string[]>([...MARKETPLACE_CATEGORIES]);
   const [newProducts, setNewProducts] = useState<MarketplaceProduct[]>([]);
   const [newProductsLoading, setNewProductsLoading] = useState(true);
@@ -76,6 +195,10 @@ export function MarketplaceCatalogView() {
   useEffect(() => {
     setCategory(requestedCategory);
   }, [requestedCategory]);
+
+  useEffect(() => {
+    setGradeGroup(requestedGradeGroup);
+  }, [requestedGradeGroup]);
 
   useEffect(() => {
     getCategories()
@@ -121,7 +244,14 @@ export function MarketplaceCatalogView() {
     const timer = window.setTimeout(async () => {
       setLoading(true);
       try {
-        const result = await getProducts({ q: search, category, page: 1, limit: 12 });
+        const result = await getProducts({
+          q: search,
+          category,
+          price: priceFilter,
+          gradeGroup: gradeGroup === 'all' ? undefined : gradeGroup,
+          page: 1,
+          limit: 12,
+        });
         if (requestVersion !== requestVersionRef.current) return;
         setProducts(result.products);
         setProductPage(1);
@@ -136,7 +266,7 @@ export function MarketplaceCatalogView() {
       }
     }, 250);
     return () => window.clearTimeout(timer);
-  }, [category, search]);
+  }, [category, gradeGroup, priceFilter, search]);
 
   const loadMoreProducts = useCallback(async () => {
     if (loading || loadingMore || !hasMore) return;
@@ -147,6 +277,8 @@ export function MarketplaceCatalogView() {
       const result = await getProducts({
         q: search,
         category,
+        price: priceFilter,
+        gradeGroup: gradeGroup === 'all' ? undefined : gradeGroup,
         page: nextPage,
         limit: 12,
       });
@@ -162,7 +294,7 @@ export function MarketplaceCatalogView() {
     } finally {
       if (requestVersion === requestVersionRef.current) setLoadingMore(false);
     }
-  }, [category, hasMore, loading, loadingMore, productPage, search]);
+  }, [category, gradeGroup, hasMore, loading, loadingMore, priceFilter, productPage, search]);
 
   useEffect(() => {
     const sentinel = loadMoreRef.current;
@@ -181,6 +313,9 @@ export function MarketplaceCatalogView() {
   const visibleProducts = products.filter(
     (product) =>
       (category === 'all' || product.category === category) &&
+      matchesGradeGroup(product, gradeGroup) &&
+      (priceFilter === 'all' ||
+        (priceFilter === 'free' ? Number(product.price) === 0 : Number(product.price) > 0)) &&
       (!search ||
         getLocalizedProduct(product, currentLang.value)
           .title.toLowerCase()
@@ -214,18 +349,63 @@ export function MarketplaceCatalogView() {
     });
   }, [displayedProducts, sort]);
 
+  const updateCatalogUrl = (nextCategory: string, nextGradeGroup: GradeGroup) => {
+    const params = new URLSearchParams();
+    if (nextCategory !== 'all') params.set('category', nextCategory);
+    if (nextGradeGroup !== 'all') params.set('grade', nextGradeGroup);
+    const query = params.toString();
+
+    router.replace(query ? `${paths.marketplace.products}?${query}` : paths.marketplace.products, {
+      scroll: false,
+    });
+  };
+
   const handleCategoryChange = (nextCategory: string) => {
-    if (nextCategory === category) return;
+    if (nextCategory !== category) {
+      requestVersionRef.current += 1;
+      setLoading(true);
+      setHasMore(false);
+      setCategory(nextCategory);
+    }
+    updateCatalogUrl(nextCategory, gradeGroup);
+  };
+
+  const handleGradeGroupChange = (nextGradeGroup: GradeGroup) => {
+    if (nextGradeGroup !== gradeGroup) {
+      requestVersionRef.current += 1;
+      setLoading(true);
+      setHasMore(false);
+      setGradeGroup(nextGradeGroup);
+    }
+    updateCatalogUrl(category, nextGradeGroup);
+  };
+
+  const handleGradeCollectionSelect = (nextGradeGroup: Exclude<GradeGroup, 'all'>) => {
     requestVersionRef.current += 1;
     setLoading(true);
     setHasMore(false);
-    setCategory(nextCategory);
-    router.replace(
-      nextCategory === 'all'
-        ? paths.marketplace.products
-        : `${paths.marketplace.products}?category=${encodeURIComponent(nextCategory)}`,
-      { scroll: false }
-    );
+    setSearch('');
+    setCategory('all');
+    setPriceFilter('all');
+    setGradeGroup(nextGradeGroup);
+    updateCatalogUrl('all', nextGradeGroup);
+  };
+
+  const scrollNewProducts = (direction: -1 | 1) => {
+    const container = newProductsScrollRef.current;
+    const firstCard = container?.firstElementChild as HTMLElement | null;
+    if (!container || !firstCard) return;
+
+    const gap = Number.parseFloat(window.getComputedStyle(container).columnGap) || 0;
+    const cardStep = firstCard.getBoundingClientRect().width + gap;
+    const visibleCards = Math.max(1, Math.round((container.clientWidth + gap) / cardStep));
+    const currentIndex = Math.round(container.scrollLeft / cardStep);
+    const nextIndex = Math.max(0, currentIndex + direction * visibleCards);
+
+    container.scrollTo({
+      left: nextIndex * cardStep,
+      behavior: 'smooth',
+    });
   };
 
   return (
@@ -339,14 +519,129 @@ export function MarketplaceCatalogView() {
         </Container>
       </Box>
 
-      <Container id="products" maxWidth="lg" sx={{ py: { xs: 7, md: 10 } }}>
+      <Box
+        component="section"
+        aria-labelledby="teaching-goals-title"
+        sx={{ py: { xs: 7, md: 9 }, bgcolor: 'background.neutral' }}
+      >
+        <Container maxWidth="lg">
+          <Stack spacing={{ xs: 3, md: 4 }}>
+            <Box sx={{ maxWidth: 680 }}>
+              <Typography id="teaching-goals-title" variant="h3">
+                วันนี้คุณกำลังเตรียมสอนอะไร?
+              </Typography>
+              <Typography sx={{ mt: 1, color: 'text.secondary' }}>
+                เริ่มจากเป้าหมายของคาบเรียน แล้วให้เราช่วยพาไปยังสื่อที่ตรงกับงานของคุณ
+              </Typography>
+            </Box>
+
+            <Grid container spacing={2}>
+              {teachingGoals.map((goal) => {
+                const Icon = goal.icon;
+                const active = category === goal.category;
+
+                return (
+                  <Grid key={goal.title} size={{ xs: 12, sm: 6, md: 4 }}>
+                    <ButtonBase
+                      aria-pressed={active}
+                      onClick={() => {
+                        handleCategoryChange(goal.category);
+                        window.requestAnimationFrame(() => {
+                          document.getElementById('products')?.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'start',
+                          });
+                        });
+                      }}
+                      sx={{
+                        p: 2.5,
+                        gap: 2,
+                        width: 1,
+                        height: 1,
+                        minHeight: 120,
+                        display: 'flex',
+                        borderRadius: 3,
+                        textAlign: 'left',
+                        justifyContent: 'flex-start',
+                        alignItems: 'flex-start',
+                        bgcolor: 'background.paper',
+                        border: '1px solid',
+                        borderColor: active ? 'primary.main' : 'divider',
+                        boxShadow: active
+                          ? '0 12px 32px rgba(21,101,245,0.14)'
+                          : '0 6px 18px rgba(15,23,42,0.04)',
+                        transition:
+                          'transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease',
+                        '&:hover': {
+                          transform: 'translateY(-3px)',
+                          borderColor: active ? 'primary.main' : 'text.disabled',
+                          boxShadow: '0 14px 32px rgba(15,23,42,0.10)',
+                        },
+                        '&:focus-visible': {
+                          outline: '3px solid',
+                          outlineColor: 'primary.lighter',
+                          outlineOffset: 2,
+                        },
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          width: 48,
+                          height: 48,
+                          display: 'grid',
+                          flexShrink: 0,
+                          borderRadius: 2,
+                          color: goal.color,
+                          placeItems: 'center',
+                          bgcolor: goal.background,
+                        }}
+                      >
+                        <Icon size={25} />
+                      </Box>
+                      <Box>
+                        <Typography variant="h6" sx={{ lineHeight: 1.35 }}>
+                          {goal.title}
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          sx={{ mt: 0.75, color: 'text.secondary', lineHeight: 1.6 }}
+                        >
+                          {goal.description}
+                        </Typography>
+                      </Box>
+                    </ButtonBase>
+                  </Grid>
+                );
+              })}
+            </Grid>
+          </Stack>
+        </Container>
+      </Box>
+
+      <Container id="products" maxWidth="lg" sx={{ py: { xs: 7 } }}>
         <Stack spacing={4}>
-          <Box>
-            <Typography variant="h3">เลือกดูผลิตภัณฑ์ของเรา</Typography>
-            <Typography sx={{ mt: 1, color: 'text.secondary' }}>
-              ค้นหาสื่อที่เหมาะกับห้องเรียนจากหมวดหมู่ Marketplace
-            </Typography>
-          </Box>
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            alignItems={{ xs: 'flex-start', sm: 'center' }}
+            spacing={1.5}
+          >
+            <Box sx={{ flexGrow: 1 }}>
+              <Typography variant="h3">เลือกดูผลิตภัณฑ์ของเรา</Typography>
+              <Typography sx={{ mt: 1, color: 'text.secondary' }}>
+                ค้นหาสื่อที่เหมาะกับห้องเรียนจากหมวดหมู่ Marketplace
+              </Typography>
+            </Box>
+            {gradeGroup !== 'all' && (
+              <Chip
+                color="primary"
+                variant="soft"
+                label={`ระดับชั้น: ${
+                  gradeCollections.find((item) => item.gradeGroup === gradeGroup)?.label
+                }`}
+                onDelete={() => handleGradeGroupChange('all')}
+              />
+            )}
+          </Stack>
 
           <Stack spacing={1.5}>
             <TextField
@@ -375,6 +670,63 @@ export function MarketplaceCatalogView() {
                 },
               }}
             />
+
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={1.25}
+              alignItems={{ xs: 'stretch', sm: 'center' }}
+            >
+              <Typography variant="subtitle2" sx={{ flexShrink: 0 }}>
+                ระดับชั้น
+              </Typography>
+              <Box
+                sx={{
+                  overflowX: 'auto',
+                  scrollbarWidth: 'none',
+                  '&::-webkit-scrollbar': { display: 'none' },
+                }}
+              >
+                <Stack
+                  direction="row"
+                  spacing={0.5}
+                  aria-label="กรองตามระดับชั้น"
+                  sx={{
+                    p: 0.5,
+                    width: 'max-content',
+                    borderRadius: 2.5,
+                    bgcolor: 'background.neutral',
+                  }}
+                >
+                  {(
+                    [
+                      ['all', 'ทุกระดับ'],
+                      ['kindergarten', 'อนุบาล'],
+                      ['primary', 'ประถม'],
+                      ['secondary', 'มัธยม'],
+                    ] as const
+                  ).map(([value, label]) => (
+                    <Button
+                      key={value}
+                      size="small"
+                      type="button"
+                      variant={gradeGroup === value ? 'contained' : 'text'}
+                      color={gradeGroup === value ? 'primary' : 'inherit'}
+                      onClick={() => handleGradeGroupChange(value)}
+                      sx={{
+                        px: 1.5,
+                        minWidth: 0,
+                        flexShrink: 0,
+                        borderRadius: 2,
+                        whiteSpace: 'nowrap',
+                        boxShadow: gradeGroup === value ? '0 5px 14px rgba(21,101,245,0.20)' : 0,
+                      }}
+                    >
+                      {label}
+                    </Button>
+                  ))}
+                </Stack>
+              </Box>
+            </Stack>
 
             <Stack
               direction={{ xs: 'column', md: 'row' }}
@@ -431,23 +783,69 @@ export function MarketplaceCatalogView() {
                 </Stack>
               </Box>
 
-              <Select
-                size="small"
-                value={sort}
-                aria-label="เรียงลำดับสินค้า"
-                onChange={(event) => setSort(String(event.target.value))}
-                sx={{
-                  minWidth: { xs: 1, md: 160 },
-                  flexShrink: 0,
-                  borderRadius: 2.5,
-                  bgcolor: 'background.paper',
-                }}
-              >
-                <MenuItem value="popular">ความนิยม</MenuItem>
-                <MenuItem value="latest">ใหม่ล่าสุด</MenuItem>
-                <MenuItem value="rating">คะแนนรีวิว</MenuItem>
-                <MenuItem value="price-low">ราคาต่ำสุด</MenuItem>
-              </Select>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25} sx={{ flexShrink: 0 }}>
+                <Stack
+                  direction="row"
+                  spacing={0.5}
+                  alignItems="center"
+                  aria-label="กรองตามราคา"
+                  sx={{
+                    p: 0.5,
+                    borderRadius: 2.5,
+                    bgcolor: 'background.neutral',
+                  }}
+                >
+                  {(
+                    [
+                      ['all', 'ทุกราคา'],
+                      ['free', 'ฟรี 0 บาท'],
+                      ['paid', 'มีค่าใช้จ่าย'],
+                    ] as const
+                  ).map(([value, label]) => (
+                    <Button
+                      key={value}
+                      size="small"
+                      type="button"
+                      variant={priceFilter === value ? 'contained' : 'text'}
+                      color={priceFilter === value ? 'primary' : 'inherit'}
+                      onClick={() => {
+                        if (priceFilter === value) return;
+                        requestVersionRef.current += 1;
+                        setLoading(true);
+                        setHasMore(false);
+                        setPriceFilter(value);
+                      }}
+                      sx={{
+                        px: 1.25,
+                        minWidth: 0,
+                        borderRadius: 2,
+                        whiteSpace: 'nowrap',
+                        boxShadow: priceFilter === value ? '0 5px 14px rgba(21,101,245,0.20)' : 0,
+                      }}
+                    >
+                      {label}
+                    </Button>
+                  ))}
+                </Stack>
+
+                <Select
+                  size="small"
+                  value={sort}
+                  aria-label="เรียงลำดับสินค้า"
+                  onChange={(event) => setSort(String(event.target.value))}
+                  sx={{
+                    minWidth: { xs: 1, sm: 160 },
+                    flexShrink: 0,
+                    borderRadius: 2.5,
+                    bgcolor: 'background.paper',
+                  }}
+                >
+                  <MenuItem value="popular">ความนิยม</MenuItem>
+                  <MenuItem value="latest">ใหม่ล่าสุด</MenuItem>
+                  <MenuItem value="rating">คะแนนรีวิว</MenuItem>
+                  <MenuItem value="price-low">ราคาต่ำสุด</MenuItem>
+                </Select>
+              </Stack>
             </Stack>
           </Stack>
 
@@ -509,52 +907,113 @@ export function MarketplaceCatalogView() {
             </Box>
           ) : (
             <Box sx={{ py: 10, textAlign: 'center' }}>
-              <Typography variant="h5">ไม่พบสื่อที่ค้นหา</Typography>
-              <Typography color="text.secondary">ลองเปลี่ยนคำค้นหรือเลือกหมวดหมู่อื่น</Typography>
+              <Typography variant="h5">
+                {gradeGroup === 'all'
+                  ? 'ไม่พบสื่อที่ค้นหา'
+                  : `ยังไม่มีสื่อสำหรับระดับ${
+                      gradeCollections.find((item) => item.gradeGroup === gradeGroup)?.label
+                    }`}
+              </Typography>
+              <Typography color="text.secondary" sx={{ mt: 0.75 }}>
+                {gradeGroup === 'all'
+                  ? 'ลองเปลี่ยนคำค้นหรือเลือกหมวดหมู่อื่น'
+                  : 'ลองเลือกทุกระดับชั้น หรือล้างตัวกรองอื่นเพื่อดูสื่อเพิ่มเติม'}
+              </Typography>
+              {gradeGroup !== 'all' && (
+                <Button sx={{ mt: 2 }} onClick={() => handleGradeGroupChange('all')}>
+                  ดูสื่อทุกระดับชั้น
+                </Button>
+              )}
             </Box>
           )}
         </Stack>
-        <Divider sx={{ my: { xs: 6, md: 9 } }} />
-        <Box component="section" aria-labelledby="new-products-title">
+        <Divider sx={{ my: { xs: 5, md: 8 } }} />
+        <Box
+          component="section"
+          aria-labelledby="new-products-title"
+          sx={{
+            p: { xs: 2, sm: 3, md: 4 },
+            position: 'relative',
+            overflow: 'hidden',
+            borderRadius: { xs: 3, md: 4 },
+            border: '1px solid',
+            borderColor: 'primary.lighter',
+            background:
+              'linear-gradient(145deg, rgba(231,240,255,0.88) 0%, rgba(255,255,255,0.98) 52%, rgba(232,250,245,0.82) 100%)',
+            '&::before': {
+              top: -120,
+              right: -80,
+              width: 280,
+              height: 280,
+              content: '""',
+              opacity: 0.55,
+              position: 'absolute',
+              borderRadius: '50%',
+              background: 'radial-gradient(circle, rgba(21,101,245,0.18), transparent 68%)',
+              pointerEvents: 'none',
+            },
+          }}
+        >
           <Stack
-            direction="row"
+            direction={{ xs: 'column', sm: 'row' }}
             justifyContent="space-between"
-            alignItems="center"
+            alignItems={{ xs: 'flex-start', sm: 'center' }}
             spacing={2}
-            sx={{ mb: 3 }}
+            sx={{ mb: { xs: 2.5, md: 3.5 }, position: 'relative' }}
           >
-            <Box>
-              <Typography id="new-products-title" variant="h3">
-                มีอะไรใหม่ใน E-KRU Marketplace
-              </Typography>
-              <Typography color="text.secondary" sx={{ mt: 0.75 }}>
-                อัปเดตสื่อการสอนและผลิตภัณฑ์ใหม่จากผู้ขายในชุมชน
-              </Typography>
-            </Box>
+            <Stack direction="row" spacing={1.75} alignItems="center">
+              <Box
+                sx={{
+                  width: 48,
+                  height: 48,
+                  display: 'grid',
+                  flexShrink: 0,
+                  borderRadius: 2,
+                  color: 'primary.main',
+                  placeItems: 'center',
+                  bgcolor: 'common.white',
+                  boxShadow: '0 10px 28px rgba(21,101,245,0.13)',
+                }}
+              >
+                <RiTimeLine size={25} />
+              </Box>
+              <Box>
+                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                  <Typography id="new-products-title" variant="h3">
+                    มีอะไรใหม่ใน E-KRU Marketplace
+                  </Typography>
+                </Stack>
+                <Typography color="text.secondary" sx={{ mt: 0.5 }}>
+                  สื่อการสอนและผลิตภัณฑ์ล่าสุดจากผู้ขายในชุมชน
+                </Typography>
+              </Box>
+            </Stack>
 
             {newProducts.length > 1 && (
               <Stack direction="row" spacing={1}>
                 <IconButton
                   aria-label="ดูสินค้าก่อนหน้า"
-                  onClick={() =>
-                    newProductsScrollRef.current?.scrollBy({
-                      left: -Math.min(newProductsScrollRef.current.clientWidth * 0.85, 960),
-                      behavior: 'smooth',
-                    })
-                  }
-                  sx={{ border: '1px solid', borderColor: 'divider' }}
+                  onClick={() => scrollNewProducts(-1)}
+                  sx={{
+                    bgcolor: 'common.white',
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    boxShadow: '0 6px 18px rgba(15,23,42,0.08)',
+                  }}
                 >
                   <RiArrowLeftSLine />
                 </IconButton>
                 <IconButton
                   aria-label="ดูสินค้าถัดไป"
-                  onClick={() =>
-                    newProductsScrollRef.current?.scrollBy({
-                      left: Math.min(newProductsScrollRef.current.clientWidth * 0.85, 960),
-                      behavior: 'smooth',
-                    })
-                  }
-                  sx={{ border: '1px solid', borderColor: 'divider' }}
+                  onClick={() => scrollNewProducts(1)}
+                  sx={{
+                    color: 'common.white',
+                    bgcolor: 'primary.main',
+                    border: '1px solid',
+                    borderColor: 'primary.main',
+                    boxShadow: '0 8px 20px rgba(21,101,245,0.22)',
+                    '&:hover': { bgcolor: 'primary.dark' },
+                  }}
                 >
                   <RiArrowRightSLine />
                 </IconButton>
@@ -566,28 +1025,25 @@ export function MarketplaceCatalogView() {
             <Box sx={{ minHeight: 280, display: 'grid', placeItems: 'center' }}>
               <CircularProgress />
             </Box>
-          ) : (
+          ) : newProducts.length ? (
             <Box
               ref={newProductsScrollRef}
               sx={{
-                pb: 1.5,
-                gap: 2.5,
+                pt: 2,
+                pb: 5.5,
+                gap: { xs: 1 },
                 display: 'grid',
                 overflowX: 'auto',
                 scrollSnapType: 'x mandatory',
                 gridAutoFlow: 'column',
                 gridAutoColumns: {
-                  xs: '88%',
-                  sm: '58%',
-                  md: 'calc((100% - 48px) / 3)',
-                  lg: 'calc((100% - 48px) / 4)',
+                  xs: '100%',
+                  sm: 'calc((100% - 14px) / 2)',
+                  md: 'calc((100% - 40px) / 3)',
+                  lg: 'calc((100% - 60px) / 4)',
                 },
-                scrollbarWidth: 'thin',
-                '&::-webkit-scrollbar': { height: 5 },
-                '&::-webkit-scrollbar-thumb': {
-                  borderRadius: 4,
-                  bgcolor: 'divider',
-                },
+                scrollbarWidth: 'none',
+                '&::-webkit-scrollbar': { display: 'none' },
               }}
             >
               {newProducts.map((newProduct, index) => (
@@ -601,11 +1057,41 @@ export function MarketplaceCatalogView() {
                     event.stopPropagation();
                     setSelectedProduct(newProduct);
                   }}
-                  sx={{ scrollSnapAlign: 'start' }}
+                  sx={{ scrollSnapAlign: 'start', scrollSnapStop: 'always' }}
                 >
                   <MarketplaceNewProductCard product={newProduct} colorIndex={index} />
                 </Box>
               ))}
+            </Box>
+          ) : (
+            <Box
+              sx={{
+                py: 7,
+                display: 'grid',
+                textAlign: 'center',
+                placeItems: 'center',
+                position: 'relative',
+              }}
+            >
+              <Box
+                sx={{
+                  width: 64,
+                  height: 64,
+                  display: 'grid',
+                  borderRadius: '50%',
+                  color: 'text.secondary',
+                  placeItems: 'center',
+                  bgcolor: 'common.white',
+                }}
+              >
+                <RiBookOpenLine size={30} />
+              </Box>
+              <Typography variant="h6" sx={{ mt: 2 }}>
+                ยังไม่มีสินค้าใหม่ในขณะนี้
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                เมื่อผู้ขายเพิ่มสินค้าใหม่ รายการจะแสดงที่ส่วนนี้
+              </Typography>
             </Box>
           )}
         </Box>
@@ -615,6 +1101,163 @@ export function MarketplaceCatalogView() {
           onClose={() => setSelectedProduct(null)}
         />
       </Container>
+
+      <Box component="section" aria-labelledby="grade-collections-title" sx={{ py: { xs: 5 } }}>
+        <Container maxWidth="lg">
+          <Stack spacing={{ xs: 3, md: 4 }}>
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              justifyContent="space-between"
+              alignItems={{ xs: 'flex-start', sm: 'flex-end' }}
+              spacing={2}
+            >
+              <Box sx={{ maxWidth: 680 }}>
+                <Typography id="grade-collections-title" variant="h3">
+                  คอลเลกชันตามระดับชั้น
+                </Typography>
+                <Typography sx={{ mt: 1, color: 'text.secondary' }}>
+                  เลือกช่วงชั้นของผู้เรียน เพื่อค้นหาสื่อที่เหมาะกับวัยและระดับความรู้
+                </Typography>
+              </Box>
+              {gradeGroup !== 'all' && (
+                <Button
+                  color="inherit"
+                  endIcon={<RiArrowRightLine />}
+                  onClick={() => handleGradeGroupChange('all')}
+                >
+                  ดูทุกระดับชั้น
+                </Button>
+              )}
+            </Stack>
+
+            <Grid container spacing={2.5}>
+              {gradeCollections.map((collection) => {
+                const Icon = collection.icon;
+                const active = gradeGroup === collection.gradeGroup;
+
+                return (
+                  <Grid key={collection.gradeGroup} size={{ xs: 12, md: 4 }}>
+                    <ButtonBase
+                      aria-pressed={active}
+                      onClick={() => {
+                        handleGradeCollectionSelect(collection.gradeGroup);
+                        window.requestAnimationFrame(() => {
+                          document.getElementById('products')?.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'start',
+                          });
+                        });
+                      }}
+                      sx={{
+                        p: { xs: 3, md: 3.5 },
+                        width: 1,
+                        height: 1,
+                        minHeight: 250,
+                        display: 'flex',
+                        overflow: 'hidden',
+                        position: 'relative',
+                        borderRadius: 4,
+                        textAlign: 'left',
+                        alignItems: 'stretch',
+                        flexDirection: 'column',
+                        background: collection.background,
+                        border: '2px solid',
+                        borderColor: active ? collection.color : 'transparent',
+                        boxShadow: active
+                          ? `0 18px 40px ${collection.color}24`
+                          : '0 10px 30px rgba(15,23,42,0.06)',
+                        transition:
+                          'transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease',
+                        '&::after': {
+                          right: -32,
+                          bottom: -50,
+                          width: 160,
+                          height: 160,
+                          content: '""',
+                          opacity: 0.1,
+                          position: 'absolute',
+                          borderRadius: '50%',
+                          bgcolor: collection.color,
+                        },
+                        '&:hover': {
+                          transform: 'translateY(-4px)',
+                          boxShadow: `0 20px 44px ${collection.color}22`,
+                        },
+                        '&:focus-visible': {
+                          outline: '3px solid',
+                          outlineColor: collection.color,
+                          outlineOffset: 3,
+                        },
+                      }}
+                    >
+                      <Stack
+                        direction="row"
+                        alignItems="center"
+                        justifyContent="space-between"
+                        sx={{ position: 'relative', zIndex: 1 }}
+                      >
+                        <Box
+                          sx={{
+                            width: 54,
+                            height: 54,
+                            display: 'grid',
+                            borderRadius: 2.5,
+                            color: collection.color,
+                            placeItems: 'center',
+                            bgcolor: 'rgba(255,255,255,0.78)',
+                          }}
+                        >
+                          <Icon size={29} />
+                        </Box>
+                        <Chip
+                          size="small"
+                          label={collection.levels}
+                          sx={{
+                            color: collection.color,
+                            fontWeight: 700,
+                            bgcolor: 'rgba(255,255,255,0.72)',
+                          }}
+                        />
+                      </Stack>
+
+                      <Box sx={{ mt: 3, position: 'relative', zIndex: 1 }}>
+                        <Typography variant="overline" sx={{ color: collection.color }}>
+                          {collection.label}
+                        </Typography>
+                        <Typography variant="h5" sx={{ mt: 0.5 }}>
+                          {collection.title}
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          sx={{ mt: 1.25, maxWidth: 330, color: 'text.secondary', lineHeight: 1.7 }}
+                        >
+                          {collection.description}
+                        </Typography>
+                      </Box>
+
+                      <Stack
+                        direction="row"
+                        spacing={0.75}
+                        alignItems="center"
+                        sx={{
+                          mt: 'auto',
+                          pt: 2.5,
+                          color: collection.color,
+                          position: 'relative',
+                          zIndex: 1,
+                        }}
+                      >
+                        <Typography variant="subtitle2">เลือกดูสื่อ</Typography>
+                        <RiArrowRightLine size={18} />
+                      </Stack>
+                    </ButtonBase>
+                  </Grid>
+                );
+              })}
+            </Grid>
+          </Stack>
+        </Container>
+      </Box>
     </>
   );
 }

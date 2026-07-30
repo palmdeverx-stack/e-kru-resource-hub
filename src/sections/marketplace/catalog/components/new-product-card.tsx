@@ -59,7 +59,7 @@ export function MarketplaceNewProductCard({
         height: 1,
         display: 'flex',
         overflow: 'hidden',
-        borderRadius: 4,
+        borderRadius: 2,
         color: 'text.primary',
         textDecoration: 'none',
         flexDirection: 'column',
@@ -71,7 +71,7 @@ export function MarketplaceNewProductCard({
         '&:hover': {
           transform: 'translateY(-7px)',
           borderColor: 'primary.light',
-          boxShadow: '0 24px 54px rgba(21, 101, 245, 0.14)',
+          boxShadow: '0 18px 36px rgba(21, 101, 245, 0.16)',
         },
       }}
     >
@@ -85,7 +85,7 @@ export function MarketplaceNewProductCard({
           position: 'relative',
           overflow: 'hidden',
           aspectRatio: '16 / 10',
-          borderRadius: 3,
+          borderRadius: 1.2,
           display: 'grid',
           placeItems: 'center',
           textDecoration: 'none',
@@ -196,7 +196,7 @@ export function MarketplaceNewProductCard({
         </Stack>
       </Box>
 
-      <Stack spacing={1.5} sx={{ p: 1.25, pt: 2, flexGrow: 1 }}>
+      <Stack spacing={1.5} sx={{ p: 1, pt: 2, flexGrow: 1 }}>
         <MarketplaceSellerLink
           seller={product.seller}
           avatarSize={30}
