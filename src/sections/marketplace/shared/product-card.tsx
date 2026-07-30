@@ -112,7 +112,7 @@ export function MarketplaceProductCard({
               width: 1,
               height: 1,
               display: 'block',
-              objectFit: { xs: 'contain', sm: 'cover' },
+              objectFit: 'cover',
               objectPosition: 'center',
               transition: 'transform 260ms ease',
               '@media (hover: hover)': {
