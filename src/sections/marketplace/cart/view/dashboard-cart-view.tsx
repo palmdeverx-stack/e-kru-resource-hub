@@ -8,7 +8,7 @@ import { MarketplaceCartContent } from './cart-content';
 
 export function MarketplaceDashboardCartView() {
   return (
-    <Container maxWidth={false} sx={{ py: { xs: 4, md: 8 } }}>
+    <Container maxWidth={false} sx={{ py: { xs: 3 } }}>
       <MarketplaceCartContent
         productsHref={paths.marketplace.dashboardProducts}
         checkoutHref={paths.marketplace.dashboardCheckout}

@@ -9,6 +9,10 @@ import {
   withMediaUrls,
   PRODUCT_MANAGE_SELECT,
 } from 'src/sections/marketplace/seller/server/product-media';
+import {
+  canViewSellerTools,
+  SELLER_TOOLS_CATEGORY,
+} from 'src/sections/marketplace/seller/server/seller-tools-access';
 
 function withCardRating(product: Record<string, unknown>): Record<string, unknown> {
   const reviews = Array.isArray(product.reviews)
@@ -38,6 +42,7 @@ function withCardRating(product: Record<string, unknown>): Record<string, unknow
 }
 
 export async function GET(request: Request) {
+  const caller = requireAuthenticated(request);
   const url = new URL(request.url);
   const mine = url.searchParams.get('mine') === '1';
   const official = url.searchParams.get('official') === '1';
@@ -54,7 +59,6 @@ export async function GET(request: Request) {
 
   let sellerId: string | null = null;
   if (mine) {
-    const caller = requireAuthenticated(request);
     if (!caller) {
       return NextResponse.json({ message: 'กรุณาเข้าสู่ระบบ' }, { status: 401 });
     }
@@ -66,6 +70,7 @@ export async function GET(request: Request) {
     sellerId = seller?.id ?? null;
     if (!sellerId) return NextResponse.json({ products: [] });
   }
+  const sellerToolsVisible = await canViewSellerTools(caller?.sub);
 
   let officialSellerIds: string[] | null = null;
   if (!mine && official) {
@@ -131,6 +136,7 @@ export async function GET(request: Request) {
     .order('created_at', { ascending: false });
 
   query = mine ? query.eq('seller_id', sellerId) : query.eq('status', 'published');
+  if (!mine && !sellerToolsVisible) query = query.neq('category', SELLER_TOOLS_CATEGORY);
   if (officialSellerIds) query = query.in('seller_id', officialSellerIds);
   if (bestSellingProductIds) {
     query = query.in('id', bestSellingProductIds.slice(0, offset + limit + 1));

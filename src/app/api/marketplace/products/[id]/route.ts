@@ -7,6 +7,10 @@ import { withMediaUrls } from 'src/sections/marketplace/seller/server/product-me
 import { getEligibleLicenseSchools } from 'src/sections/marketplace/checkout/server/school-targets';
 import { getSellerProfileCompletionById } from 'src/sections/marketplace/seller/server/seller-completion';
 import {
+  canViewSellerTools,
+  SELLER_TOOLS_CATEGORY,
+} from 'src/sections/marketplace/seller/server/seller-tools-access';
+import {
   getProductEngagement,
   getProductPurchaseAccess,
 } from 'src/sections/marketplace/catalog/server/product-engagement';
@@ -27,6 +31,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     return NextResponse.json({ message: error.message }, { status: 500 });
   }
   if (!product) {
+    return NextResponse.json({ message: 'ไม่พบสินค้า' }, { status: 404 });
+  }
+  if (product.category === SELLER_TOOLS_CATEGORY && !(await canViewSellerTools(caller?.sub))) {
     return NextResponse.json({ message: 'ไม่พบสินค้า' }, { status: 404 });
   }
 

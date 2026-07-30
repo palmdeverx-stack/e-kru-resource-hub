@@ -1,13 +1,19 @@
 import { NextResponse } from 'next/server';
 
 import { supabaseAdmin } from 'src/lib/supabase-admin';
+import { requireAuthenticated } from 'src/lib/auth-token';
 
 import { withMediaUrls } from 'src/sections/marketplace/seller/server/product-media';
 import { getSellerProfileCompletionById } from 'src/sections/marketplace/seller/server/seller-completion';
+import {
+  canViewSellerTools,
+  SELLER_TOOLS_CATEGORY,
+} from 'src/sections/marketplace/seller/server/seller-tools-access';
 
 type Context = { params: Promise<{ slug: string }> };
 
-export async function GET(_request: Request, { params }: Context) {
+export async function GET(request: Request, { params }: Context) {
+  const caller = requireAuthenticated(request);
   const { slug } = await params;
   const identifier = decodeURIComponent(slug);
   let { data: seller, error } = await supabaseAdmin
@@ -45,7 +51,7 @@ export async function GET(_request: Request, { params }: Context) {
     profile_completion: profileCompletion,
     is_system_store: ownerRole === 'master_admin',
   };
-  const { data: products, error: productError } = await supabaseAdmin
+  let productsQuery = supabaseAdmin
     .from('marketplace_products')
     .select(
       'id, seller_id, title, title_en, description, description_en, short_description, short_description_en, category, media_type_id, sale_type_id, resource_type, price, list_price, currency, cover_url, status, created_at, media_type:marketplace_media_types(id,name,delivery_mode), sale_type:marketplace_sale_types(id,name,pricing_mode), grade_levels:marketplace_product_grade_levels(grade_level:marketplace_grade_levels(id,name)), images:marketplace_product_images(*), reviews:marketplace_product_reviews(rating)'
@@ -53,6 +59,10 @@ export async function GET(_request: Request, { params }: Context) {
     .eq('seller_id', seller.id)
     .eq('status', 'published')
     .order('created_at', { ascending: false });
+  if (!(await canViewSellerTools(caller?.sub))) {
+    productsQuery = productsQuery.neq('category', SELLER_TOOLS_CATEGORY);
+  }
+  const { data: products, error: productError } = await productsQuery;
   if (productError) {
     return NextResponse.json({ message: productError.message }, { status: 500 });
   }

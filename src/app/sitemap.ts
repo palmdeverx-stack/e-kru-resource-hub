@@ -3,6 +3,7 @@ import type { MetadataRoute } from 'next';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 
 import { absoluteMarketplaceUrl } from 'src/sections/marketplace/seo/site-url';
+import { SELLER_TOOLS_CATEGORY } from 'src/sections/marketplace/seller/server/seller-tools-access';
 
 const staticRoutes: Array<{
   path: string;
@@ -35,6 +36,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .select('id, updated_at, seller:marketplace_sellers!inner(status)')
       .eq('status', 'published')
       .eq('seller.status', 'active')
+      .neq('category', SELLER_TOOLS_CATEGORY)
       .order('updated_at', { ascending: false })
       .limit(10000),
     supabaseAdmin

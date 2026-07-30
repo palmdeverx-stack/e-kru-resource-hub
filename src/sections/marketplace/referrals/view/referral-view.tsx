@@ -103,18 +103,18 @@ export function MarketplaceReferralView() {
   };
 
   return (
-    <Container maxWidth={false} sx={{ py: { xs: 4, md: 6 } }}>
+    <Container maxWidth={false} sx={{ py: { xs: 3 } }}>
       <Typography component="h1" variant="h3">
         แนะนำเพื่อน
       </Typography>
       <Typography color="text.secondary" sx={{ mt: 0.75 }}>
-        แชร์ลิงก์ให้เพื่อน เมื่อเพื่อนซื้อสินค้าที่ร่วมรายการ
-        คุณจะได้รับรางวัลจากค่าธรรมเนียม Marketplace
+        แชร์ลิงก์ให้เพื่อน เมื่อเพื่อนซื้อสินค้าที่ร่วมรายการ คุณจะได้รับรางวัลจากค่าธรรมเนียม
+        Marketplace
       </Typography>
 
       <Alert severity="info" sx={{ mt: 3 }}>
-        รับ {data.settings.rewardRate}% ของค่าธรรมเนียมแพลตฟอร์ม ·
-        ลิงก์มีผล {data.settings.attributionDays} วัน · พักยอด {data.settings.holdDays} วัน
+        รับ {data.settings.rewardRate}% ของค่าธรรมเนียมแพลตฟอร์ม · ลิงก์มีผล{' '}
+        {data.settings.attributionDays} วัน · พักยอด {data.settings.holdDays} วัน
       </Alert>
 
       <Card sx={{ p: { xs: 2.5, md: 4 }, mt: 3 }}>
@@ -176,7 +176,8 @@ export function MarketplaceReferralView() {
                   <TableRow key={reward.id}>
                     <TableCell>
                       <Typography variant="subtitle2">
-                        {reward.order?.items?.[0]?.title || `คำสั่งซื้อ ${reward.order_id.slice(0, 8)}`}
+                        {reward.order?.items?.[0]?.title ||
+                          `คำสั่งซื้อ ${reward.order_id.slice(0, 8)}`}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
                         {new Date(reward.created_at).toLocaleString('th-TH')}

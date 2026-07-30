@@ -5,6 +5,10 @@ import { requireAuthenticated } from 'src/lib/auth-token';
 
 import { withMediaUrls } from 'src/sections/marketplace/seller/server/product-media';
 import { withPublicSystemStoreFlag } from 'src/sections/marketplace/seller/server/public-seller';
+import {
+  canViewSellerTools,
+  SELLER_TOOLS_CATEGORY,
+} from 'src/sections/marketplace/seller/server/seller-tools-access';
 
 const PRODUCT_SELECT =
   'id, seller_id, title, title_en, description, description_en, short_description, short_description_en, category, media_type_id, sale_type_id, resource_type, price, list_price, currency, cover_url, status, created_at, seller:marketplace_sellers(id, display_name, display_name_en, seller_type, slug, logo_url, bio, owner_role), media_type:marketplace_media_types(id, name, delivery_mode), sale_type:marketplace_sale_types(id, name, pricing_mode), grade_levels:marketplace_product_grade_levels(grade_level:marketplace_grade_levels(id,name)), images:marketplace_product_images(*), reviews:marketplace_product_reviews(rating)';
@@ -15,14 +19,16 @@ function isMissingTable(error: { code?: string } | null) {
   return error?.code === '42P01' || error?.code === 'PGRST205';
 }
 
-async function resolveProducts(productIds: string[]) {
+async function resolveProducts(productIds: string[], sellerToolsVisible: boolean) {
   if (!productIds.length) return [];
 
-  const { data, error } = await supabaseAdmin
+  let query = supabaseAdmin
     .from('marketplace_products')
     .select(PRODUCT_SELECT)
     .in('id', productIds)
     .eq('status', 'published');
+  if (!sellerToolsVisible) query = query.neq('category', SELLER_TOOLS_CATEGORY);
+  const { data, error } = await query;
 
   if (error) throw error;
 
@@ -105,7 +111,10 @@ export async function GET(request: Request) {
   const bookmarkIds = (data ?? [])
     .filter((item) => item.collection_type === 'bookmark')
     .map((item) => item.product_id);
-  const products = await resolveProducts([...new Set([...favoriteIds, ...bookmarkIds])]);
+  const products = await resolveProducts(
+    [...new Set([...favoriteIds, ...bookmarkIds])],
+    await canViewSellerTools(caller.sub)
+  );
   const productMap = new Map(products.map((product) => [String(product.id), product]));
 
   return NextResponse.json({

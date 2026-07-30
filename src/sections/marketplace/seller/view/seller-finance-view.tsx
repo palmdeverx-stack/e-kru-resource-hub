@@ -275,7 +275,7 @@ export function MarketplaceSellerFinanceView() {
   ];
 
   return (
-    <Container maxWidth={false} sx={{ py: { xs: 3, md: 5 } }}>
+    <Container maxWidth={false} sx={{ py: { xs: 3 } }}>
       <Card
         sx={{
           p: { xs: 3, md: 4 },

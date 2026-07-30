@@ -193,7 +193,7 @@ export function MarketplaceFeedbackView() {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
+    <Container maxWidth="lg" sx={{ py: { xs: 3 } }}>
       <Stack direction="row" spacing={2} alignItems="center">
         <Box
           sx={{
@@ -323,7 +323,12 @@ export function MarketplaceFeedbackView() {
         </Stack>
       </Card>
 
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 5, mb: 2 }}>
+      <Stack
+        direction="row"
+        justifyContent="space-between"
+        alignItems="center"
+        sx={{ mt: 5, mb: 2 }}
+      >
         <Box>
           <Typography variant="h5">{isAdmin ? 'Feedback ทั้งหมด' : 'Feedback ของฉัน'}</Typography>
           <Typography variant="body2" color="text.secondary">
@@ -362,7 +367,9 @@ export function MarketplaceFeedbackView() {
           <Typography variant="h6" sx={{ mt: 1.5 }}>
             ยังไม่มี Feedback
           </Typography>
-          <Typography color="text.secondary">ความคิดเห็นรายการแรกสามารถเริ่มได้จากฟอร์มด้านบน</Typography>
+          <Typography color="text.secondary">
+            ความคิดเห็นรายการแรกสามารถเริ่มได้จากฟอร์มด้านบน
+          </Typography>
         </Card>
       )}
     </Container>
@@ -393,17 +400,11 @@ function AdminFeedbackList({
       (!statusFilter || item.status === statusFilter) &&
       (!categoryFilter || item.category === categoryFilter)
   );
-  const pendingCount = feedback.filter((item) =>
-    ['new', 'reviewing'].includes(item.status)
-  ).length;
+  const pendingCount = feedback.filter((item) => ['new', 'reviewing'].includes(item.status)).length;
 
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
-      <Stack
-        direction={{ xs: 'column', md: 'row' }}
-        justifyContent="space-between"
-        spacing={2}
-      >
+      <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2}>
         <Stack direction="row" spacing={2} alignItems="center">
           <Box
             sx={{
@@ -501,9 +502,7 @@ function AdminFeedbackList({
           <Typography variant="h6" sx={{ mt: 1.5 }}>
             ไม่พบ Feedback
           </Typography>
-          <Typography color="text.secondary">
-            ยังไม่มีรายการที่ตรงกับตัวกรองที่เลือก
-          </Typography>
+          <Typography color="text.secondary">ยังไม่มีรายการที่ตรงกับตัวกรองที่เลือก</Typography>
         </Card>
       )}
     </Container>

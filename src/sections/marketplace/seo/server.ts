@@ -5,6 +5,7 @@ import { cache } from 'react';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 
 import { withMediaUrls } from '../seller/server/product-media';
+import { SELLER_TOOLS_CATEGORY } from '../seller/server/seller-tools-access';
 
 type ProductImage = {
   storage_bucket: string;
@@ -30,6 +31,7 @@ export const getPublicProductSeo = cache(async (id: string) => {
     )
     .eq('id', id)
     .eq('status', 'published')
+    .neq('category', SELLER_TOOLS_CATEGORY)
     .eq('seller.status', 'active')
     .maybeSingle();
 

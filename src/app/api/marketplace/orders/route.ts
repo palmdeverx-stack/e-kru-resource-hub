@@ -13,6 +13,10 @@ import { getEligibleLicenseSchools } from 'src/sections/marketplace/checkout/ser
 import { createSchoolOnboardingForPaidOrders } from 'src/sections/marketplace/checkout/server/school-onboarding';
 import { grantFeatureEntitlementsForOrders } from 'src/sections/marketplace/checkout/server/grant-feature-entitlements';
 import {
+  canViewSellerTools,
+  SELLER_TOOLS_CATEGORY,
+} from 'src/sections/marketplace/seller/server/seller-tools-access';
+import {
   hasPurchasedProduct,
   getProductPurchaseAccess,
 } from 'src/sections/marketplace/catalog/server/product-engagement';
@@ -121,7 +125,7 @@ export async function POST(request: Request) {
   const { data: products, error: productError } = await supabaseAdmin
     .from('marketplace_products')
     .select(
-      'id, seller_id, title, price, list_price, currency, status, resource_type, grants_feature_key, grants_feature_keys, grants_plan_code, grant_duration_days, license_scope, license_seat_count, license_max_teachers, license_max_students, license_max_school_admins, license_line_quota, seller:marketplace_sellers(owner_role, commission_rate_override)'
+      'id, seller_id, title, category, price, list_price, currency, status, resource_type, grants_feature_key, grants_feature_keys, grants_plan_code, grant_duration_days, license_scope, license_seat_count, license_max_teachers, license_max_students, license_max_school_admins, license_line_quota, seller:marketplace_sellers(owner_role, commission_rate_override)'
     )
     .in('id', uniqueProductIds)
     .eq('status', 'published');
@@ -130,6 +134,15 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { message: productError?.message ?? 'สินค้าบางรายการไม่พร้อมจำหน่าย' },
       { status: 400 }
+    );
+  }
+  if (
+    products.some((product) => product.category === SELLER_TOOLS_CATEGORY) &&
+    !(await canViewSellerTools(caller.sub))
+  ) {
+    return NextResponse.json(
+      { message: 'สินค้านี้จำหน่ายเฉพาะผู้ขายที่เปิดร้านแล้ว' },
+      { status: 403 }
     );
   }
 
@@ -177,7 +190,10 @@ export async function POST(request: Request) {
         !eligibleSchools.some((school) => school.id === requestedLicenseSchoolId))
     ) {
       return NextResponse.json(
-        { message: 'กรุณาเลือกโรงเรียนที่คุณมีสิทธิ์เป็นผู้ดูแล หรือใช้บัญชีสมาชิกทั่วไปเพื่อสร้างโรงเรียนหลังชำระเงิน' },
+        {
+          message:
+            'กรุณาเลือกโรงเรียนที่คุณมีสิทธิ์เป็นผู้ดูแล หรือใช้บัญชีสมาชิกทั่วไปเพื่อสร้างโรงเรียนหลังชำระเงิน',
+        },
         { status: 403 }
       );
     }
@@ -205,12 +221,12 @@ export async function POST(request: Request) {
       return {
         product,
         access: await getProductPurchaseAccess({
-        productId: product.id,
-        buyerId: caller.sub,
-        schoolId: hasSchoolLicense ? requestedLicenseSchoolId : caller.schoolId,
-        resourceType: product.resource_type,
-        licenseScope: product.license_scope,
-      }),
+          productId: product.id,
+          buyerId: caller.sub,
+          schoolId: hasSchoolLicense ? requestedLicenseSchoolId : caller.schoolId,
+          resourceType: product.resource_type,
+          licenseScope: product.license_scope,
+        }),
       };
     })
   );
@@ -249,11 +265,7 @@ export async function POST(request: Request) {
   );
   const isFree = checkoutTotal === 0;
 
-  if (
-    !isFree &&
-    requestedPaymentMethod === 'stripe' &&
-    checkoutTotal < STRIPE_MINIMUM_THB
-  ) {
+  if (!isFree && requestedPaymentMethod === 'stripe' && checkoutTotal < STRIPE_MINIMUM_THB) {
     return NextResponse.json(
       {
         message: `ระบบชำระเงินออนไลน์รองรับยอดขั้นต่ำ ฿${STRIPE_MINIMUM_THB.toFixed(
@@ -344,7 +356,8 @@ export async function POST(request: Request) {
         seller_id: sellerId,
         payment_session_id: paymentSession.id,
         sales_deal_id: salesDeal?.id ?? null,
-        license_school_id: hasSchoolLicense && requestedLicenseSchoolId ? requestedLicenseSchoolId : null,
+        license_school_id:
+          hasSchoolLicense && requestedLicenseSchoolId ? requestedLicenseSchoolId : null,
         status: isFree ? 'paid' : 'pending_payment',
         total: grossAmount,
         gross_amount: grossAmount,
