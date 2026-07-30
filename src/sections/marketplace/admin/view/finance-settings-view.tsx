@@ -136,10 +136,10 @@ export function MarketplaceFinanceSettingsView() {
             <TextField
               fullWidth
               type="number"
-              label="ค่าธรรมเนียมแพลตฟอร์ม (%)"
+              label="ค่าธรรมเนียม Default ทุกร้าน (%)"
               value={form.commissionRate}
               onChange={(event) => setForm({ ...form, commissionRate: Number(event.target.value) })}
-              helperText="ร้านทางการ eKru คิด 0% อัตโนมัติ"
+              helperText="ใช้กับร้านที่ไม่ได้กำหนดค่าเฉพาะ ร้านทางการ eKru คิด 0% อัตโนมัติ"
             />
             <TextField
               fullWidth

@@ -57,7 +57,7 @@ export function MarketplaceFooter() {
           'radial-gradient(circle at 8% 8%, rgba(21,101,245,0.32), transparent 30%), radial-gradient(circle at 92% 92%, rgba(24,185,160,0.16), transparent 28%)',
       }}
     >
-      <Container maxWidth="xl" sx={{ pt: { xs: 7, md: 9 }, pb: 3 }}>
+      <Container maxWidth="lg" sx={{ pt: { xs: 7, md: 9 }, pb: 3 }}>
         <Grid container spacing={{ xs: 5, md: 6 }}>
           <Grid size={{ xs: 12, md: 5 }}>
             <Box sx={{ maxWidth: 440 }}>

@@ -49,6 +49,7 @@ import { useAuthContext } from 'src/auth/hooks';
 import { findSampleProduct } from '../../shared/constants';
 import { useMarketplaceCart } from '../../cart/cart-context';
 import { MarketplaceSellerLink } from '../../shared/seller-link';
+import { getMarketplacePricing } from '../../shared/pricing';
 import {
   stripHtml,
   getProduct,
@@ -229,6 +230,7 @@ export function MarketplaceProductDetailView({
   }
 
   const content = getLocalizedProduct(product, currentLang.value);
+  const pricing = getMarketplacePricing(product);
 
   const handleAdd = () => {
     addItem(product);
@@ -563,9 +565,22 @@ export function MarketplaceProductDetailView({
                 <Typography variant="caption" color="text.secondary">
                   ราคา
                 </Typography>
-                <Typography variant="h3" color="primary.main" sx={{ mt: 0.5 }}>
-                  {formatPrice(Number(product.price), product.currency)}
-                </Typography>
+                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                  <Typography variant="h3" color="primary.main" sx={{ mt: 0.5 }}>
+                    {formatPrice(pricing.salePrice, product.currency)}
+                  </Typography>
+                  {pricing.hasDiscount && (
+                    <Chip color="error" label={`ลด ${pricing.discountPercent}%`} />
+                  )}
+                </Stack>
+                {pricing.hasDiscount && (
+                  <Typography
+                    color="text.disabled"
+                    sx={{ mt: 0.25, textDecoration: 'line-through' }}
+                  >
+                    ราคาเต็ม {formatPrice(pricing.listPrice, product.currency)}
+                  </Typography>
+                )}
                 <Stack direction="row" spacing={2.5} sx={{ my: 2.5 }}>
                   <Box>
                     <Typography variant="subtitle1">
@@ -1310,7 +1325,7 @@ export function MarketplaceProductDetailView({
             </Stack>
 
             <Typography variant="h3" color="primary.main">
-              {formatPrice(Number(product.price), product.currency)}
+              {formatPrice(pricing.salePrice, product.currency)}
             </Typography>
 
             <Stack spacing={1.25}>

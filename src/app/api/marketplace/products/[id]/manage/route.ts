@@ -368,6 +368,30 @@ export async function PATCH(request: Request, { params }: Context) {
     }
     update.price = price;
   }
+  if (body.listPrice !== undefined) {
+    if (
+      body.listPrice === null ||
+      body.listPrice === '' ||
+      resolvedSaleType?.pricing_mode === 'free'
+    ) {
+      update.list_price = null;
+    } else {
+      const listPrice = Number(body.listPrice);
+      const salePrice = Number(update.price ?? body.price);
+      if (
+        !Number.isFinite(listPrice) ||
+        listPrice < 0 ||
+        !Number.isFinite(salePrice) ||
+        listPrice < salePrice
+      ) {
+        return NextResponse.json(
+          { message: 'ราคาเต็มต้องไม่น้อยกว่าราคาขาย' },
+          { status: 400 }
+        );
+      }
+      update.list_price = listPrice > salePrice ? listPrice : null;
+    }
+  }
 
   const step = Number(body.step);
   if (Number.isFinite(step) && step > 0) {
@@ -438,6 +462,15 @@ export async function PATCH(request: Request, { params }: Context) {
     }
     if (!Number.isFinite(Number(product.price)) || Number(product.price) < 0) {
       return NextResponse.json({ message: 'ราคาสินค้าไม่ถูกต้อง' }, { status: 400 });
+    }
+    if (
+      product.list_price != null &&
+      Number(product.list_price) < Number(product.price)
+    ) {
+      return NextResponse.json(
+        { message: 'ราคาเต็มต้องไม่น้อยกว่าราคาขาย' },
+        { status: 400 }
+      );
     }
     if (!(product.images as unknown[] | null)?.length) {
       return NextResponse.json({ message: 'กรุณาอัปโหลดรูปปกอย่างน้อย 1 รูป' }, { status: 400 });

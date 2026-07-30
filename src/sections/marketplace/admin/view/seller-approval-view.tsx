@@ -103,7 +103,7 @@ export function MarketplaceSellerApprovalView() {
   }
 
   return (
-    <Container maxWidth={false} sx={{ py: { xs: 3, md: 5 } }}>
+    <Container maxWidth={false} sx={{ py: { xs: 3 } }}>
       <Stack direction="row" spacing={1.5} alignItems="center">
         <RiStore2Line size={32} />
         <Box>

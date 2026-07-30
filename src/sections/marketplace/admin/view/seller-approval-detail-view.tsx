@@ -77,6 +77,9 @@ export function MarketplaceSellerApprovalDetailView({ sellerId }: Props) {
   const [seller, setSeller] = useState<MarketplaceSeller | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [commissionSaving, setCommissionSaving] = useState(false);
+  const [defaultCommissionRate, setDefaultCommissionRate] = useState(10);
+  const [commissionRate, setCommissionRate] = useState('');
   const [rejectOpen, setRejectOpen] = useState(false);
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
@@ -92,6 +95,12 @@ export function MarketplaceSellerApprovalDetailView({ sellerId }: Props) {
       const result = await response.json();
       if (!response.ok) throw new Error(result.message ?? 'โหลดรายละเอียดร้านไม่สำเร็จ');
       setSeller(result.seller);
+      setDefaultCommissionRate(Number(result.defaultCommissionRate) || 0);
+      setCommissionRate(
+        result.seller.commission_rate_override == null
+          ? ''
+          : String(result.seller.commission_rate_override)
+      );
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'โหลดรายละเอียดร้านไม่สำเร็จ');
     } finally {
@@ -124,6 +133,47 @@ export function MarketplaceSellerApprovalDetailView({ sellerId }: Props) {
       setError(reviewError instanceof Error ? reviewError.message : 'ตรวจสอบร้านค้าไม่สำเร็จ');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const saveCommissionRate = async () => {
+    if (!seller) return;
+    const override = commissionRate === '' ? null : Number(commissionRate);
+    if (override !== null && (!Number.isFinite(override) || override < 0 || override > 100)) {
+      setError('ค่าธรรมเนียมร้านค้าต้องอยู่ระหว่าง 0–100%');
+      return;
+    }
+
+    setCommissionSaving(true);
+    setError('');
+    setSuccess('');
+    try {
+      const response = await fetch(`/api/marketplace/admin/sellers/${seller.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ commissionRateOverride: override }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message ?? 'บันทึกค่าธรรมเนียมไม่สำเร็จ');
+      setSeller((current) =>
+        current
+          ? { ...current, commission_rate_override: result.seller.commission_rate_override }
+          : current
+      );
+      setCommissionRate(
+        result.seller.commission_rate_override == null
+          ? ''
+          : String(result.seller.commission_rate_override)
+      );
+      setSuccess(
+        override === null
+          ? `ร้านนี้กลับมาใช้ค่าธรรมเนียม Default ${defaultCommissionRate}% แล้ว`
+          : `กำหนดค่าธรรมเนียมร้านนี้เป็น ${override}% แล้ว`
+      );
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'บันทึกค่าธรรมเนียมไม่สำเร็จ');
+    } finally {
+      setCommissionSaving(false);
     }
   };
 
@@ -161,7 +211,7 @@ export function MarketplaceSellerApprovalDetailView({ sellerId }: Props) {
   }
 
   return (
-    <Container maxWidth="xl" sx={{ py: { xs: 3, md: 5 } }}>
+    <Container maxWidth="xl" sx={{ py: { xs: 3 } }}>
       <Button
         component={RouterLink}
         href={paths.marketplace.sellerApprovals}
@@ -337,6 +387,55 @@ export function MarketplaceSellerApprovalDetailView({ sellerId }: Props) {
         </Stack>
 
         <Stack spacing={3}>
+          <DetailCard title="ค่าธรรมเนียมการขาย">
+            <Stack spacing={2}>
+              <Alert
+                severity={seller.commission_rate_override == null ? 'info' : 'success'}
+              >
+                {seller.commission_rate_override == null
+                  ? `ใช้ค่า Default ของ Marketplace ${defaultCommissionRate}%`
+                  : `ร้านนี้ใช้ค่าธรรมเนียมเฉพาะ ${Number(
+                      seller.commission_rate_override
+                    )}% แทนค่า Default ${defaultCommissionRate}%`}
+              </Alert>
+              <TextField
+                fullWidth
+                type="number"
+                label="ค่าธรรมเนียมเฉพาะร้าน (%)"
+                value={commissionRate}
+                onChange={(event) => setCommissionRate(event.target.value)}
+                slotProps={{ htmlInput: { min: 0, max: 100, step: 0.01 } }}
+                helperText="เว้นว่างเพื่อใช้ค่าธรรมเนียม Default จากหน้าตั้งค่าการเงิน"
+                error={
+                  commissionRate !== '' &&
+                  (!Number.isFinite(Number(commissionRate)) ||
+                    Number(commissionRate) < 0 ||
+                    Number(commissionRate) > 100)
+                }
+              />
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+                <Button
+                  variant="contained"
+                  loading={commissionSaving}
+                  onClick={saveCommissionRate}
+                >
+                  บันทึกค่าธรรมเนียมร้าน
+                </Button>
+                <Button
+                  color="inherit"
+                  disabled={commissionSaving || commissionRate === ''}
+                  onClick={() => setCommissionRate('')}
+                >
+                  ใช้ค่า Default
+                </Button>
+              </Stack>
+              <Typography variant="caption" color="text.secondary">
+                การเปลี่ยนแปลงมีผลกับคำสั่งซื้อใหม่เท่านั้น
+                คำสั่งซื้อเดิมจะใช้เปอร์เซ็นต์ที่บันทึกไว้ตอนสั่งซื้อ
+              </Typography>
+            </Stack>
+          </DetailCard>
+
           <DetailCard title="ข้อตกลงที่ยอมรับ">
             <Stack divider={<Divider flexItem />}>
               {agreementFields.map((agreement) => {

@@ -23,6 +23,7 @@ import {
 
 import { MarketplaceSellerLink } from '../../shared/seller-link';
 import { formatPrice, getLocalizedProduct } from '../../shared/api';
+import { getMarketplacePricing } from '../../shared/pricing';
 
 const fallbackGradients = [
   'linear-gradient(135deg, #DDEBFF 0%, #F4F8FF 50%, #CFE3FF 100%)',
@@ -49,6 +50,7 @@ export function MarketplaceNewProductCard({
   const reviewCount = product.engagement?.reviewCount ?? 0;
   const purchases = product.engagement?.purchases ?? 0;
   const views = product.engagement?.views ?? 0;
+  const pricing = getMarketplacePricing(product);
 
   return (
     <Card
@@ -237,9 +239,23 @@ export function MarketplaceNewProductCard({
             <Typography variant="caption" color="text.secondary">
               ราคา
             </Typography>
-            <Typography variant="h6" color="primary.main" sx={{ fontWeight: 800 }}>
-              {formatPrice(Number(product.price), product.currency)}
-            </Typography>
+            <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" useFlexGap>
+              <Typography variant="h6" color="primary.main" sx={{ fontWeight: 800 }}>
+                {formatPrice(pricing.salePrice, product.currency)}
+              </Typography>
+              {pricing.hasDiscount && (
+                <>
+                  <Typography
+                    variant="caption"
+                    color="text.disabled"
+                    sx={{ textDecoration: 'line-through' }}
+                  >
+                    {formatPrice(pricing.listPrice, product.currency)}
+                  </Typography>
+                  <Chip size="small" color="error" label={`-${pricing.discountPercent}%`} />
+                </>
+              )}
+            </Stack>
           </Box>
           <Box
             sx={{

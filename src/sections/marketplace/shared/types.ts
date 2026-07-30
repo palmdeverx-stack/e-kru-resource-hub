@@ -192,6 +192,7 @@ export type MarketplaceSeller = {
   copyright_confirmed_at?: string | null;
   fee_agreement_accepted_at?: string | null;
   pdpa_accepted_at?: string | null;
+  commission_rate_override?: number | null;
   status: 'draft' | 'pending' | 'active' | 'suspended' | 'rejected';
   submitted_at: string | null;
   reviewed_at: string | null;
@@ -246,6 +247,7 @@ export type MarketplaceProduct = {
   license_max_school_admins?: number | null;
   license_line_quota?: number | null;
   price: number;
+  list_price?: number | null;
   currency: string;
   cover_url: string | null;
   file_url?: string | null;
@@ -289,6 +291,7 @@ export type MarketplaceOrder = {
     | 'refunded';
   total: number;
   gross_amount?: number;
+  discount_amount?: number;
   commission_rate?: number;
   platform_fee?: number;
   seller_net?: number;
@@ -311,6 +314,7 @@ export type MarketplaceOrder = {
     product_id: string;
     title: string;
     unit_price: number;
+    list_unit_price?: number | null;
     quantity: number;
     product?:
       | (Pick<
@@ -384,6 +388,7 @@ export type ProductInput = {
   mediaTypeId?: string;
   saleTypeId?: string;
   price?: number;
+  listPrice?: number | null;
   grantsFeatureKey?: string;
   grantsFeatureKeys?: string[];
   grantsPlanCode?: string;

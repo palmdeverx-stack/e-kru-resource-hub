@@ -79,7 +79,11 @@ export function MarketplaceAccountMenu() {
             เข้าสู่ระบบแล้ว
           </Typography>
         </Box>
-        <IconButton onClick={(event) => setAnchorEl(event.currentTarget)} aria-label="เมนูโปรไฟล์">
+        <IconButton
+          onClick={(event) => setAnchorEl(event.currentTarget)}
+          aria-label="เมนูโปรไฟล์"
+          sx={{ p: { xs: 0.5, sm: 1 } }}
+        >
           <Badge
             overlap="circular"
             variant="dot"
@@ -88,7 +92,10 @@ export function MarketplaceAccountMenu() {
           >
             <Avatar
               src={user.photoURL || user.avatar_url || undefined}
-              sx={{ width: 38, height: 38 }}
+              sx={{
+                width: { xs: 34, sm: 38 },
+                height: { xs: 34, sm: 38 },
+              }}
             >
               {initials}
             </Avatar>

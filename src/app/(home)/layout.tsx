@@ -18,6 +18,16 @@ export default function Layout({ children }: Props) {
             leftArea: <MarketplaceBrand />,
             rightArea: <MarketplaceHeaderActions />,
           },
+          slotProps: {
+            container: {
+              sx: {
+                px: { xs: 1.5, sm: 3 },
+              },
+            },
+          },
+          sx: {
+            '--layout-header-mobile-height': '56px',
+          },
         },
         footerContent: <MarketplaceFooter />,
       }}

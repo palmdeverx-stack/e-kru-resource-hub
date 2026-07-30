@@ -35,6 +35,7 @@ import {
 import { useAuthContext } from 'src/auth/hooks';
 
 import { useMarketplaceCart } from '../../cart/cart-context';
+import { getMarketplacePricing } from '../../shared/pricing';
 import {
   createOrder,
   formatPrice,
@@ -47,7 +48,7 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
   const searchParams = useSearchParams();
   const { currentLang } = useTranslate();
   const { user, authenticated, loading } = useAuthContext();
-  const { items, subtotal, clearCart } = useMarketplaceCart();
+  const { items, subtotal, listSubtotal, discountTotal, clearCart } = useMarketplaceCart();
   const [paymentMethod, setPaymentMethod] = useState('');
   const [availableMethods, setAvailableMethods] = useState({
     promptpay: false,
@@ -365,28 +366,52 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
         <Card sx={{ p: 3, width: { xs: 1, md: 380 } }}>
           <Typography variant="h5">รายการสั่งซื้อ</Typography>
           <Stack divider={<Divider flexItem />} sx={{ my: 2 }}>
-            {items.map((item) => (
-              <Stack
-                key={item.product.id}
-                direction="row"
-                justifyContent="space-between"
-                sx={{ py: 1.5 }}
-              >
-                <Box sx={{ pr: 2 }}>
-                  <Typography variant="body2">
-                    {getLocalizedProduct(item.product, currentLang.value).title}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    1 สิทธิ์
-                  </Typography>
-                </Box>
-                <Typography variant="subtitle2">
-                  {formatPrice(Number(item.product.price))}
-                </Typography>
-              </Stack>
-            ))}
+            {items.map((item) => {
+              const pricing = getMarketplacePricing(item.product);
+              return (
+                <Stack
+                  key={item.product.id}
+                  direction="row"
+                  justifyContent="space-between"
+                  sx={{ py: 1.5 }}
+                >
+                  <Box sx={{ pr: 2 }}>
+                    <Typography variant="body2">
+                      {getLocalizedProduct(item.product, currentLang.value).title}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      1 สิทธิ์
+                    </Typography>
+                  </Box>
+                  <Box sx={{ textAlign: 'right' }}>
+                    <Typography variant="subtitle2">{formatPrice(pricing.salePrice)}</Typography>
+                    {pricing.hasDiscount && (
+                      <Typography
+                        variant="caption"
+                        color="text.disabled"
+                        sx={{ textDecoration: 'line-through' }}
+                      >
+                        {formatPrice(pricing.listPrice)}
+                      </Typography>
+                    )}
+                  </Box>
+                </Stack>
+              );
+            })}
           </Stack>
           <Divider />
+          {discountTotal > 0 && (
+            <Stack spacing={1} sx={{ mt: 2 }}>
+              <Stack direction="row" justifyContent="space-between">
+                <Typography color="text.secondary">ราคาเต็ม</Typography>
+                <Typography>{formatPrice(listSubtotal)}</Typography>
+              </Stack>
+              <Stack direction="row" justifyContent="space-between">
+                <Typography color="success.main">ส่วนลด</Typography>
+                <Typography color="success.main">-{formatPrice(discountTotal)}</Typography>
+              </Stack>
+            </Stack>
+          )}
           <Stack direction="row" justifyContent="space-between" sx={{ my: 2.5 }}>
             <Typography variant="h6">ยอดชำระ</Typography>
             <Typography variant="h5" color="primary.main">

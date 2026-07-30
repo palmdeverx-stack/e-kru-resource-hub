@@ -413,12 +413,18 @@ export default function Layout({ children }: Props) {
                 rel="noopener noreferrer"
                 variant="outlined"
                 startIcon={<RiHome5Line />}
+                sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
               >
                 ดูหน้าเว็บไซต์
               </Button>
             ),
             rightArea: (
-              <Stack direction="row" spacing={1} alignItems="center">
+              <Stack
+                direction="row"
+                spacing={{ xs: 0, sm: 1 }}
+                alignItems="center"
+                sx={{ flexShrink: 0 }}
+              >
                 <LanguagePopover showTranslateIcon data={languageOptions} />
                 <NotificationsMenu scope="marketplace" />
                 <MarketplaceAccountMenu />
@@ -431,6 +437,14 @@ export default function Layout({ children }: Props) {
                 justifyContent: 'flex-start',
               },
             },
+            container: {
+              sx: {
+                px: { xs: 1.5, sm: 2.5, lg: 5 },
+              },
+            },
+          },
+          sx: {
+            '--layout-header-mobile-height': '56px',
           },
         },
       }}

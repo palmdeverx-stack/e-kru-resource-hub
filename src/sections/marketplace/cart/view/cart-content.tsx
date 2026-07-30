@@ -28,6 +28,7 @@ import {
 
 import { useMarketplaceCart } from '../cart-context';
 import { MarketplaceSellerLink } from '../../shared/seller-link';
+import { getMarketplacePricing } from '../../shared/pricing';
 import { formatPrice, getLocalizedProduct } from '../../shared/api';
 import { MarketplaceProductDetailDialog } from '../../catalog/components/product-detail-dialog';
 
@@ -41,7 +42,7 @@ export function MarketplaceCartContent({
   checkoutHref,
 }: MarketplaceCartContentProps) {
   const { currentLang } = useTranslate();
-  const { items, subtotal, removeItem } = useMarketplaceCart();
+  const { items, subtotal, listSubtotal, discountTotal, removeItem } = useMarketplaceCart();
   const [selectedProduct, setSelectedProduct] = useState<MarketplaceProduct | null>(null);
 
   if (!items.length) {
@@ -92,6 +93,7 @@ export function MarketplaceCartContent({
         <Stack spacing={2} sx={{ flex: 1, width: 1 }}>
           {items.map(({ product }) => {
             const content = getLocalizedProduct(product, currentLang.value);
+            const pricing = getMarketplacePricing(product);
             const coverUrl =
               product.images?.find((image) => image.is_cover)?.url ??
               product.images?.[0]?.url ??
@@ -224,9 +226,27 @@ export function MarketplaceCartContent({
                       alignItems={{ xs: 'stretch', sm: 'center' }}
                       sx={{ mt: 'auto !important' }}
                     >
-                      <Typography variant="h5" color="primary.main" sx={{ mr: 'auto' }}>
-                        {formatPrice(Number(product.price), product.currency)}
-                      </Typography>
+                      <Stack direction="row" spacing={1} alignItems="center" sx={{ mr: 'auto' }}>
+                        <Typography variant="h5" color="primary.main">
+                          {formatPrice(pricing.salePrice, product.currency)}
+                        </Typography>
+                        {pricing.hasDiscount && (
+                          <>
+                            <Typography
+                              variant="body2"
+                              color="text.disabled"
+                              sx={{ textDecoration: 'line-through' }}
+                            >
+                              {formatPrice(pricing.listPrice, product.currency)}
+                            </Typography>
+                            <Chip
+                              size="small"
+                              color="error"
+                              label={`-${pricing.discountPercent}%`}
+                            />
+                          </>
+                        )}
+                      </Stack>
                       <Button
                         size="small"
                         variant="outlined"
@@ -255,9 +275,15 @@ export function MarketplaceCartContent({
           <Typography variant="h5">สรุปคำสั่งซื้อ</Typography>
           <Stack spacing={2} sx={{ mt: 3 }}>
             <Stack direction="row" justifyContent="space-between">
-              <Typography color="text.secondary">สินค้า {items.length} รายการ</Typography>
-              <Typography>{formatPrice(subtotal)}</Typography>
+              <Typography color="text.secondary">ราคาเต็ม {items.length} รายการ</Typography>
+              <Typography>{formatPrice(listSubtotal)}</Typography>
             </Stack>
+            {discountTotal > 0 && (
+              <Stack direction="row" justifyContent="space-between">
+                <Typography color="success.main">ส่วนลดสินค้า</Typography>
+                <Typography color="success.main">-{formatPrice(discountTotal)}</Typography>
+              </Stack>
+            )}
             <Divider />
             <Stack direction="row" justifyContent="space-between">
               <Typography variant="h6">ยอดชำระทั้งหมด</Typography>

@@ -53,6 +53,7 @@ import {
 import { useAuthContext } from 'src/auth/hooks';
 
 import { MARKETPLACE_CATEGORIES } from '../../shared/constants';
+import { getMarketplacePricing } from '../../shared/pricing';
 import {
   getTags,
   getCurricula,
@@ -121,6 +122,7 @@ const initialForm = {
   mediaTypeId: '',
   saleTypeId: '',
   price: '0',
+  listPrice: '',
   grantsFeatureKeys: [] as string[],
   grantsPlanCode: '',
   grantDurationDays: '30',
@@ -164,6 +166,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
   const [subscriptionPlans, setSubscriptionPlans] = useState<MarketplaceSubscriptionPlan[]>([]);
   const [subscriptionPlansLoading, setSubscriptionPlansLoading] = useState(false);
   const [subscriptionPlansError, setSubscriptionPlansError] = useState('');
+  const [commissionRate, setCommissionRate] = useState(0);
   const [images, setImages] = useState<MarketplaceProductImage[]>([]);
   const [pendingCover, setPendingCover] = useState<File | null>(null);
   const [pendingPreviewImages, setPendingPreviewImages] = useState<File[]>([]);
@@ -223,6 +226,20 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
       .finally(() => setSubscriptionPlansLoading(false));
   }, [user?.role]);
 
+  useEffect(() => {
+    if (!user) return;
+    if (user.role === 'master_admin') {
+      setCommissionRate(0);
+      return;
+    }
+    fetch('/api/marketplace/payment-methods')
+      .then((response) => response.json())
+      .then((result: { commissionRate?: number }) =>
+        setCommissionRate(Math.min(100, Math.max(0, Number(result.commissionRate) || 0)))
+      )
+      .catch(() => setCommissionRate(0));
+  }, [user]);
+
   const hydrate = useCallback((product: MarketplaceProduct) => {
     setForm({
       productKind: product.resource_type === 'feature_unlock' ? 'license' : 'resource',
@@ -240,6 +257,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
       mediaTypeId: product.media_type_id ?? '',
       saleTypeId: product.sale_type_id ?? '',
       price: String(product.price ?? 0),
+      listPrice: product.list_price == null ? '' : String(product.list_price),
       grantsFeatureKeys: product.grants_feature_keys?.length
         ? product.grants_feature_keys
         : product.grants_feature_key
@@ -390,6 +408,10 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
       : []),
   ];
   const requirements = readinessItems.filter((item) => !item.completed).map((item) => item.label);
+  const previewPricing = getMarketplacePricing({
+    price: form.price,
+    list_price: form.listPrice || null,
+  });
 
   const productInput = (submit = false): ProductInput => ({
     title: form.title.trim(),
@@ -406,6 +428,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
     ...(form.mediaTypeId && { mediaTypeId: form.mediaTypeId }),
     ...(form.saleTypeId && { saleTypeId: form.saleTypeId }),
     price: Number(form.price) || 0,
+    listPrice: form.listPrice === '' ? null : Number(form.listPrice),
     grantsFeatureKey: isLicenseProduct ? form.grantsFeatureKeys[0] || undefined : undefined,
     grantsFeatureKeys: isLicenseProduct ? form.grantsFeatureKeys : [],
     grantsPlanCode: isLicenseProduct ? form.grantsPlanCode.trim() || undefined : undefined,
@@ -1013,6 +1036,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                         ...current,
                         saleTypeId: event.target.value,
                         price: selected?.pricing_mode === 'free' ? '0' : current.price,
+                        listPrice: selected?.pricing_mode === 'free' ? '' : current.listPrice,
                       }));
                     }}
                   >
@@ -1024,19 +1048,64 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                     ))}
                   </TextField>
                 </Grid>
-                <Grid size={{ xs: 12, sm: 6 }}>
+                <Grid size={{ xs: 12, sm: 3 }}>
                   <TextField
                     fullWidth
                     type="number"
-                    label="ราคา (บาท)"
+                    label="ราคาขาย (บาท)"
                     value={form.price}
                     disabled={selectedSaleType?.pricing_mode === 'free'}
                     slotProps={{ htmlInput: { min: 0, step: 1 } }}
                     onChange={(event) =>
                       setForm((current) => ({ ...current, price: event.target.value }))
                     }
+                    helperText="ยอดที่ผู้ซื้อชำระจริง"
                   />
                 </Grid>
+                <Grid size={{ xs: 12, sm: 3 }}>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    label="ราคาเต็ม (บาท)"
+                    value={form.listPrice}
+                    disabled={selectedSaleType?.pricing_mode === 'free'}
+                    slotProps={{ htmlInput: { min: Number(form.price) || 0, step: 1 } }}
+                    onChange={(event) =>
+                      setForm((current) => ({ ...current, listPrice: event.target.value }))
+                    }
+                    error={
+                      form.listPrice !== '' && Number(form.listPrice) < Number(form.price || 0)
+                    }
+                    helperText={
+                      form.listPrice !== '' && Number(form.listPrice) < Number(form.price || 0)
+                        ? 'ราคาเต็มต้องไม่น้อยกว่าราคาขาย'
+                        : previewPricing.hasDiscount
+                          ? `ส่วนลด ${previewPricing.discountPercent}%`
+                          : 'เว้นว่างเมื่อไม่มีส่วนลด'
+                    }
+                  />
+                </Grid>
+                {selectedSaleType?.pricing_mode === 'paid' && (
+                  <Grid size={12}>
+                    <Alert severity="info">
+                      ราคาขาย {previewPricing.salePrice.toLocaleString('th-TH')} บาท ·
+                      ค่าธรรมเนียมแพลตฟอร์ม {commissionRate}% ={' '}
+                      {((previewPricing.salePrice * commissionRate) / 100).toLocaleString('th-TH', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}{' '}
+                      บาท · ผู้ขายได้รับประมาณ{' '}
+                      {(
+                        previewPricing.salePrice *
+                        (1 - commissionRate / 100)
+                      ).toLocaleString('th-TH', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}{' '}
+                      บาท
+                    </Alert>
+                  </Grid>
+                )}
                 {isLicenseProduct && (
                   <>
                     <Grid size={{ xs: 12, sm: 6 }}>
@@ -1536,11 +1605,29 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, minHeight: 42 }}>
                   {previewShortDescription || 'คำอธิบายสั้นจะแสดงบริเวณนี้'}
                 </Typography>
-                <Typography variant="h5" color="primary.main" sx={{ mt: 1.5 }}>
-                  {selectedSaleType?.pricing_mode === 'free'
-                    ? 'ฟรี'
-                    : `${Number(form.price || 0).toLocaleString('th-TH')} บาท`}
-                </Typography>
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1.5 }}>
+                  <Typography variant="h5" color="primary.main">
+                    {selectedSaleType?.pricing_mode === 'free'
+                      ? 'ฟรี'
+                      : `${previewPricing.salePrice.toLocaleString('th-TH')} บาท`}
+                  </Typography>
+                  {selectedSaleType?.pricing_mode !== 'free' && previewPricing.hasDiscount && (
+                    <>
+                      <Typography
+                        variant="body2"
+                        color="text.disabled"
+                        sx={{ textDecoration: 'line-through' }}
+                      >
+                        {previewPricing.listPrice.toLocaleString('th-TH')} บาท
+                      </Typography>
+                      <Chip
+                        size="small"
+                        color="error"
+                        label={`ลด ${previewPricing.discountPercent}%`}
+                      />
+                    </>
+                  )}
+                </Stack>
               </Box>
             </Card>
 

@@ -226,7 +226,7 @@ export function MarketplaceLandingView() {
             'radial-gradient(circle at 82% 18%, rgba(21,101,245,0.18), transparent 32%), radial-gradient(circle at 15% 82%, rgba(24,185,160,0.12), transparent 30%), linear-gradient(180deg, #F5F9FF 0%, #FFFFFF 100%)',
         }}
       >
-        <Container maxWidth="xl">
+        <Container maxWidth="lg">
           <Grid container spacing={{ xs: 6, md: 8 }} alignItems="center">
             <Grid size={{ xs: 12, md: 7 }}>
               <Stack spacing={3.5} alignItems={{ xs: 'center', md: 'flex-start' }}>
@@ -395,7 +395,7 @@ export function MarketplaceLandingView() {
         </Container>
       </Box>
 
-      <Container maxWidth="xl" sx={{ py: { xs: 7, md: 10 } }}>
+      <Container maxWidth="lg" sx={{ py: { xs: 7, md: 10 } }}>
         <Stack spacing={4.5}>
           <SectionHeading
             eyebrow="E-KRU MARKETPLACE"
@@ -448,7 +448,7 @@ export function MarketplaceLandingView() {
         </Stack>
       </Container>
 
-      <Container maxWidth="xl" sx={{ py: { xs: 7, md: 10 } }}>
+      <Container maxWidth="lg" sx={{ py: { xs: 7, md: 10 } }}>
         <Stack spacing={4}>
           <Box sx={{ textAlign: 'center' }}>
             <Typography variant="h3">เลือกสื่อตามรูปแบบที่ต้องการ</Typography>
@@ -525,7 +525,7 @@ export function MarketplaceLandingView() {
           },
         }}
       >
-        <Container maxWidth="xl" sx={{ position: 'relative', zIndex: 1 }}>
+        <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
           <Stack spacing={{ xs: 4, md: 6 }}>
             <SectionHeading
               eyebrow="HOW IT WORKS"
@@ -562,7 +562,7 @@ export function MarketplaceLandingView() {
         </Container>
       </Box>
 
-      <Container maxWidth="xl" sx={{ py: { xs: 7, md: 10 } }}>
+      <Container maxWidth="lg" sx={{ py: { xs: 7, md: 10 } }}>
         <Stack spacing={4.5}>
           <SectionHeading
             eyebrow="FOR EVERY LEARNER"

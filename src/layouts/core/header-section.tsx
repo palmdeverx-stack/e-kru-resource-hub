@@ -64,7 +64,7 @@ export function HeaderSection({
     >
       {slots?.topArea}
 
-      <HeaderContainer maxWidth="xl" layoutQuery={layoutQuery} {...slotProps?.container}>
+      <HeaderContainer maxWidth="lg" layoutQuery={layoutQuery} {...slotProps?.container}>
         {slots?.leftArea}
 
         <HeaderCenterArea {...slotProps?.centerArea}>{slots?.centerArea}</HeaderCenterArea>
@@ -128,6 +128,8 @@ const HeaderRoot = styled(AppBar, {
   };
 
   return {
+    width: '100%',
+    maxWidth: '100vw',
     zIndex: 'var(--layout-header-zIndex)',
     ...(!disableOffset && { '&::before': bgStyles }),
     ...(!disableElevation && { '&::after': shadowStyles }),
@@ -137,6 +139,9 @@ const HeaderRoot = styled(AppBar, {
 const HeaderContainer = styled(Container, {
   shouldForwardProp: (prop: string) => !['layoutQuery', 'sx'].includes(prop),
 })<Pick<HeaderSectionProps, 'layoutQuery'>>(({ layoutQuery = 'xl', theme }) => ({
+  width: '100%',
+  minWidth: 0,
+  maxWidth: '100vw',
   display: 'flex',
   alignItems: 'center',
   color: 'var(--color)',
@@ -145,6 +150,7 @@ const HeaderContainer = styled(Container, {
 }));
 
 const HeaderCenterArea = styled('div')(({ theme }) => ({
+  minWidth: 0,
   display: 'flex',
   flex: '1 1 auto',
   justifyContent: 'flex-start',

@@ -118,7 +118,7 @@ export async function POST(request: Request) {
   const { data: products, error: productError } = await supabaseAdmin
     .from('marketplace_products')
     .select(
-      'id, seller_id, title, price, currency, status, resource_type, grants_feature_key, grants_feature_keys, grants_plan_code, grant_duration_days, license_scope, license_seat_count, license_max_teachers, license_max_students, license_max_school_admins, license_line_quota, seller:marketplace_sellers(owner_role)'
+      'id, seller_id, title, price, list_price, currency, status, resource_type, grants_feature_key, grants_feature_keys, grants_plan_code, grant_duration_days, license_scope, license_seat_count, license_max_teachers, license_max_students, license_max_school_admins, license_line_quota, seller:marketplace_sellers(owner_role, commission_rate_override)'
     )
     .in('id', uniqueProductIds)
     .eq('status', 'published');
@@ -152,6 +152,10 @@ export async function POST(request: Request) {
       );
     }
     salesDeal = deal as SalesDealRow;
+    products[0].list_price = Math.max(
+      Number(products[0].list_price ?? products[0].price),
+      Number(products[0].price)
+    );
     products[0].price = Number(deal.negotiated_price);
     requestedLicenseSchoolId = deal.school_id ?? requestedLicenseSchoolId;
   }
@@ -296,9 +300,19 @@ export async function POST(request: Request) {
     const grossAmount = money(
       items.reduce((sum, item) => sum + Number(item.price) * item.quantity, 0)
     );
+    const listAmount = money(
+      items.reduce(
+        (sum, item) =>
+          sum + Math.max(Number(item.list_price ?? item.price), Number(item.price)) * item.quantity,
+        0
+      )
+    );
+    const discountAmount = money(Math.max(0, listAmount - grossAmount));
     const sellerRecord = Array.isArray(items[0]?.seller) ? items[0]?.seller[0] : items[0]?.seller;
     const commissionRate =
-      sellerRecord?.owner_role === 'master_admin' ? 0 : Number(finance.commission_rate);
+      sellerRecord?.owner_role === 'master_admin'
+        ? 0
+        : Number(sellerRecord?.commission_rate_override ?? finance.commission_rate);
     const platformFee = money((grossAmount * commissionRate) / 100);
     const sellerNet = money(grossAmount - platformFee);
     const { data: order, error: orderError } = await supabaseAdmin
@@ -312,6 +326,7 @@ export async function POST(request: Request) {
         status: isFree ? 'paid' : 'pending_payment',
         total: grossAmount,
         gross_amount: grossAmount,
+        discount_amount: discountAmount,
         commission_rate: commissionRate,
         platform_fee: platformFee,
         seller_net: sellerNet,
@@ -336,6 +351,7 @@ export async function POST(request: Request) {
         product_id: item.id,
         title: item.title,
         unit_price: item.price,
+        list_unit_price: Math.max(Number(item.list_price ?? item.price), Number(item.price)),
         quantity: item.quantity,
       }))
     );

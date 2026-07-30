@@ -5,11 +5,14 @@ import type { CartItem, MarketplaceProduct } from '../shared/types';
 import { useMemo, useState, useEffect, useContext, useCallback, createContext } from 'react';
 
 import { getProduct } from '../shared/api';
+import { getMarketplacePricing } from '../shared/pricing';
 
 type CartContextValue = {
   items: CartItem[];
   itemCount: number;
   subtotal: number;
+  listSubtotal: number;
+  discountTotal: number;
   addItem: (product: MarketplaceProduct) => void;
   removeItem: (productId: string) => void;
   clearCart: () => void;
@@ -78,17 +81,22 @@ export function MarketplaceCartProvider({ children }: { children: React.ReactNod
 
   const clearCart = useCallback(() => setItems([]), []);
 
-  const value = useMemo(
-    () => ({
+  const value = useMemo(() => {
+    const pricing = items.map((item) => getMarketplacePricing(item.product));
+    const subtotal = pricing.reduce((sum, item) => sum + item.salePrice, 0);
+    const listSubtotal = pricing.reduce((sum, item) => sum + item.listPrice, 0);
+
+    return {
       items,
       addItem,
       clearCart,
       removeItem,
       itemCount: items.length,
-      subtotal: items.reduce((sum, item) => sum + Number(item.product.price), 0),
-    }),
-    [addItem, clearCart, items, removeItem]
-  );
+      subtotal,
+      listSubtotal,
+      discountTotal: Math.max(0, listSubtotal - subtotal),
+    };
+  }, [addItem, clearCart, items, removeItem]);
 
   return <CartContext value={value}>{children}</CartContext>;
 }

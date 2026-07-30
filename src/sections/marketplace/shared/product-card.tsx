@@ -17,6 +17,7 @@ import { RiFileLine, RiBookOpenLine, RiGraduationCapLine } from 'src/components/
 
 import { MarketplaceSellerLink } from './seller-link';
 import { formatPrice, getLocalizedProduct } from './api';
+import { getMarketplacePricing } from './pricing';
 
 export function MarketplaceProductCard({
   product,
@@ -41,6 +42,7 @@ export function MarketplaceProductCard({
       .join(', ') || 'ทุกระดับชั้น';
   const rating = product.engagement?.averageRating ?? 0;
   const reviewCount = product.engagement?.reviewCount ?? 0;
+  const pricing = getMarketplacePricing(product);
 
   return (
     <Card
@@ -169,9 +171,23 @@ export function MarketplaceProductCard({
           }}
         >
           <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
-            <Typography variant="subtitle1" color="success.darker" sx={{ fontWeight: 800 }}>
-              {formatPrice(Number(product.price), product.currency)}
-            </Typography>
+            <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" useFlexGap>
+              <Typography variant="subtitle1" color="success.darker" sx={{ fontWeight: 800 }}>
+                {formatPrice(pricing.salePrice, product.currency)}
+              </Typography>
+              {pricing.hasDiscount && (
+                <>
+                  <Typography
+                    variant="caption"
+                    color="text.disabled"
+                    sx={{ textDecoration: 'line-through' }}
+                  >
+                    {formatPrice(pricing.listPrice, product.currency)}
+                  </Typography>
+                  <Chip size="small" color="error" label={`-${pricing.discountPercent}%`} />
+                </>
+              )}
+            </Stack>
             {reviewCount ? (
               <Stack direction="row" spacing={0.5} alignItems="center">
                 <Typography variant="caption" sx={{ fontWeight: 700 }}>

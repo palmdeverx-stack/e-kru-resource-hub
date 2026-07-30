@@ -429,7 +429,17 @@ alter table public.marketplace_sellers
   add column if not exists seller_agreement_accepted_at timestamptz,
   add column if not exists copyright_confirmed_at timestamptz,
   add column if not exists fee_agreement_accepted_at timestamptz,
-  add column if not exists pdpa_accepted_at timestamptz;
+  add column if not exists pdpa_accepted_at timestamptz,
+  add column if not exists commission_rate_override numeric(5, 2);
+
+alter table public.marketplace_sellers
+  drop constraint if exists marketplace_sellers_commission_rate_override_check;
+alter table public.marketplace_sellers
+  add constraint marketplace_sellers_commission_rate_override_check
+  check (
+    commission_rate_override is null
+    or (commission_rate_override >= 0 and commission_rate_override <= 100)
+  );
 
 alter table public.marketplace_sellers
   drop constraint if exists marketplace_sellers_seller_type_check;
@@ -490,6 +500,7 @@ create table if not exists public.marketplace_products (
   resource_type text not null default 'digital'
     check (resource_type in ('digital', 'physical', 'service')),
   price numeric(12, 2) not null default 0 check (price >= 0),
+  list_price numeric(12, 2) check (list_price is null or (list_price >= 0 and list_price >= price)),
   currency text not null default 'THB',
   cover_url text,
   file_url text,
@@ -533,6 +544,13 @@ alter table public.marketplace_products
   add column if not exists description_en text;
 alter table public.marketplace_products
   add column if not exists subject_label text;
+alter table public.marketplace_products
+  add column if not exists list_price numeric(12, 2);
+alter table public.marketplace_products
+  drop constraint if exists marketplace_products_list_price_check;
+alter table public.marketplace_products
+  add constraint marketplace_products_list_price_check
+  check (list_price is null or (list_price >= 0 and list_price >= price));
 alter table public.marketplace_products
   add column if not exists curriculum_id uuid references public.marketplace_curricula(id);
 alter table public.marketplace_products
@@ -660,8 +678,21 @@ create table if not exists public.marketplace_order_items (
   product_id uuid not null references public.marketplace_products(id),
   title text not null,
   unit_price numeric(12, 2) not null check (unit_price >= 0),
+  list_unit_price numeric(12, 2)
+    check (list_unit_price is null or (list_unit_price >= 0 and list_unit_price >= unit_price)),
   quantity integer not null default 1 check (quantity > 0)
 );
+
+alter table public.marketplace_order_items
+  add column if not exists list_unit_price numeric(12, 2);
+alter table public.marketplace_order_items
+  drop constraint if exists marketplace_order_items_list_unit_price_check;
+alter table public.marketplace_order_items
+  add constraint marketplace_order_items_list_unit_price_check
+  check (
+    list_unit_price is null
+    or (list_unit_price >= 0 and list_unit_price >= unit_price)
+  );
 
 -- Public engagement shown on the product detail page. Views count unique
 -- visitors, reviews are restricted to one per verified buyer, and every
