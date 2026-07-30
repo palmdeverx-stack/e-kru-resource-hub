@@ -217,6 +217,42 @@ export function MarketplaceSellerLineSettingsView() {
               LINE แจ้งเตือนยอดขายเป็นฟีเจอร์เสริมแบบซื้อขาด
               กรุณาซื้อและชำระเงินให้สำเร็จก่อนเริ่มตั้งค่า
             </Typography>
+
+            <FormControlLabel
+              sx={{
+                mt: 2,
+                mx: 0,
+                p: 1.5,
+                alignItems: 'flex-start',
+                borderRadius: 1.5,
+                bgcolor: 'background.neutral',
+                width: '100%',
+              }}
+              control={
+                <Checkbox
+                  checked={subscriptionAccepted}
+                  onChange={(event) => setSubscriptionAccepted(event.target.checked)}
+                  sx={{ mt: -0.75 }}
+                />
+              }
+              label={
+                <Typography variant="body2" color="text.secondary">
+                  ฉันยอมรับ{' '}
+                  <Link
+                    component={RouterLink}
+                    href={paths.legal.subscriptionPolicy}
+                    target="_blank"
+                  >
+                    นโยบายแพ็กเกจ การต่ออายุ และการยกเลิก
+                  </Link>
+                  <br />
+                  <Typography component="span" variant="caption">
+                    ติ๊กช่องนี้เพื่อเปิดปุ่ม “ซื้อเลย”
+                  </Typography>
+                </Typography>
+              }
+            />
+
             <Stack spacing={1.5} sx={{ mt: 2 }}>
               {(purchaseOptions.length
                 ? purchaseOptions
@@ -266,28 +302,6 @@ export function MarketplaceSellerLineSettingsView() {
                 </Box>
               ))}
             </Stack>
-            <FormControlLabel
-              sx={{ mt: 2, alignItems: 'flex-start' }}
-              control={
-                <Checkbox
-                  checked={subscriptionAccepted}
-                  onChange={(event) => setSubscriptionAccepted(event.target.checked)}
-                  sx={{ mt: -0.75 }}
-                />
-              }
-              label={
-                <Typography variant="body2" color="text.secondary">
-                  ฉันยอมรับ{' '}
-                  <Link
-                    component={RouterLink}
-                    href={paths.legal.subscriptionPolicy}
-                    target="_blank"
-                  >
-                    นโยบายแพ็กเกจ การต่ออายุ และการยกเลิก
-                  </Link>
-                </Typography>
-              }
-            />
             {!!error && (
               <Alert severity="error" sx={{ mt: 2 }}>
                 {error}
