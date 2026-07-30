@@ -5,6 +5,12 @@ import { MarketplaceCatalogView } from 'src/sections/marketplace/catalog/view/ca
 export const metadata: Metadata = {
   title: 'สื่อการสอนทั้งหมด | E-KRU Marketplace',
   description: 'เลือกซื้อแผนการสอน ใบงาน แบบทดสอบ และสื่อการเรียนรู้จากชุมชน E-KRU',
+  alternates: { canonical: '/products' },
+  openGraph: {
+    title: 'สื่อการสอนทั้งหมด | E-KRU Marketplace',
+    description: 'เลือกซื้อแผนการสอน ใบงาน แบบทดสอบ และสื่อการเรียนรู้จากชุมชน E-KRU',
+    url: '/products',
+  },
 };
 
 export default function Page() {

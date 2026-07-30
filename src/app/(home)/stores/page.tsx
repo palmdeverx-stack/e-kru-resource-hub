@@ -5,6 +5,12 @@ import { MarketplaceStoreListView } from 'src/sections/marketplace/seller/view/s
 export const metadata: Metadata = {
   title: 'ร้านค้า | E-KRU Marketplace',
   description: 'ค้นหาร้านค้า ครูผู้สอน และผู้สร้างสื่อที่ผ่านการอนุมัติจาก E-KRU Marketplace',
+  alternates: { canonical: '/stores' },
+  openGraph: {
+    title: 'ร้านค้า | E-KRU Marketplace',
+    description: 'ค้นหาร้านค้า ครูผู้สอน และผู้สร้างสื่อที่ผ่านการอนุมัติจาก E-KRU Marketplace',
+    url: '/stores',
+  },
 };
 
 export default function Page() {

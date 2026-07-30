@@ -1,6 +1,12 @@
+import type { Metadata } from 'next';
+
 import { AuthCenteredLayout } from 'src/layouts/auth-centered';
 
 import { MarketplaceBrand } from 'src/components/marketplace-brand';
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: false, nocache: true },
+};
 
 type Props = {
   children: React.ReactNode;

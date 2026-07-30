@@ -11,6 +11,10 @@ import { ReactQueryProvider } from 'src/lib/react-query';
 import { I18nProvider } from 'src/locales/i18n-provider';
 import { UiTranslationBridge, LocalizationProvider } from 'src/locales';
 import { themeConfig, ThemeProvider, primary as primaryColor } from 'src/theme';
+import {
+  getMarketplaceSiteUrl,
+  absoluteMarketplaceUrl,
+} from 'src/sections/marketplace/seo/site-url';
 
 import { Snackbar } from 'src/components/snackbar';
 import { LocatorJS } from 'src/components/locator-js';
@@ -26,8 +30,10 @@ import { AuthProvider } from 'src/auth/context/jwt';
 
 // ----------------------------------------------------------------------
 
-const OG_IMAGE_URL =
-  'https://res.cloudinary.com/dkdbilwtj/image/upload/v1784725452/og-images_mnmhy7.svg';
+const SITE_NAME = 'E-KRU Marketplace';
+const SITE_DESCRIPTION =
+  'ตลาดสื่อการสอนออนไลน์สำหรับค้นหา ซื้อ และแบ่งปันแผนการสอน ใบงาน แบบทดสอบ และสื่อคุณภาพจากครูทั่วประเทศ';
+const OG_IMAGE_URL = absoluteMarketplaceUrl('/assets/background/og-images-class-go.jpg');
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -36,18 +42,56 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  metadataBase: new URL(getMarketplaceSiteUrl()),
+  applicationName: SITE_NAME,
+  title: SITE_NAME,
+  description: SITE_DESCRIPTION,
+  keywords: [
+    'สื่อการสอน',
+    'แผนการสอน',
+    'ใบงาน',
+    'แบบทดสอบ',
+    'สื่อครู',
+    'Marketplace การศึกษา',
+    'E-KRU',
+  ],
+  authors: [{ name: 'E-KRU' }],
+  creator: 'E-KRU',
+  publisher: 'E-KRU',
+  category: 'education',
+  manifest: '/favicon/site.webmanifest',
   icons: [
     {
       rel: 'icon',
       url: `${CONFIG.assetsDir}/favicon.ico`,
     },
+    { rel: 'apple-touch-icon', url: '/favicon/apple-touch-icon.png' },
   ],
   openGraph: {
+    type: 'website',
+    locale: 'th_TH',
+    siteName: SITE_NAME,
+    title: SITE_NAME,
+    description: SITE_DESCRIPTION,
+    url: '/',
     images: [OG_IMAGE_URL],
   },
   twitter: {
     card: 'summary_large_image',
+    title: SITE_NAME,
+    description: SITE_DESCRIPTION,
     images: [OG_IMAGE_URL],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+      'max-video-preview': -1,
+    },
   },
 };
 

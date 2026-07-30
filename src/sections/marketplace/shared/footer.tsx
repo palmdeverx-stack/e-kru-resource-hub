@@ -1,5 +1,7 @@
 'use client';
 
+import { useState, useEffect } from 'react';
+
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import Link from '@mui/material/Link';
@@ -12,11 +14,25 @@ import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
 import { Logo } from 'src/components/logo';
-import { RiMailLine, RiShieldCheckLine, RiCustomerService2Line } from 'src/components/remix-icon';
+import {
+  RiLineFill,
+  RiMailLine,
+  RiShieldCheckLine,
+  RiCustomerService2Line,
+} from 'src/components/remix-icon';
 
 type FooterLink = {
   label: string;
   href: string;
+};
+
+type MarketplaceContact = {
+  email: string;
+  line: {
+    basicId: string;
+    displayName: string;
+    url: string;
+  } | null;
 };
 
 const marketplaceLinks: FooterLink[] = [
@@ -45,6 +61,21 @@ const supportLinks: FooterLink[] = [
 
 export function MarketplaceFooter() {
   const year = new Date().getFullYear();
+  const [contact, setContact] = useState<MarketplaceContact | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    fetch('/api/marketplace/contact', { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error('โหลดช่องทางติดต่อไม่สำเร็จ');
+        return response.json() as Promise<MarketplaceContact>;
+      })
+      .then(setContact)
+      .catch(() => setContact(null));
+
+    return () => controller.abort();
+  }, []);
 
   return (
     <Box
@@ -97,10 +128,17 @@ export function MarketplaceFooter() {
               </Stack>
 
               <Stack spacing={1.25} sx={{ mt: 3 }}>
+                {contact?.line && (
+                  <ContactLink
+                    icon={<RiLineFill size={19} color="#06C755" />}
+                    href={contact.line.url}
+                    label="ติดต่อผ่าน LINE OA"
+                  />
+                )}
                 <ContactLink
                   icon={<RiMailLine size={18} />}
-                  href="mailto:ekru.team@gmail.com"
-                  label="ekru.team@gmail.com"
+                  href={`mailto:${contact?.email ?? 'ekru.team@gmail.com'}`}
+                  label={contact?.email ?? 'ekru.team@gmail.com'}
                 />
                 <ContactLink
                   icon={<RiCustomerService2Line size={18} />}
@@ -193,9 +231,13 @@ function ContactLink({
   href: string;
   label: string;
 }) {
+  const external = /^https?:\/\//i.test(href);
+
   return (
     <Link
       href={href}
+      target={external ? '_blank' : undefined}
+      rel={external ? 'noopener noreferrer' : undefined}
       underline="hover"
       sx={{
         gap: 1,
