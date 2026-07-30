@@ -567,7 +567,7 @@ function FinanceSummary({ overview }: { overview: AdminOverview }) {
             ยอดสะสมของ Marketplace
           </Typography>
         </Box>
-        <Avatar sx={{ bgcolor: 'rgba(255,255,255,0.14)' }}>
+        <Avatar sx={{ bgcolor: '#ffff' }}>
           <RiMoneyDollarCircleLine />
         </Avatar>
       </Stack>
@@ -648,9 +648,9 @@ function RecentSellers({ sellers }: { sellers: AdminOverview['recentSellers'] })
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
                   {sellerTypeLabel[seller.seller_type]} ·{' '}
-                  {new Date(
-                    seller.submitted_at ?? seller.created_at
-                  ).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' })}
+                  {new Date(seller.submitted_at ?? seller.created_at).toLocaleDateString('th-TH', {
+                    timeZone: 'Asia/Bangkok',
+                  })}
                 </Typography>
               </Box>
               <Chip

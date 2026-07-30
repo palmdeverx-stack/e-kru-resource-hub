@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
+import { writeSecurityAudit } from 'src/lib/security-audit';
 
 import { getFinanceSettings } from 'src/sections/marketplace/admin/server/finance';
 import { isStripeConfigured } from 'src/sections/marketplace/checkout/server/stripe';
@@ -33,9 +34,11 @@ export async function GET(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  if (!authorize(request)) {
+  const caller = authorize(request);
+  if (!caller) {
     return NextResponse.json({ message: 'ไม่มีสิทธิ์ตั้งค่าการเงิน' }, { status: 403 });
   }
+  const previous = await getFinanceSettings();
   const body = await request.json().catch(() => null);
   const promptpayId = String(body?.promptpayId ?? '').replace(/\D/g, '');
   const accountName = String(body?.promptpayAccountName ?? '').trim();
@@ -87,5 +90,36 @@ export async function PATCH(request: Request) {
     updated_at: new Date().toISOString(),
   });
   if (error) return NextResponse.json({ message: error.message }, { status: 500 });
+
+  await writeSecurityAudit({
+    request,
+    actorId: caller.sub,
+    actorUsername: caller.username,
+    actorRole: caller.role,
+    category: 'admin',
+    action: 'marketplace.finance_settings_update',
+    targetType: 'finance_settings',
+    targetId: 'default',
+    result: 'success',
+    metadata: {
+      before: {
+        commission_rate: Number(previous.commission_rate),
+        hold_days: Number(previous.hold_days),
+        payout_day: Number(previous.payout_day),
+        minimum_payout: Number(previous.minimum_payout),
+        stripe_enabled: previous.stripe_enabled,
+        is_active: previous.is_active,
+      },
+      after: {
+        commission_rate: commissionRate,
+        hold_days: holdDays,
+        payout_day: payoutDay,
+        minimum_payout: minimumPayout,
+        stripe_enabled: stripeEnabled,
+        is_active: isActive,
+      },
+    },
+  });
+
   return NextResponse.json({ success: true });
 }

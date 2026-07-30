@@ -191,7 +191,7 @@ export function MarketplacePaymentView({
                 />
               )}
               <Typography variant="subtitle1">
-                {session.account_name_snapshot || 'บัญชีรับเงิน eKru Marketplace'}
+                {session.account_name_snapshot || 'บัญชีรับเงิน E-KRU Marketplace'}
               </Typography>
               <Typography variant="caption" color="text.secondary">
                 กรุณาตรวจสอบชื่อผู้รับในแอปธนาคารก่อนยืนยันทุกครั้ง

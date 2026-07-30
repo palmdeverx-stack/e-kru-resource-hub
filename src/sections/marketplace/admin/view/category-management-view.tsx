@@ -27,12 +27,7 @@ import DialogContent from '@mui/material/DialogContent';
 import TableContainer from '@mui/material/TableContainer';
 import CircularProgress from '@mui/material/CircularProgress';
 
-import {
-  RiAddLine,
-  RiEditLine,
-  RiDeleteBinLine,
-  RiPriceTag3Line,
-} from 'src/components/remix-icon';
+import { RiAddLine, RiEditLine, RiDeleteBinLine, RiPriceTag3Line } from 'src/components/remix-icon';
 
 import { useAuthContext } from 'src/auth/hooks';
 
@@ -122,9 +117,7 @@ export function MarketplaceCategoryManagementView() {
     setError('');
     try {
       const response = await fetch(
-        editing
-          ? `/api/marketplace/categories/${editing.id}`
-          : '/api/marketplace/categories',
+        editing ? `/api/marketplace/categories/${editing.id}` : '/api/marketplace/categories',
         {
           method: editing ? 'PATCH' : 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -181,7 +174,7 @@ export function MarketplaceCategoryManagementView() {
             </Typography>
           </Stack>
           <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-            จัดการหมวดหมู่ที่ใช้กับสินค้าใน eKru Marketplace
+            จัดการหมวดหมู่ที่ใช้กับสินค้าใน E-KRU Marketplace
           </Typography>
         </Box>
         <Button variant="contained" startIcon={<RiAddLine />} onClick={openCreate}>
@@ -265,7 +258,9 @@ export function MarketplaceCategoryManagementView() {
                   <TableRow>
                     <TableCell colSpan={5} sx={{ py: 10, textAlign: 'center' }}>
                       <Typography variant="h6">ยังไม่มีหมวดหมู่</Typography>
-                      <Typography color="text.secondary">เริ่มต้นด้วยการเพิ่มหมวดหมู่ใหม่</Typography>
+                      <Typography color="text.secondary">
+                        เริ่มต้นด้วยการเพิ่มหมวดหมู่ใหม่
+                      </Typography>
                     </TableCell>
                   </TableRow>
                 )}
@@ -284,9 +279,7 @@ export function MarketplaceCategoryManagementView() {
               required
               label="ชื่อหมวดหมู่"
               value={form.name}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, name: event.target.value }))
-              }
+              onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
             />
             <TextField
               multiline
@@ -315,9 +308,7 @@ export function MarketplaceCategoryManagementView() {
               </Box>
               <Switch
                 checked={form.isActive}
-                onChange={(_, checked) =>
-                  setForm((current) => ({ ...current, isActive: checked }))
-                }
+                onChange={(_, checked) => setForm((current) => ({ ...current, isActive: checked }))}
               />
             </Stack>
           </Stack>
@@ -341,7 +332,8 @@ export function MarketplaceCategoryManagementView() {
         <DialogTitle>ยืนยันการลบหมวดหมู่</DialogTitle>
         <DialogContent>
           <Typography>
-            ต้องการลบหมวดหมู่ “{deleting?.name}” หรือไม่? หมวดหมู่ที่มีสินค้าใช้งานอยู่จะไม่สามารถลบได้
+            ต้องการลบหมวดหมู่ “{deleting?.name}” หรือไม่?
+            หมวดหมู่ที่มีสินค้าใช้งานอยู่จะไม่สามารถลบได้
           </Typography>
         </DialogContent>
         <DialogActions>

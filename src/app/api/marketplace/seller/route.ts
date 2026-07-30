@@ -64,7 +64,7 @@ export async function GET(request: Request) {
     });
     if (result.error || !result.data) {
       return NextResponse.json(
-        { message: result.error?.message ?? 'ไม่สามารถเตรียมร้านระบบ eKru ได้' },
+        { message: result.error?.message ?? 'ไม่สามารถเตรียมร้านระบบ E-KRU ได้' },
         { status: 500 }
       );
     }
@@ -89,14 +89,10 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
-    if (
-      (companyName && companyName.length < 2) ||
-      (companyTaxId && companyTaxId.length !== 13)
-    ) {
+    if ((companyName && companyName.length < 2) || (companyTaxId && companyTaxId.length !== 13)) {
       return NextResponse.json(
         {
-          message:
-            'ชื่อผู้ออกต้องมีอย่างน้อย 2 ตัวอักษร และเลขประจำตัวผู้เสียภาษีต้องมี 13 หลัก',
+          message: 'ชื่อผู้ออกต้องมีอย่างน้อย 2 ตัวอักษร และเลขประจำตัวผู้เสียภาษีต้องมี 13 หลัก',
         },
         { status: 400 }
       );
@@ -113,7 +109,10 @@ export async function POST(request: Request) {
     if (result.error || !result.data) {
       return NextResponse.json({ message: result.error?.message }, { status: 500 });
     }
-    return NextResponse.json({ seller: result.data, message: 'บันทึกข้อมูลร้านแล้ว' });
+    return NextResponse.json({
+      seller: await withSellerRelations(result.data),
+      message: 'บันทึกข้อมูลร้านแล้ว',
+    });
   }
 
   const action = body?.action === 'submit' ? 'submit' : 'save_draft';

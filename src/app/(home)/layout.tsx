@@ -13,6 +13,9 @@ export default function Layout({ children }: Props) {
   return (
     <MainLayout
       slotProps={{
+        main: {
+          sx: { mt: 0 },
+        },
         header: {
           slots: {
             leftArea: <MarketplaceBrand />,

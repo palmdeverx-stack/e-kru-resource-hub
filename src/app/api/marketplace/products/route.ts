@@ -4,6 +4,7 @@ import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { requireAuthenticated } from 'src/lib/auth-token';
 
 import { provisionEkruSystemSeller } from 'src/sections/marketplace/seller/server/system-seller';
+import { withPublicSystemStoreFlag } from 'src/sections/marketplace/seller/server/public-seller';
 import {
   withMediaUrls,
   PRODUCT_MANAGE_SELECT,
@@ -30,6 +31,7 @@ function withCardRating(product: Record<string, unknown>): Record<string, unknow
         : 0,
       reviews: [],
       canReview: false,
+      canReply: false,
       myReview: null,
     },
   };
@@ -38,6 +40,8 @@ function withCardRating(product: Record<string, unknown>): Record<string, unknow
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const mine = url.searchParams.get('mine') === '1';
+  const official = url.searchParams.get('official') === '1';
+  const bestSeller = url.searchParams.get('bestSeller') === '1';
   const category = url.searchParams.get('category');
   const requestedSellerId = url.searchParams.get('sellerId')?.trim();
   const search = url.searchParams.get('q')?.trim();
@@ -63,15 +67,74 @@ export async function GET(request: Request) {
     if (!sellerId) return NextResponse.json({ products: [] });
   }
 
+  let officialSellerIds: string[] | null = null;
+  if (!mine && official) {
+    const { data: officialSellers, error: officialSellersError } = await supabaseAdmin
+      .from('marketplace_sellers')
+      .select('id')
+      .eq('owner_role', 'master_admin')
+      .eq('status', 'active');
+
+    if (officialSellersError) {
+      if (officialSellersError.code === '42P01') {
+        return NextResponse.json({ products: [], setupRequired: true });
+      }
+      return NextResponse.json({ message: officialSellersError.message }, { status: 500 });
+    }
+
+    officialSellerIds = (officialSellers ?? []).map((seller) => seller.id);
+    if (!officialSellerIds.length) {
+      return NextResponse.json({ products: [], hasMore: false, nextPage: null });
+    }
+  }
+
+  const purchaseCounts = new Map<string, number>();
+  let bestSellingProductIds: string[] | null = null;
+  if (!mine && bestSeller) {
+    const { data: purchasedItems, error: purchasedItemsError } = await supabaseAdmin
+      .from('marketplace_order_items')
+      .select(
+        'product_id, quantity, order:marketplace_orders!inner(status), product:marketplace_products!inner(status, seller:marketplace_sellers!inner(owner_role, status))'
+      )
+      .in('order.status', ['paid', 'completed'])
+      .eq('product.status', 'published')
+      .neq('product.seller.owner_role', 'master_admin')
+      .eq('product.seller.status', 'active');
+
+    if (purchasedItemsError) {
+      if (purchasedItemsError.code === '42P01') {
+        return NextResponse.json({ products: [], setupRequired: true });
+      }
+      return NextResponse.json({ message: purchasedItemsError.message }, { status: 500 });
+    }
+
+    (purchasedItems ?? []).forEach((item) => {
+      purchaseCounts.set(
+        item.product_id,
+        (purchaseCounts.get(item.product_id) ?? 0) + Number(item.quantity || 0)
+      );
+    });
+    bestSellingProductIds = [...purchaseCounts.entries()]
+      .sort((left, right) => right[1] - left[1])
+      .map(([productId]) => productId);
+
+    if (!bestSellingProductIds.length) {
+      return NextResponse.json({ products: [], hasMore: false, nextPage: null });
+    }
+  }
+
   let query = supabaseAdmin
     .from('marketplace_products')
     .select(
-      '*, seller:marketplace_sellers(id, display_name, display_name_en, seller_type, slug, logo_url, bio), media_type:marketplace_media_types(id, name, delivery_mode), sale_type:marketplace_sale_types(id, name, pricing_mode), grade_levels:marketplace_product_grade_levels(grade_level:marketplace_grade_levels(id,name)), images:marketplace_product_images(*), reviews:marketplace_product_reviews(rating)'
+      '*, seller:marketplace_sellers(id, display_name, display_name_en, seller_type, slug, logo_url, bio, owner_role), media_type:marketplace_media_types(id, name, delivery_mode), sale_type:marketplace_sale_types(id, name, pricing_mode), grade_levels:marketplace_product_grade_levels(grade_level:marketplace_grade_levels(id,name)), images:marketplace_product_images(*), reviews:marketplace_product_reviews(rating)'
     )
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit);
+    .order('created_at', { ascending: false });
 
   query = mine ? query.eq('seller_id', sellerId) : query.eq('status', 'published');
+  if (officialSellerIds) query = query.in('seller_id', officialSellerIds);
+  if (bestSellingProductIds) {
+    query = query.in('id', bestSellingProductIds.slice(0, offset + limit + 1));
+  }
   if (!mine && requestedSellerId) query = query.eq('seller_id', requestedSellerId);
   if (category && category !== 'all') query = query.eq('category', category);
   if (search) {
@@ -80,6 +143,7 @@ export async function GET(request: Request) {
       query = query.or(`title.ilike.%${safeSearch}%,title_en.ilike.%${safeSearch}%`);
     }
   }
+  if (!bestSellingProductIds) query = query.range(offset, offset + limit);
 
   const { data: products, error } = await query;
 
@@ -89,11 +153,26 @@ export async function GET(request: Request) {
   }
 
   const rows = products ?? [];
-  const hasMore = rows.length > limit;
-  const pageRows = rows.slice(0, limit);
+  const orderedRows = bestSellingProductIds
+    ? bestSellingProductIds
+        .map((productId) => rows.find((product) => product.id === productId))
+        .filter((product): product is NonNullable<typeof product> => Boolean(product))
+    : rows;
+  const pagedRows = bestSellingProductIds
+    ? orderedRows.slice(offset, offset + limit + 1)
+    : orderedRows;
+  const hasMore = pagedRows.length > limit;
+  const pageRows = pagedRows.slice(0, limit);
   const resolved = await Promise.all(pageRows.map((product) => withMediaUrls(product)));
   const safeProducts = resolved.map((resolvedProduct) => {
     const product = withCardRating(resolvedProduct);
+    if (bestSellingProductIds && product.engagement && typeof product.engagement === 'object') {
+      product.engagement = {
+        ...(product.engagement as Record<string, unknown>),
+        purchases: purchaseCounts.get(String(product.id)) ?? 0,
+      };
+    }
+    product.seller = withPublicSystemStoreFlag(product.seller);
     if (mine) return product;
     const publicProduct = { ...product };
     delete publicProduct.file_url;

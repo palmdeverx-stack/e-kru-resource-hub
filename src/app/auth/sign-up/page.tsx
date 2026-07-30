@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { JwtSignUpView } from 'src/auth/view/jwt';
 
 export const metadata: Metadata = {
-  title: 'สมัครสมาชิก | eKru Marketplace',
+  title: 'สมัครสมาชิก | E-KRU Marketplace',
 };
 
 export default function Page() {

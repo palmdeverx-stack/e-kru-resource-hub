@@ -16,7 +16,12 @@ export function NavList({ data, sx, ...other }: NavListProps) {
   const pathname = usePathname();
   const navItemRef = useRef<HTMLButtonElement>(null);
 
-  const isActive = isActiveLink(pathname, data.path, data.deepMatch ?? !!data.children);
+  const matchesActivePath = data.activePaths?.some(
+    (activePath) => pathname === activePath || pathname.startsWith(`${activePath}/`)
+  );
+  const isActive =
+    Boolean(matchesActivePath) ||
+    isActiveLink(pathname, data.path, data.deepMatch ?? !!data.children);
 
   const { value: open, onFalse: onClose, onTrue: onOpen } = useBoolean();
 

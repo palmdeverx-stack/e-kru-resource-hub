@@ -1,6 +1,7 @@
 'use client';
 
 import type { RemixiconComponentType } from '@remixicon/react';
+import type { MarketplaceProduct } from '../../shared/types';
 
 import { useState, useEffect } from 'react';
 
@@ -13,6 +14,7 @@ import Button from '@mui/material/Button';
 import Skeleton from '@mui/material/Skeleton';
 import Container from '@mui/material/Container';
 import Accordion from '@mui/material/Accordion';
+import { useTheme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import AccordionSummary from '@mui/material/AccordionSummary';
 import AccordionDetails from '@mui/material/AccordionDetails';
@@ -22,6 +24,7 @@ import { RouterLink } from 'src/routes/components';
 
 import {
   RiStarLine,
+  RiFireFill,
   RiLockLine,
   RiTimeLine,
   RiSearchLine,
@@ -34,6 +37,7 @@ import {
   RiBookOpenLine,
   RiBookReadLine,
   RiFileList3Line,
+  RiShieldStarFill,
   RiArrowRightLine,
   RiArrowDownSLine,
   RiUploadCloudLine,
@@ -42,6 +46,9 @@ import {
   RiGraduationCapLine,
   RiMoneyDollarCircleLine,
 } from 'src/components/remix-icon';
+
+import { getProducts } from '../../shared/api';
+import { MarketplaceProductCard } from '../../shared/product-card';
 
 const categories = [
   { label: 'แผนการสอน', icon: RiFileList3Line },
@@ -197,7 +204,12 @@ const faqs = [
 ];
 
 export function MarketplaceLandingView() {
+  const theme = useTheme();
   const [publicStats, setPublicStats] = useState<PublicStats | null>(null);
+  const [officialProducts, setOfficialProducts] = useState<MarketplaceProduct[]>([]);
+  const [officialProductsLoading, setOfficialProductsLoading] = useState(true);
+  const [bestSellingProducts, setBestSellingProducts] = useState<MarketplaceProduct[]>([]);
+  const [bestSellingProductsLoading, setBestSellingProductsLoading] = useState(true);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -214,6 +226,20 @@ export function MarketplaceLandingView() {
       });
 
     return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    getProducts({ official: true, page: 1, limit: 4 })
+      .then(({ products }) => setOfficialProducts(products))
+      .catch(() => setOfficialProducts([]))
+      .finally(() => setOfficialProductsLoading(false));
+  }, []);
+
+  useEffect(() => {
+    getProducts({ bestSeller: true, page: 1, limit: 4 })
+      .then(({ products }) => setBestSellingProducts(products))
+      .catch(() => setBestSellingProducts([]))
+      .finally(() => setBestSellingProductsLoading(false));
   }, []);
 
   return (
@@ -394,6 +420,139 @@ export function MarketplaceLandingView() {
           </Grid>
         </Container>
       </Box>
+
+      {(officialProductsLoading || officialProducts.length > 0) && (
+        <Box sx={{ py: { xs: 7, md: 10 }, bgcolor: 'background.neutral' }}>
+          <Container maxWidth="lg">
+            <Stack spacing={4.5}>
+              <Stack
+                direction={{ xs: 'column', sm: 'row' }}
+                spacing={2}
+                alignItems={{ xs: 'flex-start', sm: 'flex-end' }}
+                justifyContent="space-between"
+              >
+                <Box>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <RiShieldStarFill size={25} color={theme.palette.primary.main} aria-hidden />
+                    <Typography variant="overline" color={theme.palette.primary.main}>
+                      OFFICIAL E-KRU PRODUCTS
+                    </Typography>
+                  </Stack>
+                  <Typography variant="h3" sx={{ mt: 0.75 }}>
+                    สินค้าทางการจาก E-KRU
+                  </Typography>
+                  <Typography color="text.secondary" sx={{ mt: 1.25 }}>
+                    สื่อและ License ที่จัดทำและจำหน่ายโดยระบบ E-KRU โดยตรง
+                  </Typography>
+                </Box>
+                <Button
+                  component={RouterLink}
+                  href={paths.marketplace.products}
+                  endIcon={<RiArrowRightLine />}
+                  sx={{ flexShrink: 0 }}
+                >
+                  ดูสินค้าทั้งหมด
+                </Button>
+              </Stack>
+
+              <Grid container spacing={2.5}>
+                {officialProductsLoading
+                  ? Array.from({ length: 4 }).map((_, index) => (
+                      <Grid key={index} size={{ xs: 12, sm: 6, md: 3 }}>
+                        <Card variant="outlined" sx={{ p: 1.5, borderRadius: 2.5 }}>
+                          <Skeleton variant="rounded" sx={{ aspectRatio: '4 / 3' }} />
+                          <Skeleton width="55%" sx={{ mt: 2 }} />
+                          <Skeleton height={28} />
+                          <Skeleton width="75%" />
+                          <Skeleton variant="rounded" height={44} sx={{ mt: 2 }} />
+                        </Card>
+                      </Grid>
+                    ))
+                  : officialProducts.map((product, index) => (
+                      <Grid key={product.id} size={{ xs: 12, sm: 6, md: 3 }}>
+                        <MarketplaceProductCard product={product} colorIndex={index} />
+                      </Grid>
+                    ))}
+              </Grid>
+            </Stack>
+          </Container>
+        </Box>
+      )}
+
+      {(bestSellingProductsLoading || bestSellingProducts.length > 0) && (
+        <Box sx={{ py: { xs: 7, md: 10 } }}>
+          <Container maxWidth="lg">
+            <Stack spacing={4.5}>
+              <Stack
+                direction={{ xs: 'column', sm: 'row' }}
+                spacing={2}
+                alignItems={{ xs: 'flex-start', sm: 'flex-end' }}
+                justifyContent="space-between"
+              >
+                <Box>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <RiFireFill size={25} color="#F97316" aria-hidden />
+                    <Typography variant="overline" sx={{ color: '#EA580C' }}>
+                      BEST SELLERS
+                    </Typography>
+                  </Stack>
+                  <Typography variant="h3" sx={{ mt: 0.75 }}>
+                    รายการสินค้าขายดี
+                  </Typography>
+                  <Typography color="text.secondary" sx={{ mt: 1.25 }}>
+                    สื่อยอดนิยมจากผู้ขายใน Marketplace เรียงตามยอดซื้อจริง
+                  </Typography>
+                </Box>
+                <Button
+                  component={RouterLink}
+                  href={paths.marketplace.products}
+                  endIcon={<RiArrowRightLine />}
+                  sx={{ flexShrink: 0 }}
+                >
+                  เลือกดูสินค้าเพิ่มเติม
+                </Button>
+              </Stack>
+
+              <Grid container spacing={2.5}>
+                {bestSellingProductsLoading
+                  ? Array.from({ length: 4 }).map((_, index) => (
+                      <Grid key={index} size={{ xs: 12, sm: 6, md: 3 }}>
+                        <Card variant="outlined" sx={{ p: 1.5, borderRadius: 2.5 }}>
+                          <Skeleton variant="rounded" sx={{ aspectRatio: '4 / 3' }} />
+                          <Skeleton width="55%" sx={{ mt: 2 }} />
+                          <Skeleton height={28} />
+                          <Skeleton width="75%" />
+                          <Skeleton variant="rounded" height={44} sx={{ mt: 2 }} />
+                        </Card>
+                      </Grid>
+                    ))
+                  : bestSellingProducts.map((product, index) => (
+                      <Grid key={product.id} size={{ xs: 12, sm: 6, md: 3 }}>
+                        <Box sx={{ height: 1, position: 'relative' }}>
+                          <Chip
+                            size="small"
+                            color="warning"
+                            icon={<RiFireFill />}
+                            label={`อันดับ ${index + 1} · ขายแล้ว ${formatCount(
+                              product.engagement?.purchases ?? 0
+                            )}`}
+                            sx={{
+                              top: 24,
+                              right: 24,
+                              zIndex: 2,
+                              position: 'absolute',
+                              fontWeight: 700,
+                            }}
+                          />
+                          <MarketplaceProductCard product={product} colorIndex={index + 1} />
+                        </Box>
+                      </Grid>
+                    ))}
+              </Grid>
+            </Stack>
+          </Container>
+        </Box>
+      )}
 
       <Container maxWidth="lg" sx={{ py: { xs: 7, md: 10 } }}>
         <Stack spacing={4.5}>

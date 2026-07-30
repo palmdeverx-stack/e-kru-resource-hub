@@ -70,7 +70,7 @@ export function UserEntitlementsView() {
     : '';
 
   return (
-    <Container maxWidth={false} sx={{ py: { xs: 4, md: 6 } }}>
+    <Container maxWidth={false} sx={{ py: { xs: 3 } }}>
       <Stack direction="row" spacing={1.5} alignItems="center">
         <Box sx={{ color: 'primary.main' }}>
           <RiRocketLine size={34} />

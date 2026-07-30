@@ -37,7 +37,7 @@
     },
     "signIn": {
       "title": "เข้าสู่ Marketplace",
-      "description": "ซื้อและขายสื่อการสอนด้วยบัญชี eKru เดิม หรือบัญชี Marketplace ของคุณ",
+      "description": "ซื้อและขายสื่อการสอนด้วยบัญชี E-KRU หรือบัญชี Marketplace ของคุณ",
       "schoolPinDescription": "กรอกรหัสโรงเรียน 8 หลักเพื่อเข้าสู่ระบบ",
       "adminPinDescription": "กรอก PIN ผู้ดูแลระบบ 8 หลักเพื่อเข้าสู่ระบบ",
       "pinTitle": "ยืนยัน PIN",

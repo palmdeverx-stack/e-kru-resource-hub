@@ -17,23 +17,10 @@ import { SimpleLayout } from 'src/layouts/simple';
 import { varBounce, MotionContainer } from 'src/components/animate';
 import { RiHome5Line, RiSearchEyeLine } from 'src/components/remix-icon';
 
-import { useAuthContext } from 'src/auth/hooks';
-
 // ----------------------------------------------------------------------
 
 export function NotFoundView() {
-  const { user } = useAuthContext();
   const { t } = useTranslate('common');
-  const homePath =
-    user?.role === 'master_admin'
-      ? paths.master.root
-      : user?.role === 'school_admin'
-        ? paths.admin.root
-        : user?.role === 'teacher'
-          ? paths.teacher.root
-          : user?.role === 'student'
-            ? paths.student.root
-            : '/';
 
   return (
     <SimpleLayout
@@ -95,7 +82,7 @@ export function NotFoundView() {
         <m.div variants={varBounce('in')}>
           <Button
             component={RouterLink}
-            href={homePath}
+            href={paths.marketplace.root}
             size="large"
             variant="contained"
             startIcon={<RiHome5Line />}

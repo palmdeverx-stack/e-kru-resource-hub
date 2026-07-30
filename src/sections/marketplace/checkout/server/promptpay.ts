@@ -45,7 +45,7 @@ export function createPromptPayPayload(promptPayId: string, amount: number) {
     field('53', '764'),
     field('54', amount.toFixed(2)),
     field('58', 'TH'),
-    field('59', 'EKRU MARKETPLACE'),
+    field('59', 'E-KRU Marketplace'),
     field('60', 'BANGKOK'),
   ].join('');
   const payloadForCrc = `${base}6304`;

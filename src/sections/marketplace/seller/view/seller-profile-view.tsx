@@ -31,10 +31,17 @@ import {
   RiShieldCheckLine,
   RiInformationLine,
   RiExternalLinkLine,
+  RiShieldStarFill,
+  RiVerifiedBadgeFill,
   RiCheckboxCircleLine,
 } from 'src/components/remix-icon';
 
 import { getSeller } from '../../shared/api';
+import {
+  isSystemMarketplaceSeller,
+  isSellerProfileVerified,
+  getSellerProfileCompletion,
+} from '../../shared/seller-completion';
 
 const sellerTypeLabel = {
   individual: 'บุคคลทั่วไป',
@@ -112,29 +119,10 @@ export function MarketplaceSellerProfileView() {
   }
 
   const storeHref = `/dashboard/store/${seller.slug || seller.id}`;
-  const completionItems = [
-    Boolean(seller.display_name),
-    Boolean(seller.bio),
-    Boolean(seller.logo_url),
-    Boolean(seller.cover_url),
-    Boolean(seller.seller_name),
-    Boolean(seller.phone),
-    Boolean(seller.contact_email),
-    Boolean(seller.payout_account),
-    Boolean(seller.documents?.length),
-    Boolean(
-      seller.seller_agreement_accepted_at &&
-      seller.copyright_confirmed_at &&
-      seller.fee_agreement_accepted_at &&
-      seller.pdpa_accepted_at
-    ),
-  ];
-  const completion = Math.round(
-    (completionItems.filter(Boolean).length / completionItems.length) * 100
-  );
+  const completion = getSellerProfileCompletion(seller);
 
   return (
-    <Container maxWidth={false} sx={{ py: { xs: 3, md: 5 } }}>
+    <Container maxWidth={false} sx={{ py: { xs: 3 } }}>
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
         justifyContent="space-between"
@@ -245,6 +233,20 @@ export function MarketplaceSellerProfileView() {
           <Box sx={{ minWidth: 0, flexGrow: 1, pt: { sm: 2 } }}>
             <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
               <Typography variant="h3">{seller.display_name}</Typography>
+              {isSellerProfileVerified(completion) && (
+                <RiVerifiedBadgeFill
+                  size={26}
+                  color="#1565F5"
+                  aria-label="ร้านค้าที่ผ่านการตรวจสอบ"
+                />
+              )}
+              {isSystemMarketplaceSeller(seller) && (
+                <RiShieldStarFill
+                  size={26}
+                  color="#7C3AED"
+                  aria-label="ร้านค้าระบบ E-KRU"
+                />
+              )}
               <StatusChip status={seller.status} />
               <Chip size="small" variant="outlined" label={sellerTypeLabel[seller.seller_type]} />
             </Stack>

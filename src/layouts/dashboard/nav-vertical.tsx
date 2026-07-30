@@ -179,7 +179,7 @@ function ProductIdentity() {
       <Logo />
       <Stack ml={2} sx={{ minWidth: 0 }}>
         <TruncatedTypography variant="subtitle1" line={1}>
-          eKru
+          E-KRU
         </TruncatedTypography>
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>
           {t('brand.scoreSystem')}

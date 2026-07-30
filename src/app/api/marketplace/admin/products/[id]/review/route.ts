@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
+import { writeSecurityAudit } from 'src/lib/security-audit';
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -42,6 +43,22 @@ export async function PATCH(request: Request, { params }: Context) {
       { status: error ? 500 : 404 }
     );
   }
+
+  await writeSecurityAudit({
+    request,
+    actorId: reviewer.sub,
+    actorUsername: reviewer.username,
+    actorRole: reviewer.role,
+    category: 'admin',
+    action: `marketplace.product_${action}`,
+    targetType: 'marketplace_product',
+    targetId: id,
+    result: 'success',
+    metadata: {
+      new_status: product.status,
+      ...(action === 'reject' && { reason }),
+    },
+  });
 
   return NextResponse.json({ product });
 }

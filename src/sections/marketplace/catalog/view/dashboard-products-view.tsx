@@ -181,7 +181,7 @@ export function MarketplaceDashboardProductsView() {
   };
 
   return (
-    <Container maxWidth={false} sx={{ py: { xs: 3, md: 5 } }}>
+    <Container maxWidth={false} sx={{ py: { xs: 3 } }}>
       <Stack spacing={3.5}>
         <Stack
           direction={{ xs: 'column', md: 'row' }}
@@ -191,7 +191,7 @@ export function MarketplaceDashboardProductsView() {
         >
           <Box>
             <Chip
-              size="small"
+              size="medium"
               icon={<RiBookOpenLine />}
               label="Marketplace Catalog"
               color="primary"

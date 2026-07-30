@@ -1,4 +1,4 @@
-import "server-only";
+import 'server-only';
 
 import crypto from 'node:crypto';
 
@@ -56,11 +56,11 @@ export async function sendMarketplaceVerificationEmail(params: {
 
   await sendEmail({
     to,
-    subject: `${code} คือรหัสยืนยัน eKru Marketplace`,
+    subject: `${code} คือรหัสยืนยัน E-KRU Marketplace`,
     html: `
       <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#1c252e">
         <div style="margin-bottom:24px">
-          <strong style="font-size:20px;color:#1565f5">eKru Marketplace</strong>
+          <strong style="font-size:20px;color:#1565f5">E-KRU Marketplace</strong>
           <div style="font-size:13px;color:#637381">ตลาดสื่อการสอน</div>
         </div>
         <h2 style="margin:0 0 8px">ยืนยันอีเมลของคุณ</h2>
@@ -68,7 +68,7 @@ export async function sendMarketplaceVerificationEmail(params: {
         <div style="margin:28px 0;text-align:center">${digits}</div>
         <p style="color:#637381">รหัสนี้มีอายุ ${OTP_TTL_MINUTES} นาที และใช้ได้เพียงครั้งเดียว</p>
         <hr style="border:0;border-top:1px solid #dfe3e8;margin:24px 0">
-        <p style="font-size:13px;color:#919eab">หากคุณไม่ได้สมัคร eKru Marketplace สามารถละเว้นอีเมลนี้ได้</p>
+        <p style="font-size:13px;color:#919eab">หากคุณไม่ได้สมัคร E-KRU Marketplace สามารถละเว้นอีเมลนี้ได้</p>
       </div>
     `,
   });

@@ -114,6 +114,14 @@ export type MarketplaceProductReview = {
   rating: number;
   comment: string | null;
   reviewer_name: string;
+  images: Array<{ id: string; url: string }>;
+  reply: {
+    id: string;
+    responder_name: string;
+    comment: string;
+    created_at: string;
+    updated_at: string;
+  } | null;
   created_at: string;
   updated_at: string;
 };
@@ -126,6 +134,7 @@ export type MarketplaceProductEngagement = {
   averageRating: number;
   reviews: MarketplaceProductReview[];
   canReview: boolean;
+  canReply: boolean;
   myReview: MarketplaceProductReview | null;
 };
 
@@ -178,6 +187,8 @@ export type MarketplaceSeller = {
   slug?: string | null;
   logo_url?: string | null;
   cover_url?: string | null;
+  profile_completion?: number;
+  is_system_store?: boolean;
   bio: string | null;
   contact_email: string | null;
   seller_name?: string | null;
@@ -259,7 +270,12 @@ export type MarketplaceProduct = {
   created_at: string;
   seller?:
     | (Pick<MarketplaceSeller, 'id' | 'display_name' | 'seller_type' | 'slug' | 'logo_url'> &
-        Partial<Pick<MarketplaceSeller, 'display_name_en' | 'bio'>>)
+        Partial<
+          Pick<
+            MarketplaceSeller,
+            'display_name_en' | 'bio' | 'profile_completion' | 'is_system_store'
+          >
+        >)
     | null;
   media_type?: Pick<MarketplaceMediaType, 'id' | 'name' | 'delivery_mode'> | null;
   sale_type?: Pick<MarketplaceSaleType, 'id' | 'name' | 'pricing_mode'> | null;
@@ -296,18 +312,32 @@ export type MarketplaceOrder = {
   platform_fee?: number;
   seller_net?: number;
   payment_session_id?: string | null;
+  license_school_id?: string | null;
+  paid_at?: string | null;
+  updated_at?: string;
   currency: string;
   created_at: string;
-  seller?: Pick<MarketplaceSeller, 'id' | 'display_name' | 'slug' | 'logo_url'> | null;
+  seller?:
+    | Pick<
+        MarketplaceSeller,
+        'id' | 'display_name' | 'slug' | 'logo_url' | 'is_system_store'
+      >
+    | null;
   payment_session?: {
     id: string;
+    amount: number;
+    currency: string;
     payment_method: 'promptpay' | 'stripe' | 'free';
     status: 'pending_payment' | 'payment_review' | 'verified' | 'rejected' | 'expired';
     submitted_at: string | null;
     reviewed_at: string | null;
     rejection_reason: string | null;
     bank_transaction_reference: string | null;
+    account_name_snapshot?: string | null;
+    stripe_payment_intent_id?: string | null;
     processor_fee: number;
+    expires_at?: string;
+    created_at?: string;
   } | null;
   items?: Array<{
     id: string;
@@ -326,13 +356,64 @@ export type MarketplaceOrder = {
           | 'short_description_en'
           | 'file_url'
           | 'cover_url'
+          | 'category'
+          | 'subject_label'
           | 'resource_type'
           | 'license_scope'
+          | 'license_seat_count'
+          | 'grants_plan_code'
+          | 'grant_duration_days'
         > & {
           images?: MarketplaceProductImage[];
           files?: MarketplaceProductFile[];
         })
       | null;
+  }>;
+  receipt?: {
+    id: string;
+    receipt_number: string;
+    status: 'issued' | 'void';
+    amount: number;
+    currency: string;
+    payment_method: 'promptpay' | 'stripe' | 'free';
+    transaction_reference: string | null;
+    buyer_name: string;
+    buyer_email: string | null;
+    buyer_tax_id: string | null;
+    buyer_address: string | null;
+    provider_name: string;
+    provider_tax_id: string | null;
+    provider_address: string | null;
+    provider_email: string | null;
+    notes: string | null;
+    issued_at: string;
+    voided_at: string | null;
+    void_reason: string | null;
+  } | null;
+  school_licenses?: Array<{
+    id: string;
+    order_item_id: string;
+    product_id: string;
+    school_id: string;
+    license_scope: 'school' | 'teacher';
+    feature_keys: string[];
+    seat_count: number;
+    grants_plan_code: string | null;
+    starts_at: string;
+    expires_at: string;
+    status: 'active' | 'renewed' | 'expired' | 'revoked' | 'refunded';
+    school?: { id: string; name: string } | null;
+  }>;
+  user_licenses?: Array<{
+    id: string;
+    order_item_id: string;
+    product_id: string;
+    feature_keys: string[];
+    grants_plan_code: string | null;
+    duration_days: number;
+    starts_at: string;
+    expires_at: string;
+    status: 'active' | 'renewed' | 'expired' | 'revoked' | 'refunded';
   }>;
 };
 

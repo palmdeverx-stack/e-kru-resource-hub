@@ -2,18 +2,39 @@ import { NextResponse } from 'next/server';
 
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { requireAuthenticated } from 'src/lib/auth-token';
+import { writeSecurityAudit } from 'src/lib/security-audit';
 
 type Context = { params: Promise<{ fileId: string }> };
 
 export async function GET(request: Request, { params }: Context) {
   const caller = requireAuthenticated(request);
   if (!caller) {
+    await writeSecurityAudit({
+      request,
+      category: 'download',
+      action: 'marketplace.product_file_download',
+      targetType: 'product_file',
+      result: 'denied',
+      metadata: { reason: 'not_authenticated' },
+    });
     return NextResponse.json({ message: 'กรุณาเข้าสู่ระบบ' }, { status: 401 });
   }
 
   const { fileId } = await params;
   const orderItemId = new URL(request.url).searchParams.get('orderItemId');
   if (!orderItemId) {
+    await writeSecurityAudit({
+      request,
+      actorId: caller.sub,
+      actorUsername: caller.username,
+      actorRole: caller.role,
+      category: 'download',
+      action: 'marketplace.product_file_download',
+      targetType: 'product_file',
+      targetId: fileId,
+      result: 'failure',
+      metadata: { reason: 'missing_order_item' },
+    });
     return NextResponse.json({ message: 'ไม่พบรายการสั่งซื้อ' }, { status: 400 });
   }
 
@@ -40,6 +61,18 @@ export async function GET(request: Request, { params }: Context) {
     );
   }
   if (!file || !orderItem || orderItem.product_id !== file.product_id) {
+    await writeSecurityAudit({
+      request,
+      actorId: caller.sub,
+      actorUsername: caller.username,
+      actorRole: caller.role,
+      category: 'download',
+      action: 'marketplace.product_file_download',
+      targetType: 'product_file',
+      targetId: fileId,
+      result: 'denied',
+      metadata: { order_item_id: orderItemId, reason: 'not_entitled' },
+    });
     return NextResponse.json({ message: 'ไม่มีสิทธิ์ดาวน์โหลดไฟล์นี้' }, { status: 403 });
   }
 
@@ -62,8 +95,37 @@ export async function GET(request: Request, { params }: Context) {
       buyer_id: caller.sub,
     });
   if (analyticsError) {
+    await writeSecurityAudit({
+      request,
+      actorId: caller.sub,
+      actorUsername: caller.username,
+      actorRole: caller.role,
+      category: 'download',
+      action: 'marketplace.product_file_download',
+      targetType: 'product_file',
+      targetId: file.id,
+      result: 'failure',
+      metadata: { order_item_id: orderItem.id, reason: 'download_tracking_failed' },
+    });
     return NextResponse.json({ message: analyticsError.message }, { status: 500 });
   }
+
+  await writeSecurityAudit({
+    request,
+    actorId: caller.sub,
+    actorUsername: caller.username,
+    actorRole: caller.role,
+    category: 'download',
+    action: 'marketplace.product_file_download',
+    targetType: 'product_file',
+    targetId: file.id,
+    result: 'success',
+    metadata: {
+      product_id: file.product_id,
+      order_item_id: orderItem.id,
+      signed_url_ttl_seconds: 60,
+    },
+  });
 
   return NextResponse.redirect(signedFile.signedUrl, 307);
 }

@@ -1,8 +1,8 @@
 'use client';
 
-import type { MarketplaceProduct } from '../../shared/types';
+import type { MarketplaceProduct, MarketplaceProductReview } from '../../shared/types';
 
-import { useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -31,10 +31,12 @@ import {
   RiEyeLine,
   RiFileLine,
   RiStarLine,
+  RiCloseLine,
   RiHeartLine,
   RiBook2Line,
   RiBookmarkLine,
   RiBookOpenLine,
+  RiImageAddLine,
   RiPriceTag3Line,
   RiArrowLeftLine,
   RiShieldCheckLine,
@@ -48,8 +50,8 @@ import { useAuthContext } from 'src/auth/hooks';
 
 import { findSampleProduct } from '../../shared/constants';
 import { useMarketplaceCart } from '../../cart/cart-context';
-import { MarketplaceSellerLink } from '../../shared/seller-link';
 import { getMarketplacePricing } from '../../shared/pricing';
+import { MarketplaceSellerLink } from '../../shared/seller-link';
 import {
   stripHtml,
   getProduct,
@@ -57,6 +59,7 @@ import {
   formatPrice,
   recordProductView,
   saveProductReview,
+  replyProductReview,
   getLocalizedProduct,
   getProductPreference,
   getProductPreviewFiles,
@@ -87,10 +90,20 @@ export function MarketplaceProductDetailView({
   const [added, setAdded] = useState(false);
   const [reviewRating, setReviewRating] = useState<number | null>(null);
   const [reviewComment, setReviewComment] = useState('');
+  const [reviewImages, setReviewImages] = useState<File[]>([]);
+  const [keptReviewImageIds, setKeptReviewImageIds] = useState<string[]>([]);
   const [reviewSaving, setReviewSaving] = useState(false);
   const [reviewEditing, setReviewEditing] = useState(true);
   const [reviewError, setReviewError] = useState('');
   const [reviewSaved, setReviewSaved] = useState('');
+  const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
+  const [replySavingId, setReplySavingId] = useState('');
+  const [replyError, setReplyError] = useState('');
+  const [replyErrorId, setReplyErrorId] = useState('');
+  const reviewImagePreviews = useMemo(
+    () => reviewImages.map((image) => URL.createObjectURL(image)),
+    [reviewImages]
+  );
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState('');
@@ -117,6 +130,7 @@ export function MarketplaceProductDetailView({
         setProduct(result.product);
         setReviewRating(myReview?.rating ?? null);
         setReviewComment(myReview?.comment ?? '');
+        setKeptReviewImageIds(myReview?.images.map((image) => image.id) ?? []);
         setReviewEditing(!myReview);
 
         let visitorId = window.localStorage.getItem(VISITOR_STORAGE_KEY);
@@ -205,6 +219,11 @@ export function MarketplaceProductDetailView({
     };
   }, [modalMode, product?.category, product?.id]);
 
+  useEffect(
+    () => () => reviewImagePreviews.forEach((preview) => URL.revokeObjectURL(preview)),
+    [reviewImagePreviews]
+  );
+
   if (loading) {
     return (
       <Box sx={{ minHeight: 500, display: 'grid', placeItems: 'center' }}>
@@ -246,10 +265,18 @@ export function MarketplaceProductDetailView({
     setReviewError('');
     setReviewSaved('');
     try {
-      const result = await saveProductReview(product.id, reviewRating, reviewComment);
+      const result = await saveProductReview(
+        product.id,
+        reviewRating,
+        reviewComment,
+        reviewImages,
+        keptReviewImageIds
+      );
       setProduct((current) => (current ? { ...current, engagement: result.engagement } : current));
       setReviewRating(result.engagement.myReview?.rating ?? reviewRating);
       setReviewComment(result.engagement.myReview?.comment ?? '');
+      setKeptReviewImageIds(result.engagement.myReview?.images.map((image) => image.id) ?? []);
+      setReviewImages([]);
       setReviewEditing(false);
       setReviewSaved(result.message);
     } catch (error) {
@@ -262,6 +289,8 @@ export function MarketplaceProductDetailView({
   const handleEditReview = () => {
     setReviewRating(engagement.myReview?.rating ?? null);
     setReviewComment(engagement.myReview?.comment ?? '');
+    setKeptReviewImageIds(engagement.myReview?.images.map((image) => image.id) ?? []);
+    setReviewImages([]);
     setReviewError('');
     setReviewSaved('');
     setReviewEditing(true);
@@ -270,9 +299,47 @@ export function MarketplaceProductDetailView({
   const handleCancelReviewEdit = () => {
     setReviewRating(engagement.myReview?.rating ?? null);
     setReviewComment(engagement.myReview?.comment ?? '');
+    setKeptReviewImageIds(engagement.myReview?.images.map((image) => image.id) ?? []);
+    setReviewImages([]);
     setReviewError('');
     setReviewSaved('');
     setReviewEditing(false);
+  };
+
+  const handleReviewImages = (files: FileList | null) => {
+    const selected = Array.from(files ?? []);
+    const next = selected.filter(
+      (file) =>
+        ['image/jpeg', 'image/png', 'image/webp'].includes(file.type) &&
+        file.size <= 5 * 1024 * 1024
+    );
+    if (next.length !== selected.length) {
+      setReviewError('รองรับเฉพาะ JPG, PNG, WEBP ขนาดไม่เกิน 5 MB ต่อรูป');
+    }
+    const remaining = Math.max(0, 3 - keptReviewImageIds.length - reviewImages.length);
+    setReviewImages((current) => [...current, ...next.slice(0, remaining)]);
+  };
+
+  const handleReplySubmit = async (review: MarketplaceProductReview) => {
+    const comment = (replyDrafts[review.id] ?? review.reply?.comment ?? '').trim();
+    if (!comment) {
+      setReplyError('กรุณากรอกข้อความตอบกลับ');
+      setReplyErrorId(review.id);
+      return;
+    }
+    setReplySavingId(review.id);
+    setReplyError('');
+    setReplyErrorId('');
+    try {
+      const result = await replyProductReview(product.id, review.id, comment);
+      setProduct((current) => (current ? { ...current, engagement: result.engagement } : current));
+      setReplyDrafts((current) => ({ ...current, [review.id]: comment }));
+    } catch (error) {
+      setReplyError(error instanceof Error ? error.message : 'ตอบกลับรีวิวไม่สำเร็จ');
+      setReplyErrorId(review.id);
+    } finally {
+      setReplySavingId('');
+    }
   };
 
   const handlePreview = async () => {
@@ -307,6 +374,7 @@ export function MarketplaceProductDetailView({
     averageRating: 0,
     reviews: [],
     canReview: false,
+    canReply: false,
     myReview: null,
   };
   const isInCart = added || items.some((item) => item.product.id === product.id);
@@ -320,9 +388,7 @@ export function MarketplaceProductDetailView({
     ? `ใช้งานถึง ${new Intl.DateTimeFormat('th-TH', {
         dateStyle: 'medium',
         timeZone: 'Asia/Bangkok',
-      }).format(
-        new Date(activeSubscription)
-      )}`
+      }).format(new Date(activeSubscription))}`
     : purchaseUnavailable
       ? purchaseAccess?.hasPurchased
         ? 'ซื้อสินค้านี้แล้ว'
@@ -406,7 +472,6 @@ export function MarketplaceProductDetailView({
               <Box>
                 <Stack direction="row" spacing={0.75} alignItems="center">
                   {sellerName()}
-                  <RiShieldCheckLine size={18} color="#1565F5" />
                 </Stack>
                 <Stack direction="row" spacing={1} alignItems="center">
                   <Rating size="small" value={engagement.averageRating} precision={0.1} readOnly />
@@ -767,6 +832,7 @@ export function MarketplaceProductDetailView({
                             >
                               {engagement.myReview.comment || 'ไม่ได้เขียนข้อความรีวิว'}
                             </Typography>
+                            <ReviewImages images={engagement.myReview.images} />
                             <Typography variant="caption" color="text.secondary">
                               แก้ไขล่าสุด{' '}
                               {new Intl.DateTimeFormat('th-TH', {
@@ -801,6 +867,24 @@ export function MarketplaceProductDetailView({
                             inputProps={{ maxLength: 1000 }}
                             helperText={`${reviewComment.length}/1,000 ตัวอักษร`}
                             onChange={(event) => setReviewComment(event.target.value)}
+                          />
+                          <ReviewImageEditor
+                            existingImages={engagement.myReview?.images ?? []}
+                            keptImageIds={keptReviewImageIds}
+                            newImages={reviewImages}
+                            newImagePreviews={reviewImagePreviews}
+                            disabled={reviewSaving}
+                            onFiles={handleReviewImages}
+                            onRemoveExisting={(imageId) =>
+                              setKeptReviewImageIds((current) =>
+                                current.filter((id) => id !== imageId)
+                              )
+                            }
+                            onRemoveNew={(index) =>
+                              setReviewImages((current) =>
+                                current.filter((_image, imageIndex) => imageIndex !== index)
+                              )
+                            }
                           />
                           {reviewError && <Alert severity="error">{reviewError}</Alert>}
                           <Stack direction="row" spacing={1}>
@@ -842,29 +926,18 @@ export function MarketplaceProductDetailView({
                 <Stack spacing={2}>
                   {engagement.reviews.length ? (
                     engagement.reviews.map((review) => (
-                      <Card key={review.id} variant="outlined" sx={{ p: 2.5, borderRadius: 2.5 }}>
-                        <Stack spacing={1.25}>
-                          <Stack
-                            direction={{ xs: 'column', sm: 'row' }}
-                            justifyContent="space-between"
-                            spacing={1}
-                          >
-                            <Typography variant="subtitle1">{review.reviewer_name}</Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {new Intl.DateTimeFormat('th-TH', {
-                                dateStyle: 'medium',
-                                timeZone: 'Asia/Bangkok',
-                              }).format(new Date(review.updated_at))}
-                            </Typography>
-                          </Stack>
-                          <Rating size="small" value={review.rating} readOnly />
-                          {review.comment && (
-                            <Typography color="text.secondary" sx={{ whiteSpace: 'pre-line' }}>
-                              {review.comment}
-                            </Typography>
-                          )}
-                        </Stack>
-                      </Card>
+                      <ReviewCard
+                        key={review.id}
+                        review={review}
+                        canReply={engagement.canReply}
+                        replyValue={replyDrafts[review.id] ?? review.reply?.comment ?? ''}
+                        replySaving={replySavingId === review.id}
+                        replyError={replyErrorId === review.id ? replyError : ''}
+                        onReplyChange={(value) =>
+                          setReplyDrafts((current) => ({ ...current, [review.id]: value }))
+                        }
+                        onReply={() => handleReplySubmit(review)}
+                      />
                     ))
                   ) : (
                     <Card
@@ -1178,7 +1251,7 @@ export function MarketplaceProductDetailView({
   }
 
   return (
-    <Container maxWidth="xl" sx={{ py: { xs: 4, md: 8 } }}>
+    <Container maxWidth="lg" sx={{ py: { xs: 3 } }}>
       <Button
         component={RouterLink}
         href="/products"
@@ -1318,9 +1391,15 @@ export function MarketplaceProductDetailView({
                     <RiShieldCheckLine color="#1565F5" />
                   )}
                 </Stack>
-                <Typography variant="caption" color="text.secondary">
-                  ร้านค้าที่ผ่านการตรวจสอบโดย E-KRU Marketplace
-                </Typography>
+                {product.seller?.seller_type === 'teacher' ? (
+                  <Typography variant="caption" color="text.secondary">
+                    ร้านค้าที่ผ่านการตรวจสอบโดย E-KRU Marketplace
+                  </Typography>
+                ) : (
+                  <Typography variant="caption" color="text.secondary">
+                    ร้านค้าทางการ
+                  </Typography>
+                )}
               </Box>
             </Stack>
 
@@ -1507,6 +1586,22 @@ export function MarketplaceProductDetailView({
                     helperText={`${reviewComment.length}/1,000`}
                     onChange={(event) => setReviewComment(event.target.value)}
                   />
+                  <ReviewImageEditor
+                    existingImages={engagement.myReview?.images ?? []}
+                    keptImageIds={keptReviewImageIds}
+                    newImages={reviewImages}
+                    newImagePreviews={reviewImagePreviews}
+                    disabled={reviewSaving}
+                    onFiles={handleReviewImages}
+                    onRemoveExisting={(imageId) =>
+                      setKeptReviewImageIds((current) => current.filter((id) => id !== imageId))
+                    }
+                    onRemoveNew={(index) =>
+                      setReviewImages((current) =>
+                        current.filter((_image, imageIndex) => imageIndex !== index)
+                      )
+                    }
+                  />
                   {reviewError && <Alert severity="error">{reviewError}</Alert>}
                   {reviewSaved && <Alert severity="success">{reviewSaved}</Alert>}
                   <Button
@@ -1531,29 +1626,18 @@ export function MarketplaceProductDetailView({
             <Typography variant="h4">รีวิวจากผู้ซื้อ</Typography>
             {engagement.reviews.length ? (
               engagement.reviews.map((review) => (
-                <Card key={review.id} variant="outlined" sx={{ p: 2.5, borderRadius: 3 }}>
-                  <Stack spacing={1.25}>
-                    <Stack
-                      direction={{ xs: 'column', sm: 'row' }}
-                      spacing={1}
-                      justifyContent="space-between"
-                    >
-                      <Typography variant="subtitle1">{review.reviewer_name}</Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {new Intl.DateTimeFormat('th-TH', {
-                          dateStyle: 'medium',
-                          timeZone: 'Asia/Bangkok',
-                        }).format(new Date(review.updated_at))}
-                      </Typography>
-                    </Stack>
-                    <Rating size="small" value={review.rating} readOnly />
-                    {review.comment && (
-                      <Typography color="text.secondary" sx={{ whiteSpace: 'pre-line' }}>
-                        {review.comment}
-                      </Typography>
-                    )}
-                  </Stack>
-                </Card>
+                <ReviewCard
+                  key={review.id}
+                  review={review}
+                  canReply={engagement.canReply}
+                  replyValue={replyDrafts[review.id] ?? review.reply?.comment ?? ''}
+                  replySaving={replySavingId === review.id}
+                  replyError={replyErrorId === review.id ? replyError : ''}
+                  onReplyChange={(value) =>
+                    setReplyDrafts((current) => ({ ...current, [review.id]: value }))
+                  }
+                  onReply={() => handleReplySubmit(review)}
+                />
               ))
             ) : (
               <Card variant="outlined" sx={{ p: 4, textAlign: 'center', borderRadius: 3 }}>
@@ -1567,5 +1651,235 @@ export function MarketplaceProductDetailView({
         </Grid>
       </Grid>
     </Container>
+  );
+}
+
+function ReviewImages({ images }: { images: MarketplaceProductReview['images'] }) {
+  if (!images.length) return null;
+  return (
+    <Box
+      sx={{
+        gap: 1,
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+      }}
+    >
+      {images.map((image) => (
+        <Box
+          key={image.id}
+          component="a"
+          href={image.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          sx={{ display: 'block' }}
+        >
+          <Box
+            component="img"
+            src={image.url}
+            alt="รูปประกอบรีวิว"
+            sx={{
+              width: 1,
+              height: 104,
+              display: 'block',
+              objectFit: 'cover',
+              borderRadius: 1.5,
+              border: '1px solid',
+              borderColor: 'divider',
+            }}
+          />
+        </Box>
+      ))}
+    </Box>
+  );
+}
+
+function ReviewImageEditor({
+  existingImages,
+  keptImageIds,
+  newImages,
+  newImagePreviews,
+  disabled,
+  onFiles,
+  onRemoveExisting,
+  onRemoveNew,
+}: {
+  existingImages: MarketplaceProductReview['images'];
+  keptImageIds: string[];
+  newImages: File[];
+  newImagePreviews: string[];
+  disabled: boolean;
+  onFiles: (files: FileList | null) => void;
+  onRemoveExisting: (id: string) => void;
+  onRemoveNew: (index: number) => void;
+}) {
+  const keptImages = existingImages.filter((image) => keptImageIds.includes(image.id));
+  const total = keptImages.length + newImages.length;
+
+  return (
+    <Stack spacing={1.25}>
+      <Stack direction="row" spacing={1} alignItems="center">
+        <Button
+          component="label"
+          variant="outlined"
+          startIcon={<RiImageAddLine />}
+          disabled={disabled || total >= 3}
+        >
+          เพิ่มรูปรีวิว
+          <input
+            hidden
+            multiple
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={(event) => {
+              onFiles(event.target.files);
+              event.target.value = '';
+            }}
+          />
+        </Button>
+        <Typography variant="caption" color="text.secondary">
+          {total}/3 รูป · ไม่เกิน 5 MB ต่อรูป
+        </Typography>
+      </Stack>
+      {total > 0 && (
+        <Box
+          sx={{
+            gap: 1,
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+          }}
+        >
+          {keptImages.map((image) => (
+            <ReviewImagePreview
+              key={image.id}
+              src={image.url}
+              onRemove={() => onRemoveExisting(image.id)}
+            />
+          ))}
+          {newImagePreviews.map((preview, index) => (
+            <ReviewImagePreview
+              key={`${newImages[index]?.name ?? 'image'}-${index}`}
+              src={preview}
+              onRemove={() => onRemoveNew(index)}
+            />
+          ))}
+        </Box>
+      )}
+    </Stack>
+  );
+}
+
+function ReviewImagePreview({ src, onRemove }: { src: string; onRemove: () => void }) {
+  return (
+    <Box sx={{ position: 'relative' }}>
+      <Box
+        component="img"
+        src={src}
+        alt="ตัวอย่างรูปรีวิว"
+        sx={{ width: 1, height: 96, display: 'block', objectFit: 'cover', borderRadius: 1.5 }}
+      />
+      <IconButton
+        size="small"
+        color="error"
+        aria-label="นำรูปออก"
+        onClick={onRemove}
+        sx={{
+          top: 4,
+          right: 4,
+          position: 'absolute',
+          color: 'common.white',
+          bgcolor: 'error.main',
+          '&:hover': { bgcolor: 'error.dark' },
+        }}
+      >
+        <RiCloseLine size={16} />
+      </IconButton>
+    </Box>
+  );
+}
+
+function ReviewCard({
+  review,
+  canReply,
+  replyValue,
+  replySaving,
+  replyError,
+  onReplyChange,
+  onReply,
+}: {
+  review: MarketplaceProductReview;
+  canReply: boolean;
+  replyValue: string;
+  replySaving: boolean;
+  replyError: string;
+  onReplyChange: (value: string) => void;
+  onReply: () => void;
+}) {
+  return (
+    <Card variant="outlined" sx={{ p: 2.5, borderRadius: 2.5 }}>
+      <Stack spacing={1.5}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" spacing={1}>
+          <Typography variant="subtitle1">{review.reviewer_name}</Typography>
+          <Typography variant="caption" color="text.secondary">
+            {new Intl.DateTimeFormat('th-TH', {
+              dateStyle: 'medium',
+              timeZone: 'Asia/Bangkok',
+            }).format(new Date(review.updated_at))}
+          </Typography>
+        </Stack>
+        <Rating size="small" value={review.rating} readOnly />
+        {review.comment && (
+          <Typography color="text.secondary" sx={{ whiteSpace: 'pre-line' }}>
+            {review.comment}
+          </Typography>
+        )}
+        <ReviewImages images={review.images} />
+
+        {review.reply && (
+          <Box
+            sx={{
+              p: 2,
+              ml: { sm: 2 },
+              borderRadius: 2,
+              bgcolor: 'background.neutral',
+              borderLeft: '3px solid',
+              borderColor: 'primary.main',
+            }}
+          >
+            <Typography variant="subtitle2">คำตอบจาก {review.reply.responder_name}</Typography>
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ mt: 0.5, whiteSpace: 'pre-line' }}
+            >
+              {review.reply.comment}
+            </Typography>
+          </Box>
+        )}
+
+        {canReply && (
+          <Stack spacing={1}>
+            <TextField
+              fullWidth
+              multiline
+              minRows={2}
+              label={review.reply ? 'แก้ไขคำตอบจากร้านค้า' : 'ตอบกลับรีวิว'}
+              value={replyValue}
+              inputProps={{ maxLength: 1000 }}
+              helperText={`${replyValue.length}/1,000`}
+              onChange={(event) => onReplyChange(event.target.value)}
+            />
+            {replyError && <Alert severity="error">{replyError}</Alert>}
+            <Button
+              variant="contained"
+              disabled={!replyValue.trim() || replySaving}
+              onClick={onReply}
+              sx={{ alignSelf: 'flex-start' }}
+            >
+              {replySaving ? 'กำลังบันทึก...' : review.reply ? 'บันทึกคำตอบ' : 'ตอบกลับ'}
+            </Button>
+          </Stack>
+        )}
+      </Stack>
+    </Card>
   );
 }

@@ -26,7 +26,7 @@ export async function GET(request: Request) {
   const studentCannotAccess =
     user?.role === 'student' && (user.student_status ?? 'studying') !== 'studying';
 
-  if (!user || user.is_active === false || studentCannotAccess) {
+  if (!user || user.is_suspended === true || user.is_active === false || studentCannotAccess) {
     return NextResponse.json({ message: 'กรุณาเข้าสู่ระบบ' }, { status: 401 });
   }
 

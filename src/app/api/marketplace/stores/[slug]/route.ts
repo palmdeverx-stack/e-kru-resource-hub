@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 
 import { withMediaUrls } from 'src/sections/marketplace/seller/server/product-media';
+import { getSellerProfileCompletionById } from 'src/sections/marketplace/seller/server/seller-completion';
 
 type Context = { params: Promise<{ slug: string }> };
 
@@ -11,7 +12,9 @@ export async function GET(_request: Request, { params }: Context) {
   const identifier = decodeURIComponent(slug);
   let { data: seller, error } = await supabaseAdmin
     .from('marketplace_sellers')
-    .select('id, display_name, display_name_en, slug, logo_url, cover_url, bio, seller_type')
+    .select(
+      'id, display_name, display_name_en, slug, logo_url, cover_url, bio, seller_type, owner_role'
+    )
     .eq('slug', identifier)
     .eq('status', 'active')
     .maybeSingle();
@@ -19,7 +22,9 @@ export async function GET(_request: Request, { params }: Context) {
   if (!seller && !error && /^[0-9a-f-]{36}$/i.test(identifier)) {
     const sellerById = await supabaseAdmin
       .from('marketplace_sellers')
-      .select('id, display_name, display_name_en, slug, logo_url, cover_url, bio, seller_type')
+      .select(
+        'id, display_name, display_name_en, slug, logo_url, cover_url, bio, seller_type, owner_role'
+      )
       .eq('id', identifier)
       .eq('status', 'active')
       .maybeSingle();
@@ -33,6 +38,13 @@ export async function GET(_request: Request, { params }: Context) {
       { status: error ? 500 : 404 }
     );
   }
+  const profileCompletion = await getSellerProfileCompletionById(seller.id);
+  const { owner_role: ownerRole, ...sellerDetails } = seller;
+  const publicSeller = {
+    ...sellerDetails,
+    profile_completion: profileCompletion,
+    is_system_store: ownerRole === 'master_admin',
+  };
   const { data: products, error: productError } = await supabaseAdmin
     .from('marketplace_products')
     .select(
@@ -55,7 +67,7 @@ export async function GET(_request: Request, { params }: Context) {
       delete safeProduct.files;
       return {
         ...safeProduct,
-        seller,
+        seller: publicSeller,
         engagement: {
           views: 0,
           purchases: 0,
@@ -66,10 +78,11 @@ export async function GET(_request: Request, { params }: Context) {
             : 0,
           reviews: [],
           canReview: false,
+          canReply: false,
           myReview: null,
         },
       };
     })
   );
-  return NextResponse.json({ seller, products: resolvedProducts });
+  return NextResponse.json({ seller: publicSeller, products: resolvedProducts });
 }

@@ -507,6 +507,42 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
               onChange={(e) => update('contactEmail', e.target.value)}
             />
             <Divider />
+            <Box>
+              <Typography variant="h6">รูปภาพร้านค้าทางการ</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                รูปที่อัปโหลดจะแสดงบนหน้าร้าน สินค้า และส่วนต่าง ๆ ของ Marketplace
+              </Typography>
+            </Box>
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+              <Box sx={{ width: { xs: 1, md: '34%' } }}>
+                <UploadField
+                  required
+                  label="รูปโปรไฟล์ร้าน (โลโก้)"
+                  done={Boolean(seller?.logo_url || hasDocument('store_logo'))}
+                  document={getDocument('store_logo')}
+                  currentUrl={seller?.logo_url}
+                  loading={uploading === 'store_logo'}
+                  accept="image/*"
+                  aspectRatio="1 / 1"
+                  maxSizeMb={5}
+                  onFile={(file) => upload('store_logo', file)}
+                />
+              </Box>
+              <Box sx={{ flex: 1 }}>
+                <UploadField
+                  label="ภาพปกร้าน"
+                  done={Boolean(seller?.cover_url || hasDocument('store_cover'))}
+                  document={getDocument('store_cover')}
+                  currentUrl={seller?.cover_url}
+                  loading={uploading === 'store_cover'}
+                  accept="image/*"
+                  aspectRatio="16 / 6"
+                  maxSizeMb={5}
+                  onFile={(file) => upload('store_cover', file)}
+                />
+              </Box>
+            </Stack>
+            <Divider />
             <Typography variant="h6">ข้อมูลผู้ออกใบเสร็จรับเงิน</Typography>
             <TextField
               required
@@ -1107,20 +1143,24 @@ function UploadField({
   label,
   done,
   document,
+  currentUrl,
   loading,
   onFile,
   accept = 'image/*,application/pdf',
   required = false,
   aspectRatio = '16 / 7',
+  maxSizeMb = 10,
 }: {
   label: string;
   done: boolean;
   document?: NonNullable<MarketplaceSeller['documents']>[number];
+  currentUrl?: string | null;
   loading: boolean;
   onFile: (file: File) => Promise<boolean>;
   accept?: string;
   required?: boolean;
   aspectRatio?: string;
+  maxSizeMb?: number;
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
@@ -1149,8 +1189,8 @@ function UploadField({
       );
       return;
     }
-    if (file.size > 10 * 1024 * 1024) {
-      setFileError('ไฟล์ต้องมีขนาดไม่เกิน 10 MB');
+    if (file.size > maxSizeMb * 1024 * 1024) {
+      setFileError(`ไฟล์ต้องมีขนาดไม่เกิน ${maxSizeMb} MB`);
       return;
     }
     setFileError('');
@@ -1166,11 +1206,11 @@ function UploadField({
     if (uploaded) setPendingFile(null);
   };
 
-  const sourceUrl = previewUrl || document?.url || '';
+  const sourceUrl = previewUrl || document?.url || currentUrl || '';
   const mimeType = pendingFile?.type || document?.mime_type || '';
   const fileName = pendingFile?.name || document?.file_name || '';
   const fileSize = pendingFile?.size ?? document?.file_size ?? 0;
-  const isImage = mimeType.startsWith('image/');
+  const isImage = mimeType.startsWith('image/') || (accept === 'image/*' && Boolean(sourceUrl));
 
   return (
     <Card
@@ -1202,7 +1242,8 @@ function UploadField({
             )}
           </Stack>
           <Typography variant="caption" color="text.secondary">
-            รองรับ JPG, PNG, WebP{accept !== 'image/*' ? ' หรือ PDF' : ''} ขนาดไม่เกิน 10 MB
+            รองรับ JPG, PNG, WebP{accept !== 'image/*' ? ' หรือ PDF' : ''} ขนาดไม่เกิน{' '}
+            {maxSizeMb} MB
           </Typography>
         </Box>
         {pendingFile && (

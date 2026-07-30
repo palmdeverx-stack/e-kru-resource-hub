@@ -181,7 +181,7 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
             เข้าสู่ระบบก่อนชำระเงิน
           </Typography>
           <Typography color="text.secondary" sx={{ mt: 1, mb: 3 }}>
-            ใช้บัญชี eKru เดิม หรือสมัครบัญชี Marketplace ใหม่ได้ ตะกร้าของคุณจะยังอยู่
+            ใช้บัญชี E-KRU เดิม หรือสมัครบัญชี Marketplace ใหม่ได้ ตะกร้าของคุณจะยังอยู่
           </Typography>
           <Button
             component={RouterLink}
@@ -347,8 +347,7 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
 
           {!isFree && availableMethods.promptpay && availableMethods.stripe && (
             <Alert severity="info" icon={<RiShieldCheckLine />}>
-              PromptPay แบบแนบสลิปต้องรอผู้ดูแลตรวจ ส่วน Stripe ยืนยันผลชำระผ่าน webhook
-              อัตโนมัติ
+              PromptPay แบบแนบสลิปต้องรอผู้ดูแลตรวจ ส่วน Stripe ยืนยันผลชำระผ่าน webhook อัตโนมัติ
             </Alert>
           )}
           {!isFree && availableMethods.promptpay && !availableMethods.stripe && (

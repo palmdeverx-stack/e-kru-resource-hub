@@ -52,8 +52,8 @@ import {
 
 import { useAuthContext } from 'src/auth/hooks';
 
-import { MARKETPLACE_CATEGORIES } from '../../shared/constants';
 import { getMarketplacePricing } from '../../shared/pricing';
+import { MARKETPLACE_CATEGORIES } from '../../shared/constants';
 import {
   getTags,
   getCurricula,
@@ -220,7 +220,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
       .then(({ plans }) => setSubscriptionPlans(plans))
       .catch((loadError) =>
         setSubscriptionPlansError(
-          loadError instanceof Error ? loadError.message : 'โหลดแพ็กเกจจาก eKru ไม่สำเร็จ'
+          loadError instanceof Error ? loadError.message : 'โหลดแพ็กเกจจาก E-KRU ไม่สำเร็จ'
         )
       )
       .finally(() => setSubscriptionPlansLoading(false));
@@ -1095,13 +1095,13 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                         maximumFractionDigits: 2,
                       })}{' '}
                       บาท · ผู้ขายได้รับประมาณ{' '}
-                      {(
-                        previewPricing.salePrice *
-                        (1 - commissionRate / 100)
-                      ).toLocaleString('th-TH', {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}{' '}
+                      {(previewPricing.salePrice * (1 - commissionRate / 100)).toLocaleString(
+                        'th-TH',
+                        {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        }
+                      )}{' '}
                       บาท
                     </Alert>
                   </Grid>
@@ -1173,7 +1173,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                               }))
                             }
                           >
-                            เลือกฟีเจอร์ eKru ทั้งระบบ
+                            เลือกฟีเจอร์ E-KRU ทั้งระบบ
                           </Button>
                         </Stack>
                       )}
@@ -1233,7 +1233,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                         <TextField
                           fullWidth
                           select
-                          label="แพ็กเกจจากระบบ eKru"
+                          label="แพ็กเกจจากระบบ E-KRU"
                           value={form.grantsPlanCode}
                           disabled={subscriptionPlansLoading}
                           onChange={(event) => {

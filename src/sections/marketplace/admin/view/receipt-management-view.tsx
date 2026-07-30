@@ -29,8 +29,9 @@ import TablePagination from '@mui/material/TablePagination';
 import CircularProgress from '@mui/material/CircularProgress';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 
-import { Logo } from 'src/components/logo';
 import { formatThaiDateTime } from 'src/utils/timezone';
+
+import { Logo } from 'src/components/logo';
 import {
   RiEyeLine,
   RiSearchLine,
@@ -411,8 +412,7 @@ export function MarketplaceReceiptManagementView() {
                       <TableRow key={item.id} hover>
                         <TableCell>
                           <Typography variant="subtitle2">
-                            {receipt?.receipt_number ??
-                              `PAY-${item.id.slice(0, 8).toUpperCase()}`}
+                            {receipt?.receipt_number ?? `PAY-${item.id.slice(0, 8).toUpperCase()}`}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
                             Payment #{item.id.slice(0, 12).toUpperCase()}
@@ -426,9 +426,7 @@ export function MarketplaceReceiptManagementView() {
                         </TableCell>
                         <TableCell>
                           <Typography variant="body2" sx={{ whiteSpace: 'nowrap' }}>
-                            {formatDate(
-                              receipt?.issued_at || item.reviewed_at || item.created_at
-                            )}
+                            {formatDate(receipt?.issued_at || item.reviewed_at || item.created_at)}
                           </Typography>
                         </TableCell>
                         <TableCell>{paymentLabels[item.payment_method]}</TableCell>
@@ -530,7 +528,12 @@ export function MarketplaceReceiptManagementView() {
         )}
       </Container>
 
-      <Dialog open={Boolean(issuing)} onClose={() => !saving && setIssuing(null)} fullWidth maxWidth="sm">
+      <Dialog
+        open={Boolean(issuing)}
+        onClose={() => !saving && setIssuing(null)}
+        fullWidth
+        maxWidth="sm"
+      >
         <DialogTitle>ออกใบเสร็จรับเงิน</DialogTitle>
         <DialogContent>
           <Alert severity="info" sx={{ mb: 2 }}>
@@ -612,17 +615,18 @@ export function MarketplaceReceiptManagementView() {
           <Button color="inherit" onClick={() => setViewing(null)}>
             ปิด
           </Button>
-          <Button
-            variant="contained"
-            startIcon={<RiPrinterLine />}
-            onClick={() => window.print()}
-          >
+          <Button variant="contained" startIcon={<RiPrinterLine />} onClick={() => window.print()}>
             พิมพ์ / บันทึก PDF
           </Button>
         </DialogActions>
       </Dialog>
 
-      <Dialog open={Boolean(voiding)} onClose={() => !saving && setVoiding(null)} fullWidth maxWidth="sm">
+      <Dialog
+        open={Boolean(voiding)}
+        onClose={() => !saving && setVoiding(null)}
+        fullWidth
+        maxWidth="sm"
+      >
         <DialogTitle>ยกเลิกใบเสร็จ {voiding?.receipt_number}</DialogTitle>
         <DialogContent>
           <Alert severity="warning" sx={{ mb: 2 }}>
@@ -683,7 +687,7 @@ function ReceiptDocument({ receipt }: { receipt: Receipt }) {
           <Logo
             disabled
             isSingle={false}
-            sx={{ width: 140, height: 50, mb: 1.5, justifyContent: 'flex-start' }}
+            sx={{ width: '140px', height: '36px', mb: 1.5, justifyContent: 'flex-start' }}
           />
           <Typography variant="h4">ใบเสร็จรับเงิน</Typography>
           <Typography color="text.secondary">RECEIPT</Typography>
@@ -693,7 +697,9 @@ function ReceiptDocument({ receipt }: { receipt: Receipt }) {
           <Typography variant="body2">วันที่ออก {formatDate(receipt.issued_at)}</Typography>
           <Chip
             size="small"
-            color={receipt.is_template ? 'default' : receipt.status === 'issued' ? 'success' : 'error'}
+            color={
+              receipt.is_template ? 'default' : receipt.status === 'issued' ? 'success' : 'error'
+            }
             label={
               receipt.is_template
                 ? 'ตัวอย่างเอกสาร'
@@ -708,7 +714,8 @@ function ReceiptDocument({ receipt }: { receipt: Receipt }) {
       <Divider sx={{ my: 3 }} />
       {receipt.is_template && (!receipt.provider_tax_id || !receipt.provider_address) && (
         <Alert severity="warning" sx={{ mb: 3 }}>
-          ข้อมูลผู้ออกใบเสร็จในร้านระบบยังไม่ครบ กรุณากรอกเลขผู้เสียภาษีและที่อยู่ในเมนูข้อมูลร้านค้า
+          ข้อมูลผู้ออกใบเสร็จในร้านระบบยังไม่ครบ
+          กรุณากรอกเลขผู้เสียภาษีและที่อยู่ในเมนูข้อมูลร้านค้า
         </Alert>
       )}
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={4}>
@@ -779,15 +786,17 @@ function ReceiptDocument({ receipt }: { receipt: Receipt }) {
         ))}
       </Box>
       <Stack alignItems="flex-end" sx={{ mt: 3 }}>
-        <Stack direction="row" justifyContent="space-between" sx={{ width: { xs: '100%', sm: 320 } }}>
+        <Stack
+          direction="row"
+          justifyContent="space-between"
+          sx={{ width: { xs: '100%', sm: 320 } }}
+        >
           <Typography variant="h6">รวมทั้งสิ้น</Typography>
           <Typography variant="h5">{formatPrice(Number(receipt.amount))}</Typography>
         </Stack>
       </Stack>
       <Divider sx={{ my: 3 }} />
-      <Typography variant="body2">
-        วิธีชำระเงิน: {paymentLabels[receipt.payment_method]}
-      </Typography>
+      <Typography variant="body2">วิธีชำระเงิน: {paymentLabels[receipt.payment_method]}</Typography>
       {!!receipt.transaction_reference && (
         <Typography variant="body2">เลขอ้างอิง: {receipt.transaction_reference}</Typography>
       )}

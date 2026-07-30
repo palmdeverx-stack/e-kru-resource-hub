@@ -1,9 +1,6 @@
 'use client';
 
-import type {
-  MarketplaceSchoolLicense,
-  MarketplaceLicenseTeacher,
-} from '../../shared/types';
+import type { MarketplaceSchoolLicense, MarketplaceLicenseTeacher } from '../../shared/types';
 
 import { useState, useEffect, useCallback } from 'react';
 
@@ -30,21 +27,14 @@ import {
   RiShieldCheckLine,
 } from 'src/components/remix-icon';
 
-import {
-  getSchoolLicenses,
-  assignTeacherLicense,
-  revokeTeacherLicense,
-} from '../../shared/api';
+import { getSchoolLicenses, assignTeacherLicense, revokeTeacherLicense } from '../../shared/api';
 
 const featureLabels = new Map<string, string>(
   SCHOOL_FEATURES.map((feature) => [feature.key, feature.label])
 );
 
 function teacherName(teacher: MarketplaceLicenseTeacher) {
-  return (
-    [teacher.first_name, teacher.last_name].filter(Boolean).join(' ') ||
-    teacher.username
-  );
+  return [teacher.first_name, teacher.last_name].filter(Boolean).join(' ') || teacher.username;
 }
 
 export function MarketplaceSchoolLicensesView() {
@@ -107,7 +97,7 @@ export function MarketplaceSchoolLicensesView() {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ py: { xs: 4, md: 6 } }}>
+    <Container maxWidth="lg" sx={{ py: { xs: 3 } }}>
       <Stack spacing={0.75}>
         <Typography component="h1" variant="h3">
           สิทธิ์และ License
@@ -117,8 +107,16 @@ export function MarketplaceSchoolLicensesView() {
         </Typography>
       </Stack>
 
-      {error && <Alert severity="error" sx={{ mt: 3 }}>{error}</Alert>}
-      {message && <Alert severity="success" sx={{ mt: 3 }}>{message}</Alert>}
+      {error && (
+        <Alert severity="error" sx={{ mt: 3 }}>
+          {error}
+        </Alert>
+      )}
+      {message && (
+        <Alert severity="success" sx={{ mt: 3 }}>
+          {message}
+        </Alert>
+      )}
 
       {loading ? (
         <Box sx={{ py: 12, textAlign: 'center' }}>
@@ -172,9 +170,7 @@ export function MarketplaceSchoolLicensesView() {
                         {new Intl.DateTimeFormat('th-TH', {
                           dateStyle: 'long',
                           timeZone: 'Asia/Bangkok',
-                        }).format(
-                          new Date(license.expires_at)
-                        )}
+                        }).format(new Date(license.expires_at))}
                       </Typography>
                     </Stack>
                   </Stack>

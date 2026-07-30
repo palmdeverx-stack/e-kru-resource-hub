@@ -190,7 +190,7 @@ export async function PATCH(request: Request, { params }: Context) {
       }
       if (mediaType.delivery_mode === 'feature_unlock' && caller.role !== 'master_admin') {
         return NextResponse.json(
-          { message: 'เฉพาะร้าน eKru เท่านั้นที่ลงสินค้าประเภทปลดล็อกฟีเจอร์ระบบได้' },
+          { message: 'เฉพาะร้าน E-KRU เท่านั้นที่ลงสินค้าประเภทปลดล็อกฟีเจอร์ระบบได้' },
           { status: 403 }
         );
       }
@@ -286,14 +286,14 @@ export async function PATCH(request: Request, { params }: Context) {
   if (requestedPlanCode) {
     if (caller.role !== 'master_admin') {
       return NextResponse.json(
-        { message: 'เฉพาะร้าน eKru เท่านั้นที่เชื่อมแพ็กเกจจากระบบได้' },
+        { message: 'เฉพาะร้าน E-KRU เท่านั้นที่เชื่อมแพ็กเกจจากระบบได้' },
         { status: 403 }
       );
     }
     const licenseScope = String(body.licenseScope ?? 'school');
     if (licenseScope === 'teacher') {
       return NextResponse.json(
-        { message: 'แพ็กเกจ eKru ไม่รองรับ License แบบ Seat รายครู' },
+        { message: 'แพ็กเกจ E-KRU ไม่รองรับ License แบบ Seat รายครู' },
         { status: 400 }
       );
     }
@@ -307,7 +307,7 @@ export async function PATCH(request: Request, { params }: Context) {
       .maybeSingle();
     if (planError || !plan) {
       return NextResponse.json(
-        { message: planError?.message ?? 'ไม่พบแพ็กเกจ eKru ที่เปิดใช้งาน' },
+        { message: planError?.message ?? 'ไม่พบแพ็กเกจ E-KRU ที่เปิดใช้งาน' },
         { status: planError ? 500 : 400 }
       );
     }
@@ -384,10 +384,7 @@ export async function PATCH(request: Request, { params }: Context) {
         !Number.isFinite(salePrice) ||
         listPrice < salePrice
       ) {
-        return NextResponse.json(
-          { message: 'ราคาเต็มต้องไม่น้อยกว่าราคาขาย' },
-          { status: 400 }
-        );
+        return NextResponse.json({ message: 'ราคาเต็มต้องไม่น้อยกว่าราคาขาย' }, { status: 400 });
       }
       update.list_price = listPrice > salePrice ? listPrice : null;
     }
@@ -463,14 +460,8 @@ export async function PATCH(request: Request, { params }: Context) {
     if (!Number.isFinite(Number(product.price)) || Number(product.price) < 0) {
       return NextResponse.json({ message: 'ราคาสินค้าไม่ถูกต้อง' }, { status: 400 });
     }
-    if (
-      product.list_price != null &&
-      Number(product.list_price) < Number(product.price)
-    ) {
-      return NextResponse.json(
-        { message: 'ราคาเต็มต้องไม่น้อยกว่าราคาขาย' },
-        { status: 400 }
-      );
+    if (product.list_price != null && Number(product.list_price) < Number(product.price)) {
+      return NextResponse.json({ message: 'ราคาเต็มต้องไม่น้อยกว่าราคาขาย' }, { status: 400 });
     }
     if (!(product.images as unknown[] | null)?.length) {
       return NextResponse.json({ message: 'กรุณาอัปโหลดรูปปกอย่างน้อย 1 รูป' }, { status: 400 });
@@ -509,7 +500,7 @@ export async function PATCH(request: Request, { params }: Context) {
         return NextResponse.json(
           {
             message:
-              'แพ็กเกจ eKru ทั้งระบบต้องระบุ Plan Code จำนวนครู นักเรียน ผู้ดูแล และ LINE quota ให้ครบ',
+              'แพ็กเกจ E-KRU ทั้งระบบต้องระบุ Plan Code จำนวนครู นักเรียน ผู้ดูแล และ LINE quota ให้ครบ',
           },
           { status: 400 }
         );

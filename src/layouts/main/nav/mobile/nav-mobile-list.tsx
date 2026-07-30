@@ -26,7 +26,12 @@ export function NavList({ data, sx, ...other }: NavListProps) {
   const isNotComponentsPath = !pathname.startsWith(paths.components);
   const isOpenPath = !!data.children && isNotRootOrDocs && isNotComponentsPath;
 
-  const isActive = isActiveLink(pathname, data.path, data.deepMatch ?? !!data.children);
+  const matchesActivePath = data.activePaths?.some(
+    (activePath) => pathname === activePath || pathname.startsWith(`${activePath}/`)
+  );
+  const isActive =
+    Boolean(matchesActivePath) ||
+    isActiveLink(pathname, data.path, data.deepMatch ?? !!data.children);
 
   const { value: open, onToggle } = useBoolean(isOpenPath);
 

@@ -12,16 +12,17 @@ export function MarketplaceBrand({ compact = false }: MarketplaceBrandProps) {
   return (
     <Stack direction="row" spacing={1.25} alignItems="center" sx={{ minWidth: 0 }}>
       <Logo
+        isSingle={false}
         sx={{
-          width: 'auto',
+          width: compact ? 126 : { xs: 132, sm: 148, md: 164 },
           flexShrink: 0,
-          height: compact ? 40 : { xs: 42, sm: 52, md: 80 },
+          height: compact ? 38 : { xs: 40, sm: 44, md: 48 },
         }}
       />
       {/* {!compact && (
         <Stack spacing={0} sx={{ minWidth: 0 }}>
           <Typography variant="subtitle1" noWrap>
-            eKru Marketplace
+            E-KRU Marketplace
           </Typography>
           <Typography variant="caption" color="text.secondary" noWrap>
             ตลาดสื่อการสอน

@@ -1,6 +1,5 @@
 'use client';
 
-import type { Theme, SxProps } from '@mui/material/styles';
 import type { TypographyProps } from '@mui/material/Typography';
 import type { MarketplaceSeller } from './types';
 
@@ -8,15 +7,22 @@ import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Avatar from '@mui/material/Avatar';
 import Typography from '@mui/material/Typography';
+import { useTheme, type Theme, type SxProps } from '@mui/material/styles';
 
 import { usePathname } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 
-import { RiStore2Line } from 'src/components/remix-icon';
+import { RiStore2Line, RiShieldStarFill, RiVerifiedBadgeFill } from 'src/components/remix-icon';
+
+import { isSellerProfileVerified, isSystemMarketplaceSeller } from './seller-completion';
 
 type SellerSummary =
-  | (Pick<MarketplaceSeller, 'display_name' | 'slug' | 'logo_url'> & {
+  | (Pick<
+      MarketplaceSeller,
+      'display_name' | 'slug' | 'logo_url' | 'profile_completion' | 'is_system_store'
+    > & {
       id?: string;
+      owner_role?: string;
     })
   | null
   | undefined;
@@ -38,10 +44,11 @@ export function MarketplaceSellerLink({
   showAvatar = true,
   showName = true,
   nameVariant = 'body2',
-  fallbackName = 'ผู้ขาย eKru',
+  fallbackName = 'ผู้ขาย E-KRU',
   sx,
   nameSx,
 }: Props) {
+  const theme = useTheme();
   const pathname = usePathname();
   const name = seller?.display_name || fallbackName;
   const sellerId = seller?.id && /^[0-9a-f-]{36}$/i.test(seller.id) ? seller.id : '';
@@ -70,13 +77,31 @@ export function MarketplaceSellerLink({
         </Avatar>
       )}
       {showName && (
-        <Typography
-          variant={nameVariant}
-          noWrap
-          sx={{ color: 'inherit', fontWeight: 600, ...nameSx }}
-        >
-          {name}
-        </Typography>
+        <>
+          <Typography
+            variant={nameVariant}
+            noWrap
+            sx={{ color: 'inherit', fontWeight: 600, ...nameSx }}
+          >
+            {name}
+          </Typography>
+          {isSellerProfileVerified(seller?.profile_completion) && (
+            <RiVerifiedBadgeFill
+              size={nameVariant === 'h4' ? 24 : 18}
+              color={theme.palette.primary.main}
+              aria-label="ร้านค้าที่ผ่านการตรวจสอบ"
+              style={{ flexShrink: 0 }}
+            />
+          )}
+          {isSystemMarketplaceSeller(seller) && (
+            <RiShieldStarFill
+              size={nameVariant === 'h4' ? 24 : 18}
+              color={theme.palette.primary.main}
+              aria-label="ร้านค้าระบบ E-KRU"
+              style={{ flexShrink: 0 }}
+            />
+          )}
+        </>
       )}
     </Stack>
   );

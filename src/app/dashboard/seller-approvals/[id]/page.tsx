@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { MarketplaceSellerApprovalDetailView } from 'src/sections/marketplace/admin/view/seller-approval-detail-view';
 
 export const metadata: Metadata = {
-  title: 'รายละเอียดคำขอเปิดร้าน | eKru Marketplace',
+  title: 'รายละเอียดคำขอเปิดร้าน | E-KRU Marketplace',
 };
 
 type Props = {

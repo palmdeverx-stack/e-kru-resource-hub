@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
+import { writeSecurityAudit } from 'src/lib/security-audit';
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -20,7 +21,10 @@ export async function PATCH(request: Request, { params }: Context) {
     return NextResponse.json({ message: 'คำสั่งตรวจสอบร้านค้าไม่ถูกต้อง' }, { status: 400 });
   }
   if (action === 'reject' && reason.length < 3) {
-    return NextResponse.json({ message: 'กรุณาระบุเหตุผลที่ปฏิเสธอย่างน้อย 3 ตัวอักษร' }, { status: 400 });
+    return NextResponse.json(
+      { message: 'กรุณาระบุเหตุผลที่ปฏิเสธอย่างน้อย 3 ตัวอักษร' },
+      { status: 400 }
+    );
   }
 
   const { data: existingSeller, error: findError } = await supabaseAdmin
@@ -36,7 +40,10 @@ export async function PATCH(request: Request, { params }: Context) {
     );
   }
   if (existingSeller.owner_role === 'master_admin') {
-    return NextResponse.json({ message: 'ไม่สามารถเปลี่ยนสถานะร้านระบบ eKru ได้' }, { status: 400 });
+    return NextResponse.json(
+      { message: 'ไม่สามารถเปลี่ยนสถานะร้านระบบ E-KRU ได้' },
+      { status: 400 }
+    );
   }
 
   if (action === 'approve') {
@@ -100,6 +107,23 @@ export async function PATCH(request: Request, { params }: Context) {
       .update({ is_verified: true, verified_at: now, verified_by: reviewer.sub, updated_at: now })
       .eq('seller_id', id);
   }
+
+  await writeSecurityAudit({
+    request,
+    actorId: reviewer.sub,
+    actorUsername: reviewer.username,
+    actorRole: reviewer.role,
+    category: 'admin',
+    action: `marketplace.seller_${action}`,
+    targetType: 'marketplace_seller',
+    targetId: id,
+    result: 'success',
+    metadata: {
+      previous_status: existingSeller.status,
+      new_status: seller.status,
+      ...(action === 'reject' && { reason }),
+    },
+  });
 
   return NextResponse.json({ seller });
 }

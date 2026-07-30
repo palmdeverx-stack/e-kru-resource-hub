@@ -2,20 +2,12 @@
 
 import Box from '@mui/material/Box';
 
-import { CONFIG } from 'src/global-config';
-
-import { Image } from 'src/components/image';
+import { Logo } from 'src/components/logo';
 
 export function MarketplaceAuthBrand() {
   return (
     <Box sx={{ mb: 2.5 }}>
-      <Image
-        visibleByDefault
-        alt="E-KRU Marketplace"
-        src={`${CONFIG.assetsDir}/logo/logo-tran-ver.svg`}
-        sx={{ width: 156, height: 54 }}
-        slotProps={{ img: { sx: { objectFit: 'contain', objectPosition: 'left center' } } }}
-      />
+      <Logo isSingle={false} sx={{ width: 156, height: 48 }} />
       {/* <Box sx={{ mt: 1.25 }}>
         <Chip
           size="small"

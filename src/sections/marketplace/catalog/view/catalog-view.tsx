@@ -233,11 +233,9 @@ export function MarketplaceCatalogView() {
       <Box
         sx={(theme) => ({
           py: { xs: 7, md: 11 },
-          // background:
-          //   'radial-gradient(circle at 85% 20%, rgba(21, 101, 245, 0.16), transparent 34%), linear-gradient(180deg, #F5F9FF 0%, #FFFFFF 100%)',
         })}
       >
-        <Container maxWidth="xl">
+        <Container maxWidth="lg">
           <Grid container spacing={6} alignItems="center">
             <Grid size={{ xs: 12, md: 7 }}>
               <Stack spacing={3} alignItems={{ xs: 'center', md: 'flex-start' }}>
@@ -297,7 +295,7 @@ export function MarketplaceCatalogView() {
               >
                 <Stack spacing={3}>
                   <RiShieldCheckLine size={48} />
-                  <Typography variant="h3">บัญชีเดียวกับ eKru</Typography>
+                  <Typography variant="h3">บัญชีเดียวกับ E-KRU</Typography>
                   <Typography sx={{ color: 'rgba(255,255,255,0.76)' }}>
                     ครูใช้บัญชีเดิมได้ทันที บุคคลทั่วไปสมัครใหม่ได้
                     และทุกคนสามารถเปิดร้านขายผลงานของตัวเอง
@@ -341,7 +339,7 @@ export function MarketplaceCatalogView() {
         </Container>
       </Box>
 
-      <Container id="products" maxWidth="xl" sx={{ py: { xs: 7, md: 10 } }}>
+      <Container id="products" maxWidth="lg" sx={{ py: { xs: 7, md: 10 } }}>
         <Stack spacing={4}>
           <Box>
             <Typography variant="h3">เลือกดูผลิตภัณฑ์ของเรา</Typography>

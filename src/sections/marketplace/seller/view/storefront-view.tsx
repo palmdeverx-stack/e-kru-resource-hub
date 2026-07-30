@@ -15,18 +15,20 @@ import Rating from '@mui/material/Rating';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
 import Container from '@mui/material/Container';
+import { useTheme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
 
 import {
   RiStore2Line,
-  RiShieldCheckLine,
+  RiShieldStarFill,
   RiShoppingBag3Line,
-  RiVerifiedBadgeLine,
+  RiVerifiedBadgeFill,
 } from 'src/components/remix-icon';
 
 import { MarketplaceProductCard } from '../../shared/product-card';
 import { MarketplaceProductDetailDialog } from '../../catalog/components/product-detail-dialog';
+import { isSellerProfileVerified, isSystemMarketplaceSeller } from '../../shared/seller-completion';
 
 const sellerTypeLabels: Record<string, string> = {
   teacher: 'ครูผู้สอน',
@@ -43,6 +45,7 @@ type Props = {
 };
 
 export function MarketplaceStorefrontView({ slug, dashboardMode = false }: Props) {
+  const theme = useTheme();
   const [seller, setSeller] = useState<MarketplaceSeller | null>(null);
   const [products, setProducts] = useState<MarketplaceProduct[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<MarketplaceProduct | null>(null);
@@ -99,8 +102,8 @@ export function MarketplaceStorefrontView({ slug, dashboardMode = false }: Props
 
   return (
     <Container
-      maxWidth={dashboardMode ? false : 'xl'}
-      sx={{ py: { xs: 3, md: dashboardMode ? 5 : 7 } }}
+      maxWidth={dashboardMode ? false : 'lg'}
+      sx={{ py: { xs: 3, md: dashboardMode ? 3 : 7 } }}
     >
       <Card
         variant="outlined"
@@ -134,7 +137,20 @@ export function MarketplaceStorefrontView({ slug, dashboardMode = false }: Props
                 <Typography component="h1" variant="h3">
                   {seller.display_name}
                 </Typography>
-                <RiVerifiedBadgeLine size={26} color="#1565F5" />
+                {isSellerProfileVerified(seller.profile_completion) && (
+                  <RiVerifiedBadgeFill
+                    size={26}
+                    color={theme.palette.primary.main}
+                    aria-label="ร้านค้าที่มีข้อมูลครบถ้วน"
+                  />
+                )}
+                {isSystemMarketplaceSeller(seller) && (
+                  <RiShieldStarFill
+                    size={26}
+                    color={theme.palette.primary.main}
+                    aria-label="ร้านค้าระบบ E-KRU"
+                  />
+                )}
               </Stack>
 
               {seller.display_name_en && (
@@ -144,7 +160,7 @@ export function MarketplaceStorefrontView({ slug, dashboardMode = false }: Props
               )}
 
               <Typography
-                variant="h4"
+                variant="h5"
                 sx={{ mt: 2.5, maxWidth: 620, lineHeight: 1.35, whiteSpace: 'pre-line' }}
               >
                 {seller.bio || 'ร้านค้าสื่อการสอนคุณภาพสำหรับครูและโรงเรียน'}
@@ -180,9 +196,10 @@ export function MarketplaceStorefrontView({ slug, dashboardMode = false }: Props
 
               <Stack direction="row" spacing={1.25} sx={{ mt: 3.5 }}>
                 <Chip
-                  icon={<RiShieldCheckLine />}
+                  icon={<RiVerifiedBadgeFill />}
                   color="primary"
                   variant="soft"
+                  size="medium"
                   label="ร้านค้าที่ผ่านการตรวจสอบ"
                 />
                 <Chip

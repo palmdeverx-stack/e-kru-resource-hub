@@ -7,6 +7,14 @@ export type MarketplaceProductReview = {
   rating: number;
   comment: string | null;
   reviewer_name: string;
+  images: Array<{ id: string; url: string }>;
+  reply: {
+    id: string;
+    responder_name: string;
+    comment: string;
+    created_at: string;
+    updated_at: string;
+  } | null;
   created_at: string;
   updated_at: string;
 };
@@ -19,6 +27,7 @@ export type MarketplaceProductEngagement = {
   averageRating: number;
   reviews: MarketplaceProductReview[];
   canReview: boolean;
+  canReply: boolean;
   myReview: MarketplaceProductReview | null;
 };
 
@@ -33,14 +42,38 @@ type PurchasedItem = {
   quantity: number;
 };
 
-function toPublicReview(
-  review: MarketplaceProductReview & { buyer_id: string }
-): MarketplaceProductReview {
+type ReviewRow = Omit<MarketplaceProductReview, 'images' | 'reply'> & {
+  buyer_id: string;
+  images?: Array<{
+    id: string;
+    storage_bucket: string;
+    storage_path: string;
+    position: number;
+  }>;
+  reply?:
+    | MarketplaceProductReview['reply']
+    | Array<NonNullable<MarketplaceProductReview['reply']>>
+    | null;
+};
+
+async function toPublicReview(review: ReviewRow): Promise<MarketplaceProductReview> {
+  const images = await Promise.all(
+    (review.images ?? []).map(async (image) => {
+      const { data } = await supabaseAdmin.storage
+        .from(image.storage_bucket)
+        .createSignedUrl(image.storage_path, 60 * 60);
+      return data?.signedUrl ? { id: image.id, url: data.signedUrl } : null;
+    })
+  );
+  const reply = Array.isArray(review.reply) ? (review.reply[0] ?? null) : (review.reply ?? null);
+
   return {
     id: review.id,
     rating: review.rating,
     comment: review.comment,
     reviewer_name: review.reviewer_name,
+    images: images.filter((image): image is { id: string; url: string } => Boolean(image)),
+    reply,
     created_at: review.created_at,
     updated_at: review.updated_at,
   };
@@ -147,7 +180,7 @@ export async function getProductEngagement(
   productId: string,
   buyerId?: string
 ): Promise<MarketplaceProductEngagement> {
-  const [viewsResult, downloadsResult, purchasesResult, reviewsResult, canReview] =
+  const [viewsResult, downloadsResult, purchasesResult, reviewsResult, canReview, sellerResult] =
     await Promise.all([
       supabaseAdmin
         .from('marketplace_product_views')
@@ -164,16 +197,23 @@ export async function getProductEngagement(
         .in('order.status', ['paid', 'completed']),
       supabaseAdmin
         .from('marketplace_product_reviews')
-        .select('id, buyer_id, rating, comment, reviewer_name, created_at, updated_at')
+        .select(
+          'id, buyer_id, rating, comment, reviewer_name, created_at, updated_at, images:marketplace_review_images(id, storage_bucket, storage_path, position), reply:marketplace_review_replies(id, responder_name, comment, created_at, updated_at)'
+        )
         .eq('product_id', productId)
         .order('updated_at', { ascending: false }),
       buyerId ? hasPurchasedProduct(productId, buyerId) : Promise.resolve(false),
+      buyerId
+        ? supabaseAdmin
+            .from('marketplace_products')
+            .select('seller:marketplace_sellers!inner(owner_id)')
+            .eq('id', productId)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
     ]);
 
-  const reviewRows = (reviewsResult.data ?? []) as Array<
-    MarketplaceProductReview & { buyer_id: string }
-  >;
-  const reviews = reviewRows.map(toPublicReview);
+  const reviewRows = (reviewsResult.data ?? []) as unknown as ReviewRow[];
+  const reviews = await Promise.all(reviewRows.map(toPublicReview));
   const ratingTotal = reviews.reduce((sum, review) => sum + Number(review.rating), 0);
   const purchases = ((purchasesResult.data ?? []) as unknown as PurchasedItem[]).reduce(
     (sum, item) => sum + Number(item.quantity || 0),
@@ -188,10 +228,17 @@ export async function getProductEngagement(
     averageRating: reviews.length ? ratingTotal / reviews.length : 0,
     reviews: reviews.slice(0, 20),
     canReview,
+    canReply:
+      Boolean(buyerId) &&
+      (() => {
+        const seller = sellerResult.data?.seller;
+        const row = Array.isArray(seller) ? seller[0] : seller;
+        return row?.owner_id === buyerId;
+      })(),
     myReview: buyerId
       ? (() => {
-          const ownReview = reviewRows.find((review) => review.buyer_id === buyerId);
-          return ownReview ? toPublicReview(ownReview) : null;
+          const ownIndex = reviewRows.findIndex((review) => review.buyer_id === buyerId);
+          return ownIndex >= 0 ? reviews[ownIndex] : null;
         })()
       : null,
   };

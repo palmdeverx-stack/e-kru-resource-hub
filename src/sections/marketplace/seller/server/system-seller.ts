@@ -46,15 +46,15 @@ export async function provisionEkruSystemSeller(
         seller_type: 'company',
         display_name:
           details.displayName === undefined
-            ? existingSeller?.display_name || 'eKru'
-            : details.displayName?.trim() || 'eKru',
+            ? existingSeller?.display_name || 'E-KRU'
+            : details.displayName?.trim() || 'E-KRU',
         display_name_en:
           details.displayNameEn === undefined
             ? existingSeller?.display_name_en
             : details.displayNameEn?.trim() || null,
         bio:
           details.bio === undefined
-            ? existingSeller?.bio || 'ร้านค้าอย่างเป็นทางการโดยทีมงาน eKru'
+            ? existingSeller?.bio || 'ร้านค้าอย่างเป็นทางการโดยทีมงาน E-KRU'
             : details.bio || null,
         contact_email: contactEmail || null,
         company_name:

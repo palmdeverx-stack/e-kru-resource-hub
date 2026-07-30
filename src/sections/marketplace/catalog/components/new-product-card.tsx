@@ -21,9 +21,9 @@ import {
   RiShoppingBag3Line,
 } from 'src/components/remix-icon';
 
+import { getMarketplacePricing } from '../../shared/pricing';
 import { MarketplaceSellerLink } from '../../shared/seller-link';
 import { formatPrice, getLocalizedProduct } from '../../shared/api';
-import { getMarketplacePricing } from '../../shared/pricing';
 
 const fallbackGradients = [
   'linear-gradient(135deg, #DDEBFF 0%, #F4F8FF 50%, #CFE3FF 100%)',

@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { isSignInAllowed } from 'src/lib/auth-rate-limit';
+import { writeSecurityAudit } from 'src/lib/security-audit';
 import { isSubscriptionUsable, loadSchoolSubscription } from 'src/lib/school-subscription';
 import {
   signAppToken,
@@ -20,7 +21,7 @@ function pinsMatch(pin: string, expectedPin: string): boolean {
   return actual.length === expected.length && crypto.timingSafeEqual(actual, expected);
 }
 
-export async function POST(request: Request) {
+async function handleVerifyPin(request: Request) {
   const { pinChallengeToken, pin } = await request.json();
 
   if (typeof pinChallengeToken !== 'string' || !/^\d{8}$/.test(String(pin ?? ''))) {
@@ -48,7 +49,7 @@ export async function POST(request: Request) {
     .eq('id', challenge.sub)
     .single();
 
-  if (!user || user.is_active === false) {
+  if (!user || user.is_suspended === true || user.is_active === false) {
     return NextResponse.json({ message: 'กรุณาเข้าสู่ระบบใหม่อีกครั้ง' }, { status: 401 });
   }
 
@@ -99,5 +100,40 @@ export async function POST(request: Request) {
 
   const response = NextResponse.json({ user: toPublicUser(user) });
   response.cookies.set(ACCESS_TOKEN_COOKIE, accessToken, accessTokenCookieOptions);
+  return response;
+}
+
+export async function POST(request: Request) {
+  let actorId: string | null = null;
+  try {
+    const body = (await request.clone().json()) as { pinChallengeToken?: unknown };
+    if (typeof body.pinChallengeToken === 'string') {
+      actorId = verifyPinChallenge(body.pinChallengeToken)?.sub ?? null;
+    }
+  } catch {
+    // The handler returns the canonical invalid-request response.
+  }
+
+  const response = await handleVerifyPin(request);
+  const responseBody = (await response
+    .clone()
+    .json()
+    .catch(() => ({}))) as {
+    user?: { id?: string; username?: string; role?: string };
+  };
+
+  await writeSecurityAudit({
+    request,
+    actorId: responseBody.user?.id ?? actorId,
+    actorUsername: responseBody.user?.username ?? null,
+    actorRole: responseBody.user?.role ?? null,
+    category: 'authentication',
+    action: 'auth.admin_pin_verification',
+    targetType: 'user_account',
+    targetId: responseBody.user?.id ?? actorId,
+    result: response.ok ? 'success' : [403, 429].includes(response.status) ? 'denied' : 'failure',
+    metadata: { http_status: response.status },
+  });
+
   return response;
 }

@@ -86,6 +86,22 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
     order.payment_session_id &&
     ['pending_payment', 'payment_review', 'payment_rejected'].includes(order.status)
   );
+  const itemQuantity = (order.items ?? []).reduce(
+    (total, item) => total + Number(item.quantity),
+    0
+  );
+  const listSubtotal = (order.items ?? []).reduce(
+    (total, item) =>
+      total +
+      Math.max(Number(item.list_unit_price ?? item.unit_price), Number(item.unit_price)) *
+        Number(item.quantity),
+    0
+  );
+  const discountTotal = Math.max(
+    0,
+    Number(order.discount_amount) || listSubtotal - Number(order.total)
+  );
+  const paidAt = order.paid_at ?? payment?.reviewed_at ?? null;
 
   return (
     <Container maxWidth={false} sx={{ py: { xs: 3 } }}>
@@ -271,6 +287,22 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
             <Stack spacing={2}>
               {order.items?.map((item) => {
                 const product = item.product;
+                const unitPrice = Number(item.unit_price);
+                const listUnitPrice = Math.max(
+                  Number(item.list_unit_price ?? item.unit_price),
+                  unitPrice
+                );
+                const itemDiscount = Math.max(
+                  0,
+                  (listUnitPrice - unitPrice) * Number(item.quantity)
+                );
+                const schoolLicense = order.school_licenses?.find(
+                  (license) => license.order_item_id === item.id
+                );
+                const userLicense = order.user_licenses?.find(
+                  (license) => license.order_item_id === item.id
+                );
+                const license = schoolLicense ?? userLicense;
                 const cover =
                   product?.images?.find((image) => image.is_cover)?.url ??
                   product?.images?.[0]?.url ??
@@ -329,43 +361,99 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                           sx={{ mt: 1.5 }}
                         >
                           <Chip size="small" variant="soft" label={`จำนวน ${item.quantity}`} />
+                          {product?.category && (
+                            <Chip size="small" variant="outlined" label={product.category} />
+                          )}
+                          {product?.subject_label && (
+                            <Chip size="small" variant="outlined" label={product.subject_label} />
+                          )}
+                          <Chip
+                            size="small"
+                            variant="outlined"
+                            label={resourceTypeLabel(product?.resource_type)}
+                          />
                           <Typography variant="caption" color="text.secondary">
-                            {formatPrice(Number(item.unit_price), order.currency)} ต่อรายการ
+                            {formatPrice(unitPrice, order.currency)} ต่อรายการ
                           </Typography>
                         </Stack>
-                        {product?.resource_type === 'feature_unlock' && isPaid && (
-                          <Stack
-                            direction={{ xs: 'column', sm: 'row' }}
-                            spacing={1}
-                            alignItems={{ sm: 'center' }}
-                            sx={{
-                              p: 1.5,
-                              mt: 2,
-                              borderRadius: 1.5,
-                              bgcolor: 'success.lighter',
-                            }}
+                        {product?.id && (
+                          <Button
+                            size="small"
+                            component={RouterLink}
+                            href={paths.marketplace.product(product.id)}
+                            sx={{ mt: 1 }}
                           >
-                            <Chip
-                              size="small"
-                              color="success"
-                              variant="soft"
-                              label="สร้าง License แล้ว"
-                            />
-                            <Button
-                              size="small"
-                              component={RouterLink}
-                              href={
-                                product?.license_scope === 'individual'
-                                  ? paths.marketplace.personalEntitlements
-                                  : paths.marketplace.licenses
-                              }
-                            >
-                              {product?.license_scope === 'individual'
-                                ? 'ดูสิทธิ์ของฉัน'
-                                : 'จัดการ License'}
-                            </Button>
-                          </Stack>
+                            ดูหน้าสินค้า
+                          </Button>
                         )}
+                        {product?.resource_type === 'feature_unlock' &&
+                          isPaid &&
+                          (license ? (
+                            <Box
+                              sx={{
+                                p: 1.5,
+                                mt: 2,
+                                borderRadius: 1.5,
+                                bgcolor: 'success.lighter',
+                              }}
+                            >
+                              <Stack
+                                direction={{ xs: 'column', sm: 'row' }}
+                                spacing={1}
+                                alignItems={{ sm: 'center' }}
+                              >
+                                <Chip
+                                  size="small"
+                                  color="success"
+                                  variant="soft"
+                                  label={licenseStatusLabel(license.status)}
+                                />
+                                <Typography variant="body2">
+                                  {schoolLicense?.school?.name
+                                    ? `โรงเรียน: ${schoolLicense.school.name}`
+                                    : product.license_scope === 'individual'
+                                      ? 'สิทธิ์สำหรับบัญชีของฉัน'
+                                      : `License ${licenseScopeLabel(product.license_scope)}`}
+                                </Typography>
+                              </Stack>
+                              <Stack
+                                direction={{ xs: 'column', sm: 'row' }}
+                                spacing={{ xs: 0.5, sm: 2 }}
+                                sx={{ mt: 1 }}
+                              >
+                                <Typography variant="caption" color="text.secondary">
+                                  เริ่ม {formatDateTime(license.starts_at)}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  หมดอายุ {formatDateTime(license.expires_at)}
+                                </Typography>
+                                {'seat_count' in license && license.seat_count > 1 && (
+                                  <Typography variant="caption" color="text.secondary">
+                                    {license.seat_count} Seats
+                                  </Typography>
+                                )}
+                              </Stack>
+                              <Button
+                                size="small"
+                                component={RouterLink}
+                                href={
+                                  product.license_scope === 'individual'
+                                    ? paths.marketplace.personalEntitlements
+                                    : paths.marketplace.licenses
+                                }
+                                sx={{ mt: 0.5 }}
+                              >
+                                {product.license_scope === 'individual'
+                                  ? 'ดูสิทธิ์ของฉัน'
+                                  : 'จัดการ License'}
+                              </Button>
+                            </Box>
+                          ) : (
+                            <Alert severity="warning" sx={{ mt: 2 }}>
+                              ชำระเงินแล้ว แต่ยังไม่พบข้อมูล License
+                              กรุณารีเฟรชหรือติดต่อผู้ดูแลระบบ
+                            </Alert>
+                          ))}
                         {product?.resource_type === 'digital' && isPaid && (
                           <Box
                             sx={{
@@ -435,9 +523,25 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                           </Box>
                         )}
                       </Box>
-                      <Typography variant="h6" color="primary.main" sx={{ whiteSpace: 'nowrap' }}>
-                        {formatPrice(Number(item.unit_price) * item.quantity, order.currency)}
-                      </Typography>
+                      <Box sx={{ textAlign: { sm: 'right' }, whiteSpace: 'nowrap' }}>
+                        <Typography variant="h6" color="primary.main">
+                          {formatPrice(unitPrice * item.quantity, order.currency)}
+                        </Typography>
+                        {itemDiscount > 0 && (
+                          <>
+                            <Typography
+                              variant="caption"
+                              color="text.disabled"
+                              sx={{ display: 'block', textDecoration: 'line-through' }}
+                            >
+                              {formatPrice(listUnitPrice * item.quantity, order.currency)}
+                            </Typography>
+                            <Typography variant="caption" color="success.main">
+                              ประหยัด {formatPrice(itemDiscount, order.currency)}
+                            </Typography>
+                          </>
+                        )}
+                      </Box>
                     </Stack>
                   </Box>
                 );
@@ -456,7 +560,7 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
             <Stack spacing={1.75}>
               <InfoRow
                 label="เลขที่คำสั่งซื้อ"
-                value={`ORD-${order.id.slice(0, 8).toUpperCase()}`}
+                value={`ORD-${order.id.slice(0, 12).toUpperCase()}`}
               />
               <InfoRow
                 label="วันที่สั่งซื้อ"
@@ -466,14 +570,18 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                   timeZone: 'Asia/Bangkok',
                 })}
               />
-              <InfoRow label="จำนวนสินค้า" value={`${order.items?.length ?? 0} รายการ`} />
+              <InfoRow
+                label="จำนวนสินค้า"
+                value={`${itemQuantity} ชิ้น (${order.items?.length ?? 0} รายการ)`}
+              />
               <InfoRow label="สถานะคำสั่งซื้อ" value={statusLabel(order.status)} />
+              {!!paidAt && <InfoRow label="วันที่ชำระสำเร็จ" value={formatDateTime(paidAt)} />}
               <Divider />
               <InfoRow
                 label="ช่องทางชำระ"
                 value={
                   payment?.payment_method === 'stripe'
-                    ? 'บัตร/Stripe'
+                    ? 'Stripe Checkout'
                     : payment?.payment_method === 'free'
                       ? 'สินค้าราคา 0 บาท'
                       : 'PromptPay'
@@ -483,7 +591,23 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
               {!!payment?.bank_transaction_reference && (
                 <InfoRow label="เลขอ้างอิง" value={payment.bank_transaction_reference} />
               )}
+              {!!payment?.submitted_at && (
+                <InfoRow label="ส่งข้อมูลชำระเมื่อ" value={formatDateTime(payment.submitted_at)} />
+              )}
+              {!!payment?.reviewed_at && (
+                <InfoRow label="ตรวจสอบเมื่อ" value={formatDateTime(payment.reviewed_at)} />
+              )}
               <Divider />
+              {discountTotal > 0 && (
+                <>
+                  <InfoRow label="ราคาเต็ม" value={formatPrice(listSubtotal, order.currency)} />
+                  <InfoRow
+                    label="ส่วนลด"
+                    value={`-${formatPrice(discountTotal, order.currency)}`}
+                    valueColor="success.main"
+                  />
+                </>
+              )}
               <Stack direction="row" justifyContent="space-between" alignItems="center">
                 <Typography variant="subtitle1">ยอดรวมสุทธิ</Typography>
                 <Typography variant="h4" color="primary.main">
@@ -507,6 +631,50 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
               )}
             </Stack>
           </Card>
+
+          {!!order.receipt && (
+            <Card variant="outlined" sx={{ p: 3, borderRadius: 3 }}>
+              <Stack direction="row" spacing={1} alignItems="center">
+                <RiFileTextLine size={22} />
+                <Box>
+                  <Typography variant="h6">ใบเสร็จรับเงิน</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    เอกสารที่ออกโดยระบบ eKru
+                  </Typography>
+                </Box>
+              </Stack>
+              <Divider sx={{ my: 2 }} />
+              <Stack spacing={1.5}>
+                <InfoRow label="เลขที่ใบเสร็จ" value={order.receipt.receipt_number} />
+                <InfoRow label="วันที่ออก" value={formatDateTime(order.receipt.issued_at)} />
+                <InfoRow label="ชื่อผู้รับ" value={order.receipt.buyer_name} />
+                {!!order.receipt.buyer_tax_id && (
+                  <InfoRow label="เลขผู้เสียภาษี" value={order.receipt.buyer_tax_id} />
+                )}
+                <InfoRow label="ผู้ออก" value={order.receipt.provider_name} />
+                <InfoRow
+                  label="สถานะ"
+                  value={order.receipt.status === 'issued' ? 'ออกแล้ว' : 'ยกเลิกแล้ว'}
+                  valueColor={order.receipt.status === 'issued' ? 'success.main' : 'error.main'}
+                />
+                {order.receipt.status === 'void' && order.receipt.void_reason && (
+                  <Alert severity="error">เหตุผลยกเลิก: {order.receipt.void_reason}</Alert>
+                )}
+              </Stack>
+            </Card>
+          )}
+
+          {isPaid && !order.receipt && (
+            <Card variant="outlined" sx={{ p: 3, borderRadius: 3 }}>
+              <Stack direction="row" spacing={1} alignItems="center">
+                <RiFileTextLine size={22} />
+                <Typography variant="h6">ใบเสร็จรับเงิน</Typography>
+              </Stack>
+              <Alert severity="info" sx={{ mt: 2 }}>
+                รายการนี้ชำระเงินแล้ว แต่ระบบยังไม่ได้ออกใบเสร็จรับเงิน
+              </Alert>
+            </Card>
+          )}
 
           <Card variant="outlined" sx={{ p: 3, borderRadius: 3 }}>
             <Stack direction="row" spacing={1} alignItems="center">
@@ -532,17 +700,56 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
+function InfoRow({
+  label,
+  value,
+  valueColor,
+}: {
+  label: string;
+  value: string;
+  valueColor?: string;
+}) {
   return (
     <Stack direction="row" justifyContent="space-between" spacing={2}>
       <Typography variant="body2" color="text.secondary">
         {label}
       </Typography>
-      <Typography variant="body2" fontWeight={600} textAlign="right">
+      <Typography variant="body2" fontWeight={600} textAlign="right" color={valueColor}>
         {value}
       </Typography>
     </Stack>
   );
+}
+
+function formatDateTime(value: string) {
+  return new Date(value).toLocaleString('th-TH', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: 'Asia/Bangkok',
+  });
+}
+
+function resourceTypeLabel(resourceType?: string) {
+  if (resourceType === 'digital') return 'ไฟล์ดิจิทัล';
+  if (resourceType === 'feature_unlock') return 'License / สิทธิ์';
+  if (resourceType === 'service') return 'บริการ';
+  if (resourceType === 'physical') return 'สินค้าทั่วไป';
+  return 'สินค้า';
+}
+
+function licenseScopeLabel(scope?: 'individual' | 'school' | 'teacher') {
+  if (scope === 'individual') return 'บุคคล';
+  if (scope === 'teacher') return 'Seat ครู';
+  return 'โรงเรียน';
+}
+
+function licenseStatusLabel(status: string) {
+  if (status === 'active') return 'License ใช้งานได้';
+  if (status === 'renewed') return 'ต่ออายุแล้ว';
+  if (status === 'expired') return 'หมดอายุ';
+  if (status === 'revoked') return 'ถูกเพิกถอน';
+  if (status === 'refunded') return 'คืนเงินแล้ว';
+  return status;
 }
 
 function OrderStatusChip({ status }: { status: MarketplaceOrder['status'] }) {

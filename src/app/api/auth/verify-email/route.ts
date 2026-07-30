@@ -33,6 +33,12 @@ export async function POST(request: Request) {
   if (!user) {
     return NextResponse.json({ message: 'ไม่พบคำขอยืนยันอีเมล' }, { status: 404 });
   }
+  if (user.is_suspended === true) {
+    return NextResponse.json(
+      { message: 'บัญชีนี้ถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ' },
+      { status: 403 }
+    );
+  }
 
   const { data: verification, error } = await supabaseAdmin
     .from('marketplace_email_verifications')

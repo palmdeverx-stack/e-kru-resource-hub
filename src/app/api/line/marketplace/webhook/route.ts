@@ -109,7 +109,7 @@ export async function POST(request: Request) {
     await reply(
       accessToken,
       event.replyToken,
-      '✅ ผูก LINE กับ eKru Marketplace สำเร็จ\nคุณจะได้รับแจ้งเตือนเมื่อมีผู้ขายหรือสินค้ารอตรวจสอบ'
+      '✅ ผูก LINE กับ E-KRU Marketplace สำเร็จ\nคุณจะได้รับแจ้งเตือนเมื่อมีผู้ขายหรือสินค้ารอตรวจสอบ'
     );
   }
 

@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { createNotifications } from 'src/lib/notifications';
+import { writeSecurityAudit } from 'src/lib/security-audit';
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -71,5 +72,20 @@ export async function PATCH(request: Request, { params }: Context) {
       },
     ]);
   }
+  await writeSecurityAudit({
+    request,
+    actorId: caller.sub,
+    actorUsername: caller.username,
+    actorRole: caller.role,
+    category: 'admin',
+    action: `marketplace.payout_${status}`,
+    targetType: 'marketplace_payout',
+    targetId: id,
+    result: 'success',
+    metadata: {
+      amount: Number(payout.amount),
+      ...(status === 'paid' ? { transfer_reference: reference } : { reason }),
+    },
+  });
   return NextResponse.json({ success: true });
 }

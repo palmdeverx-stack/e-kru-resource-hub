@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { isSignInAllowed } from 'src/lib/auth-rate-limit';
+import { writeSecurityAudit } from 'src/lib/security-audit';
 import { verifyMarketplacePassword } from 'src/lib/marketplace-auth';
 import { isSubscriptionUsable, loadSchoolSubscription } from 'src/lib/school-subscription';
 import {
@@ -62,6 +63,12 @@ async function handleSignIn(request: Request) {
       return NextResponse.json({ message: 'ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง' }, { status: 401 });
     }
 
+    if (marketplaceUser.is_suspended === true) {
+      return NextResponse.json(
+        { message: 'บัญชีนี้ถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ' },
+        { status: 403 }
+      );
+    }
     if (marketplaceUser.is_active === false) {
       return NextResponse.json(
         {
@@ -138,12 +145,15 @@ async function handleSignIn(request: Request) {
   const studentCannotAccess =
     user.role === 'student' && (user.student_status ?? 'studying') !== 'studying';
 
-  if (user.is_active === false || studentCannotAccess) {
+  if (user.is_suspended === true || user.is_active === false || studentCannotAccess) {
     return NextResponse.json(
       {
-        message: studentCannotAccess
-          ? 'สถานะนักเรียนไม่สามารถเข้าใช้งานระบบได้ กรุณาติดต่อผู้ดูแลโรงเรียน'
-          : 'บัญชีนี้ถูกปิดใช้งาน กรุณาติดต่อผู้ดูแลโรงเรียน',
+        message:
+          user.is_suspended === true
+            ? 'บัญชีนี้ถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ'
+            : studentCannotAccess
+              ? 'สถานะนักเรียนไม่สามารถเข้าใช้งานระบบได้ กรุณาติดต่อผู้ดูแลโรงเรียน'
+              : 'บัญชีนี้ถูกปิดใช้งาน กรุณาติดต่อผู้ดูแลโรงเรียน',
       },
       { status: 403 }
     );
@@ -189,10 +199,52 @@ async function handleSignIn(request: Request) {
 }
 
 export async function POST(request: Request) {
+  let username = '';
   try {
-    return await handleSignIn(request);
+    const body = (await request.clone().json()) as { username?: unknown };
+    username = typeof body.username === 'string' ? body.username.trim().slice(0, 200) : '';
+  } catch {
+    // The route handler below returns the canonical invalid-request response.
+  }
+
+  try {
+    const response = await handleSignIn(request);
+    const responseBody = (await response
+      .clone()
+      .json()
+      .catch(() => ({}))) as {
+      user?: { id?: string; username?: string; role?: string };
+      role?: string;
+      requiresPin?: boolean;
+    };
+
+    await writeSecurityAudit({
+      request,
+      actorId: responseBody.user?.id ?? null,
+      actorUsername: responseBody.user?.username ?? (username || null),
+      actorRole: responseBody.user?.role ?? responseBody.role ?? null,
+      category: 'authentication',
+      action: 'auth.password_login',
+      targetType: 'user_account',
+      targetId: responseBody.user?.id ?? null,
+      result: response.ok ? 'success' : [403, 429].includes(response.status) ? 'denied' : 'failure',
+      metadata: {
+        http_status: response.status,
+        requires_pin: Boolean(responseBody.requiresPin),
+      },
+    });
+
+    return response;
   } catch (error) {
     console.error('Sign-in failed unexpectedly', error);
+    await writeSecurityAudit({
+      request,
+      actorUsername: username || null,
+      category: 'authentication',
+      action: 'auth.password_login',
+      result: 'failure',
+      metadata: { http_status: 500, reason: 'unexpected_error' },
+    });
     return NextResponse.json(
       { message: 'ระบบเข้าสู่ระบบขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้ง' },
       { status: 500 }

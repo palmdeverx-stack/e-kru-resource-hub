@@ -93,13 +93,16 @@ export async function POST(request: Request) {
   let url: string | null = null;
   if (isAsset) {
     url = supabaseAdmin.storage.from(bucket).getPublicUrl(path).data.publicUrl;
-    await supabaseAdmin
+    const { error: updateSellerError } = await supabaseAdmin
       .from('marketplace_sellers')
       .update({
         [documentType === 'store_logo' ? 'logo_url' : 'cover_url']: url,
         updated_at: new Date().toISOString(),
       })
       .eq('id', seller.id);
+    if (updateSellerError) {
+      return NextResponse.json({ message: updateSellerError.message }, { status: 500 });
+    }
   } else {
     url = (await supabaseAdmin.storage.from(bucket).createSignedUrl(path, 10 * 60)).data?.signedUrl ?? null;
   }

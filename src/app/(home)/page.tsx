@@ -5,7 +5,7 @@ import { MarketplaceLandingView } from 'src/sections/marketplace/catalog/view/la
 // ----------------------------------------------------------------------
 
 export const metadata: Metadata = {
-  title: 'eKru Marketplace | สื่อการสอนจากครูเพื่อครู',
+  title: 'E-KRU Marketplace | สื่อการสอนจากครูเพื่อครู',
   description: 'ค้นหา ซื้อ และขายสื่อการสอนคุณภาพจากครูและนักสร้างสรรค์ทั่วประเทศ',
 };
 

@@ -6,6 +6,7 @@ import { requireAuthenticated } from 'src/lib/auth-token';
 import { withMediaUrls } from 'src/sections/marketplace/seller/server/product-media';
 import { money, getFinanceSettings } from 'src/sections/marketplace/admin/server/finance';
 import { getStripe, isStripeConfigured } from 'src/sections/marketplace/checkout/server/stripe';
+import { withPublicSystemStoreFlag } from 'src/sections/marketplace/seller/server/public-seller';
 import { getEligibleLicenseSchools } from 'src/sections/marketplace/checkout/server/school-targets';
 import { createSchoolOnboardingForPaidOrders } from 'src/sections/marketplace/checkout/server/school-onboarding';
 import { grantFeatureEntitlementsForOrders } from 'src/sections/marketplace/checkout/server/grant-feature-entitlements';
@@ -57,7 +58,7 @@ export async function GET(request: Request) {
   const { data: orders, error } = await supabaseAdmin
     .from('marketplace_orders')
     .select(
-      '*, seller:marketplace_sellers(id, display_name, slug, logo_url), items:marketplace_order_items(*, product:marketplace_products(id, title, title_en, short_description, short_description_en, file_url, cover_url, resource_type, license_scope, images:marketplace_product_images(*), files:marketplace_product_files(*)))'
+      '*, seller:marketplace_sellers(id, display_name, slug, logo_url, owner_role), items:marketplace_order_items(*, product:marketplace_products(id, title, title_en, short_description, short_description_en, file_url, cover_url, resource_type, license_scope, images:marketplace_product_images(*), files:marketplace_product_files(*)))'
     )
     .eq('buyer_id', caller.sub)
     .order('created_at', { ascending: false });
@@ -88,7 +89,7 @@ export async function GET(request: Request) {
           return { ...item, product: { ...product, images, files } };
         })
       );
-      return { ...order, items };
+      return { ...order, seller: withPublicSystemStoreFlag(order.seller), items };
     })
   );
 

@@ -236,7 +236,7 @@ export function SchoolEntitlementsView() {
                         rel="noopener noreferrer"
                         endIcon={<RiExternalLinkLine />}
                       >
-                        เปิดใช้งานใน eKru
+                        เปิดใช้งานใน E-KRU
                       </Button>
                     )}
                   </Stack>

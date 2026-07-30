@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { createNotifications } from 'src/lib/notifications';
+import { writeSecurityAudit } from 'src/lib/security-audit';
 
 import { finalizeMarketplacePayment } from 'src/sections/marketplace/checkout/server/finalize-payment';
 
@@ -76,6 +77,18 @@ export async function PATCH(request: Request, { params }: Context) {
         link: `/dashboard/payment/${id}`,
       },
     ]);
+    await writeSecurityAudit({
+      request,
+      actorId: caller.sub,
+      actorUsername: caller.username,
+      actorRole: caller.role,
+      category: 'admin',
+      action: 'marketplace.payment_reject',
+      targetType: 'payment_session',
+      targetId: id,
+      result: 'success',
+      metadata: { reason },
+    });
     return NextResponse.json({ success: true });
   }
 
@@ -95,6 +108,18 @@ export async function PATCH(request: Request, { params }: Context) {
       allowedStatuses: ['payment_review'],
       reviewedBy: caller.sub,
       bankTransactionReference: transactionReference,
+    });
+    await writeSecurityAudit({
+      request,
+      actorId: caller.sub,
+      actorUsername: caller.username,
+      actorRole: caller.role,
+      category: 'admin',
+      action: 'marketplace.payment_approve',
+      targetType: 'payment_session',
+      targetId: id,
+      result: 'success',
+      metadata: { bank_transaction_reference: transactionReference },
     });
     return NextResponse.json({ success: true, availableAt: result.availableAt });
   } catch (finalizeError) {

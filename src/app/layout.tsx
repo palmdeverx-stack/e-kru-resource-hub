@@ -20,6 +20,7 @@ import { detectSettings } from 'src/components/settings/server';
 import { defaultSettings, SettingsProvider, LazySettingsDrawer } from 'src/components/settings';
 
 import { MarketplaceCartProvider } from 'src/sections/marketplace/cart/cart-context';
+import { MarketplacePopupAnnouncement } from 'src/sections/marketplace/announcements/popup-announcement';
 
 import { AuthProvider } from 'src/auth/context/jwt';
 
@@ -107,6 +108,7 @@ export default async function RootLayout({ children }: RootLayoutProps) {
                           <LocatorJS />
                           <Snackbar />
                           <ProgressBar />
+                          <MarketplacePopupAnnouncement />
                           <LazySettingsDrawer defaultSettings={defaultSettings} />
                           {children}
                         </MotionLazy>

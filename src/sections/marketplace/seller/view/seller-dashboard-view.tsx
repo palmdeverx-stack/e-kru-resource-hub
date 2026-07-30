@@ -39,13 +39,20 @@ import {
   RiDeleteBinLine,
   RiFileList3Line,
   RiShieldStarLine,
+  RiShieldStarFill,
   RiErrorWarningLine,
+  RiVerifiedBadgeFill,
   RiCheckboxCircleLine,
 } from 'src/components/remix-icon';
 
 import { useAuthContext } from 'src/auth/hooks';
 
 import { getSeller, getProducts, formatPrice, deleteProduct } from '../../shared/api';
+import {
+  isSystemMarketplaceSeller,
+  isSellerProfileVerified,
+  getSellerProfileCompletion,
+} from '../../shared/seller-completion';
 
 type ProductFilter = 'all' | MarketplaceProduct['status'];
 
@@ -91,6 +98,8 @@ export function MarketplaceSellerDashboardView() {
     }
   };
 
+  const sellerCompletion = seller ? getSellerProfileCompletion(seller) : 0;
+
   const productCounts = {
     all: products.length,
     published: products.filter((product) => product.status === 'published').length,
@@ -127,7 +136,7 @@ export function MarketplaceSellerDashboardView() {
   }
 
   return (
-    <Container maxWidth={false} sx={{ py: { xs: 4, md: 6 } }}>
+    <Container maxWidth={false} sx={{ py: { xs: 3 } }}>
       {!!error && (
         <Alert severity="error" sx={{ mb: 3 }}>
           {error}
@@ -176,6 +185,20 @@ export function MarketplaceSellerDashboardView() {
                 <Typography component="h1" variant="h3">
                   {seller.display_name}
                 </Typography>
+                {isSellerProfileVerified(sellerCompletion) && (
+                  <RiVerifiedBadgeFill
+                    size={26}
+                    color="#1565F5"
+                    aria-label="ร้านค้าที่ผ่านการตรวจสอบ"
+                  />
+                )}
+                {isSystemMarketplaceSeller(seller) && (
+                  <RiShieldStarFill
+                    size={26}
+                    color="#7C3AED"
+                    aria-label="ร้านค้าระบบ E-KRU"
+                  />
+                )}
                 {isSystemStore && (
                   <Chip
                     color="primary"

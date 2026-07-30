@@ -110,9 +110,7 @@ export async function GET(request: Request) {
     return NextResponse.json(
       {
         message:
-          paymentError?.message ||
-          receiptError?.message ||
-          'ไม่สามารถโหลดรายการใบเสร็จรับเงินได้',
+          paymentError?.message || receiptError?.message || 'ไม่สามารถโหลดรายการใบเสร็จรับเงินได้',
       },
       { status: 500 }
     );
@@ -126,9 +124,7 @@ export async function GET(request: Request) {
     return NextResponse.json(
       {
         message:
-          providerError instanceof Error
-            ? providerError.message
-            : 'ไม่สามารถโหลดข้อมูลร้านระบบได้',
+          providerError instanceof Error ? providerError.message : 'ไม่สามารถโหลดข้อมูลร้านระบบได้',
       },
       { status: 500 }
     );
@@ -209,9 +205,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         message:
-          providerError instanceof Error
-            ? providerError.message
-            : 'ไม่สามารถโหลดข้อมูลร้านระบบได้',
+          providerError instanceof Error ? providerError.message : 'ไม่สามารถโหลดข้อมูลร้านระบบได้',
       },
       { status: 500 }
     );
@@ -225,8 +219,7 @@ export async function POST(request: Request) {
   ) {
     return NextResponse.json(
       {
-        message:
-          'กรุณากรอกชื่อผู้ออก เลขผู้เสียภาษี และที่อยู่ในเมนูข้อมูลร้านค้าก่อนออกใบเสร็จ',
+        message: 'กรุณากรอกชื่อผู้ออก เลขผู้เสียภาษี และที่อยู่ในเมนูข้อมูลร้านค้าก่อนออกใบเสร็จ',
       },
       { status: 409 }
     );
@@ -247,7 +240,7 @@ export async function POST(request: Request) {
   const itemsSnapshot = paidOrders.flatMap((order) =>
     (order.items ?? []).map((item) => ({
       orderId: order.id,
-      sellerName: order.seller?.display_name || 'eKru Marketplace',
+      sellerName: order.seller?.display_name || 'E-KRU Marketplace',
       title: item.title,
       unitPrice: Number(item.unit_price),
       quantity: Number(item.quantity),

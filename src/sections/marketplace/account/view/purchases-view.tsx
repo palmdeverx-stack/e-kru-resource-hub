@@ -20,6 +20,7 @@ import InputAdornment from '@mui/material/InputAdornment';
 import CircularProgress from '@mui/material/CircularProgress';
 
 import { paths } from 'src/routes/paths';
+import { useRouter } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 
 import { useTranslate } from 'src/locales';
@@ -41,6 +42,7 @@ import { MarketplaceSellerLink } from '../../shared/seller-link';
 type PurchaseFilter = 'all' | 'ready' | 'pending' | 'closed';
 
 export function MarketplacePurchasesView() {
+  const router = useRouter();
   const { currentLang } = useTranslate();
   const isEnglish = currentLang.value === 'en';
   const [orders, setOrders] = useState<MarketplaceOrder[]>([]);
@@ -114,7 +116,7 @@ export function MarketplacePurchasesView() {
   ];
 
   return (
-    <Container maxWidth={false} sx={{ py: { xs: 4, md: 6 } }}>
+    <Container maxWidth={false} sx={{ py: { xs: 3 } }}>
       <Card
         sx={{
           p: { xs: 2.5, md: 4 },
@@ -325,6 +327,7 @@ export function MarketplacePurchasesView() {
               ['pending_payment', 'payment_review', 'payment_rejected'].includes(order.status)
             );
             const isReady = ['paid', 'completed'].includes(order.status);
+            const detailHref = paths.marketplace.purchase(order.id);
 
             return (
               <Grid key={order.id} size={{ xs: 12, md: 6, lg: 4, xl: 3 }}>
@@ -339,7 +342,27 @@ export function MarketplacePurchasesView() {
                     '&:hover': { transform: 'translateY(-3px)', boxShadow: 5 },
                   }}
                 >
-                  <Box sx={{ flexGrow: 1 }}>
+                  <Box
+                    role="link"
+                    tabIndex={0}
+                    aria-label={`ดูรายละเอียดคำสั่งซื้อ ${order.id.slice(0, 8).toUpperCase()}`}
+                    onClick={() => router.push(detailHref)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        router.push(detailHref);
+                      }
+                    }}
+                    sx={{
+                      flexGrow: 1,
+                      cursor: 'pointer',
+                      '&:focus-visible': {
+                        outline: '3px solid',
+                        outlineColor: 'primary.main',
+                        outlineOffset: -3,
+                      },
+                    }}
+                  >
                     <Box
                       sx={{
                         aspectRatio: '16 / 10',
@@ -402,7 +425,11 @@ export function MarketplacePurchasesView() {
                           product?.short_description ||
                           `${order.items?.length ?? 0} รายการจาก ${order.seller?.display_name ?? 'ร้านค้า eKru'}`}
                       </Typography>
-                      <Box sx={{ mt: 2 }}>
+                      <Box
+                        sx={{ mt: 2, width: 'fit-content' }}
+                        onClick={(event) => event.stopPropagation()}
+                        onKeyDown={(event) => event.stopPropagation()}
+                      >
                         <MarketplaceSellerLink
                           seller={order.seller}
                           avatarSize={28}
@@ -433,7 +460,7 @@ export function MarketplacePurchasesView() {
                   <Stack direction="row" spacing={1} sx={{ p: 1.5 }}>
                     <Button
                       component={RouterLink}
-                      href={paths.marketplace.purchase(order.id)}
+                      href={detailHref}
                       fullWidth
                       variant="outlined"
                       startIcon={<RiEyeLine />}
@@ -443,7 +470,7 @@ export function MarketplacePurchasesView() {
                     {isReady && (
                       <Button
                         component={RouterLink}
-                        href={paths.marketplace.purchase(order.id)}
+                        href={detailHref}
                         fullWidth
                         variant="contained"
                         startIcon={<RiDownloadLine />}

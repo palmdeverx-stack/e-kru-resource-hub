@@ -35,9 +35,9 @@ async function loadLineQuota(encryptedAccessToken: string | null | undefined) {
       }),
     ]);
     if (!quotaResponse.ok || !consumptionResponse.ok) {
-      const result = await (
-        quotaResponse.ok ? consumptionResponse : quotaResponse
-      ).json().catch(() => null);
+      const result = await (quotaResponse.ok ? consumptionResponse : quotaResponse)
+        .json()
+        .catch(() => null);
       throw new Error(result?.message ?? 'LINE ไม่สามารถส่งข้อมูลโควตาได้');
     }
 
@@ -149,10 +149,7 @@ export async function PATCH(request: Request) {
 
   const hasChannelSecret = Boolean(channelSecret || existing?.channel_secret_encrypted);
   const hasAccessToken = Boolean(accessToken || existing?.channel_access_token_encrypted);
-  if (
-    isEnabled &&
-    (!hasChannelSecret || !hasAccessToken)
-  ) {
+  if (isEnabled && (!hasChannelSecret || !hasAccessToken)) {
     return NextResponse.json(
       { message: 'กรุณาบันทึก Channel secret และ Channel access token ก่อนเปิดใช้งาน' },
       { status: 400 }
@@ -227,7 +224,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: 'คำสั่งไม่ถูกต้อง' }, { status: 400 });
   }
   if (!settings?.channel_access_token_encrypted || !settings.line_user_id) {
-    return NextResponse.json({ message: 'กรุณาบันทึก Access token และผูก LINE ก่อน' }, { status: 400 });
+    return NextResponse.json(
+      { message: 'กรุณาบันทึก Access token และผูก LINE ก่อน' },
+      { status: 400 }
+    );
   }
 
   try {
@@ -240,7 +240,7 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify({
         to: settings.line_user_id,
-        messages: [{ type: 'text', text: '✅ ทดสอบแจ้งเตือน eKru Marketplace สำเร็จ' }],
+        messages: [{ type: 'text', text: '✅ ทดสอบแจ้งเตือน E-KRU Marketplace สำเร็จ' }],
       }),
     });
     const result = await response.json().catch(() => null);

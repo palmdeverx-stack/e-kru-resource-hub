@@ -22,6 +22,7 @@ type FooterLink = {
 const marketplaceLinks: FooterLink[] = [
   { label: 'หน้าแรก Marketplace', href: paths.marketplace.root },
   { label: 'สื่อการสอนทั้งหมด', href: paths.marketplace.products },
+  { label: 'ร้านค้าใน Marketplace', href: paths.marketplace.stores },
   { label: 'ตะกร้าสินค้า', href: paths.marketplace.cart },
   { label: 'รายการซื้อของฉัน', href: paths.marketplace.purchases },
 ];

@@ -3,6 +3,7 @@ import type { User } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 
 import { supabaseAdmin } from 'src/lib/supabase-admin';
+import { writeSecurityAudit } from 'src/lib/security-audit';
 import { isSubscriptionUsable, loadSchoolSubscription } from 'src/lib/school-subscription';
 import {
   signAppToken,
@@ -56,10 +57,12 @@ async function uniqueUsername(email: string, authUserId: string) {
 async function validateSchoolUser(user: Record<string, any>) {
   const studentCannotAccess =
     user.role === 'student' && (user.student_status ?? 'studying') !== 'studying';
-  if (user.is_active === false || studentCannotAccess) {
+  if (user.is_suspended === true || user.is_active === false || studentCannotAccess) {
     return studentCannotAccess
       ? 'สถานะนักเรียนไม่สามารถเข้าใช้งานระบบได้ กรุณาติดต่อผู้ดูแลโรงเรียน'
-      : 'บัญชีนี้ถูกปิดใช้งาน กรุณาติดต่อผู้ดูแลระบบ';
+      : user.is_suspended
+        ? 'บัญชีนี้ถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ'
+        : 'บัญชีนี้ถูกปิดใช้งาน กรุณาติดต่อผู้ดูแลระบบ';
   }
   if (user.role === 'master_admin') return null;
   if (!user.school_id) return 'บัญชีนี้ยังไม่ได้เชื่อมกับโรงเรียน';
@@ -87,7 +90,7 @@ function authenticatedResponse(user: Parameters<typeof toPublicUser>[0]) {
   return response;
 }
 
-export async function POST(request: Request) {
+async function handleGoogleSignIn(request: Request) {
   const token = bearerToken(request);
   if (!token) {
     return NextResponse.json({ message: 'ไม่พบ Google session' }, { status: 401 });
@@ -137,6 +140,12 @@ export async function POST(request: Request) {
   }
 
   if (marketplaceUserByAuth) {
+    if (marketplaceUserByAuth.is_suspended === true) {
+      return NextResponse.json(
+        { message: 'บัญชีนี้ถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ' },
+        { status: 403 }
+      );
+    }
     const marketplaceUser =
       marketplaceUserByAuth.is_active === false
         ? (
@@ -211,4 +220,34 @@ export async function POST(request: Request) {
   });
 
   return authenticatedResponse({ ...newUser, school_id: null });
+}
+
+export async function POST(request: Request) {
+  const response = await handleGoogleSignIn(request);
+  const responseBody = (await response
+    .clone()
+    .json()
+    .catch(() => ({}))) as {
+    user?: { id?: string; username?: string; role?: string };
+    role?: string;
+    requiresPin?: boolean;
+  };
+
+  await writeSecurityAudit({
+    request,
+    actorId: responseBody.user?.id ?? null,
+    actorUsername: responseBody.user?.username ?? null,
+    actorRole: responseBody.user?.role ?? responseBody.role ?? null,
+    category: 'authentication',
+    action: 'auth.google_login',
+    targetType: 'user_account',
+    targetId: responseBody.user?.id ?? null,
+    result: response.ok ? 'success' : response.status === 403 ? 'denied' : 'failure',
+    metadata: {
+      http_status: response.status,
+      requires_pin: Boolean(responseBody.requiresPin),
+    },
+  });
+
+  return response;
 }

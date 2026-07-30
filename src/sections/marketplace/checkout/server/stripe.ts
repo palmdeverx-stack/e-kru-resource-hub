@@ -14,7 +14,7 @@ export function getStripe() {
 
   stripeClient ??= new Stripe(secretKey, {
     appInfo: {
-      name: 'eKru Marketplace',
+      name: 'E-KRU Marketplace',
       version: '1.0.0',
     },
   });

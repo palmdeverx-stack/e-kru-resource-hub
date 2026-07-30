@@ -4,9 +4,10 @@ import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { requireAuthenticated } from 'src/lib/auth-token';
 
 import { withMediaUrls } from 'src/sections/marketplace/seller/server/product-media';
+import { withPublicSystemStoreFlag } from 'src/sections/marketplace/seller/server/public-seller';
 
 const PRODUCT_SELECT =
-  'id, seller_id, title, title_en, description, description_en, short_description, short_description_en, category, media_type_id, sale_type_id, resource_type, price, list_price, currency, cover_url, status, created_at, seller:marketplace_sellers(id, display_name, display_name_en, seller_type, slug, logo_url, bio), media_type:marketplace_media_types(id, name, delivery_mode), sale_type:marketplace_sale_types(id, name, pricing_mode), grade_levels:marketplace_product_grade_levels(grade_level:marketplace_grade_levels(id,name)), images:marketplace_product_images(*), reviews:marketplace_product_reviews(rating)';
+  'id, seller_id, title, title_en, description, description_en, short_description, short_description_en, category, media_type_id, sale_type_id, resource_type, price, list_price, currency, cover_url, status, created_at, seller:marketplace_sellers(id, display_name, display_name_en, seller_type, slug, logo_url, bio, owner_role), media_type:marketplace_media_types(id, name, delivery_mode), sale_type:marketplace_sale_types(id, name, pricing_mode), grade_levels:marketplace_product_grade_levels(grade_level:marketplace_grade_levels(id,name)), images:marketplace_product_images(*), reviews:marketplace_product_reviews(rating)';
 
 type CollectionType = 'favorite' | 'bookmark';
 
@@ -34,6 +35,7 @@ async function resolveProducts(productIds: string[]) {
       const safeProduct: Record<string, unknown> = { ...resolved };
       delete safeProduct.reviews;
       delete safeProduct.files;
+      safeProduct.seller = withPublicSystemStoreFlag(safeProduct.seller);
 
       const productWithEngagement: Record<string, unknown> = {
         ...safeProduct,
@@ -47,6 +49,7 @@ async function resolveProducts(productIds: string[]) {
             : 0,
           reviews: [],
           canReview: false,
+          canReply: false,
           myReview: null,
         },
       };

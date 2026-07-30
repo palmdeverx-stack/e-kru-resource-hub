@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import { NextResponse } from 'next/server';
 
 import { supabaseAdmin } from 'src/lib/supabase-admin';
+import { writeSecurityAudit } from 'src/lib/security-audit';
 import { encryptCredential } from 'src/lib/credential-cipher';
 import { toPublicUser, verifyAppToken, getRequestToken } from 'src/lib/auth-token';
 import {
@@ -17,6 +18,12 @@ export async function POST(request: Request) {
   const payload = token ? verifyAppToken(token) : null;
 
   if (!payload) {
+    await writeSecurityAudit({
+      request,
+      category: 'account',
+      action: 'account.password_change',
+      result: 'denied',
+    });
     return NextResponse.json({ message: 'กรุณาเข้าสู่ระบบ' }, { status: 401 });
   }
 
@@ -69,6 +76,18 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
+
+  await writeSecurityAudit({
+    request,
+    actorId: payload.sub,
+    actorUsername: payload.username,
+    actorRole: payload.role,
+    category: 'account',
+    action: 'account.password_change',
+    targetType: 'user_account',
+    targetId: payload.sub,
+    result: 'success',
+  });
 
   return NextResponse.json({ user: toPublicUser(user) });
 }

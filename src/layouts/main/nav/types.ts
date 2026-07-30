@@ -22,6 +22,7 @@ export type NavItemDataProps = {
   title: string;
   icon?: string | React.ReactNode;
   deepMatch?: boolean;
+  activePaths?: string[];
   featureKey?: string;
   children?: {
     subheader: string;

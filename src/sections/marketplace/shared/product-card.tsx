@@ -15,9 +15,9 @@ import { useTranslate } from 'src/locales';
 
 import { RiFileLine, RiBookOpenLine, RiGraduationCapLine } from 'src/components/remix-icon';
 
+import { getMarketplacePricing } from './pricing';
 import { MarketplaceSellerLink } from './seller-link';
 import { formatPrice, getLocalizedProduct } from './api';
-import { getMarketplacePricing } from './pricing';
 
 export function MarketplaceProductCard({
   product,

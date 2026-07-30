@@ -1,4 +1,4 @@
--- eKru Marketplace
+-- E-KRU Marketplace
 -- Run this file once in the Supabase SQL editor.
 
 create extension if not exists pgcrypto;
@@ -14,12 +14,20 @@ create table if not exists public.marketplace_users (
   role text not null default 'marketplace_user'
     check (role = 'marketplace_user'),
   is_active boolean not null default true,
+  is_suspended boolean not null default false,
+  suspended_at timestamptz,
+  suspended_by uuid,
+  suspended_reason text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
 alter table public.marketplace_users
-  add column if not exists display_name text;
+  add column if not exists display_name text,
+  add column if not exists is_suspended boolean not null default false,
+  add column if not exists suspended_at timestamptz,
+  add column if not exists suspended_by uuid,
+  add column if not exists suspended_reason text;
 
 update public.marketplace_users
 set display_name = trim(concat_ws(' ', first_name, last_name))
@@ -467,6 +475,56 @@ where submitted_at is null
 create index if not exists marketplace_sellers_status_submitted_idx
   on public.marketplace_sellers (status, submitted_at desc);
 
+create table if not exists public.marketplace_feedback (
+  id uuid primary key default gen_random_uuid(),
+  reporter_id uuid not null,
+  reporter_username text not null,
+  reporter_role text not null,
+  school_id uuid,
+  category text not null
+    check (category in ('feature', 'improvement', 'bug', 'blocker', 'general')),
+  title text not null,
+  system_area text,
+  current_behavior text,
+  requested_change text,
+  blocker_detail text,
+  page_url text,
+  status text not null default 'new'
+    check (status in ('new', 'reviewing', 'planned', 'resolved', 'closed')),
+  admin_note text,
+  reviewed_by uuid,
+  reviewed_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists marketplace_feedback_reporter_created_idx
+  on public.marketplace_feedback (reporter_id, created_at desc);
+create index if not exists marketplace_feedback_status_created_idx
+  on public.marketplace_feedback (status, created_at desc);
+
+create table if not exists public.marketplace_popup_announcements (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  message text not null,
+  image_url text,
+  link_url text,
+  button_label text,
+  audience text not null default 'all'
+    check (audience in ('all', 'authenticated', 'guests', 'roles')),
+  role_targets text[] not null default '{}',
+  priority integer not null default 0 check (priority between 0 and 999),
+  is_active boolean not null default false,
+  starts_at timestamptz,
+  ends_at timestamptz,
+  created_by uuid not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  check (ends_at is null or starts_at is null or ends_at > starts_at)
+);
+create index if not exists marketplace_popup_announcements_active_idx
+  on public.marketplace_popup_announcements
+    (is_active, priority desc, starts_at, ends_at);
+
 create table if not exists public.marketplace_seller_documents (
   id uuid primary key default gen_random_uuid(),
   seller_id uuid not null references public.marketplace_sellers(id) on delete cascade,
@@ -722,6 +780,34 @@ create table if not exists public.marketplace_product_reviews (
 );
 create index if not exists marketplace_product_reviews_product_idx
   on public.marketplace_product_reviews (product_id, updated_at desc);
+
+create table if not exists public.marketplace_review_images (
+  id uuid primary key default gen_random_uuid(),
+  review_id uuid not null references public.marketplace_product_reviews(id) on delete cascade,
+  storage_bucket text not null default 'marketplace-review-images',
+  storage_path text not null,
+  mime_type text not null,
+  file_size integer not null check (file_size > 0 and file_size <= 5242880),
+  position smallint not null default 0 check (position between 0 and 2),
+  created_at timestamptz not null default now(),
+  unique (review_id, storage_path)
+);
+create index if not exists marketplace_review_images_review_idx
+  on public.marketplace_review_images (review_id, position);
+
+create table if not exists public.marketplace_review_replies (
+  id uuid primary key default gen_random_uuid(),
+  review_id uuid not null unique
+    references public.marketplace_product_reviews(id) on delete cascade,
+  seller_id uuid not null references public.marketplace_sellers(id) on delete cascade,
+  responder_id uuid not null,
+  responder_name text not null,
+  comment text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists marketplace_review_replies_seller_idx
+  on public.marketplace_review_replies (seller_id, updated_at desc);
 
 create table if not exists public.marketplace_product_downloads (
   id uuid primary key default gen_random_uuid(),
@@ -1170,6 +1256,20 @@ values
       'image/png',
       'image/webp'
     ]
+  ),
+  (
+    'marketplace-review-images',
+    'marketplace-review-images',
+    false,
+    5242880,
+    array['image/jpeg', 'image/png', 'image/webp']
+  ),
+  (
+    'marketplace-announcement-assets',
+    'marketplace-announcement-assets',
+    true,
+    5242880,
+    array['image/jpeg', 'image/png', 'image/webp']
   )
 on conflict (id) do update
 set public = excluded.public,
@@ -1221,7 +1321,10 @@ alter table public.marketplace_product_images enable row level security;
 alter table public.marketplace_product_files enable row level security;
 alter table public.marketplace_product_views enable row level security;
 alter table public.marketplace_product_reviews enable row level security;
+alter table public.marketplace_review_images enable row level security;
+alter table public.marketplace_review_replies enable row level security;
 alter table public.marketplace_product_downloads enable row level security;
+alter table public.marketplace_popup_announcements enable row level security;
 alter table public.marketplace_product_collections enable row level security;
 alter table public.marketplace_school_licenses enable row level security;
 alter table public.marketplace_school_onboardings enable row level security;
@@ -1280,3 +1383,46 @@ alter table public.marketplace_contract_signatures enable row level security;
 
 -- Application APIs use the server-only service role. No anonymous table writes
 -- are allowed; public product reads are intentionally exposed through the API.
+
+create table if not exists public.security_audit_logs (
+  id uuid primary key default gen_random_uuid(),
+  actor_id uuid,
+  actor_username text,
+  actor_role text,
+  category text not null,
+  action text not null,
+  target_type text,
+  target_id text,
+  result text not null check (result in ('success', 'failure', 'denied')),
+  ip_address text,
+  user_agent text,
+  request_id text,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+create index if not exists security_audit_logs_created_idx
+  on public.security_audit_logs (created_at desc);
+create index if not exists security_audit_logs_actor_idx
+  on public.security_audit_logs (actor_id, created_at desc);
+create index if not exists security_audit_logs_category_idx
+  on public.security_audit_logs (category, created_at desc);
+create index if not exists security_audit_logs_action_idx
+  on public.security_audit_logs (action, created_at desc);
+create index if not exists security_audit_logs_result_idx
+  on public.security_audit_logs (result, created_at desc);
+alter table public.security_audit_logs enable row level security;
+revoke all on table public.security_audit_logs from anon, authenticated;
+
+create or replace function public.prevent_security_audit_log_mutation()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  raise exception 'security audit logs are append-only';
+end;
+$$;
+drop trigger if exists security_audit_logs_append_only on public.security_audit_logs;
+create trigger security_audit_logs_append_only
+before update or delete on public.security_audit_logs
+for each row execute function public.prevent_security_audit_log_mutation();

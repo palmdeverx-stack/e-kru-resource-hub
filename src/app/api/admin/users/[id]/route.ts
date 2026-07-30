@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 
 import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
+import { writeSecurityAudit } from 'src/lib/security-audit';
 import { encryptCredential } from 'src/lib/credential-cipher';
 import { isActiveStaffMasterValue } from 'src/lib/staff-master';
 import { syncLinkedStaffAuth } from 'src/lib/staff-supabase-auth';
@@ -82,7 +83,7 @@ export async function GET(request: Request, { params }: RouteParams) {
   return NextResponse.json({ user });
 }
 
-export async function PATCH(request: Request, { params }: RouteParams) {
+async function handlePatch(request: Request, { params }: RouteParams) {
   const caller = requireRole(request, ['master_admin', 'school_admin', 'teacher']);
   if (!caller) return NextResponse.json({ message: 'ไม่มีสิทธิ์เข้าถึง' }, { status: 403 });
 
@@ -327,7 +328,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
   return NextResponse.json({ user });
 }
 
-export async function DELETE(request: Request, { params }: RouteParams) {
+async function handleDelete(request: Request, { params }: RouteParams) {
   const caller = requireRole(request, ['master_admin', 'school_admin', 'teacher']);
   if (!caller) return NextResponse.json({ message: 'ไม่มีสิทธิ์เข้าถึง' }, { status: 403 });
 
@@ -380,4 +381,55 @@ export async function DELETE(request: Request, { params }: RouteParams) {
   }
 
   return NextResponse.json({ success: true });
+}
+
+export async function PATCH(request: Request, context: RouteParams) {
+  const caller = requireRole(request, ['master_admin', 'school_admin', 'teacher']);
+  const { id } = await context.params;
+  const body = (await request
+    .clone()
+    .json()
+    .catch(() => null)) as Record<string, unknown> | null;
+  const response = await handlePatch(request, context);
+
+  await writeSecurityAudit({
+    request,
+    actorId: caller?.sub,
+    actorUsername: caller?.username,
+    actorRole: caller?.role,
+    category: 'admin',
+    action: 'account.admin_update',
+    targetType: 'user_account',
+    targetId: id,
+    result: response.ok ? 'success' : response.status === 403 ? 'denied' : 'failure',
+    metadata: {
+      http_status: response.status,
+      changed_fields: Object.keys(body ?? {}).map((key) =>
+        /password|pin|token|secret/i.test(key) ? '[REDACTED]' : key
+      ),
+    },
+  });
+
+  return response;
+}
+
+export async function DELETE(request: Request, context: RouteParams) {
+  const caller = requireRole(request, ['master_admin', 'school_admin', 'teacher']);
+  const { id } = await context.params;
+  const response = await handleDelete(request, context);
+
+  await writeSecurityAudit({
+    request,
+    actorId: caller?.sub,
+    actorUsername: caller?.username,
+    actorRole: caller?.role,
+    category: 'admin',
+    action: 'account.admin_delete',
+    targetType: 'user_account',
+    targetId: id,
+    result: response.ok ? 'success' : response.status === 403 ? 'denied' : 'failure',
+    metadata: { http_status: response.status },
+  });
+
+  return response;
 }

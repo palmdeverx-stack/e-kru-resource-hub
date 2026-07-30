@@ -68,7 +68,7 @@ export function NavMobile({ data, open, onClose, slots, sx }: NavMobileProps) {
             borderColor: 'divider',
           }}
         >
-          <Logo sx={{ width: 'auto', height: 48 }} />
+          <Logo />
           <IconButton onClick={onClose} aria-label="ปิดเมนู">
             <RiCloseLine size={24} />
           </IconButton>

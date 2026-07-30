@@ -69,6 +69,8 @@ export async function getProducts(params?: {
   q?: string;
   category?: string;
   sellerId?: string;
+  official?: boolean;
+  bestSeller?: boolean;
   mine?: boolean;
   page?: number;
   limit?: number;
@@ -79,6 +81,8 @@ export async function getProducts(params?: {
     searchParams.set('category', params.category);
   }
   if (params?.sellerId) searchParams.set('sellerId', params.sellerId);
+  if (params?.official) searchParams.set('official', '1');
+  if (params?.bestSeller) searchParams.set('bestSeller', '1');
   if (params?.mine) searchParams.set('mine', '1');
   if (params?.page) searchParams.set('page', String(params.page));
   if (params?.limit) searchParams.set('limit', String(params.limit));
@@ -152,11 +156,33 @@ export async function getProductPreviewFiles(id: string) {
   }>(response);
 }
 
-export async function saveProductReview(id: string, rating: number, comment: string) {
+export async function saveProductReview(
+  id: string,
+  rating: number,
+  comment: string,
+  images: File[] = [],
+  keepImageIds: string[] = []
+) {
+  const formData = new FormData();
+  formData.set('rating', String(rating));
+  formData.set('comment', comment);
+  images.forEach((image) => formData.append('images', image));
+  keepImageIds.forEach((imageId) => formData.append('keepImageIds', imageId));
   const response = await fetch(`/api/marketplace/products/${id}/reviews`, {
     method: 'POST',
+    body: formData,
+  });
+  return parseResponse<{
+    engagement: MarketplaceProductEngagement;
+    message: string;
+  }>(response);
+}
+
+export async function replyProductReview(id: string, reviewId: string, comment: string) {
+  const response = await fetch(`/api/marketplace/products/${id}/reviews/${reviewId}/reply`, {
+    method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ rating, comment }),
+    body: JSON.stringify({ comment }),
   });
   return parseResponse<{
     engagement: MarketplaceProductEngagement;

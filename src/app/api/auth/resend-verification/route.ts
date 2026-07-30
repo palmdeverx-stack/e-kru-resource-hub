@@ -22,11 +22,11 @@ export async function POST(request: Request) {
 
   const { data: user } = await supabaseAdmin
     .from('marketplace_users')
-    .select('id, email, first_name, is_active')
+    .select('id, email, first_name, is_active, is_suspended')
     .ilike('email', email)
     .maybeSingle();
 
-  if (!user || user.is_active) {
+  if (!user || user.is_active || user.is_suspended) {
     return NextResponse.json({
       success: true,
       message: 'หากอีเมลอยู่ระหว่างการยืนยัน ระบบจะส่งรหัสใหม่ให้',
