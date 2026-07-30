@@ -84,7 +84,7 @@ export function MarketplaceFinanceSettingsView() {
   const localWebhookTarget = getLocalWebhookTarget(form.stripeWebhookUrl);
 
   return (
-    <Container maxWidth={false} sx={{ py: { xs: 4, md: 6 } }}>
+    <Container maxWidth={false} sx={{ py: { xs: 3 } }}>
       <Typography component="h1" variant="h3">
         ตั้งค่าการเงิน Marketplace
       </Typography>
@@ -138,6 +138,10 @@ export function MarketplaceFinanceSettingsView() {
                 : 'เพิ่ม URL นี้ใน Stripe Workbench และเลือก Checkout, Payment Intent และ Refund events ที่ระบบกำหนด'
             }
           />
+          <Typography variant="caption" color="text.secondary">
+            Webhook ต้องเปิด Checkout, Payment Intent, Refund และ Charge Dispute events
+            เพื่อให้ระบบระงับสิทธิ์และเก็บหลักฐาน Chargeback อัตโนมัติ
+          </Typography>
           {localWebhookTarget && (
             <Alert severity="info">
               <Typography variant="body2">
@@ -151,8 +155,7 @@ export function MarketplaceFinanceSettingsView() {
                 stripe listen --forward-to {localWebhookTarget}
               </Typography>
               <Typography variant="caption" sx={{ display: 'block', mt: 1 }}>
-                นำค่า whsec_... ที่ Stripe CLI แสดงไปใส่ใน STRIPE_WEBHOOK_SECRET แล้ว restart
-                server
+                นำค่า whsec_... ที่ Stripe CLI แสดงไปใส่ใน STRIPE_WEBHOOK_SECRET แล้ว restart server
               </Typography>
             </Alert>
           )}

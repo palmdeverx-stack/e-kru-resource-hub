@@ -20,14 +20,24 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import CircularProgress from '@mui/material/CircularProgress';
 
-import { RiCloseLine, RiCheckboxCircleLine } from 'src/components/remix-icon';
+import { RiCloseLine, RiErrorWarningLine, RiCheckboxCircleLine } from 'src/components/remix-icon';
 
 import { formatPrice } from '../../shared/api';
 
 type ReviewAction = { session: MarketplacePaymentSession; action: 'approve' | 'reject' };
+type PaymentDispute = {
+  id: string;
+  stripe_dispute_id: string;
+  amount: number;
+  currency: string;
+  reason: string | null;
+  status: string;
+  evidence_due_by: string | null;
+};
 
 export function MarketplacePaymentReviewView() {
   const [sessions, setSessions] = useState<MarketplacePaymentSession[]>([]);
+  const [disputes, setDisputes] = useState<PaymentDispute[]>([]);
   const [loading, setLoading] = useState(true);
   const [reviewing, setReviewing] = useState<ReviewAction | null>(null);
   const [value, setValue] = useState('');
@@ -36,11 +46,19 @@ export function MarketplacePaymentReviewView() {
 
   const load = useCallback(() => {
     setLoading(true);
-    fetch('/api/marketplace/admin/payments?status=payment_review')
-      .then(async (response) => {
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.message);
-        setSessions(result.paymentSessions);
+    Promise.all([
+      fetch('/api/marketplace/admin/payments?status=payment_review'),
+      fetch('/api/marketplace/admin/disputes'),
+    ])
+      .then(async ([paymentsResponse, disputesResponse]) => {
+        const [paymentsResult, disputesResult] = await Promise.all([
+          paymentsResponse.json(),
+          disputesResponse.json(),
+        ]);
+        if (!paymentsResponse.ok) throw new Error(paymentsResult.message);
+        if (!disputesResponse.ok) throw new Error(disputesResult.message);
+        setSessions(paymentsResult.paymentSessions);
+        setDisputes(disputesResult.disputes);
       })
       .catch((loadError) => setError(loadError.message))
       .finally(() => setLoading(false));
@@ -90,6 +108,56 @@ export function MarketplacePaymentReviewView() {
         <Alert severity="error" sx={{ mb: 3 }}>
           {error}
         </Alert>
+      )}
+      {!!disputes.length && (
+        <Card sx={{ p: 3, mb: 3, border: '1px solid', borderColor: 'error.light' }}>
+          <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2 }}>
+            <RiErrorWarningLine size={28} />
+            <Box>
+              <Typography variant="h5">ข้อพิพาทการชำระเงิน</Typography>
+              <Typography variant="body2" color="text.secondary">
+                ระบบระงับสิทธิ์และยอดผู้ขายไว้แล้ว กรุณาตรวจหลักฐานก่อนครบกำหนด
+              </Typography>
+            </Box>
+          </Stack>
+          <Stack spacing={1.5}>
+            {disputes.map((dispute) => (
+              <Box key={dispute.id} sx={{ p: 2, borderRadius: 1.5, bgcolor: 'error.lighter' }}>
+                <Stack
+                  direction={{ xs: 'column', sm: 'row' }}
+                  justifyContent="space-between"
+                  spacing={1}
+                >
+                  <Box>
+                    <Typography variant="subtitle2">{dispute.stripe_dispute_id}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {dispute.reason || 'ไม่ระบุเหตุผล'}
+                      {dispute.evidence_due_by
+                        ? ` · ส่งหลักฐานภายใน ${new Date(dispute.evidence_due_by).toLocaleString(
+                            'th-TH'
+                          )}`
+                        : ''}
+                    </Typography>
+                  </Box>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Typography variant="subtitle1">
+                      {formatPrice(Number(dispute.amount))}
+                    </Typography>
+                    <Chip size="small" color="error" label={dispute.status} />
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      href={`/api/marketplace/admin/disputes?id=${dispute.id}`}
+                      target="_blank"
+                    >
+                      ดูชุดหลักฐาน
+                    </Button>
+                  </Stack>
+                </Stack>
+              </Box>
+            ))}
+          </Stack>
+        </Card>
       )}
       {loading ? (
         <Box sx={{ py: 10, textAlign: 'center' }}>

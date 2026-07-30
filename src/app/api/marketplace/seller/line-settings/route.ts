@@ -22,7 +22,7 @@ async function findSeller(caller: Caller) {
     .eq('owner_id', caller.sub)
     .maybeSingle();
   if (error) throw error;
-  if (seller || caller.role !== 'master_admin') return seller;
+  if (seller || (caller.role !== 'master_admin' && caller.role !== 'super_admin')) return seller;
 
   const result = await provisionEkruSystemSeller(caller.sub);
   if (result.error) throw result.error;
@@ -81,6 +81,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       seller,
+      mode: access.mode,
       settings: {
         lineUserId: settings?.line_user_id ?? '',
         isEnabled: settings?.is_enabled ?? false,
@@ -104,9 +105,8 @@ export async function PATCH(request: Request) {
   const body = await request.json().catch(() => null);
 
   try {
-    const accessError = sellerLineAccessError(
-      await getSellerLineFeatureAccess(caller.sub, caller.role)
-    );
+    const access = await getSellerLineFeatureAccess(caller.sub, caller.role);
+    const accessError = sellerLineAccessError(access);
     if (accessError) return accessError;
     const seller = await findSeller(caller);
     if (!seller) return NextResponse.json({ message: 'กรุณาสมัครเปิดร้านก่อน' }, { status: 404 });
@@ -131,9 +131,18 @@ export async function PATCH(request: Request) {
       .eq('seller_id', seller.id)
       .maybeSingle();
 
-    if (isEnabled && (!lineUserId || !(accessToken || existing?.channel_access_token_encrypted))) {
+    const requiresOwnToken = access.mode === 'byoa';
+    if (
+      isEnabled &&
+      (!lineUserId ||
+        (requiresOwnToken && !(accessToken || existing?.channel_access_token_encrypted)))
+    ) {
       return NextResponse.json(
-        { message: 'กรุณากรอก Channel access token และ LINE User ID ก่อนเปิดใช้งาน' },
+        {
+          message: requiresOwnToken
+            ? 'กรุณากรอก Channel access token และ LINE User ID ก่อนเปิดใช้งาน'
+            : 'กรุณากรอก LINE User ID ก่อนเปิดใช้งาน',
+        },
         { status: 400 }
       );
     }
@@ -170,9 +179,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    const accessError = sellerLineAccessError(
-      await getSellerLineFeatureAccess(caller.sub, caller.role)
-    );
+    const access = await getSellerLineFeatureAccess(caller.sub, caller.role);
+    const accessError = sellerLineAccessError(access);
     if (accessError) return accessError;
     const seller = await findSeller(caller);
     if (!seller) return NextResponse.json({ message: 'กรุณาสมัครเปิดร้านก่อน' }, { status: 404 });
@@ -181,9 +189,23 @@ export async function POST(request: Request) {
       .select('channel_access_token_encrypted, line_user_id')
       .eq('seller_id', seller.id)
       .maybeSingle();
-    if (!settings?.channel_access_token_encrypted || !settings.line_user_id) {
+    const { data: globalSettings } = await supabaseAdmin
+      .from('marketplace_line_settings')
+      .select('channel_access_token_encrypted')
+      .eq('id', 'default')
+      .maybeSingle();
+    const encryptedAccessToken =
+      access.mode === 'managed'
+        ? globalSettings?.channel_access_token_encrypted
+        : settings?.channel_access_token_encrypted ?? globalSettings?.channel_access_token_encrypted;
+    if (!encryptedAccessToken || !settings?.line_user_id) {
       return NextResponse.json(
-        { message: 'กรุณาบันทึก Channel access token และ LINE User ID ก่อนทดสอบ' },
+        {
+          message:
+            access.mode === 'managed'
+              ? 'กรุณากรอก LINE User ID และให้ผู้ดูแลตั้งค่า LINE OA ระบบก่อนทดสอบ'
+              : 'กรุณาบันทึก Channel access token และ LINE User ID ก่อนทดสอบ',
+        },
         { status: 400 }
       );
     }
@@ -193,7 +215,7 @@ export async function POST(request: Request) {
     let lastError: string | null = null;
     try {
       await pushSellerLineText({
-        accessToken: decryptLineCredential(settings.channel_access_token_encrypted),
+        accessToken: decryptLineCredential(encryptedAccessToken),
         lineUserId: settings.line_user_id,
         message,
       });

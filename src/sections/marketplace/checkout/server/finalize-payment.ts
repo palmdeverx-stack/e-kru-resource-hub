@@ -3,6 +3,7 @@ import 'server-only';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { createNotifications } from 'src/lib/notifications';
 
+import { recordCustomerCommunication } from './order-evidence';
 import { money, getFinanceSettings } from '../../admin/server/finance';
 import { createReferralRewards } from '../../referrals/server/referrals';
 import { createSchoolOnboardingForPaidOrders } from './school-onboarding';
@@ -15,6 +16,7 @@ type FinalizeInput = {
   reviewedBy?: string | null;
   bankTransactionReference?: string | null;
   stripePaymentIntentId?: string | null;
+  paymentSnapshot?: Record<string, unknown> | null;
   processorFee?: number;
 };
 
@@ -43,6 +45,18 @@ export async function finalizeMarketplacePayment(input: FinalizeInput) {
         .update({ status: 'active', updated_at: new Date().toISOString() })
         .in('id', salesDealIds);
     }
+    await Promise.allSettled(
+      orders.map((order) =>
+        notifySellerPaymentReceived({
+          sellerId: String(order.seller_id),
+          orderId: String(order.id),
+          paymentSessionId: input.paymentSessionId,
+          grossAmount: Number(order.gross_amount),
+          sellerNet: Number(order.seller_net),
+          availableAt: String(order.available_at ?? session.reviewed_at ?? new Date().toISOString()),
+        })
+      )
+    );
     return { alreadyProcessed: true, availableAt: session.reviewed_at };
   }
   if (!input.allowedStatuses.includes(session.status)) {
@@ -113,6 +127,22 @@ export async function finalizeMarketplacePayment(input: FinalizeInput) {
       .eq('id', order.id)
       .in('status', input.allowedStatuses);
     if (orderError) throw orderError;
+    await recordCustomerCommunication({
+      orderId: String(order.id),
+      paymentSessionId: input.paymentSessionId,
+      buyerId: String(session.buyer_id),
+      eventType: 'payment_confirmed',
+      subject: 'ยืนยันการชำระเงินแล้ว',
+      content: `ยืนยันการชำระเงินคำสั่งซื้อ ${String(order.id)} ยอด ${Number(
+        order.gross_amount
+      ).toFixed(2)} ${String(session.currency)}`,
+      providerReference: input.stripePaymentIntentId ?? input.bankTransactionReference ?? null,
+      metadata: {
+        payment_method: session.payment_method,
+        paid_at: now.toISOString(),
+        processor_fee: orderFee,
+      },
+    });
   }
 
   await createReferralRewards(orders, String(session.buyer_id));
@@ -132,6 +162,16 @@ export async function finalizeMarketplacePayment(input: FinalizeInput) {
     .eq('id', input.paymentSessionId)
     .in('status', input.allowedStatuses);
   if (approveError) throw approveError;
+  if (input.paymentSnapshot) {
+    const { error: evidenceError } = await supabaseAdmin
+      .from('marketplace_order_evidence')
+      .update({
+        payment_snapshot: input.paymentSnapshot,
+        updated_at: now.toISOString(),
+      })
+      .eq('payment_session_id', input.paymentSessionId);
+    if (evidenceError) throw evidenceError;
+  }
 
   // Payment remains verified if entitlement creation fails, while the thrown
   // error makes Stripe/admin retry the idempotent reconciliation path.

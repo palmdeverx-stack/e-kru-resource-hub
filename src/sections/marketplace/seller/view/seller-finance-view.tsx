@@ -24,6 +24,7 @@ import Typography from '@mui/material/Typography';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import TableContainer from '@mui/material/TableContainer';
+import TablePagination from '@mui/material/TablePagination';
 import CircularProgress from '@mui/material/CircularProgress';
 
 import {
@@ -114,6 +115,8 @@ type FinanceResult = {
     payoutDay: number;
     minimumPayout: number;
     holdDays: number;
+    commissionRate: number;
+    commissionSource: 'default' | 'seller_override' | 'system_store';
     nextPayoutAt: string;
   };
   orders: FinanceOrder[];
@@ -179,6 +182,8 @@ export function MarketplaceSellerFinanceView() {
   const [activeTab, setActiveTab] = useState<FinanceTab>('income');
   const [selectedOrder, setSelectedOrder] = useState<FinanceOrder | null>(null);
   const [selectedPayout, setSelectedPayout] = useState<Payout | null>(null);
+  const [salesPage, setSalesPage] = useState(0);
+  const [salesRowsPerPage, setSalesRowsPerPage] = useState(10);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -230,6 +235,10 @@ export function MarketplaceSellerFinanceView() {
     'วันศุกร์',
     'วันเสาร์',
   ];
+  const exampleGross = 100;
+  const exampleStripeFee = exampleGross * 0.0365 + 10;
+  const examplePlatformFee = exampleGross * ((data?.schedule.commissionRate ?? 0) / 100);
+  const exampleSellerNet = Math.max(0, exampleGross - exampleStripeFee - examplePlatformFee);
 
   const summaryCards = [
     {
@@ -481,35 +490,38 @@ export function MarketplaceSellerFinanceView() {
               <Box>
                 <Typography variant="h5">รายการขายทั้งหมด</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  กดดูรายละเอียดเพื่อดูสูตรคำนวณรายได้สุทธิของแต่ละคำสั่งซื้อ
+                  แสดงยอดที่ผู้ซื้อชำระ ผู้รับค่าธรรมเนียม และยอดที่ผู้ขายจะได้รับ
                 </Typography>
               </Box>
               <Chip label={`${data?.orders.length ?? 0} รายการ`} variant="outlined" />
             </Stack>
+
             <TableContainer>
-              <Table sx={{ minWidth: 980 }}>
+              <Table sx={{ minWidth: 1120 }}>
                 <TableHead>
                   <TableRow>
                     <TableCell>วันที่</TableCell>
                     <TableCell>คำสั่งซื้อ</TableCell>
                     <TableCell>สินค้า</TableCell>
                     <TableCell align="right">ยอดขาย</TableCell>
-                    <TableCell align="right">ค่าธรรมเนียม</TableCell>
-                    <TableCell align="right">รายได้สุทธิ</TableCell>
+                    <TableCell align="right">Stripe ได้รับ</TableCell>
+                    <TableCell align="right">E-KRU ได้รับ</TableCell>
+                    <TableCell align="right">ผู้ขายได้รับ</TableCell>
                     <TableCell>สถานะ</TableCell>
                     <TableCell align="right" />
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {data?.orders.length ? (
-                    data.orders.map((order) => {
-                      const status = getMoneyStatus(order, data.ledger, data.payouts);
-                      const fee = Math.max(
-                        0,
-                        Number(order.gross_amount) - Number(order.seller_net)
-                      );
-                      return (
-                        <TableRow key={order.id} hover>
+                    data.orders
+                      .slice(
+                        salesPage * salesRowsPerPage,
+                        salesPage * salesRowsPerPage + salesRowsPerPage
+                      )
+                      .map((order) => {
+                        const status = getMoneyStatus(order, data.ledger, data.payouts);
+                        return (
+                          <TableRow key={order.id} hover>
                           <TableCell>
                             {new Date(order.created_at).toLocaleDateString('th-TH', {
                               day: 'numeric',
@@ -536,12 +548,28 @@ export function MarketplaceSellerFinanceView() {
                           <TableCell align="right">
                             {formatPrice(Number(order.gross_amount), order.currency)}
                           </TableCell>
-                          <TableCell align="right" sx={{ color: 'error.main' }}>
-                            - {formatPrice(fee, order.currency)}
+                          <TableCell align="right">
+                            <Typography variant="subtitle2" color="error.main">
+                              {formatPrice(Number(order.payment_fee), order.currency)}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              ค่าชำระเงิน
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="right">
+                            <Typography variant="subtitle2" color="warning.dark">
+                              {formatPrice(Number(order.platform_fee), order.currency)}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              ค่าคอมมิชชัน
+                            </Typography>
                           </TableCell>
                           <TableCell align="right">
                             <Typography variant="subtitle2" color="success.main">
                               {formatPrice(Number(order.seller_net), order.currency)}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              เข้ายอดรอรับของร้าน
                             </Typography>
                           </TableCell>
                           <TableCell>
@@ -560,12 +588,12 @@ export function MarketplaceSellerFinanceView() {
                               <RiEyeLine />
                             </IconButton>
                           </TableCell>
-                        </TableRow>
-                      );
-                    })
+                          </TableRow>
+                        );
+                      })
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={8} align="center" sx={{ py: 8 }}>
+                      <TableCell colSpan={9} align="center" sx={{ py: 8 }}>
                         <RiShoppingBag3Line size={42} />
                         <Typography variant="h6" sx={{ mt: 1 }}>
                           ยังไม่มีรายการขาย
@@ -576,6 +604,100 @@ export function MarketplaceSellerFinanceView() {
                 </TableBody>
               </Table>
             </TableContainer>
+            <TablePagination
+              component="div"
+              count={data?.orders.length ?? 0}
+              page={salesPage}
+              rowsPerPage={salesRowsPerPage}
+              rowsPerPageOptions={[10, 25, 50]}
+              labelRowsPerPage="แสดงต่อหน้า"
+              labelDisplayedRows={({ from, to, count }) =>
+                `${from}–${to} จาก ${count.toLocaleString('th-TH')} รายการ`
+              }
+              onPageChange={(_event, page) => setSalesPage(page)}
+              onRowsPerPageChange={(event) => {
+                setSalesRowsPerPage(Number(event.target.value));
+                setSalesPage(0);
+              }}
+            />
+
+            <Stack mt={2}>
+              <Alert severity="info" sx={{ mb: 2.5 }}>
+                เส้นทางเงิน: ผู้ซื้อชำระยอดขาย → ระบบชำระเงินออนไลน์หักค่าดำเนินการ → E-KRU
+                หักค่าคอมมิชชัน → ยอดคงเหลือเป็นรายได้สุทธิของผู้ขาย
+              </Alert>
+
+              <Card
+                variant="outlined"
+                sx={{
+                  p: { xs: 2, md: 2.5 },
+                  borderColor: 'warning.light',
+                  bgcolor: 'warning.lighter',
+                }}
+              >
+                <Stack
+                  direction={{ xs: 'column', md: 'row' }}
+                  justifyContent="space-between"
+                  spacing={2}
+                >
+                  <Box>
+                    <Typography variant="subtitle1">ตัวอย่างการได้รับเงินจริงผ่านบัตร</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      สมมติขายสินค้า ฿100 ผ่านบัตรในประเทศ
+                    </Typography>
+                  </Box>
+                  <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    divider={<Divider orientation="vertical" flexItem />}
+                    spacing={{ xs: 1, sm: 2.5 }}
+                  >
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        ระบบชำระเงินออนไลน์ได้รับ
+                      </Typography>
+                      <Typography variant="subtitle2" color="error.main">
+                        {formatPrice(exampleStripeFee)}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        3.65% + ฿10
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        ระบบ E-KRU ได้รับ
+                      </Typography>
+                      <Typography variant="subtitle2" color="warning.dark">
+                        {formatPrice(examplePlatformFee)}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        คอมมิชชัน {data?.schedule.commissionRate ?? 0}% ·{' '}
+                        {data?.schedule.commissionSource === 'system_store'
+                          ? 'ร้านทางการ'
+                          : data?.schedule.commissionSource === 'seller_override'
+                            ? 'อัตราเฉพาะร้าน'
+                            : 'อัตรามาตรฐาน'}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        ผู้ขายได้รับประมาณ
+                      </Typography>
+                      <Typography variant="h6" color="success.main">
+                        {formatPrice(exampleSellerNet)}
+                      </Typography>
+                    </Box>
+                  </Stack>
+                </Stack>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ display: 'block', mt: 2 }}
+                >
+                  ตัวเลขเป็นตัวอย่างก่อนทำรายการ ค่าธรรมเนียมจริงอาจต่างกันตามประเภทบัตร
+                  ประเทศของบัตร การแปลงสกุลเงิน และอัตราของผู้ให้บริการ ณ วันที่ชำระ
+                </Typography>
+              </Card>
+            </Stack>
           </Box>
         )}
 

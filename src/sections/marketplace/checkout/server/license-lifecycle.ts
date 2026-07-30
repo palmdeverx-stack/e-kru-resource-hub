@@ -2,7 +2,7 @@ import 'server-only';
 
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 
-async function reconcileFeature(schoolId: string, featureKey: string) {
+export async function reconcileFeature(schoolId: string, featureKey: string) {
   const { data: licenses } = await supabaseAdmin
     .from('marketplace_school_licenses')
     .select('expires_at,order_id,product_id')

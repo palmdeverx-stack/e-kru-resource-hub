@@ -63,6 +63,7 @@ export const paths = {
     popupAnnouncements: '/dashboard/master/popup-announcements',
     lineSettings: '/dashboard/settings/line',
     financeSettings: '/dashboard/settings/finance',
+    storageSettings: '/dashboard/settings/storage',
     securityAudit: '/dashboard/settings/security-audit',
     systemUsers: '/dashboard/settings/system-users',
     paymentReviews: '/dashboard/payment-reviews',

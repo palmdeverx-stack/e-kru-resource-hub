@@ -27,6 +27,7 @@ import {
   RiFeedbackLine,
   RiDashboardLine,
   RiSettings3Line,
+  RiDatabase2Line,
   RiFilePaper2Line,
   RiShieldStarLine,
   RiUserFollowLine,
@@ -269,6 +270,11 @@ const adminNavData: NavSectionProps['data'] = [
         icon: <RiSecurePaymentLine />,
       },
       {
+        title: 'พื้นที่จัดเก็บ',
+        path: '/dashboard/settings/storage',
+        icon: <RiDatabase2Line />,
+      },
+      {
         title: 'ตั้งค่าแนะนำเพื่อน',
         path: '/dashboard/settings/referrals',
         icon: <RiShareForwardLine />,
@@ -296,6 +302,10 @@ type Props = {
   children: React.ReactNode;
 };
 
+function isMarketplaceAdmin(role?: string | null) {
+  return role === 'master_admin' || role === 'super_admin';
+}
+
 export default function Layout({ children }: Props) {
   const { user } = useAuthContext();
   const [canViewSchoolEntitlements, setCanViewSchoolEntitlements] = useState(false);
@@ -304,7 +314,7 @@ export default function Layout({ children }: Props) {
   const [referralEnabled, setReferralEnabled] = useState(false);
 
   useEffect(() => {
-    if (!user?.role || user.role === 'master_admin') {
+    if (!user?.role || isMarketplaceAdmin(user.role)) {
       setReferralEnabled(false);
       return undefined;
     }
@@ -361,7 +371,7 @@ export default function Layout({ children }: Props) {
       setHasSubmittedSeller(false);
       return undefined;
     }
-    if (user.role === 'master_admin') {
+    if (isMarketplaceAdmin(user.role)) {
       setHasSubmittedSeller(true);
       return undefined;
     }
@@ -390,8 +400,8 @@ export default function Layout({ children }: Props) {
   }, [user?.id, user?.role]);
 
   useEffect(() => {
-    if (!user?.role || user.role === 'master_admin') {
-      setCanUseSellerLine(user?.role === 'master_admin');
+    if (!user?.role || isMarketplaceAdmin(user.role)) {
+      setCanUseSellerLine(isMarketplaceAdmin(user?.role));
       return undefined;
     }
 
@@ -415,7 +425,7 @@ export default function Layout({ children }: Props) {
   }, [user?.id, user?.role]);
 
   const navData =
-    user?.role === 'master_admin'
+    isMarketplaceAdmin(user?.role)
       ? adminNavData
       : memberNavData.map((section) => {
           if (section.subheader === 'ร้านค้าของฉัน') {

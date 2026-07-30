@@ -801,6 +801,9 @@ create table if not exists public.marketplace_product_views (
   product_id uuid not null references public.marketplace_products(id) on delete cascade,
   visitor_key text not null,
   viewer_id uuid,
+  ip_address text,
+  user_agent text,
+  request_id text,
   first_viewed_at timestamptz not null default now(),
   last_viewed_at timestamptz not null default now(),
   unique (product_id, visitor_key)
@@ -856,6 +859,9 @@ create table if not exists public.marketplace_product_downloads (
   product_file_id uuid not null references public.marketplace_product_files(id) on delete cascade,
   order_item_id uuid not null references public.marketplace_order_items(id) on delete cascade,
   buyer_id uuid not null,
+  ip_address text,
+  user_agent text,
+  request_id text,
   downloaded_at timestamptz not null default now()
 );
 create index if not exists marketplace_product_downloads_product_idx
@@ -910,7 +916,7 @@ create table if not exists public.marketplace_school_licenses (
   starts_at timestamptz not null default now(),
   expires_at timestamptz not null,
   status text not null default 'active'
-    check (status in ('active', 'renewed', 'expired', 'revoked', 'refunded')),
+    check (status in ('active', 'renewed', 'expired', 'disputed', 'revoked', 'refunded')),
   revoked_at timestamptz,
   revoke_reason text,
   renewed_from_license_id uuid references public.marketplace_school_licenses(id) on delete set null,
@@ -934,7 +940,7 @@ create table if not exists public.marketplace_user_licenses (
   starts_at timestamptz not null default now(),
   expires_at timestamptz,
   status text not null default 'active'
-    check (status in ('active', 'renewed', 'expired', 'revoked', 'refunded')),
+    check (status in ('active', 'renewed', 'expired', 'disputed', 'revoked', 'refunded')),
   revoked_at timestamptz,
   revoke_reason text,
   renewed_from_license_id uuid
@@ -1037,6 +1043,48 @@ create table if not exists public.marketplace_finance_settings (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.marketplace_storage_settings (
+  id text primary key default 'default' check (id = 'default'),
+  capacity_bytes bigint not null default 1073741824 check (capacity_bytes > 0),
+  warning_percent integer not null default 80 check (warning_percent between 1 and 99),
+  critical_percent integer not null default 90 check (critical_percent between 2 and 100),
+  updated_at timestamptz not null default now(),
+  check (critical_percent > warning_percent)
+);
+
+insert into public.marketplace_storage_settings (id)
+values ('default')
+on conflict (id) do nothing;
+
+create or replace function public.marketplace_storage_usage_summary()
+returns table (
+  bucket_id text,
+  object_count bigint,
+  total_bytes bigint,
+  largest_object_bytes bigint,
+  last_uploaded_at timestamptz
+)
+language sql
+security definer
+set search_path = pg_catalog, public, storage
+as $$
+  select
+    objects.bucket_id,
+    count(*)::bigint as object_count,
+    coalesce(sum(coalesce((objects.metadata ->> 'size')::bigint, 0)), 0)::bigint as total_bytes,
+    coalesce(max(coalesce((objects.metadata ->> 'size')::bigint, 0)), 0)::bigint
+      as largest_object_bytes,
+    max(objects.created_at) as last_uploaded_at
+  from storage.objects as objects
+  group by objects.bucket_id
+  order by total_bytes desc;
+$$;
+
+revoke all on function public.marketplace_storage_usage_summary() from public;
+revoke all on function public.marketplace_storage_usage_summary() from anon;
+revoke all on function public.marketplace_storage_usage_summary() from authenticated;
+grant execute on function public.marketplace_storage_usage_summary() to service_role;
+
 insert into public.marketplace_finance_settings (id)
 values ('default')
 on conflict (id) do nothing;
@@ -1132,7 +1180,11 @@ create table if not exists public.marketplace_payment_sessions (
   payment_method text not null default 'promptpay'
     check (payment_method in ('promptpay', 'stripe', 'free')),
   status text not null default 'pending_payment'
-    check (status in ('pending_payment', 'payment_review', 'verified', 'rejected', 'expired')),
+    check (
+      status in (
+        'pending_payment', 'payment_review', 'verified', 'disputed', 'rejected', 'expired'
+      )
+    ),
   promptpay_id_snapshot text,
   account_name_snapshot text,
   slip_path text,
@@ -1209,7 +1261,7 @@ alter table public.marketplace_orders
   check (
     status in (
       'pending', 'pending_payment', 'payment_review', 'payment_rejected',
-      'paid', 'completed', 'cancelled', 'refunded'
+      'paid', 'completed', 'disputed', 'cancelled', 'refunded'
     )
   );
 
@@ -1286,7 +1338,12 @@ create table if not exists public.marketplace_ledger_entries (
   payout_id uuid references public.marketplace_payouts(id) on delete set null,
   account_scope text not null check (account_scope in ('seller', 'platform')),
   entry_type text not null
-    check (entry_type in ('sale', 'commission', 'gateway_fee', 'refund', 'adjustment')),
+    check (
+      entry_type in (
+        'sale', 'commission', 'gateway_fee', 'refund', 'adjustment',
+        'chargeback', 'chargeback_reversal'
+      )
+    ),
   amount numeric(12, 2) not null,
   currency text not null default 'THB',
   description text,
@@ -1298,7 +1355,12 @@ alter table public.marketplace_ledger_entries
   drop constraint if exists marketplace_ledger_entries_entry_type_check;
 alter table public.marketplace_ledger_entries
   add constraint marketplace_ledger_entries_entry_type_check
-  check (entry_type in ('sale', 'commission', 'gateway_fee', 'refund', 'adjustment'));
+  check (
+    entry_type in (
+      'sale', 'commission', 'gateway_fee', 'refund', 'adjustment',
+      'chargeback', 'chargeback_reversal'
+    )
+  );
 
 create unique index if not exists marketplace_ledger_order_scope_type_key
   on public.marketplace_ledger_entries (order_id, account_scope, entry_type);
@@ -1427,6 +1489,7 @@ alter table public.marketplace_order_items enable row level security;
 alter table public.marketplace_seller_line_settings enable row level security;
 alter table public.marketplace_seller_line_deliveries enable row level security;
 alter table public.marketplace_finance_settings enable row level security;
+alter table public.marketplace_storage_settings enable row level security;
 alter table public.marketplace_referral_settings enable row level security;
 alter table public.marketplace_referral_codes enable row level security;
 alter table public.marketplace_referral_clicks enable row level security;
@@ -1551,3 +1614,97 @@ drop trigger if exists security_audit_logs_append_only on public.security_audit_
 create trigger security_audit_logs_append_only
 before update or delete on public.security_audit_logs
 for each row execute function public.prevent_security_audit_log_mutation();
+
+-- Immutable checkout and usage evidence used for card-dispute responses.
+create table if not exists public.marketplace_order_evidence (
+  order_id uuid primary key references public.marketplace_orders(id) on delete restrict,
+  payment_session_id uuid references public.marketplace_payment_sessions(id) on delete set null,
+  buyer_id uuid not null,
+  buyer_snapshot jsonb not null default '{}'::jsonb,
+  product_snapshot jsonb not null default '[]'::jsonb,
+  legal_documents_snapshot jsonb not null default '[]'::jsonb,
+  payment_snapshot jsonb not null default '{}'::jsonb,
+  purchase_terms_accepted boolean not null default false,
+  purchase_terms_accepted_at timestamptz,
+  account_legal_accepted_at timestamptz,
+  checkout_ip text,
+  checkout_user_agent text,
+  checkout_request_id text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists marketplace_order_evidence_payment_idx
+  on public.marketplace_order_evidence (payment_session_id);
+create index if not exists marketplace_order_evidence_buyer_idx
+  on public.marketplace_order_evidence (buyer_id, created_at desc);
+
+create table if not exists public.marketplace_customer_communications (
+  id uuid primary key default gen_random_uuid(),
+  order_id uuid references public.marketplace_orders(id) on delete set null,
+  payment_session_id uuid references public.marketplace_payment_sessions(id) on delete set null,
+  buyer_id uuid not null,
+  channel text not null check (channel in ('system', 'email', 'line', 'support')),
+  direction text not null check (direction in ('outbound', 'inbound')),
+  event_type text not null,
+  subject text,
+  content text not null,
+  recipient_snapshot text,
+  provider_reference text,
+  metadata jsonb not null default '{}'::jsonb,
+  occurred_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+create index if not exists marketplace_customer_communications_order_idx
+  on public.marketplace_customer_communications (order_id, occurred_at desc);
+create index if not exists marketplace_customer_communications_buyer_idx
+  on public.marketplace_customer_communications (buyer_id, occurred_at desc);
+
+create table if not exists public.marketplace_entitlement_usage_events (
+  id uuid primary key default gen_random_uuid(),
+  order_id uuid references public.marketplace_orders(id) on delete set null,
+  order_item_id uuid references public.marketplace_order_items(id) on delete set null,
+  product_id uuid references public.marketplace_products(id) on delete set null,
+  buyer_id uuid not null,
+  feature_key text,
+  event_type text not null,
+  ip_address text,
+  user_agent text,
+  request_id text,
+  metadata jsonb not null default '{}'::jsonb,
+  occurred_at timestamptz not null default now()
+);
+create index if not exists marketplace_entitlement_usage_order_idx
+  on public.marketplace_entitlement_usage_events (order_id, occurred_at desc);
+create index if not exists marketplace_entitlement_usage_buyer_idx
+  on public.marketplace_entitlement_usage_events (buyer_id, occurred_at desc);
+
+create table if not exists public.marketplace_payment_disputes (
+  id uuid primary key default gen_random_uuid(),
+  stripe_dispute_id text not null unique,
+  stripe_charge_id text,
+  stripe_payment_intent_id text,
+  payment_session_id uuid references public.marketplace_payment_sessions(id) on delete set null,
+  buyer_id uuid,
+  amount numeric(12,2) not null default 0,
+  currency text not null default 'THB',
+  reason text,
+  status text not null,
+  evidence_due_by timestamptz,
+  is_charge_refundable boolean,
+  has_liability_shift boolean,
+  stripe_evidence_details jsonb not null default '{}'::jsonb,
+  raw_snapshot jsonb not null default '{}'::jsonb,
+  license_state_snapshot jsonb not null default '[]'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  closed_at timestamptz
+);
+create index if not exists marketplace_payment_disputes_session_idx
+  on public.marketplace_payment_disputes (payment_session_id, created_at desc);
+create index if not exists marketplace_payment_disputes_status_idx
+  on public.marketplace_payment_disputes (status, evidence_due_by);
+
+alter table public.marketplace_order_evidence enable row level security;
+alter table public.marketplace_customer_communications enable row level security;
+alter table public.marketplace_entitlement_usage_events enable row level security;
+alter table public.marketplace_payment_disputes enable row level security;

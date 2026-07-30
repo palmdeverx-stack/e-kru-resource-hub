@@ -24,7 +24,13 @@ export const accessTokenCookieOptions = {
   maxAge: ACCESS_TOKEN_MAX_AGE_SECONDS,
 };
 
-export type AppRole = 'master_admin' | 'school_admin' | 'teacher' | 'student' | 'marketplace_user';
+export type AppRole =
+  | 'master_admin'
+  | 'super_admin'
+  | 'school_admin'
+  | 'teacher'
+  | 'student'
+  | 'marketplace_user';
 
 export type AppTokenPayload = {
   sub: string;

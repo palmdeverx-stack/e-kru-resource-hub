@@ -55,7 +55,7 @@ export async function GET(request: Request) {
     .maybeSingle();
   if (error) return NextResponse.json({ message: error.message }, { status: 500 });
 
-  if (caller.role === 'master_admin') {
+  if (caller.role === 'master_admin' || caller.role === 'super_admin') {
     const result = await provisionEkruSystemSeller(caller.sub, {
       bio: existingSeller?.bio,
       contactEmail: existingSeller?.contact_email,
@@ -78,7 +78,7 @@ export async function POST(request: Request) {
   if (!caller) return NextResponse.json({ message: 'กรุณาเข้าสู่ระบบ' }, { status: 401 });
   const body = await request.json().catch(() => null);
 
-  if (caller.role === 'master_admin') {
+  if (caller.role === 'master_admin' || caller.role === 'super_admin') {
     const displayName = String(body?.displayName ?? '').trim();
     const companyName = String(body?.companyName ?? '').trim();
     const companyTaxId = String(body?.companyTaxId ?? '').replace(/\D/g, '');

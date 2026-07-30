@@ -6,16 +6,19 @@ import { useSearchParams } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import Card from '@mui/material/Card';
+import Link from '@mui/material/Link';
 import Alert from '@mui/material/Alert';
 import Radio from '@mui/material/Radio';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
+import Checkbox from '@mui/material/Checkbox';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
+import FormControlLabel from '@mui/material/FormControlLabel';
 
 import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
@@ -57,14 +60,14 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
   });
   const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [acceptedPurchaseTerms, setAcceptedPurchaseTerms] = useState(false);
   const [error, setError] = useState('');
   const [schools, setSchools] = useState<Array<{ id: string; name: string }>>([]);
   const [schoolsLoading, setSchoolsLoading] = useState(true);
   const [licenseSchoolId, setLicenseSchoolId] = useState('');
   const salesDealToken = searchParams.get('dealToken') ?? '';
   const isFree = subtotal === 0;
-  const stripeBelowMinimum =
-    !isFree && availableMethods.stripe && subtotal < STRIPE_MINIMUM_THB;
+  const stripeBelowMinimum = !isFree && availableMethods.stripe && subtotal < STRIPE_MINIMUM_THB;
   const stripeAvailable = availableMethods.stripe && !stripeBelowMinimum;
   const hasConfiguredPaymentMethod = availableMethods.promptpay || availableMethods.stripe;
   const canCreateSchoolAfterPayment =
@@ -144,7 +147,8 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
         items.map((item) => ({ productId: item.product.id })),
         isFree ? 'promptpay' : paymentMethod,
         hasSchoolLicense ? licenseSchoolId : undefined,
-        salesDealToken || undefined
+        salesDealToken || undefined,
+        acceptedPurchaseTerms
       );
       clearCart();
       if (result.paymentSession.payment_method === 'free') {
@@ -359,9 +363,52 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
           )}
 
           {!isFree && !paymentMethodsLoading && !hasConfiguredPaymentMethod && (
-            <Alert severity="warning">
-              ขณะนี้ยังไม่มีช่องทางชำระเงินที่เปิดใช้งาน กรุณาติดต่อผู้ดูแลระบบ
-            </Alert>
+            <Card
+              variant="outlined"
+              sx={{
+                px: { xs: 3, sm: 5 },
+                py: { xs: 4, sm: 5 },
+                textAlign: 'center',
+                borderStyle: 'dashed',
+                bgcolor: 'background.neutral',
+              }}
+            >
+              <Box
+                sx={{
+                  width: 72,
+                  height: 72,
+                  mx: 'auto',
+                  display: 'grid',
+                  borderRadius: '50%',
+                  placeItems: 'center',
+                  color: 'warning.dark',
+                  bgcolor: 'warning.lighter',
+                }}
+              >
+                <RiBankCardLine size={36} />
+              </Box>
+              <Typography variant="h5" sx={{ mt: 2 }}>
+                ยังไม่สามารถชำระเงินได้
+              </Typography>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ mt: 1, mx: 'auto', maxWidth: 480 }}
+              >
+                ขณะนี้ผู้ดูแลระบบยังไม่ได้เปิดช่องทางรับชำระเงิน
+                รายการสินค้าในตะกร้าของคุณจะยังถูกเก็บไว้
+              </Typography>
+              <Button
+                component={RouterLink}
+                href={
+                  user?.role === 'master_admin' ? paths.marketplace.financeSettings : productsHref
+                }
+                variant="contained"
+                sx={{ mt: 3 }}
+              >
+                {user?.role === 'master_admin' ? 'ไปตั้งค่าช่องทางชำระเงิน' : 'กลับไปเลือกสินค้า'}
+              </Button>
+            </Card>
           )}
 
           {!isFree && !paymentMethodsLoading && stripeBelowMinimum && (
@@ -375,8 +422,7 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
 
           {!isFree && availableMethods.promptpay && stripeAvailable && (
             <Alert severity="info" icon={<RiShieldCheckLine />}>
-              PromptPay แบบแนบสลิปต้องรอผู้ดูแลตรวจ
-              ส่วนระบบชำระเงินออนไลน์จะยืนยันผลอัตโนมัติ
+              PromptPay แบบแนบสลิปต้องรอผู้ดูแลตรวจ ส่วนระบบชำระเงินออนไลน์จะยืนยันผลอัตโนมัติ
             </Alert>
           )}
           {!isFree && availableMethods.promptpay && !stripeAvailable && (
@@ -446,6 +492,28 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
               {formatPrice(subtotal)}
             </Typography>
           </Stack>
+          <FormControlLabel
+            sx={{ alignItems: 'flex-start', mb: 2 }}
+            control={
+              <Checkbox
+                checked={acceptedPurchaseTerms}
+                onChange={(event) => setAcceptedPurchaseTerms(event.target.checked)}
+                sx={{ mt: -0.75 }}
+              />
+            }
+            label={
+              <Typography variant="body2" color="text.secondary">
+                ฉันตรวจสอบรายละเอียดสินค้าและยอมรับ{' '}
+                <Link component={RouterLink} href="/terms-of-service" target="_blank">
+                  ข้อกำหนดการใช้บริการ
+                </Link>{' '}
+                และ{' '}
+                <Link component={RouterLink} href="/refund-policy" target="_blank">
+                  นโยบายคืนเงิน
+                </Link>
+              </Typography>
+            }
+          />
           <Button
             fullWidth
             size="large"
@@ -453,6 +521,7 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
             loading={submitting}
             disabled={
               (!isFree && paymentMethodsLoading) ||
+              !acceptedPurchaseTerms ||
               (!isFree &&
                 (!paymentMethod ||
                   !availableMethods[paymentMethod as keyof typeof availableMethods] ||

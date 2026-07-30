@@ -297,12 +297,19 @@ export async function createOrder(
   items: Array<{ productId: string }>,
   paymentMethod: string,
   licenseSchoolId?: string,
-  salesDealToken?: string
+  salesDealToken?: string,
+  acceptedPurchaseTerms = false
 ) {
   const response = await fetch('/api/marketplace/orders', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ items, paymentMethod, licenseSchoolId, salesDealToken }),
+    body: JSON.stringify({
+      items,
+      paymentMethod,
+      licenseSchoolId,
+      salesDealToken,
+      acceptedPurchaseTerms,
+    }),
   });
   return parseResponse<{ orders: MarketplaceOrder[]; paymentSession: MarketplacePaymentSession }>(
     response

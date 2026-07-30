@@ -31,6 +31,7 @@ import { useMarketplaceCart } from '../../cart/cart-context';
 
 type SettingsResult = {
   seller: { display_name: string };
+  mode: 'byoa' | 'managed' | 'system';
   settings: {
     lineUserId: string;
     isEnabled: boolean;
@@ -50,6 +51,7 @@ type SettingsResult = {
 type AccessResult = {
   allowed: boolean;
   entitled: boolean;
+  mode: 'byoa' | 'managed' | 'system' | null;
   purchaseProductId: string | null;
   purchasePrice: number | null;
   purchaseOptions: PurchaseOption[];
@@ -89,6 +91,7 @@ export function MarketplaceSellerLineSettingsView() {
   const [purchaseProductId, setPurchaseProductId] = useState<string | null>(null);
   const [purchasePrice, setPurchasePrice] = useState<number | null>(null);
   const [purchaseOptions, setPurchaseOptions] = useState<PurchaseOption[]>([]);
+  const usesManagedLine = data?.mode === 'managed';
 
   const load = useCallback(async () => {
     setError('');
@@ -277,7 +280,7 @@ export function MarketplaceSellerLineSettingsView() {
   }
 
   return (
-    <Container maxWidth={false} sx={{ py: { xs: 4, md: 6 } }}>
+    <Container maxWidth={false} sx={{ py: { xs: 3 } }}>
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
         spacing={2}
@@ -332,8 +335,9 @@ export function MarketplaceSellerLineSettingsView() {
           <Card variant="outlined" sx={{ p: { xs: 2.5, md: 3 } }}>
             <Typography variant="h6">ข้อมูลเชื่อมต่อของร้าน</Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 3 }}>
-              ใช้ Credentials ของ LINE Official Account ที่ผู้ขายสร้างเอง Token
-              จะถูกเข้ารหัสและไม่แสดงกลับบนหน้าจอ
+              {usesManagedLine
+                ? 'แพ็กเกจนี้ใช้ LINE Official Account ของระบบ E-KRU ผู้ขายไม่ต้องกรอก Channel access token'
+                : 'ใช้ Credentials ของ LINE Official Account ที่ผู้ขายสร้างเอง Token จะถูกเข้ารหัสและไม่แสดงกลับบนหน้าจอ'}
             </Typography>
             <Stack spacing={2.5}>
               <TextField
@@ -344,23 +348,25 @@ export function MarketplaceSellerLineSettingsView() {
                 onChange={(event) => setLineUserId(event.target.value.trim())}
                 helperText="Your user ID จากแท็บ Basic settings ไม่ใช่ LINE ID หรือ @Basic ID"
               />
-              <TextField
-                required={!data?.settings.hasAccessToken}
-                type="password"
-                label="Channel access token"
-                value={accessToken}
-                onChange={(event) => setAccessToken(event.target.value)}
-                placeholder={
-                  data?.settings.hasAccessToken
-                    ? 'บันทึกไว้แล้ว — กรอกเฉพาะเมื่อต้องการเปลี่ยน'
-                    : 'วาง Long-lived channel access token'
-                }
-                helperText={
-                  data?.settings.hasAccessToken
-                    ? 'ระบบเก็บ Token เดิมไว้แบบเข้ารหัส'
-                    : 'ออก Token จากแท็บ Messaging API ใน LINE Developers Console'
-                }
-              />
+              {!usesManagedLine && (
+                <TextField
+                  required={!data?.settings.hasAccessToken}
+                  type="password"
+                  label="Channel access token"
+                  value={accessToken}
+                  onChange={(event) => setAccessToken(event.target.value)}
+                  placeholder={
+                    data?.settings.hasAccessToken
+                      ? 'บันทึกไว้แล้ว — กรอกเฉพาะเมื่อต้องการเปลี่ยน'
+                      : 'วาง Long-lived channel access token'
+                  }
+                  helperText={
+                    data?.settings.hasAccessToken
+                      ? 'ระบบเก็บ Token เดิมไว้แบบเข้ารหัส'
+                      : 'ออก Token จากแท็บ Messaging API ใน LINE Developers Console'
+                  }
+                />
+              )}
             </Stack>
           </Card>
 
@@ -412,7 +418,9 @@ export function MarketplaceSellerLineSettingsView() {
                 variant="outlined"
                 startIcon={<RiSendPlaneLine />}
                 loading={testing}
-                disabled={!data?.settings.hasAccessToken || !data.settings.lineUserId}
+                disabled={
+                  !data?.settings.lineUserId || (!usesManagedLine && !data.settings.hasAccessToken)
+                }
                 onClick={test}
               >
                 ส่งข้อความทดสอบ

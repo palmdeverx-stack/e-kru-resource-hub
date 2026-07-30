@@ -96,8 +96,7 @@ const DealSchema = z.object({
     .min(1, { error: 'กรุณากรอกราคาตามข้อเสนอ' })
     .refine(
       (value) =>
-        Number.isFinite(Number(value)) &&
-        Number(value) >= MARKETPLACE_MINIMUM_PAID_PRICE_THB,
+        Number.isFinite(Number(value)) && Number(value) >= MARKETPLACE_MINIMUM_PAID_PRICE_THB,
       {
         error: `ราคาหลังส่วนลดต้องไม่น้อยกว่า ${MARKETPLACE_MINIMUM_PAID_PRICE_THB} บาท`,
       }
@@ -212,7 +211,7 @@ export function SellerDealsView() {
   }
 
   return (
-    <Container maxWidth={false} sx={{ py: { xs: 4, md: 6 } }}>
+    <Container maxWidth={false} sx={{ py: { xs: 3 } }}>
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
         justifyContent="space-between"

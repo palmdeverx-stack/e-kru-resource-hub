@@ -553,6 +553,9 @@ export function OrderStatusChip({ status }: { status: MarketplaceOrder['status']
   if (status === 'refunded') {
     return <Chip color="default" size="small" label="คืนเงินแล้ว" variant="soft" />;
   }
+  if (status === 'disputed') {
+    return <Chip color="error" size="small" label="อยู่ระหว่างข้อพิพาท" variant="soft" />;
+  }
   if (status === 'cancelled') {
     return <Chip color="default" size="small" label="ยกเลิก" variant="soft" />;
   }

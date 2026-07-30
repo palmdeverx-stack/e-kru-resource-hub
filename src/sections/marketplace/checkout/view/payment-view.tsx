@@ -130,6 +130,10 @@ export function MarketplacePaymentView({
           <Alert severity="success" icon={<RiCheckboxCircleLine />}>
             ยืนยันการชำระเงินแล้ว สินค้าของคุณพร้อมใช้งาน
           </Alert>
+        ) : session.status === 'disputed' ? (
+          <Alert severity="error">
+            รายการนี้อยู่ระหว่างข้อพิพาทกับธนาคาร ระบบระงับสิทธิ์ชั่วคราวจนกว่าจะทราบผล
+          </Alert>
         ) : isStripe && session.status === 'pending_payment' ? (
           <Alert severity="info">
             หากชำระแล้ว ระบบกำลังรอการยืนยันยอดอัตโนมัติ คุณสามารถกดรีเฟรชสถานะได้

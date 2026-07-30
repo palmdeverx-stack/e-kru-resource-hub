@@ -11,6 +11,7 @@ import {
 export type SellerLineFeatureAccess = {
   allowed: boolean;
   entitled: boolean;
+  mode: 'byoa' | 'managed' | 'system' | null;
   purchaseProductId: string | null;
   purchasePrice: number | null;
   purchaseOptions: Array<{
@@ -41,6 +42,7 @@ export async function getSellerLineFeatureAccess(
     return {
       allowed: true,
       entitled: true,
+      mode: 'system',
       purchaseProductId: null,
       purchasePrice: null,
       purchaseOptions: [],
@@ -61,6 +63,7 @@ export async function getSellerLineFeatureAccess(
     return {
       allowed: false,
       entitled: false,
+      mode: null,
       purchaseProductId: null,
       purchasePrice: null,
       purchaseOptions: [],
@@ -73,11 +76,12 @@ export async function getSellerLineFeatureAccess(
     await Promise.all([
       supabaseAdmin
         .from('marketplace_user_licenses')
-        .select('id')
+        .select('id,feature_keys,created_at')
         .eq('buyer_id', userId)
         .eq('status', 'active')
         .or(`expires_at.is.null,expires_at.gt.${now}`)
         .overlaps('feature_keys', keys)
+        .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle(),
       supabaseAdmin
@@ -136,6 +140,11 @@ export async function getSellerLineFeatureAccess(
   return {
     allowed: true,
     entitled: Boolean(license),
+    mode: license
+      ? license.feature_keys?.includes(MARKETPLACE_SELLER_LINE_MANAGED_FEATURE_KEY)
+        ? 'managed'
+        : 'byoa'
+      : null,
     purchaseProductId: options[0]?.productId ?? null,
     purchasePrice: options[0]?.price ?? null,
     purchaseOptions: options,

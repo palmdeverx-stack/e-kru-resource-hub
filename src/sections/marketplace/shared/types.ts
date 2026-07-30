@@ -155,7 +155,7 @@ export type MarketplaceSchoolLicense = {
   seat_count: number;
   starts_at: string;
   expires_at: string;
-  status: 'active' | 'renewed' | 'expired' | 'revoked' | 'refunded';
+  status: 'active' | 'renewed' | 'expired' | 'disputed' | 'revoked' | 'refunded';
   grants_plan_code?: string | null;
   max_teachers?: number | null;
   max_students?: number | null;
@@ -315,6 +315,7 @@ export type MarketplaceOrder = {
     | 'payment_rejected'
     | 'paid'
     | 'completed'
+    | 'disputed'
     | 'cancelled'
     | 'refunded';
   total: number;
@@ -338,7 +339,7 @@ export type MarketplaceOrder = {
     amount: number;
     currency: string;
     payment_method: 'promptpay' | 'stripe' | 'free';
-    status: 'pending_payment' | 'payment_review' | 'verified' | 'rejected' | 'expired';
+    status: 'pending_payment' | 'payment_review' | 'verified' | 'disputed' | 'rejected' | 'expired';
     submitted_at: string | null;
     reviewed_at: string | null;
     rejection_reason: string | null;
@@ -412,7 +413,7 @@ export type MarketplaceOrder = {
     grants_plan_code: string | null;
     starts_at: string;
     expires_at: string;
-    status: 'active' | 'renewed' | 'expired' | 'revoked' | 'refunded';
+    status: 'active' | 'renewed' | 'expired' | 'disputed' | 'revoked' | 'refunded';
     school?: { id: string; name: string } | null;
   }>;
   user_licenses?: Array<{
@@ -424,7 +425,7 @@ export type MarketplaceOrder = {
     duration_days: number | null;
     starts_at: string;
     expires_at: string | null;
-    status: 'active' | 'renewed' | 'expired' | 'revoked' | 'refunded';
+    status: 'active' | 'renewed' | 'expired' | 'disputed' | 'revoked' | 'refunded';
   }>;
 };
 
@@ -434,7 +435,7 @@ export type MarketplacePaymentSession = {
   amount: number;
   currency: string;
   payment_method: 'promptpay' | 'stripe' | 'free';
-  status: 'pending_payment' | 'payment_review' | 'verified' | 'rejected' | 'expired';
+  status: 'pending_payment' | 'payment_review' | 'verified' | 'disputed' | 'rejected' | 'expired';
   account_name_snapshot: string | null;
   slip_file_name: string | null;
   submitted_at: string | null;

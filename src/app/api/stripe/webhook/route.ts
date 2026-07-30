@@ -5,14 +5,15 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { createNotifications } from 'src/lib/notifications';
 
+import { handleStripeDispute } from 'src/sections/marketplace/checkout/server/dispute-lifecycle';
 import { getStripe, getStripeWebhookSecret } from 'src/sections/marketplace/checkout/server/stripe';
 import { finalizeMarketplacePayment } from 'src/sections/marketplace/checkout/server/finalize-payment';
 import { revokeLicensesForPaymentSession } from 'src/sections/marketplace/checkout/server/license-lifecycle';
 
 export const runtime = 'nodejs';
 
-async function getProcessorFee(paymentIntentId: string | null) {
-  if (!paymentIntentId) return 0;
+async function getProcessorDetails(paymentIntentId: string | null) {
+  if (!paymentIntentId) return { fee: 0, snapshot: null };
   try {
     const intent = await getStripe().paymentIntents.retrieve(paymentIntentId, {
       expand: ['latest_charge.balance_transaction'],
@@ -20,9 +21,27 @@ async function getProcessorFee(paymentIntentId: string | null) {
     const charge = typeof intent.latest_charge === 'object' ? intent.latest_charge : null;
     const transaction =
       charge && typeof charge.balance_transaction === 'object' ? charge.balance_transaction : null;
-    return transaction ? Number(transaction.fee) / 100 : 0;
+    return {
+      fee: transaction ? Number(transaction.fee) / 100 : 0,
+      snapshot: {
+        id: intent.id,
+        status: intent.status,
+        amount: intent.amount,
+        currency: intent.currency,
+        created: intent.created,
+        payment_method_types: intent.payment_method_types,
+        receipt_email: intent.receipt_email,
+        latest_charge: charge && {
+          id: charge.id,
+          billing_details: charge.billing_details,
+          outcome: charge.outcome,
+          payment_method_details: charge.payment_method_details,
+          receipt_url: charge.receipt_url,
+        },
+      },
+    };
   } catch {
-    return 0;
+    return { fee: 0, snapshot: null };
   }
 }
 
@@ -72,10 +91,7 @@ async function markStripePaymentFailed(
       userId: local.buyer_id,
       schoolId: null,
       type: `marketplace_stripe_${status}`,
-      title:
-        status === 'expired'
-          ? 'รายการชำระเงินออนไลน์หมดอายุ'
-          : 'การชำระเงินออนไลน์ไม่สำเร็จ',
+      title: status === 'expired' ? 'รายการชำระเงินออนไลน์หมดอายุ' : 'การชำระเงินออนไลน์ไม่สำเร็จ',
       body: reason,
       link: `/checkout/payment/${local.id}`,
     },
@@ -196,12 +212,13 @@ export async function POST(request: Request) {
           typeof stripeSession.payment_intent === 'string'
             ? stripeSession.payment_intent
             : (stripeSession.payment_intent?.id ?? null);
-        const processorFee = await getProcessorFee(paymentIntentId);
+        const processor = await getProcessorDetails(paymentIntentId);
         await finalizeMarketplacePayment({
           paymentSessionId: local.id,
           allowedStatuses: ['pending_payment'],
           stripePaymentIntentId: paymentIntentId,
-          processorFee,
+          processorFee: processor.fee,
+          paymentSnapshot: processor.snapshot,
         });
       }
     } else if (event.type === 'checkout.session.expired') {
@@ -216,6 +233,14 @@ export async function POST(request: Request) {
         'rejected',
         'Stripe แจ้งว่าการชำระเงินไม่สำเร็จ'
       );
+    } else if (
+      event.type === 'charge.dispute.created' ||
+      event.type === 'charge.dispute.updated' ||
+      event.type === 'charge.dispute.closed' ||
+      event.type === 'charge.dispute.funds_withdrawn' ||
+      event.type === 'charge.dispute.funds_reinstated'
+    ) {
+      paymentSessionId = await handleStripeDispute(event.data.object as Stripe.Dispute, event.type);
     } else if (event.type === 'charge.refunded') {
       paymentSessionId = await refundStripePayment(event.data.object as Stripe.Charge);
     } else if (event.type === 'payment_intent.payment_failed') {

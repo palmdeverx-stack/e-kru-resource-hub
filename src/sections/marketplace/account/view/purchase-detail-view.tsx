@@ -796,6 +796,7 @@ function licenseStatusLabel(status: string) {
   if (status === 'active') return 'License ใช้งานได้';
   if (status === 'renewed') return 'ต่ออายุแล้ว';
   if (status === 'expired') return 'หมดอายุ';
+  if (status === 'disputed') return 'ระงับระหว่างข้อพิพาท';
   if (status === 'revoked') return 'ถูกเพิกถอน';
   if (status === 'refunded') return 'คืนเงินแล้ว';
   return status;
@@ -830,6 +831,16 @@ function OrderStatusChip({ status }: { status: MarketplaceOrder['status'] }) {
   if (status === 'refunded') {
     return <Chip label="คืนเงินแล้ว" variant="soft" sx={{ bgcolor: 'background.paper' }} />;
   }
+  if (status === 'disputed') {
+    return (
+      <Chip
+        color="error"
+        label="อยู่ระหว่างข้อพิพาท"
+        variant="soft"
+        sx={{ bgcolor: 'background.paper' }}
+      />
+    );
+  }
   if (status === 'cancelled') {
     return <Chip label="ยกเลิก" variant="soft" sx={{ bgcolor: 'background.paper' }} />;
   }
@@ -842,15 +853,15 @@ function statusLabel(status: MarketplaceOrder['status']) {
   if (['paid', 'completed'].includes(status)) return 'ชำระแล้ว / พร้อมใช้งาน';
   if (status === 'payment_review') return 'รอตรวจสอบสลิป';
   if (status === 'payment_rejected') return 'สลิปไม่ผ่าน';
+  if (status === 'disputed') return 'อยู่ระหว่างข้อพิพาท';
   if (status === 'refunded') return 'คืนเงินแล้ว';
   if (status === 'cancelled') return 'ยกเลิก';
   return 'รอชำระเงิน';
 }
 
-function paymentStatusLabel(
-  status?: 'pending_payment' | 'payment_review' | 'verified' | 'rejected' | 'expired'
-) {
+function paymentStatusLabel(status?: NonNullable<MarketplaceOrder['payment_session']>['status']) {
   if (status === 'verified') return 'ยืนยันแล้ว';
+  if (status === 'disputed') return 'อยู่ระหว่างข้อพิพาท';
   if (status === 'payment_review') return 'รอตรวจสอบ';
   if (status === 'rejected') return 'ไม่ผ่านการตรวจสอบ';
   if (status === 'expired') return 'หมดอายุ';

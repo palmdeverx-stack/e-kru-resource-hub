@@ -100,7 +100,7 @@ export function SecurityAuditView() {
   }, [load]);
 
   return (
-    <Container maxWidth={false} sx={{ py: { xs: 4, md: 6 } }}>
+    <Container maxWidth={false} sx={{ py: { xs: 3 } }}>
       <Box sx={{ mb: 4 }}>
         <Typography component="h1" variant="h3">
           บันทึกความปลอดภัย
@@ -110,7 +110,11 @@ export function SecurityAuditView() {
         </Typography>
       </Box>
 
-      {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
+      )}
 
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 3 }}>
         <TextField
@@ -125,7 +129,9 @@ export function SecurityAuditView() {
         >
           <MenuItem value="">ทั้งหมด</MenuItem>
           {Object.entries(categoryLabels).map(([value, label]) => (
-            <MenuItem key={value} value={value}>{label}</MenuItem>
+            <MenuItem key={value} value={value}>
+              {label}
+            </MenuItem>
           ))}
         </TextField>
         <TextField
@@ -140,7 +146,9 @@ export function SecurityAuditView() {
         >
           <MenuItem value="">ทั้งหมด</MenuItem>
           {Object.entries(resultLabels).map(([value, label]) => (
-            <MenuItem key={value} value={value}>{label}</MenuItem>
+            <MenuItem key={value} value={value}>
+              {label}
+            </MenuItem>
           ))}
         </TextField>
       </Stack>
@@ -183,7 +191,9 @@ export function SecurityAuditView() {
                       {formatThaiDateTime(item.created_at)}
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2">{item.actor_username || 'ไม่ระบุตัวตน'}</Typography>
+                      <Typography variant="body2">
+                        {item.actor_username || 'ไม่ระบุตัวตน'}
+                      </Typography>
                       <Typography variant="caption" color="text.secondary">
                         {item.actor_role || '-'}
                       </Typography>
@@ -236,11 +246,19 @@ export function SecurityAuditView() {
         <DialogContent dividers>
           {selected && (
             <Stack spacing={2}>
-              <Typography><strong>เหตุการณ์:</strong> {selected.action}</Typography>
-              <Typography><strong>Request ID:</strong> {selected.request_id || '-'}</Typography>
-              <Typography><strong>User Agent:</strong> {selected.user_agent || '-'}</Typography>
+              <Typography>
+                <strong>เหตุการณ์:</strong> {selected.action}
+              </Typography>
+              <Typography>
+                <strong>Request ID:</strong> {selected.request_id || '-'}
+              </Typography>
+              <Typography>
+                <strong>User Agent:</strong> {selected.user_agent || '-'}
+              </Typography>
               <Box>
-                <Typography sx={{ mb: 1 }}><strong>Metadata</strong></Typography>
+                <Typography sx={{ mb: 1 }}>
+                  <strong>Metadata</strong>
+                </Typography>
                 <Box
                   component="pre"
                   sx={{
@@ -264,4 +282,3 @@ export function SecurityAuditView() {
     </Container>
   );
 }
-

@@ -36,7 +36,7 @@ export async function GET(request: Request) {
 
   const { data: seller } = await supabaseAdmin
     .from('marketplace_sellers')
-    .select('id, display_name, status')
+    .select('id, display_name, status, owner_role, commission_rate_override')
     .eq('owner_id', caller.sub)
     .maybeSingle();
   if (!seller) return NextResponse.json({ message: 'ไม่พบร้านค้า' }, { status: 404 });
@@ -90,6 +90,10 @@ export async function GET(request: Request) {
   const successfulOrders = orderRows.filter((order) =>
     ['paid', 'completed'].includes(order.status)
   );
+  const effectiveCommissionRate =
+    seller.owner_role === 'master_admin' || seller.owner_role === 'super_admin'
+      ? 0
+      : Number(seller.commission_rate_override ?? finance.commission_rate);
   const grossSales = successfulOrders.reduce((sum, order) => sum + Number(order.gross_amount), 0);
   const underReview = orderRows
     .filter((order) =>
@@ -124,6 +128,13 @@ export async function GET(request: Request) {
       payoutDay: Number(finance.payout_day),
       minimumPayout: Number(finance.minimum_payout),
       holdDays: Number(finance.hold_days),
+      commissionRate: effectiveCommissionRate,
+      commissionSource:
+        seller.owner_role === 'master_admin' || seller.owner_role === 'super_admin'
+          ? 'system_store'
+          : seller.commission_rate_override === null
+            ? 'default'
+            : 'seller_override',
       nextPayoutAt: nextPayoutDate(Number(finance.payout_day)),
     },
     orders: orderRows,

@@ -4,6 +4,8 @@ import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { requireAuthenticated } from 'src/lib/auth-token';
 import { writeSecurityAudit } from 'src/lib/security-audit';
 
+import { recordEntitlementUsage } from 'src/sections/marketplace/checkout/server/order-evidence';
+
 type Context = { params: Promise<{ fileId: string }> };
 
 export async function GET(request: Request, { params }: Context) {
@@ -86,6 +88,15 @@ export async function GET(request: Request, { params }: Context) {
     );
   }
 
+  const context = await recordEntitlementUsage({
+    request,
+    buyerId: caller.sub,
+    eventType: 'product_download',
+    orderId: orderItem.order[0]?.id ?? null,
+    orderItemId: orderItem.id,
+    productId: file.product_id,
+    metadata: { product_file_id: file.id, file_name: file.file_name },
+  });
   const { error: analyticsError } = await supabaseAdmin
     .from('marketplace_product_downloads')
     .insert({
@@ -93,6 +104,9 @@ export async function GET(request: Request, { params }: Context) {
       product_file_id: file.id,
       order_item_id: orderItem.id,
       buyer_id: caller.sub,
+      ip_address: context.ipAddress,
+      user_agent: context.userAgent,
+      request_id: context.requestId,
     });
   if (analyticsError) {
     await writeSecurityAudit({

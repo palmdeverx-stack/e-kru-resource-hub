@@ -6,6 +6,7 @@ import { requireAuthenticated } from 'src/lib/auth-token';
 import { STRIPE_MINIMUM_THB } from 'src/sections/marketplace/shared/payment';
 import { withMediaUrls } from 'src/sections/marketplace/seller/server/product-media';
 import { money, getFinanceSettings } from 'src/sections/marketplace/admin/server/finance';
+import { captureOrderEvidence } from 'src/sections/marketplace/checkout/server/order-evidence';
 import { getStripe, isStripeConfigured } from 'src/sections/marketplace/checkout/server/stripe';
 import { resolveReferralAttribution } from 'src/sections/marketplace/referrals/server/referrals';
 import { withPublicSystemStoreFlag } from 'src/sections/marketplace/seller/server/public-seller';
@@ -109,6 +110,12 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json().catch(() => null);
+  if (body?.acceptedPurchaseTerms !== true) {
+    return NextResponse.json(
+      { message: 'กรุณายอมรับข้อกำหนดการซื้อและนโยบายคืนเงินก่อนชำระเงิน' },
+      { status: 400 }
+    );
+  }
   const requestedPaymentMethod = String(body?.paymentMethod ?? '');
   let requestedLicenseSchoolId = String(body?.licenseSchoolId ?? '').trim();
   const salesDealToken = String(body?.salesDealToken ?? '').trim();
@@ -125,7 +132,7 @@ export async function POST(request: Request) {
   const { data: products, error: productError } = await supabaseAdmin
     .from('marketplace_products')
     .select(
-      'id, seller_id, title, category, price, list_price, currency, status, resource_type, grants_feature_key, grants_feature_keys, grants_plan_code, grant_duration_days, license_scope, license_seat_count, license_max_teachers, license_max_students, license_max_school_admins, license_line_quota, seller:marketplace_sellers(owner_role, commission_rate_override)'
+      'id, seller_id, title, title_en, category, short_description, description, price, list_price, currency, status, resource_type, grants_feature_key, grants_feature_keys, grants_plan_code, grant_duration_days, license_scope, license_seat_count, license_max_teachers, license_max_students, license_max_school_admins, license_line_quota, purchase_benefits, seller:marketplace_sellers(owner_role, commission_rate_override)'
     )
     .in('id', uniqueProductIds)
     .eq('status', 'published');
@@ -395,6 +402,26 @@ export async function POST(request: Request) {
       await cleanupCheckout(paymentSession.id);
       return NextResponse.json({ message: itemError.message }, { status: 500 });
     }
+    try {
+      await captureOrderEvidence({
+        request,
+        caller,
+        orderId: order.id,
+        paymentSessionId: paymentSession.id,
+        products: items,
+      });
+    } catch (evidenceError) {
+      await cleanupCheckout(paymentSession.id);
+      return NextResponse.json(
+        {
+          message:
+            evidenceError instanceof Error
+              ? `บันทึกหลักฐานคำสั่งซื้อไม่สำเร็จ: ${evidenceError.message}`
+              : 'บันทึกหลักฐานคำสั่งซื้อไม่สำเร็จ',
+        },
+        { status: 500 }
+      );
+    }
 
     if (isFree) {
       await supabaseAdmin.from('marketplace_ledger_entries').insert([
@@ -446,9 +473,15 @@ export async function POST(request: Request) {
   if (!isFree && requestedPaymentMethod === 'stripe') {
     try {
       const origin = new URL(request.url).origin;
+      const { data: buyerForStripe } = await supabaseAdmin
+        .from('app_users')
+        .select('email')
+        .eq('id', caller.sub)
+        .maybeSingle();
       const stripeSession = await getStripe().checkout.sessions.create({
         mode: 'payment',
         client_reference_id: paymentSession.id,
+        customer_email: buyerForStripe?.email ?? undefined,
         line_items: [...itemsBySeller.values()]
           .flat()
           .filter((item) => Number(item.price) > 0)
