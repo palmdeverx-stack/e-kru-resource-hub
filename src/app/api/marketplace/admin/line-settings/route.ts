@@ -5,6 +5,9 @@ import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { encryptLineCredential, decryptLineCredential } from 'src/lib/line-credentials';
 
+import { MARKETPLACE_MINIMUM_PAID_PRICE_THB } from 'src/sections/marketplace/shared/payment';
+import { syncSellerLineFeatureProducts } from 'src/sections/marketplace/seller/server/seller-line-product';
+
 function authorize(request: Request) {
   return requireRole(request, ['master_admin']);
 }
@@ -90,6 +93,11 @@ export async function GET(request: Request) {
       notifyNewSeller: settings?.notify_new_seller ?? true,
       notifyProductApproval: settings?.notify_product_approval ?? true,
       allowSellerNotifications: settings?.allow_seller_notifications ?? false,
+      sellerNotificationPrice: Number(settings?.seller_notification_price ?? 99),
+      sellerByoaDescription: settings?.seller_byoa_description ?? '',
+      sellerManagedPrice: Number(settings?.seller_managed_price ?? 99),
+      sellerManagedDescription: settings?.seller_managed_description ?? '',
+      sellerManagedQuota: Number(settings?.seller_managed_quota ?? 100),
       lineDisplayName: settings?.line_display_name ?? null,
       lineLinkedAt: settings?.line_linked_at ?? null,
     },
@@ -103,7 +111,8 @@ export async function GET(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  if (!authorize(request)) {
+  const caller = authorize(request);
+  if (!caller) {
     return NextResponse.json({ message: 'ไม่มีสิทธิ์ตั้งค่า LINE Marketplace' }, { status: 403 });
   }
 
@@ -115,6 +124,11 @@ export async function PATCH(request: Request) {
   const channelSecret = String(body?.channelSecret ?? '').trim();
   const accessToken = String(body?.accessToken ?? '').trim();
   const isEnabled = body?.isEnabled === true;
+  const sellerNotificationPrice = Number(body?.sellerNotificationPrice);
+  const sellerByoaDescription = String(body?.sellerByoaDescription ?? '').trim();
+  const sellerManagedPrice = Number(body?.sellerManagedPrice);
+  const sellerManagedDescription = String(body?.sellerManagedDescription ?? '').trim();
+  const sellerManagedQuota = Number(body?.sellerManagedQuota);
   const expectedPath = '/api/line/marketplace/webhook';
 
   let parsedWebhook: URL | null = null;
@@ -136,7 +150,15 @@ export async function PATCH(request: Request) {
     Boolean(parsedWebhook.search || parsedWebhook.hash) ||
     typeof body?.notifyNewSeller !== 'boolean' ||
     typeof body?.notifyProductApproval !== 'boolean' ||
-    typeof body?.allowSellerNotifications !== 'boolean'
+    typeof body?.allowSellerNotifications !== 'boolean' ||
+    !Number.isFinite(sellerNotificationPrice) ||
+    sellerNotificationPrice < MARKETPLACE_MINIMUM_PAID_PRICE_THB ||
+    !sellerByoaDescription ||
+    !Number.isFinite(sellerManagedPrice) ||
+    sellerManagedPrice < MARKETPLACE_MINIMUM_PAID_PRICE_THB ||
+    !sellerManagedDescription ||
+    !Number.isInteger(sellerManagedQuota) ||
+    sellerManagedQuota <= 0
   ) {
     return NextResponse.json({ message: 'ข้อมูลการเชื่อมต่อ LINE ไม่ถูกต้อง' }, { status: 400 });
   }
@@ -167,6 +189,11 @@ export async function PATCH(request: Request) {
       notify_new_seller: body.notifyNewSeller,
       notify_product_approval: body.notifyProductApproval,
       allow_seller_notifications: body.allowSellerNotifications,
+      seller_notification_price: sellerNotificationPrice,
+      seller_byoa_description: sellerByoaDescription,
+      seller_managed_price: sellerManagedPrice,
+      seller_managed_description: sellerManagedDescription,
+      seller_managed_quota: sellerManagedQuota,
       ...(channelSecret && { channel_secret_encrypted: encryptLineCredential(channelSecret) }),
       ...(accessToken && { channel_access_token_encrypted: encryptLineCredential(accessToken) }),
       updated_at: new Date().toISOString(),
@@ -174,6 +201,28 @@ export async function PATCH(request: Request) {
     { onConflict: 'id' }
   );
   if (error) return NextResponse.json({ message: error.message }, { status: 500 });
+  try {
+    await syncSellerLineFeatureProducts({
+      adminUserId: caller.sub,
+      enabled: body.allowSellerNotifications,
+      byoa: { price: sellerNotificationPrice, description: sellerByoaDescription },
+      managed: {
+        price: sellerManagedPrice,
+        description: sellerManagedDescription,
+        quota: sellerManagedQuota,
+      },
+    });
+  } catch (syncError) {
+    return NextResponse.json(
+      {
+        message:
+          syncError instanceof Error
+            ? `บันทึกการตั้งค่าแล้ว แต่เตรียมสินค้าฟีเจอร์ไม่สำเร็จ: ${syncError.message}`
+            : 'บันทึกการตั้งค่าแล้ว แต่เตรียมสินค้าฟีเจอร์ไม่สำเร็จ',
+      },
+      { status: 500 }
+    );
+  }
   return NextResponse.json({
     success: true,
     requiresLineLink,

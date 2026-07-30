@@ -43,6 +43,7 @@ import {
   RiShareForwardLine,
   RiShoppingBag3Line,
   RiGraduationCapLine,
+  RiCheckboxCircleLine,
   RiDownloadCloud2Line,
 } from 'src/components/remix-icon';
 
@@ -52,6 +53,7 @@ import { findSampleProduct } from '../../shared/constants';
 import { useMarketplaceCart } from '../../cart/cart-context';
 import { getMarketplacePricing } from '../../shared/pricing';
 import { MarketplaceSellerLink } from '../../shared/seller-link';
+import { MARKETPLACE_SELLER_LINE_FEATURE } from '../../seller/line-feature';
 import {
   stripHtml,
   getProduct,
@@ -68,7 +70,10 @@ import {
 
 const VISITOR_STORAGE_KEY = 'ekru_marketplace_visitor_id';
 const featureLabels = new Map<string, string>(
-  SCHOOL_FEATURES.map((feature) => [feature.key, feature.label])
+  [...SCHOOL_FEATURES, MARKETPLACE_SELLER_LINE_FEATURE].map((feature) => [
+    feature.key,
+    feature.label,
+  ])
 );
 
 export function MarketplaceProductDetailView({
@@ -250,6 +255,9 @@ export function MarketplaceProductDetailView({
 
   const content = getLocalizedProduct(product, currentLang.value);
   const pricing = getMarketplacePricing(product);
+  const purchaseBenefits = (product.purchase_benefits ?? [])
+    .map((item) => item.trim())
+    .filter(Boolean);
 
   const handleAdd = () => {
     addItem(product);
@@ -622,6 +630,38 @@ export function MarketplaceProductDetailView({
                     {stripHtml(content.description)}
                   </Typography>
                 </Box>
+                {!!purchaseBenefits.length && (
+                  <Box
+                    sx={{
+                      p: 2.5,
+                      borderRadius: 2.5,
+                      bgcolor: 'success.lighter',
+                      border: '1px solid',
+                      borderColor: 'success.light',
+                    }}
+                  >
+                    <Typography variant="h5" sx={{ mb: 1.5 }}>
+                      สิ่งที่คุณจะได้รับหลังชำระเงินสำเร็จ
+                    </Typography>
+                    <Stack spacing={1.25}>
+                      {purchaseBenefits.map((benefit, index) => (
+                        <Stack
+                          key={`${benefit}-${index}`}
+                          direction="row"
+                          spacing={1}
+                          alignItems="flex-start"
+                        >
+                          <RiCheckboxCircleLine
+                            size={20}
+                            color="#16A34A"
+                            style={{ flexShrink: 0, marginTop: 2 }}
+                          />
+                          <Typography variant="body2">{benefit}</Typography>
+                        </Stack>
+                      ))}
+                    </Stack>
+                  </Box>
+                )}
               </Stack>
             </Grid>
 
@@ -1347,6 +1387,40 @@ export function MarketplaceProductDetailView({
               {stripHtml(content.description)}
             </Typography>
           </Box>
+
+          {!!purchaseBenefits.length && (
+            <Box
+              sx={{
+                p: { xs: 2, sm: 2.5 },
+                mt: 4,
+                borderRadius: 2.5,
+                bgcolor: 'success.lighter',
+                border: '1px solid',
+                borderColor: 'success.light',
+              }}
+            >
+              <Typography variant="h5" sx={{ mb: 1.5 }}>
+                สิ่งที่คุณจะได้รับหลังชำระเงินสำเร็จ
+              </Typography>
+              <Stack spacing={1.25}>
+                {purchaseBenefits.map((benefit, index) => (
+                  <Stack
+                    key={`${benefit}-${index}`}
+                    direction="row"
+                    spacing={1}
+                    alignItems="flex-start"
+                  >
+                    <RiCheckboxCircleLine
+                      size={20}
+                      color="#16A34A"
+                      style={{ flexShrink: 0, marginTop: 2 }}
+                    />
+                    <Typography variant="body2">{benefit}</Typography>
+                  </Stack>
+                ))}
+              </Stack>
+            </Box>
+          )}
         </Grid>
 
         <Grid size={{ xs: 12, md: 5 }}>

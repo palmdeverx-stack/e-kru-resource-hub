@@ -114,11 +114,11 @@ export function MarketplacePaymentView({
   const isStripe = session.payment_method === 'stripe';
 
   return (
-    <Container maxWidth="md" sx={{ py: { xs: 4, md: 7 } }}>
+    <Container maxWidth={false} sx={{ py: { xs: 3 } }}>
       <Stack spacing={3}>
         <Box>
           <Typography component="h1" variant="h3">
-            {isStripe ? 'ชำระผ่าน Stripe' : 'ชำระด้วย PromptPay'}
+            {isStripe ? 'ชำระผ่านระบบออนไลน์' : 'ชำระด้วย PromptPay'}
           </Typography>
           <Typography color="text.secondary">
             รายการ #{session.id.slice(0, 8).toUpperCase()}
@@ -132,11 +132,11 @@ export function MarketplacePaymentView({
           </Alert>
         ) : isStripe && session.status === 'pending_payment' ? (
           <Alert severity="info">
-            หากชำระแล้ว ระบบกำลังรอ Stripe webhook ยืนยันยอด คุณสามารถกดรีเฟรชสถานะได้
+            หากชำระแล้ว ระบบกำลังรอการยืนยันยอดอัตโนมัติ คุณสามารถกดรีเฟรชสถานะได้
           </Alert>
         ) : isStripe && ['rejected', 'expired'].includes(session.status) ? (
           <Alert severity="error">
-            {session.rejection_reason || 'Stripe Checkout รายการนี้ไม่สามารถชำระต่อได้'}
+            {session.rejection_reason || 'รายการชำระเงินออนไลน์นี้ไม่สามารถชำระต่อได้'}
           </Alert>
         ) : awaitingReview ? (
           <Alert severity="warning">
@@ -157,8 +157,8 @@ export function MarketplacePaymentView({
               ยอดชำระ {formatPrice(Number(session.amount))}
             </Typography>
             <Typography color="text.secondary" sx={{ mt: 1, mb: 3 }}>
-              Stripe Checkout รองรับช่องทางที่เปิดไว้ใน Stripe Dashboard และจะยืนยันคำสั่งซื้อผ่าน
-              webhook เท่านั้น
+              ระบบรองรับบัตรเครดิต บัตรเดบิต และ PromptPay ตามเงื่อนไข
+              พร้อมยืนยันคำสั่งซื้ออัตโนมัติ
             </Typography>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="center">
               {session.status === 'pending_payment' && session.stripe_checkout_url && (
@@ -167,7 +167,7 @@ export function MarketplacePaymentView({
                   variant="contained"
                   startIcon={<RiBankCardLine />}
                 >
-                  ไปยัง Stripe Checkout
+                  ไปยังหน้าชำระเงิน
                 </Button>
               )}
               <Button variant="outlined" onClick={load}>

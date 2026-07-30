@@ -126,12 +126,18 @@ export async function getProductPurchaseAccess({
         .order('expires_at', { ascending: false })
         .limit(1);
       const expiresAt = licenses?.[0]?.expires_at ?? null;
-      const isActive = Boolean(expiresAt && new Date(expiresAt).getTime() > Date.now());
+      const isPerpetual = Boolean(licenses?.length && !expiresAt);
+      const isActive =
+        isPerpetual || Boolean(expiresAt && new Date(expiresAt).getTime() > Date.now());
       return {
         canPurchase: !isActive,
         hasPurchased: Boolean(licenses?.length),
         accessExpiresAt: expiresAt,
-        message: isActive ? 'สิทธิ์ส่วนบุคคลนี้ยังใช้งานอยู่' : null,
+        message: isPerpetual
+          ? 'บัญชีนี้ซื้อสิทธิ์ถาวรแล้ว'
+          : isActive
+            ? 'สิทธิ์ส่วนบุคคลนี้ยังใช้งานอยู่'
+            : null,
       };
     }
 

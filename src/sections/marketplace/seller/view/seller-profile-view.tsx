@@ -14,6 +14,7 @@ import Avatar from '@mui/material/Avatar';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
 import Container from '@mui/material/Container';
+import { useTheme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import LinearProgress from '@mui/material/LinearProgress';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -28,18 +29,18 @@ import {
   RiUser3Line,
   RiStore2Line,
   RiFileTextLine,
+  RiShieldStarFill,
   RiShieldCheckLine,
   RiInformationLine,
   RiExternalLinkLine,
-  RiShieldStarFill,
   RiVerifiedBadgeFill,
   RiCheckboxCircleLine,
 } from 'src/components/remix-icon';
 
 import { getSeller } from '../../shared/api';
 import {
-  isSystemMarketplaceSeller,
   isSellerProfileVerified,
+  isSystemMarketplaceSeller,
   getSellerProfileCompletion,
 } from '../../shared/seller-completion';
 
@@ -62,6 +63,7 @@ const documentLabel: Record<string, string> = {
 };
 
 export function MarketplaceSellerProfileView() {
+  const theme = useTheme();
   const [seller, setSeller] = useState<MarketplaceSeller | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -236,14 +238,14 @@ export function MarketplaceSellerProfileView() {
               {isSellerProfileVerified(completion) && (
                 <RiVerifiedBadgeFill
                   size={26}
-                  color="#1565F5"
+                  color={theme.palette.primary.main}
                   aria-label="ร้านค้าที่ผ่านการตรวจสอบ"
                 />
               )}
               {isSystemMarketplaceSeller(seller) && (
                 <RiShieldStarFill
                   size={26}
-                  color="#7C3AED"
+                  color={theme.palette.primary.main}
                   aria-label="ร้านค้าระบบ E-KRU"
                 />
               )}

@@ -290,6 +290,16 @@ create table if not exists public.marketplace_line_settings (
   notify_new_seller boolean not null default true,
   notify_product_approval boolean not null default true,
   allow_seller_notifications boolean not null default false,
+  seller_notification_price numeric(12, 2) not null default 99
+    check (seller_notification_price >= 10),
+  seller_byoa_description text not null
+    default 'ใช้ LINE OA ของตัวเอง กรอก Channel token และ User ID เอง',
+  seller_managed_price numeric(12, 2) not null default 99
+    check (seller_managed_price >= 10),
+  seller_managed_description text not null
+    default 'ใช้ LINE OA ของระบบ E-KRU ไม่ต้องกรอก Channel token',
+  seller_managed_quota integer not null default 100
+    check (seller_managed_quota > 0),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -557,11 +567,22 @@ create table if not exists public.marketplace_products (
   sale_type_id uuid references public.marketplace_sale_types(id),
   resource_type text not null default 'digital'
     check (resource_type in ('digital', 'physical', 'service')),
-  price numeric(12, 2) not null default 0 check (price >= 0),
+  price numeric(12, 2) not null default 0
+    check (price = 0 or price >= 10),
   list_price numeric(12, 2) check (list_price is null or (list_price >= 0 and list_price >= price)),
   currency text not null default 'THB',
   cover_url text,
   file_url text,
+  external_links jsonb not null default '[]'::jsonb
+    check (
+      jsonb_typeof(external_links) = 'array'
+      and jsonb_array_length(external_links) <= 3
+    ),
+  purchase_benefits jsonb not null default '[]'::jsonb
+    check (
+      jsonb_typeof(purchase_benefits) = 'array'
+      and jsonb_array_length(purchase_benefits) <= 8
+    ),
   status text not null default 'pending_review'
     check (status in ('draft', 'pending_review', 'published', 'rejected', 'archived')),
   submitted_at timestamptz,
@@ -604,6 +625,26 @@ alter table public.marketplace_products
   add column if not exists subject_label text;
 alter table public.marketplace_products
   add column if not exists list_price numeric(12, 2);
+alter table public.marketplace_products
+  add column if not exists external_links jsonb not null default '[]'::jsonb;
+alter table public.marketplace_products
+  drop constraint if exists marketplace_products_external_links_check;
+alter table public.marketplace_products
+  add constraint marketplace_products_external_links_check
+  check (
+    jsonb_typeof(external_links) = 'array'
+    and jsonb_array_length(external_links) <= 3
+  );
+alter table public.marketplace_products
+  add column if not exists purchase_benefits jsonb not null default '[]'::jsonb;
+alter table public.marketplace_products
+  drop constraint if exists marketplace_products_purchase_benefits_check;
+alter table public.marketplace_products
+  add constraint marketplace_products_purchase_benefits_check
+  check (
+    jsonb_typeof(purchase_benefits) = 'array'
+    and jsonb_array_length(purchase_benefits) <= 8
+  );
 alter table public.marketplace_products
   drop constraint if exists marketplace_products_list_price_check;
 alter table public.marketplace_products
@@ -889,9 +930,9 @@ create table if not exists public.marketplace_user_licenses (
   order_item_id uuid not null unique references public.marketplace_order_items(id) on delete restrict,
   feature_keys text[] not null default '{}',
   grants_plan_code text,
-  duration_days integer not null check (duration_days > 0),
+  duration_days integer check (duration_days > 0),
   starts_at timestamptz not null default now(),
-  expires_at timestamptz not null,
+  expires_at timestamptz,
   status text not null default 'active'
     check (status in ('active', 'renewed', 'expired', 'revoked', 'refunded')),
   revoked_at timestamptz,
@@ -1432,7 +1473,7 @@ create table if not exists public.marketplace_sales_deals (
   quantity integer not null default 1 check (quantity > 0),
   list_price numeric(12,2) not null check (list_price >= 0),
   discount_amount numeric(12,2) not null default 0 check (discount_amount >= 0),
-  negotiated_price numeric(12,2) not null check (negotiated_price >= 0),
+  negotiated_price numeric(12,2) not null check (negotiated_price >= 10),
   terms_snapshot text not null,
   expires_at timestamptz not null,
   status text not null default 'draft',

@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { requireAuthenticated } from 'src/lib/auth-token';
 
+import { STRIPE_MINIMUM_THB } from 'src/sections/marketplace/shared/payment';
 import { withMediaUrls } from 'src/sections/marketplace/seller/server/product-media';
 import { money, getFinanceSettings } from 'src/sections/marketplace/admin/server/finance';
 import { getStripe, isStripeConfigured } from 'src/sections/marketplace/checkout/server/stripe';
@@ -250,6 +251,21 @@ export async function POST(request: Request) {
 
   if (
     !isFree &&
+    requestedPaymentMethod === 'stripe' &&
+    checkoutTotal < STRIPE_MINIMUM_THB
+  ) {
+    return NextResponse.json(
+      {
+        message: `ระบบชำระเงินออนไลน์รองรับยอดขั้นต่ำ ฿${STRIPE_MINIMUM_THB.toFixed(
+          2
+        )} กรุณาเลือก PromptPay หรือเพิ่มสินค้าในตะกร้า`,
+      },
+      { status: 400 }
+    );
+  }
+
+  if (
+    !isFree &&
     requestedPaymentMethod === 'promptpay' &&
     (!finance.is_active || !finance.promptpay_id)
   ) {
@@ -264,7 +280,10 @@ export async function POST(request: Request) {
     (!finance.stripe_enabled || !isStripeConfigured())
   ) {
     return NextResponse.json(
-      { message: 'ระบบ Stripe ยังไม่เปิดใช้งาน กรุณาเลือกช่องทางอื่นหรือติดต่อผู้ดูแลระบบ' },
+      {
+        message:
+          'ระบบชำระเงินออนไลน์อัตโนมัติยังไม่เปิดใช้งาน กรุณาเลือกช่องทางอื่นหรือติดต่อผู้ดูแลระบบ',
+      },
       { status: 503 }
     );
   }
@@ -455,7 +474,7 @@ export async function POST(request: Request) {
         await getStripe()
           .checkout.sessions.expire(stripeSession.id)
           .catch(() => undefined);
-        throw updateError ?? new Error('บันทึก Stripe Checkout Session ไม่สำเร็จ');
+        throw updateError ?? new Error('บันทึกรายการชำระเงินออนไลน์ไม่สำเร็จ');
       }
       finalPaymentSession = updatedSession;
     } catch (stripeError) {
@@ -464,8 +483,8 @@ export async function POST(request: Request) {
         {
           message:
             stripeError instanceof Error
-              ? `สร้าง Stripe Checkout ไม่สำเร็จ: ${stripeError.message}`
-              : 'สร้าง Stripe Checkout ไม่สำเร็จ',
+              ? `สร้างรายการชำระเงินออนไลน์ไม่สำเร็จ: ${stripeError.message}`
+              : 'สร้างรายการชำระเงินออนไลน์ไม่สำเร็จ',
         },
         { status: 502 }
       );

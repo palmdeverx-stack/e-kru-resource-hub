@@ -32,6 +32,7 @@ import {
 } from 'src/components/remix-icon';
 
 import { getProducts, formatPrice } from '../../shared/api';
+import { MARKETPLACE_MINIMUM_PAID_PRICE_THB } from '../../shared/payment';
 
 type Deal = {
   id: string;
@@ -93,9 +94,14 @@ const DealSchema = z.object({
   negotiatedPrice: z
     .string()
     .min(1, { error: 'กรุณากรอกราคาตามข้อเสนอ' })
-    .refine((value) => Number.isFinite(Number(value)) && Number(value) >= 0, {
-      error: 'ราคาต้องเป็นตัวเลขตั้งแต่ 0 บาทขึ้นไป',
-    }),
+    .refine(
+      (value) =>
+        Number.isFinite(Number(value)) &&
+        Number(value) >= MARKETPLACE_MINIMUM_PAID_PRICE_THB,
+      {
+        error: `ราคาหลังส่วนลดต้องไม่น้อยกว่า ${MARKETPLACE_MINIMUM_PAID_PRICE_THB} บาท`,
+      }
+    ),
   expiresAt: z
     .string()
     .min(1, { error: 'กรุณาเลือกวันหมดอายุข้อเสนอ' })
@@ -340,7 +346,10 @@ export function SellerDealsView() {
                   required
                   type="number"
                   label="ราคาตามข้อเสนอ"
-                  slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
+                  helperText={`ราคาหลังส่วนลดขั้นต่ำ ${MARKETPLACE_MINIMUM_PAID_PRICE_THB} บาท`}
+                  slotProps={{
+                    htmlInput: { min: MARKETPLACE_MINIMUM_PAID_PRICE_THB, step: 0.01 },
+                  }}
                 />
                 <Field.DatePicker
                   name="expiresAt"

@@ -16,7 +16,7 @@ export async function GET(request: Request) {
     )
     .eq('buyer_id', caller.sub)
     .eq('status', 'active')
-    .gt('expires_at', new Date().toISOString())
+    .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
     .order('expires_at', { ascending: true });
   if (error) {
     return NextResponse.json(

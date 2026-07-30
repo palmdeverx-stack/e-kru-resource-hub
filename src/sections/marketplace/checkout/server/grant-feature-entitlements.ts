@@ -5,6 +5,16 @@ import type { SchoolFeatureKey } from 'src/lib/school-subscription-config';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { grantSchoolFeatureUntil } from 'src/lib/school-subscription';
 
+import {
+  MARKETPLACE_SELLER_LINE_FEATURE_KEY,
+  MARKETPLACE_SELLER_LINE_MANAGED_FEATURE_KEY,
+} from '../../seller/line-feature';
+
+const SELLER_LINE_FEATURE_KEYS: string[] = [
+  MARKETPLACE_SELLER_LINE_FEATURE_KEY,
+  MARKETPLACE_SELLER_LINE_MANAGED_FEATURE_KEY,
+];
+
 type OrderItemRow = {
   id: string;
   order_id: string;
@@ -41,12 +51,19 @@ export async function grantFeatureEntitlementsForOrders(orderIds: string[]) {
     .in('order_id', orderIds);
   if (error) throw error;
 
-  const featureItems = ((data ?? []) as unknown as OrderItemRow[]).filter(
-    (item) =>
+  const featureItems = ((data ?? []) as unknown as OrderItemRow[]).filter((item) => {
+    const featureKeys = item.product?.grants_feature_keys?.length
+      ? item.product.grants_feature_keys
+      : item.product?.grants_feature_key
+        ? [item.product.grants_feature_key]
+        : [];
+    return (
       item.product?.resource_type === 'feature_unlock' &&
-      (item.product.grants_feature_keys?.length || item.product.grants_feature_key) &&
-      (item.product.grant_duration_days ?? 0) > 0
-  );
+      featureKeys.length > 0 &&
+      ((item.product.grant_duration_days ?? 0) > 0 ||
+        featureKeys.some((key) => SELLER_LINE_FEATURE_KEYS.includes(key)))
+    );
+  });
   if (!featureItems.length) return [];
 
   const licenses = [];
@@ -60,12 +77,13 @@ export async function grantFeatureEntitlementsForOrders(orderIds: string[]) {
             ? [product.grants_feature_key]
             : []
       ),
-    ] as SchoolFeatureKey[];
+    ] as string[];
     const startsAt = new Date();
 
     if (product.license_scope === 'individual') {
       const buyerId = item.order?.buyer_id;
       if (!buyerId) throw new Error(`ไม่พบผู้ซื้อในคำสั่งซื้อ ${item.order_id}`);
+      const isPerpetual = featureKeys.some((key) => SELLER_LINE_FEATURE_KEYS.includes(key));
 
       const { data: previousLicense } = await supabaseAdmin
         .from('marketplace_user_licenses')
@@ -80,9 +98,11 @@ export async function grantFeatureEntitlementsForOrders(orderIds: string[]) {
         previousLicense?.expires_at && new Date(previousLicense.expires_at) > startsAt
           ? new Date(previousLicense.expires_at)
           : startsAt;
-      const expiresAt = new Date(
-        expiryBase.getTime() + Number(product.grant_duration_days) * 24 * 60 * 60 * 1000
-      ).toISOString();
+      const expiresAt = isPerpetual
+        ? null
+        : new Date(
+            expiryBase.getTime() + Number(product.grant_duration_days) * 24 * 60 * 60 * 1000
+          ).toISOString();
       const { data: existingLicense, error: existingError } = await supabaseAdmin
         .from('marketplace_user_licenses')
         .select('*')
@@ -101,7 +121,7 @@ export async function grantFeatureEntitlementsForOrders(orderIds: string[]) {
             order_item_id: item.id,
             feature_keys: featureKeys,
             grants_plan_code: product.grants_plan_code,
-            duration_days: product.grant_duration_days,
+            duration_days: isPerpetual ? null : product.grant_duration_days,
             renewed_from_license_id: previousLicense?.id ?? null,
             starts_at: startsAt.toISOString(),
             expires_at: expiresAt,
@@ -185,7 +205,7 @@ export async function grantFeatureEntitlementsForOrders(orderIds: string[]) {
     if (license.license_scope === 'school') {
       await Promise.all(
         featureKeys.map((featureKey) =>
-          grantSchoolFeatureUntil(schoolId, featureKey, license.expires_at, {
+          grantSchoolFeatureUntil(schoolId, featureKey as SchoolFeatureKey, license.expires_at, {
             orderId: item.order_id,
             productId: product.id,
           })

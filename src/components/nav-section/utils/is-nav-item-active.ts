@@ -26,6 +26,15 @@ export function isNavItemActive(
 }
 
 export function isNavDataActive(pathname: string, item: NavItemDataProps): boolean {
+  const matchesActivePath = item.activePaths?.some((activePath) => {
+    const cleanActivePath = activePath.split(/[?#]/)[0].replace(/\/+$/, '') || '/';
+    return pathname === cleanActivePath || pathname.startsWith(`${cleanActivePath}/`);
+  });
+
+  if (matchesActivePath) {
+    return true;
+  }
+
   if (
     isNavItemActive(pathname, item.path, {
       deepMatch: item.deepMatch,

@@ -34,6 +34,7 @@ import {
 
 import { useAuthContext } from 'src/auth/hooks';
 
+import { STRIPE_MINIMUM_THB } from '../../shared/payment';
 import { useMarketplaceCart } from '../../cart/cart-context';
 import { getMarketplacePricing } from '../../shared/pricing';
 import {
@@ -62,7 +63,10 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
   const [licenseSchoolId, setLicenseSchoolId] = useState('');
   const salesDealToken = searchParams.get('dealToken') ?? '';
   const isFree = subtotal === 0;
-  const hasAvailablePaymentMethod = availableMethods.promptpay || availableMethods.stripe;
+  const stripeBelowMinimum =
+    !isFree && availableMethods.stripe && subtotal < STRIPE_MINIMUM_THB;
+  const stripeAvailable = availableMethods.stripe && !stripeBelowMinimum;
+  const hasConfiguredPaymentMethod = availableMethods.promptpay || availableMethods.stripe;
   const canCreateSchoolAfterPayment =
     user?.role === 'marketplace_user' && !schoolsLoading && !schools.length;
   const hasIndividualLicense = items.some(
@@ -92,7 +96,6 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
       .then((result) => {
         const methods = result.paymentMethods ?? { promptpay: false, stripe: false };
         setAvailableMethods(methods);
-        setPaymentMethod(methods.promptpay ? 'promptpay' : methods.stripe ? 'stripe' : '');
       })
       .catch(() => {
         setAvailableMethods({ promptpay: false, stripe: false });
@@ -100,6 +103,17 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
       })
       .finally(() => setPaymentMethodsLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (paymentMethodsLoading || isFree) return;
+    if (availableMethods.promptpay) {
+      setPaymentMethod('promptpay');
+    } else if (stripeAvailable) {
+      setPaymentMethod('stripe');
+    } else {
+      setPaymentMethod('');
+    }
+  }, [availableMethods.promptpay, isFree, paymentMethodsLoading, stripeAvailable]);
 
   useEffect(() => {
     if (!authenticated || !hasSchoolLicense || salesDealToken) return;
@@ -294,7 +308,7 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
             </Card>
           )}
 
-          {!isFree && hasAvailablePaymentMethod && (
+          {!isFree && hasConfiguredPaymentMethod && (
             <Card sx={{ p: 3 }}>
               <Typography variant="h5">วิธีชำระเงิน</Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
@@ -315,11 +329,16 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
                 {availableMethods.stripe && (
                   <PaymentOption
                     selected={paymentMethod === 'stripe'}
+                    disabled={stripeBelowMinimum}
                     icon={<RiBankCardLine size={28} />}
-                    title="ชำระเงินผ่าน Stripe"
-                    description="บัตรเครดิต/เดบิต และ PromptPay เมื่อบัญชีและรายการเข้าเงื่อนไข"
-                    statusLabel="ยืนยันอัตโนมัติ"
-                    statusColor="success"
+                    title="ระบบชำระเงินออนไลน์"
+                    description={
+                      stripeBelowMinimum
+                        ? `ยอดชำระออนไลน์ต้องไม่น้อยกว่า ฿${STRIPE_MINIMUM_THB.toFixed(2)}`
+                        : 'บัตรเครดิต/เดบิต และ PromptPay เมื่อบัญชีและรายการเข้าเงื่อนไข'
+                    }
+                    statusLabel={stripeBelowMinimum ? 'ยอดไม่ถึงขั้นต่ำ' : 'ยืนยันอัตโนมัติ'}
+                    statusColor={stripeBelowMinimum ? 'warning' : 'success'}
                     onClick={() => setPaymentMethod('stripe')}
                   />
                 )}
@@ -339,25 +358,35 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
             </Card>
           )}
 
-          {!isFree && !paymentMethodsLoading && !hasAvailablePaymentMethod && (
+          {!isFree && !paymentMethodsLoading && !hasConfiguredPaymentMethod && (
             <Alert severity="warning">
               ขณะนี้ยังไม่มีช่องทางชำระเงินที่เปิดใช้งาน กรุณาติดต่อผู้ดูแลระบบ
             </Alert>
           )}
 
-          {!isFree && availableMethods.promptpay && availableMethods.stripe && (
-            <Alert severity="info" icon={<RiShieldCheckLine />}>
-              PromptPay แบบแนบสลิปต้องรอผู้ดูแลตรวจ ส่วน Stripe ยืนยันผลชำระผ่าน webhook อัตโนมัติ
+          {!isFree && !paymentMethodsLoading && stripeBelowMinimum && (
+            <Alert severity="warning">
+              ระบบชำระเงินออนไลน์รับชำระขั้นต่ำ ฿{STRIPE_MINIMUM_THB.toFixed(2)}
+              {availableMethods.promptpay
+                ? ' กรุณาเลือก QR PromptPay หรือเพิ่มสินค้าในตะกร้า'
+                : ' กรุณาเพิ่มสินค้าในตะกร้าก่อนชำระเงิน'}
             </Alert>
           )}
-          {!isFree && availableMethods.promptpay && !availableMethods.stripe && (
+
+          {!isFree && availableMethods.promptpay && stripeAvailable && (
+            <Alert severity="info" icon={<RiShieldCheckLine />}>
+              PromptPay แบบแนบสลิปต้องรอผู้ดูแลตรวจ
+              ส่วนระบบชำระเงินออนไลน์จะยืนยันผลอัตโนมัติ
+            </Alert>
+          )}
+          {!isFree && availableMethods.promptpay && !stripeAvailable && (
             <Alert severity="info" icon={<RiShieldCheckLine />}>
               QR PromptPay แบบแนบสลิปจะผ่านการตรวจจากผู้ดูแล
             </Alert>
           )}
-          {!isFree && availableMethods.stripe && !availableMethods.promptpay && (
+          {!isFree && stripeAvailable && !availableMethods.promptpay && (
             <Alert severity="info" icon={<RiShieldCheckLine />}>
-              Stripe จะยืนยันยอดชำระผ่าน webhook อัตโนมัติ
+              ระบบจะยืนยันยอดชำระออนไลน์ให้อัตโนมัติ
             </Alert>
           )}
         </Stack>
@@ -426,7 +455,8 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
               (!isFree && paymentMethodsLoading) ||
               (!isFree &&
                 (!paymentMethod ||
-                  !availableMethods[paymentMethod as keyof typeof availableMethods])) ||
+                  !availableMethods[paymentMethod as keyof typeof availableMethods] ||
+                  (paymentMethod === 'stripe' && stripeBelowMinimum))) ||
               (hasSchoolLicense &&
                 !salesDealToken &&
                 !licenseSchoolId &&
@@ -437,7 +467,7 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
             {isFree
               ? 'ยืนยันรับสินค้า'
               : paymentMethod === 'stripe'
-                ? 'ชำระเงินผ่าน Stripe'
+                ? 'ชำระเงินออนไลน์'
                 : 'สร้าง QR PromptPay'}
           </Button>
         </Card>

@@ -17,6 +17,17 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import CircularProgress from '@mui/material/CircularProgress';
 
 const DAYS = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
+
+function getLocalWebhookTarget(value: string) {
+  try {
+    const url = new URL(value);
+    if (!['localhost', '127.0.0.1'].includes(url.hostname)) return null;
+    return `${url.host}${url.pathname}`;
+  } catch {
+    return null;
+  }
+}
+
 const initial: MarketplaceFinanceSettings = {
   promptpayId: '',
   promptpayAccountName: '',
@@ -70,6 +81,8 @@ export function MarketplaceFinanceSettingsView() {
 
   if (loading) return <CircularProgress sx={{ m: 6 }} />;
 
+  const localWebhookTarget = getLocalWebhookTarget(form.stripeWebhookUrl);
+
   return (
     <Container maxWidth={false} sx={{ py: { xs: 4, md: 6 } }}>
       <Typography component="h1" variant="h3">
@@ -119,8 +132,30 @@ export function MarketplaceFinanceSettingsView() {
             label="Stripe Webhook endpoint"
             value={form.stripeWebhookUrl}
             slotProps={{ input: { readOnly: true } }}
-            helperText="เพิ่ม URL นี้ใน Stripe Workbench และเลือก checkout.session.completed, async_payment_succeeded, async_payment_failed และ expired"
+            helperText={
+              localWebhookTarget
+                ? 'URL localhost ใช้กับ Stripe Workbench ไม่ได้ ให้เปิด Stripe CLI ตามคำสั่งด้านล่าง'
+                : 'เพิ่ม URL นี้ใน Stripe Workbench และเลือก Checkout, Payment Intent และ Refund events ที่ระบบกำหนด'
+            }
           />
+          {localWebhookTarget && (
+            <Alert severity="info">
+              <Typography variant="body2">
+                สำหรับการทดสอบบนเครื่อง ให้เปิด Terminal และรันคำสั่งนี้ค้างไว้:
+              </Typography>
+              <Typography
+                component="code"
+                variant="body2"
+                sx={{ display: 'block', mt: 1, fontFamily: 'monospace', wordBreak: 'break-all' }}
+              >
+                stripe listen --forward-to {localWebhookTarget}
+              </Typography>
+              <Typography variant="caption" sx={{ display: 'block', mt: 1 }}>
+                นำค่า whsec_... ที่ Stripe CLI แสดงไปใส่ใน STRIPE_WEBHOOK_SECRET แล้ว restart
+                server
+              </Typography>
+            </Alert>
+          )}
           <TextField
             label="PromptPay ID"
             value={form.promptpayId}

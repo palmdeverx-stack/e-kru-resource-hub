@@ -11,6 +11,7 @@ import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
 import Alert from '@mui/material/Alert';
+import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Switch from '@mui/material/Switch';
 import Divider from '@mui/material/Divider';
@@ -24,6 +25,8 @@ import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
 import { RemixIcon } from 'src/components/remix-icon';
+
+import { MARKETPLACE_MINIMUM_PAID_PRICE_THB } from 'src/sections/marketplace/shared/payment';
 
 import { LineRichMenuCard } from '../components/line-rich-menu-card';
 import {
@@ -92,6 +95,11 @@ const EMPTY_MARKETPLACE_FORM: MarketplaceLineSettingsInput = {
   notifyNewSeller: true,
   notifyProductApproval: true,
   allowSellerNotifications: false,
+  sellerNotificationPrice: 99,
+  sellerByoaDescription: 'ใช้ LINE OA ของตัวเอง กรอก Channel token และ User ID เอง',
+  sellerManagedPrice: 99,
+  sellerManagedDescription: 'ใช้ LINE OA ของระบบ E-KRU ไม่ต้องกรอก Channel token',
+  sellerManagedQuota: 100,
 };
 
 function MarketplaceLineNotificationSettings() {
@@ -120,8 +128,7 @@ function MarketplaceLineNotificationSettings() {
   const inviteMutation = useMutation({ mutationFn: createMarketplaceLineInvitation });
   const unlinkMutation = useMutation({
     mutationFn: unlinkMarketplaceLine,
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ['marketplace-line-settings'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['marketplace-line-settings'] }),
   });
 
   useEffect(() => {
@@ -136,6 +143,11 @@ function MarketplaceLineNotificationSettings() {
       notifyNewSeller: query.data.integration.notifyNewSeller,
       notifyProductApproval: query.data.integration.notifyProductApproval,
       allowSellerNotifications: query.data.integration.allowSellerNotifications,
+      sellerNotificationPrice: query.data.integration.sellerNotificationPrice,
+      sellerByoaDescription: query.data.integration.sellerByoaDescription,
+      sellerManagedPrice: query.data.integration.sellerManagedPrice,
+      sellerManagedDescription: query.data.integration.sellerManagedDescription,
+      sellerManagedQuota: query.data.integration.sellerManagedQuota,
     });
   }, [query.data]);
 
@@ -183,7 +195,9 @@ function MarketplaceLineNotificationSettings() {
   const mutationSuccess =
     saveMutation.isSuccess || testMutation.isSuccess || unlinkMutation.isSuccess;
   const quotaPercent =
-    quota.limit && quota.limit > 0 ? Math.min(100, Math.round((quota.used / quota.limit) * 100)) : 0;
+    quota.limit && quota.limit > 0
+      ? Math.min(100, Math.round((quota.used / quota.limit) * 100))
+      : 0;
 
   return (
     <Container maxWidth={false} sx={{ pb: 6 }}>
@@ -272,7 +286,9 @@ function MarketplaceLineNotificationSettings() {
                 label="Channel secret"
                 value={secretLocked ? '************' : form.channelSecret}
                 onChange={(event) => setField('channelSecret', event.target.value)}
-                helperText={secretLocked ? 'บันทึกไว้แล้ว' : 'กรอกค่าใหม่ หรือเว้นว่างเพื่อใช้ค่าเดิม'}
+                helperText={
+                  secretLocked ? 'บันทึกไว้แล้ว' : 'กรอกค่าใหม่ หรือเว้นว่างเพื่อใช้ค่าเดิม'
+                }
                 slotProps={{ input: { readOnly: secretLocked } }}
               />
               <TextField
@@ -280,7 +296,9 @@ function MarketplaceLineNotificationSettings() {
                 label="Channel access token"
                 value={tokenLocked ? '************' : form.accessToken}
                 onChange={(event) => setField('accessToken', event.target.value)}
-                helperText={tokenLocked ? 'บันทึกไว้แล้ว' : 'กรอกค่าใหม่ หรือเว้นว่างเพื่อใช้ค่าเดิม'}
+                helperText={
+                  tokenLocked ? 'บันทึกไว้แล้ว' : 'กรอกค่าใหม่ หรือเว้นว่างเพื่อใช้ค่าเดิม'
+                }
                 slotProps={{ input: { readOnly: tokenLocked } }}
               />
               <TextField
@@ -367,22 +385,101 @@ function MarketplaceLineNotificationSettings() {
                   : 'กรุณาบันทึก Channel secret และ Channel access token ก่อน แล้วจึงผูกบัญชี LINE ผู้รับ'}
               </Typography>
             )}
-            <FormControlLabel
-              sx={{ mt: 1, display: 'flex' }}
-              label="อนุญาตให้ผู้ขายใช้เมนู LINE แจ้งเตือนร้านค้า"
-              control={
-                <Switch
-                  checked={form.allowSellerNotifications}
-                  onChange={(event) =>
-                    setField('allowSellerNotifications', event.target.checked)
-                  }
+            <Box
+              sx={{
+                mt: 2,
+                p: 2,
+                gap: 2,
+                display: 'grid',
+                alignItems: 'center',
+                borderRadius: 1.5,
+                border: '1px solid',
+                borderColor: 'divider',
+                gridTemplateColumns: { xs: '1fr', sm: 'minmax(0, 1fr) 180px' },
+              }}
+            >
+              <FormControlLabel
+                sx={{ m: 0 }}
+                label={
+                  <Box>
+                    <Typography variant="subtitle2">
+                      อนุญาตให้ผู้ขายใช้ LINE แจ้งเตือนร้านค้า
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      เมื่อเปิด ระบบจะแสดงเมนูและขายสิทธิ์แบบซื้อขาด
+                    </Typography>
+                  </Box>
+                }
+                control={
+                  <Switch
+                    checked={form.allowSellerNotifications}
+                    onChange={(event) => setField('allowSellerNotifications', event.target.checked)}
+                  />
+                }
+              />
+              <TextField
+                type="number"
+                label="ราคาแบบใช้ OA ตัวเอง"
+                value={form.sellerNotificationPrice}
+                slotProps={{
+                  htmlInput: { min: MARKETPLACE_MINIMUM_PAID_PRICE_THB, step: 1 },
+                }}
+                error={Number(form.sellerNotificationPrice) < MARKETPLACE_MINIMUM_PAID_PRICE_THB}
+                helperText={`ขั้นต่ำ ${MARKETPLACE_MINIMUM_PAID_PRICE_THB} บาท`}
+                onChange={(event) =>
+                  setField('sellerNotificationPrice', Number(event.target.value))
+                }
+              />
+              <TextField
+                label="รายละเอียดแบบใช้ OA ตัวเอง"
+                value={form.sellerByoaDescription}
+                onChange={(event) => setField('sellerByoaDescription', event.target.value)}
+                sx={{ gridColumn: { sm: '1 / -1' } }}
+              />
+              <Divider sx={{ gridColumn: { sm: '1 / -1' } }} />
+              <Box>
+                <Typography variant="subtitle2">แพ็กเกจใช้ LINE ของระบบ E-KRU</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  ผู้ขายไม่ต้องกรอก Token และระบบหักโควต้าเมื่อส่งสำเร็จ
+                </Typography>
+              </Box>
+              <Stack spacing={1.5}>
+                <TextField
+                  type="number"
+                  label="ราคาแพ็กเกจ (บาท)"
+                  value={form.sellerManagedPrice}
+                  slotProps={{
+                    htmlInput: { min: MARKETPLACE_MINIMUM_PAID_PRICE_THB, step: 1 },
+                  }}
+                  onChange={(event) => setField('sellerManagedPrice', Number(event.target.value))}
                 />
-              }
-            />
+                <TextField
+                  type="number"
+                  label="จำนวนข้อความ"
+                  value={form.sellerManagedQuota}
+                  slotProps={{ htmlInput: { min: 1, step: 1 } }}
+                  onChange={(event) => setField('sellerManagedQuota', Number(event.target.value))}
+                />
+              </Stack>
+              <TextField
+                label="รายละเอียดแบบใช้ระบบ E-KRU"
+                value={form.sellerManagedDescription}
+                onChange={(event) => setField('sellerManagedDescription', event.target.value)}
+                sx={{ gridColumn: { sm: '1 / -1' } }}
+              />
+            </Box>
             <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
               <Button
                 variant="contained"
                 loading={saveMutation.isPending}
+                disabled={
+                  Number(form.sellerNotificationPrice) < MARKETPLACE_MINIMUM_PAID_PRICE_THB ||
+                  !form.sellerByoaDescription.trim() ||
+                  Number(form.sellerManagedPrice) < MARKETPLACE_MINIMUM_PAID_PRICE_THB ||
+                  !form.sellerManagedDescription.trim() ||
+                  !Number.isInteger(Number(form.sellerManagedQuota)) ||
+                  Number(form.sellerManagedQuota) <= 0
+                }
                 onClick={() => saveMutation.mutate(form)}
               >
                 บันทึกการแจ้งเตือน
@@ -436,7 +533,9 @@ function MarketplaceLineNotificationSettings() {
                     <LinearProgress
                       variant="determinate"
                       value={quotaPercent}
-                      color={quotaPercent >= 90 ? 'error' : quotaPercent >= 70 ? 'warning' : 'primary'}
+                      color={
+                        quotaPercent >= 90 ? 'error' : quotaPercent >= 70 ? 'warning' : 'primary'
+                      }
                       sx={{ mt: 2.5, height: 8, borderRadius: 1 }}
                     />
                     <Box
@@ -498,8 +597,8 @@ function MarketplaceLineNotificationSettings() {
                   </Alert>
                 )}
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
-                  หลังสแกน QR ต้องกดส่งข้อความในห้องแชต LINE OA ภายใน 10 นาที
-                  ระบบจึงจะได้รับ LINE User ID และยืนยันการผูกบัญชี
+                  หลังสแกน QR ต้องกดส่งข้อความในห้องแชต LINE OA ภายใน 10 นาที ระบบจึงจะได้รับ LINE
+                  User ID และยืนยันการผูกบัญชี
                 </Typography>
                 <Button
                   fullWidth
@@ -573,9 +672,7 @@ function MarketplaceLineNotificationSettings() {
                 >
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}>
                     <Typography variant="subtitle2">
-                      {delivery.event_type === 'new_seller'
-                        ? 'ผู้ขายสมัครใหม่'
-                        : 'สินค้ารออนุมัติ'}
+                      {delivery.event_type === 'new_seller' ? 'ผู้ขายสมัครใหม่' : 'สินค้ารออนุมัติ'}
                     </Typography>
                     <Chip
                       size="small"

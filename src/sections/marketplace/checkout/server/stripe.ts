@@ -5,7 +5,13 @@ import Stripe from 'stripe';
 let stripeClient: Stripe | null = null;
 
 export function isStripeConfigured() {
-  return Boolean(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_WEBHOOK_SECRET);
+  const secretKey = process.env.STRIPE_SECRET_KEY?.trim() ?? '';
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET?.trim() ?? '';
+
+  return (
+    /^sk_(test|live)_[A-Za-z0-9]{16,}$/.test(secretKey) &&
+    /^whsec_[A-Za-z0-9]{16,}$/.test(webhookSecret)
+  );
 }
 
 export function getStripe() {

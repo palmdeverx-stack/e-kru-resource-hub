@@ -116,7 +116,7 @@ export function MarketplaceProductApprovalView() {
   };
 
   return (
-    <Container maxWidth={false} sx={{ py: { xs: 3, md: 5 } }}>
+    <Container maxWidth={false} sx={{ py: { xs: 3 } }}>
       <Stack
         direction={{ xs: 'column', md: 'row' }}
         justifyContent="space-between"

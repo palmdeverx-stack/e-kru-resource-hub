@@ -17,6 +17,7 @@ import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
 import TextField from '@mui/material/TextField';
 import Container from '@mui/material/Container';
+import { useTheme } from '@mui/material/styles';
 import Pagination from '@mui/material/Pagination';
 import Typography from '@mui/material/Typography';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -33,6 +34,7 @@ import {
   RiEyeLine,
   RiEditLine,
   RiTimeLine,
+  RiEyeOffLine,
   RiSearchLine,
   RiStore2Line,
   RiBookOpenLine,
@@ -47,10 +49,16 @@ import {
 
 import { useAuthContext } from 'src/auth/hooks';
 
-import { getSeller, getProducts, formatPrice, deleteProduct } from '../../shared/api';
 import {
-  isSystemMarketplaceSeller,
+  getSeller,
+  getProducts,
+  formatPrice,
+  deleteProduct,
+  setProductHidden,
+} from '../../shared/api';
+import {
   isSellerProfileVerified,
+  isSystemMarketplaceSeller,
   getSellerProfileCompletion,
 } from '../../shared/seller-completion';
 
@@ -59,6 +67,7 @@ type ProductFilter = 'all' | MarketplaceProduct['status'];
 const PAGE_SIZE = 8;
 
 export function MarketplaceSellerDashboardView() {
+  const theme = useTheme();
   const { user } = useAuthContext();
   const isSystemStore = user?.role === 'master_admin';
   const [seller, setSeller] = useState<MarketplaceSeller | null>(null);
@@ -67,6 +76,8 @@ export function MarketplaceSellerDashboardView() {
   const [error, setError] = useState('');
   const [deleting, setDeleting] = useState<MarketplaceProduct | null>(null);
   const [deletingBusy, setDeletingBusy] = useState(false);
+  const [hiding, setHiding] = useState<MarketplaceProduct | null>(null);
+  const [visibilityBusyId, setVisibilityBusyId] = useState('');
   const [productFilter, setProductFilter] = useState<ProductFilter>('all');
   const [productSearch, setProductSearch] = useState('');
   const [productPage, setProductPage] = useState(1);
@@ -98,6 +109,39 @@ export function MarketplaceSellerDashboardView() {
     }
   };
 
+  const changeProductVisibility = async (product: MarketplaceProduct, hidden: boolean) => {
+    setVisibilityBusyId(product.id);
+    setError('');
+    try {
+      const result = await setProductHidden(product.id, hidden);
+      setProducts((current) =>
+        current.map((item) =>
+          item.id === product.id
+            ? {
+                ...item,
+                ...result.product,
+                purchase_count: item.purchase_count,
+                has_order_references: item.has_order_references,
+                has_deal_references: item.has_deal_references,
+                can_delete: item.can_delete,
+                can_hide:
+                  !hidden &&
+                  result.product.status === 'published' &&
+                  (item.purchase_count ?? 0) === 0,
+              }
+            : item
+        )
+      );
+      setHiding(null);
+    } catch (visibilityError) {
+      setError(
+        visibilityError instanceof Error ? visibilityError.message : 'เปลี่ยนการแสดงสินค้าไม่สำเร็จ'
+      );
+    } finally {
+      setVisibilityBusyId('');
+    }
+  };
+
   const sellerCompletion = seller ? getSellerProfileCompletion(seller) : 0;
 
   const productCounts = {
@@ -106,6 +150,7 @@ export function MarketplaceSellerDashboardView() {
     pending_review: products.filter((product) => product.status === 'pending_review').length,
     draft: products.filter((product) => product.status === 'draft').length,
     rejected: products.filter((product) => product.status === 'rejected').length,
+    archived: products.filter((product) => product.status === 'archived').length,
   };
   const normalizedSearch = productSearch.trim().toLowerCase();
   const filteredProducts = products.filter(
@@ -188,14 +233,14 @@ export function MarketplaceSellerDashboardView() {
                 {isSellerProfileVerified(sellerCompletion) && (
                   <RiVerifiedBadgeFill
                     size={26}
-                    color="#1565F5"
+                    color={theme.palette.primary.main}
                     aria-label="ร้านค้าที่ผ่านการตรวจสอบ"
                   />
                 )}
                 {isSystemMarketplaceSeller(seller) && (
                   <RiShieldStarFill
                     size={26}
-                    color="#7C3AED"
+                    color={theme.palette.primary.main}
                     aria-label="ร้านค้าระบบ E-KRU"
                   />
                 )}
@@ -314,6 +359,7 @@ export function MarketplaceSellerDashboardView() {
               <Tab value="pending_review" label={`รอตรวจ ${productCounts.pending_review}`} />
               <Tab value="draft" label={`ฉบับร่าง ${productCounts.draft}`} />
               <Tab value="rejected" label={`ไม่ผ่าน ${productCounts.rejected}`} />
+              <Tab value="archived" label={`ซ่อนแล้ว ${productCounts.archived}`} />
             </Tabs>
 
             <Divider />
@@ -326,7 +372,9 @@ export function MarketplaceSellerDashboardView() {
                     product.images?.[0]?.url ??
                     product.cover_url ??
                     undefined;
-                  const canDelete = product.status === 'draft' || product.status === 'rejected';
+                  const canDelete = product.can_delete === true;
+                  const canHide = product.can_hide === true;
+                  const canRestore = product.status === 'archived';
                   return (
                     <Box
                       key={product.id}
@@ -392,6 +440,14 @@ export function MarketplaceSellerDashboardView() {
                             <Typography variant="subtitle2" color="primary.main">
                               {formatPrice(Number(product.price))}
                             </Typography>
+                            {(product.purchase_count ?? 0) > 0 && (
+                              <Chip
+                                size="small"
+                                color="info"
+                                variant="soft"
+                                label={`ขายแล้ว ${product.purchase_count} สิทธิ์`}
+                              />
+                            )}
                           </Stack>
                           <Typography
                             variant="caption"
@@ -433,6 +489,29 @@ export function MarketplaceSellerDashboardView() {
                           >
                             {product.status === 'draft' ? 'ทำต่อ' : 'แก้ไข'}
                           </Button>
+                          {canHide && (
+                            <Button
+                              size="small"
+                              color="warning"
+                              variant="text"
+                              startIcon={<RiEyeOffLine />}
+                              onClick={() => setHiding(product)}
+                            >
+                              ซ่อน
+                            </Button>
+                          )}
+                          {canRestore && (
+                            <Button
+                              size="small"
+                              color="success"
+                              variant="text"
+                              loading={visibilityBusyId === product.id}
+                              startIcon={<RiEyeLine />}
+                              onClick={() => void changeProductVisibility(product, false)}
+                            >
+                              ขอเผยแพร่อีกครั้ง
+                            </Button>
+                          )}
                           {canDelete && (
                             <Button
                               size="small"
@@ -535,6 +614,29 @@ export function MarketplaceSellerDashboardView() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Dialog open={Boolean(hiding)} onClose={() => setHiding(null)} fullWidth maxWidth="xs">
+        <DialogTitle>ยืนยันการซ่อนสินค้า</DialogTitle>
+        <DialogContent>
+          <Typography>
+            ต้องการซ่อน “{hiding?.title}” หรือไม่? สินค้าจะหายจาก Marketplace
+            แต่ข้อมูลและไฟล์ยังคงอยู่
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button color="inherit" onClick={() => setHiding(null)}>
+            ยกเลิก
+          </Button>
+          <Button
+            color="warning"
+            variant="contained"
+            loading={Boolean(hiding && visibilityBusyId === hiding.id)}
+            onClick={() => hiding && void changeProductVisibility(hiding, true)}
+          >
+            ซ่อนสินค้า
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 }
@@ -589,7 +691,7 @@ function ProductStatusChip({ product }: { product: MarketplaceProduct }) {
     return <Chip size="small" color="warning" label="รอตรวจสอบ" variant="soft" />;
   }
   if (product.status === 'archived') {
-    return <Chip size="small" color="default" label="เก็บถาวร" variant="soft" />;
+    return <Chip size="small" color="default" label="ซ่อนแล้ว" variant="soft" />;
   }
   return <Chip size="small" label="ฉบับร่าง" variant="soft" />;
 }

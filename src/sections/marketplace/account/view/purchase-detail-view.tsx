@@ -27,6 +27,7 @@ import {
   RiFileTextLine,
   RiArrowLeftLine,
   RiShieldCheckLine,
+  RiExternalLinkLine,
   RiShoppingBag3Line,
   RiDownloadCloud2Line,
   RiCheckboxCircleLine,
@@ -425,7 +426,9 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                                   เริ่ม {formatDateTime(license.starts_at)}
                                 </Typography>
                                 <Typography variant="caption" color="text.secondary">
-                                  หมดอายุ {formatDateTime(license.expires_at)}
+                                  {license.expires_at
+                                    ? `หมดอายุ ${formatDateTime(license.expires_at)}`
+                                    : 'สิทธิ์ถาวร · ไม่มีวันหมดอายุ'}
                                 </Typography>
                                 {'seat_count' in license && license.seat_count > 1 && (
                                   <Typography variant="caption" color="text.secondary">
@@ -522,6 +525,52 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                             </Stack>
                           </Box>
                         )}
+                        {isPaid && !!product?.external_links?.length && (
+                          <Box
+                            sx={{
+                              p: 1.5,
+                              mt: 2,
+                              borderRadius: 2,
+                              bgcolor: 'primary.lighter',
+                            }}
+                          >
+                            <Stack
+                              direction="row"
+                              justifyContent="space-between"
+                              alignItems="center"
+                              sx={{ mb: 1.25 }}
+                            >
+                              <Typography variant="subtitle2">ลิงก์ที่ได้รับ</Typography>
+                              <Chip
+                                size="small"
+                                label={`${product.external_links.length} ลิงก์`}
+                                variant="outlined"
+                              />
+                            </Stack>
+                            <Stack spacing={1}>
+                              {product.external_links.map((link, index) => (
+                                <Button
+                                  key={`${link.url}-${index}`}
+                                  component="a"
+                                  href={link.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  variant="contained"
+                                  color="inherit"
+                                  endIcon={<RiExternalLinkLine />}
+                                  sx={{
+                                    justifyContent: 'space-between',
+                                    textAlign: 'left',
+                                    bgcolor: 'background.paper',
+                                    '&:hover': { bgcolor: 'grey.100' },
+                                  }}
+                                >
+                                  {link.label}
+                                </Button>
+                              ))}
+                            </Stack>
+                          </Box>
+                        )}
                       </Box>
                       <Box sx={{ textAlign: { sm: 'right' }, whiteSpace: 'nowrap' }}>
                         <Typography variant="h6" color="primary.main">
@@ -581,7 +630,7 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                 label="ช่องทางชำระ"
                 value={
                   payment?.payment_method === 'stripe'
-                    ? 'Stripe Checkout'
+                    ? 'ระบบชำระเงินออนไลน์'
                     : payment?.payment_method === 'free'
                       ? 'สินค้าราคา 0 บาท'
                       : 'PromptPay'

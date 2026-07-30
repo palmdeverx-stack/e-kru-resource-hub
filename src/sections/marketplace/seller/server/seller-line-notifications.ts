@@ -3,6 +3,8 @@ import 'server-only';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { decryptLineCredential } from 'src/lib/line-credentials';
 
+import { getSellerLineFeatureAccess } from './seller-line-access';
+
 type PushLineTextInput = {
   accessToken: string;
   lineUserId: string;
@@ -18,11 +20,7 @@ type PaymentNotificationInput = {
   availableAt: string;
 };
 
-export async function pushSellerLineText({
-  accessToken,
-  lineUserId,
-  message,
-}: PushLineTextInput) {
+export async function pushSellerLineText({ accessToken, lineUserId, message }: PushLineTextInput) {
   const response = await fetch('https://api.line.me/v2/bot/message/push', {
     method: 'POST',
     headers: {
@@ -49,23 +47,24 @@ function formatBaht(value: number) {
 }
 
 export async function notifySellerPaymentReceived(input: PaymentNotificationInput) {
-  const [{ data: access }, { data: settings }] = await Promise.all([
+  const [{ data: seller }, { data: settings }] = await Promise.all([
     supabaseAdmin
-      .from('marketplace_line_settings')
-      .select('allow_seller_notifications')
-      .eq('id', 'default')
+      .from('marketplace_sellers')
+      .select('owner_id, owner_role')
+      .eq('id', input.sellerId)
       .maybeSingle(),
     supabaseAdmin
       .from('marketplace_seller_line_settings')
-      .select(
-        'is_enabled, notify_payment_received, channel_access_token_encrypted, line_user_id'
-      )
+      .select('is_enabled, notify_payment_received, channel_access_token_encrypted, line_user_id')
       .eq('seller_id', input.sellerId)
       .maybeSingle(),
   ]);
 
+  if (!seller) return;
+  const access = await getSellerLineFeatureAccess(seller.owner_id, seller.owner_role);
   if (
-    !access?.allow_seller_notifications ||
+    !access.allowed ||
+    !access.entitled ||
     !settings?.is_enabled ||
     !settings.notify_payment_received ||
     !settings.channel_access_token_encrypted ||

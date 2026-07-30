@@ -52,6 +52,7 @@ export type NavItemDataProps = Pick<NavItemStateProps, 'disabled'> & {
   info?: string[] | React.ReactNode;
   caption?: string;
   deepMatch?: boolean;
+  activePaths?: string[];
   featureKey?: string;
   allowedRoles?: string | string[];
   requiresDepartment?: boolean;

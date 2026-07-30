@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 import Box from '@mui/material/Box';
 import Menu from '@mui/material/Menu';
+import Chip from '@mui/material/Chip';
 import Badge from '@mui/material/Badge';
 import Avatar from '@mui/material/Avatar';
 import Divider from '@mui/material/Divider';
@@ -19,7 +20,6 @@ import {
   RiSearchLine,
   RiLogoutBoxLine,
   RiDashboardLine,
-  RiShieldStarLine,
   RiShoppingBag3Line,
 } from 'src/components/remix-icon';
 
@@ -41,18 +41,10 @@ export function MarketplaceAccountMenu() {
 
   const displayName = user.displayName || user.username || 'สมาชิก Marketplace';
   const initials = String(displayName).trim().charAt(0).toUpperCase();
-  let menuItems =
-    user.role === 'master_admin'
-      ? [
-          {
-            label: 'ศูนย์ควบคุม',
-            href: '/dashboard',
-            icon: RiShieldStarLine,
-          },
-          memberMenuItems[0],
-          ...memberMenuItems.slice(2),
-        ]
-      : memberMenuItems;
+  const isSuperAdmin = isSuperAdminRole(user.role);
+  let menuItems: { label: string; href: string; icon: typeof RiSearchLine }[] = isSuperAdmin
+    ? []
+    : [...memberMenuItems];
   if (user.role === 'school_admin') {
     menuItems = [
       ...menuItems.slice(0, 2),
@@ -107,15 +99,32 @@ export function MarketplaceAccountMenu() {
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
         onClose={() => setAnchorEl(null)}
-        slotProps={{ paper: { sx: { mt: 1, width: 240 } } }}
+        slotProps={{
+          paper: {
+            sx: {
+              mt: 1,
+              width: 280,
+              maxHeight: 'calc(100vh - 24px)',
+            },
+          },
+        }}
       >
         <Box sx={{ px: 2, py: 1.5 }}>
           <Typography variant="subtitle1" noWrap>
             {displayName}
           </Typography>
-          <Typography variant="body2" color="text.secondary" noWrap>
-            {user.email || roleLabel(user.role)}
-          </Typography>
+          {!!user.email && (
+            <Typography variant="body2" color="text.secondary" noWrap>
+              {user.email}
+            </Typography>
+          )}
+          <Chip
+            size="small"
+            color={isSuperAdmin ? 'primary' : 'default'}
+            variant="soft"
+            label={roleLabel(user.role)}
+            sx={{ mt: 1 }}
+          />
         </Box>
         <Divider />
         {menuItems.map((item) => {
@@ -133,7 +142,7 @@ export function MarketplaceAccountMenu() {
             </MenuItem>
           );
         })}
-        <Divider />
+        {!!menuItems.length && <Divider />}
         <MenuItem onClick={handleSignOut} sx={{ gap: 1.5, color: 'error.main' }}>
           <RiLogoutBoxLine size={20} />
           ออกจากระบบ
@@ -144,9 +153,13 @@ export function MarketplaceAccountMenu() {
 }
 
 function roleLabel(role?: string) {
+  if (isSuperAdminRole(role)) return 'Super Admin';
   if (role === 'teacher') return 'ครู';
   if (role === 'school_admin') return 'ผู้ดูแลโรงเรียน';
-  if (role === 'master_admin') return 'Super Admin';
   if (role === 'student') return 'นักเรียน';
   return 'สมาชิก Marketplace';
+}
+
+function isSuperAdminRole(role?: string) {
+  return role === 'master_admin' || role === 'super_admin';
 }

@@ -28,7 +28,7 @@ type Entitlement = {
   featureKeys: string[];
   planCode: string | null;
   startsAt: string;
-  expiresAt: string;
+  expiresAt: string | null;
   product: {
     id: string;
     title: string;
@@ -135,7 +135,9 @@ export function UserEntitlementsView() {
                       />
                     </Stack>
                     <Alert severity="success" icon={<RiCalendarCheckLine />}>
-                      ใช้งานได้ถึง {formatDate(entitlement.expiresAt)}
+                      {entitlement.expiresAt
+                        ? `ใช้งานได้ถึง ${formatDate(entitlement.expiresAt)}`
+                        : 'สิทธิ์ถาวร · ไม่มีวันหมดอายุ'}
                     </Alert>
                     {!!ekruHref && (
                       <Button

@@ -98,6 +98,7 @@ const memberNavData: NavSectionProps['data'] = [
         title: 'ร้านค้าของฉัน',
         path: '/dashboard/seller',
         deepMatch: false,
+        activePaths: ['/dashboard/seller/products'],
         icon: <RiStore2Line />,
       },
       {
@@ -229,6 +230,7 @@ const adminNavData: NavSectionProps['data'] = [
         title: 'ร้านค้าของฉัน',
         path: '/dashboard/seller',
         deepMatch: false,
+        activePaths: ['/dashboard/seller/products'],
         icon: <RiStore2Line />,
       },
       {
@@ -245,6 +247,11 @@ const adminNavData: NavSectionProps['data'] = [
         title: 'ข้อเสนอขายโรงเรียน',
         path: '/dashboard/seller/deals',
         icon: <RiFilePaper2Line />,
+      },
+      {
+        title: 'LINE แจ้งเตือนร้านค้า',
+        path: '/dashboard/seller/settings/line',
+        icon: <RiNotification3Line />,
       },
     ],
   },
@@ -419,7 +426,7 @@ export default function Layout({ children }: Props) {
                     item.path !== '/dashboard/seller/profile' &&
                     item.path !== '/dashboard/seller/finance'
                 );
-            const lineItems = canUseSellerLine
+            const lineItems = canUseSellerLine && hasSubmittedSeller
               ? [
                   {
                     title: 'LINE แจ้งเตือนร้านค้า',

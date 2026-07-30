@@ -10,6 +10,7 @@ import BottomNavigationAction from '@mui/material/BottomNavigationAction';
 
 import { usePathname } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
+import { isNavDataActive } from 'src/components/nav-section';
 
 // ----------------------------------------------------------------------
 
@@ -29,9 +30,7 @@ export function DashboardBottomNav({ data, layoutQuery = 'sm' }: Props) {
     .slice(0, 5);
   const currentPath = [...items]
     .sort((a, b) => b.path.length - a.path.length)
-    .find(
-      (item) => pathname === item.path || (item.deepMatch && pathname.startsWith(`${item.path}/`))
-    )?.path;
+    .find((item) => isNavDataActive(pathname, item))?.path;
   return (
     <Portal>
       <Paper

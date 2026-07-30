@@ -163,6 +163,50 @@ export async function GET(request: Request) {
     : orderedRows;
   const hasMore = pagedRows.length > limit;
   const pageRows = pagedRows.slice(0, limit);
+  const mineUsage = new Map<
+    string,
+    { purchases: number; hasOrderReferences: boolean; hasDealReferences: boolean }
+  >();
+  if (mine && pageRows.length) {
+    const productIds = pageRows.map((product) => product.id);
+    const [{ data: orderItems, error: orderItemsError }, { data: deals, error: dealsError }] =
+      await Promise.all([
+        supabaseAdmin
+          .from('marketplace_order_items')
+          .select('product_id, quantity, order:marketplace_orders!inner(status)')
+          .in('product_id', productIds),
+        supabaseAdmin
+          .from('marketplace_sales_deals')
+          .select('product_id')
+          .in('product_id', productIds),
+      ]);
+    if (orderItemsError || dealsError) {
+      return NextResponse.json(
+        { message: orderItemsError?.message ?? dealsError?.message ?? 'โหลดสถานะสินค้าไม่สำเร็จ' },
+        { status: 500 }
+      );
+    }
+    productIds.forEach((productId) => {
+      mineUsage.set(productId, {
+        purchases: 0,
+        hasOrderReferences: false,
+        hasDealReferences: false,
+      });
+    });
+    (orderItems ?? []).forEach((item) => {
+      const usage = mineUsage.get(item.product_id);
+      if (!usage) return;
+      usage.hasOrderReferences = true;
+      const order = Array.isArray(item.order) ? item.order[0] : item.order;
+      if (order && ['paid', 'completed', 'refunded'].includes(String(order.status))) {
+        usage.purchases += Number(item.quantity || 0);
+      }
+    });
+    (deals ?? []).forEach((deal) => {
+      const usage = mineUsage.get(deal.product_id);
+      if (usage) usage.hasDealReferences = true;
+    });
+  }
   const resolved = await Promise.all(pageRows.map((product) => withMediaUrls(product)));
   const safeProducts = resolved.map((resolvedProduct) => {
     const product = withCardRating(resolvedProduct);
@@ -173,10 +217,25 @@ export async function GET(request: Request) {
       };
     }
     product.seller = withPublicSystemStoreFlag(product.seller);
-    if (mine) return product;
+    if (mine) {
+      const usage = mineUsage.get(String(product.id)) ?? {
+        purchases: 0,
+        hasOrderReferences: false,
+        hasDealReferences: false,
+      };
+      return {
+        ...product,
+        purchase_count: usage.purchases,
+        has_order_references: usage.hasOrderReferences,
+        has_deal_references: usage.hasDealReferences,
+        can_delete: usage.purchases === 0 && !usage.hasOrderReferences && !usage.hasDealReferences,
+        can_hide: usage.purchases === 0 && product.status === 'published',
+      };
+    }
     const publicProduct = { ...product };
     delete publicProduct.file_url;
     delete publicProduct.files;
+    delete publicProduct.external_links;
     return publicProduct;
   });
   return NextResponse.json({

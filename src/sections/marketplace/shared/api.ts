@@ -284,6 +284,15 @@ export async function deleteProduct(id: string) {
   return parseResponse<{ success: true }>(response);
 }
 
+export async function setProductHidden(id: string, hidden: boolean) {
+  const response = await fetch(`/api/marketplace/products/${id}/manage`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ visibilityAction: hidden ? 'hide' : 'restore' }),
+  });
+  return parseResponse<{ product: MarketplaceProduct }>(response);
+}
+
 export async function createOrder(
   items: Array<{ productId: string }>,
   paymentMethod: string,

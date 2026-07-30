@@ -6,6 +6,7 @@ import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 
 import { ownedSellerId } from 'src/sections/marketplace/seller/server/owned-seller';
+import { MARKETPLACE_MINIMUM_PAID_PRICE_THB } from 'src/sections/marketplace/shared/payment';
 
 const DEAL_SELECT =
   '*, product:marketplace_products(id,title,title_en,price,resource_type,license_scope,status), school:schools(id,name,code)';
@@ -76,7 +77,7 @@ export async function POST(request: Request) {
     contactName.length < 2 ||
     !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(schoolEmail) ||
     !Number.isFinite(negotiatedPrice) ||
-    negotiatedPrice < 0 ||
+    negotiatedPrice < MARKETPLACE_MINIMUM_PAID_PRICE_THB ||
     negotiatedPrice > Number(product.price) ||
     !expiresAt ||
     expiresAt <= new Date() ||
@@ -86,8 +87,7 @@ export async function POST(request: Request) {
   ) {
     return NextResponse.json(
       {
-        message:
-          'กรุณากรอกข้อมูลโรงเรียน ผู้ติดต่อ ราคา วันหมดอายุ และรหัสโรงเรียน 8 หลักให้ถูกต้อง',
+        message: `กรุณากรอกข้อมูลให้ถูกต้อง โดยราคาหลังส่วนลดต้องไม่น้อยกว่า ${MARKETPLACE_MINIMUM_PAID_PRICE_THB} บาท`,
       },
       { status: 400 }
     );

@@ -9,19 +9,25 @@ import Alert from '@mui/material/Alert';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Switch from '@mui/material/Switch';
+import Dialog from '@mui/material/Dialog';
 import Divider from '@mui/material/Divider';
 import TextField from '@mui/material/TextField';
 import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
 import CircularProgress from '@mui/material/CircularProgress';
 import FormControlLabel from '@mui/material/FormControlLabel';
 
 import { paths } from 'src/routes/paths';
+import { useRouter } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 
-import { RiBookOpenLine, RiSendPlaneLine } from 'src/components/remix-icon';
+import { RiBookOpenLine, RiSendPlaneLine, RiShoppingCart2Line } from 'src/components/remix-icon';
 
-import { formatPrice } from '../../shared/api';
+import { getProduct, formatPrice } from '../../shared/api';
+import { useMarketplaceCart } from '../../cart/cart-context';
 
 type SettingsResult = {
   seller: { display_name: string };
@@ -41,6 +47,22 @@ type SettingsResult = {
   }>;
 };
 
+type AccessResult = {
+  allowed: boolean;
+  entitled: boolean;
+  purchaseProductId: string | null;
+  purchasePrice: number | null;
+  purchaseOptions: PurchaseOption[];
+};
+
+type PurchaseOption = {
+  key: string;
+  productId: string;
+  price: number;
+  description: string;
+  quota: number | null;
+};
+
 async function readJson(response: Response) {
   const result = await response.json().catch(() => null);
   if (!response.ok) {
@@ -50,6 +72,8 @@ async function readJson(response: Response) {
 }
 
 export function MarketplaceSellerLineSettingsView() {
+  const router = useRouter();
+  const { addItem } = useMarketplaceCart();
   const [data, setData] = useState<SettingsResult | null>(null);
   const [lineUserId, setLineUserId] = useState('');
   const [accessToken, setAccessToken] = useState('');
@@ -58,11 +82,33 @@ export function MarketplaceSellerLineSettingsView() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [buying, setBuying] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [purchaseRequired, setPurchaseRequired] = useState(false);
+  const [purchaseProductId, setPurchaseProductId] = useState<string | null>(null);
+  const [purchasePrice, setPurchasePrice] = useState<number | null>(null);
+  const [purchaseOptions, setPurchaseOptions] = useState<PurchaseOption[]>([]);
 
   const load = useCallback(async () => {
+    setError('');
     try {
+      const access = (await readJson(
+        await fetch('/api/marketplace/seller/line-settings?access=1', { cache: 'no-store' })
+      )) as AccessResult;
+      if (!access.allowed) {
+        throw new Error('Super Admin ยังไม่อนุญาตให้ใช้ LINE แจ้งเตือนร้านค้า');
+      }
+      if (!access.entitled) {
+        setPurchaseProductId(access.purchaseProductId);
+        setPurchasePrice(access.purchasePrice);
+        setPurchaseOptions(access.purchaseOptions ?? []);
+        setPurchaseRequired(true);
+        return;
+      }
+      setPurchaseRequired(false);
+      setPurchaseProductId(null);
+
       const result = (await readJson(
         await fetch('/api/marketplace/seller/line-settings', { cache: 'no-store' })
       )) as SettingsResult;
@@ -80,6 +126,20 @@ export function MarketplaceSellerLineSettingsView() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const buyNow = async (productId = purchaseProductId) => {
+    if (!productId) return;
+    setBuying(true);
+    setError('');
+    try {
+      const { product } = await getProduct(productId);
+      addItem(product);
+      router.push(paths.marketplace.dashboardCheckout);
+    } catch (buyError) {
+      setError(buyError instanceof Error ? buyError.message : 'ไม่สามารถเริ่มการซื้อได้');
+      setBuying(false);
+    }
+  };
 
   const save = async () => {
     setSaving(true);
@@ -133,6 +193,85 @@ export function MarketplaceSellerLineSettingsView() {
     return (
       <Container maxWidth="xl" sx={{ py: 8, textAlign: 'center' }}>
         <CircularProgress />
+      </Container>
+    );
+  }
+
+  if (purchaseRequired) {
+    return (
+      <Container maxWidth="sm" sx={{ py: { xs: 4, md: 8 } }}>
+        <Dialog open disableEscapeKeyDown maxWidth="xs" fullWidth>
+          <DialogTitle>ซื้อฟีเจอร์ก่อนใช้งาน</DialogTitle>
+          <DialogContent>
+            <Typography color="text.secondary">
+              LINE แจ้งเตือนยอดขายเป็นฟีเจอร์เสริมแบบซื้อขาด
+              กรุณาซื้อและชำระเงินให้สำเร็จก่อนเริ่มตั้งค่า
+            </Typography>
+            <Stack spacing={1.5} sx={{ mt: 2 }}>
+              {(purchaseOptions.length
+                ? purchaseOptions
+                : purchaseProductId && purchasePrice !== null
+                  ? [
+                      {
+                        key: 'byoa',
+                        productId: purchaseProductId,
+                        price: purchasePrice,
+                        description: 'ใช้ LINE OA ของตัวเอง',
+                        quota: null,
+                      },
+                    ]
+                  : []
+              ).map((option) => (
+                <Box
+                  key={option.productId}
+                  sx={{
+                    p: 2,
+                    borderRadius: 1.5,
+                    bgcolor: 'primary.lighter',
+                    border: '1px solid',
+                    borderColor: 'primary.light',
+                  }}
+                >
+                  <Typography variant="subtitle1">
+                    {option.quota ? 'ใช้ LINE ของระบบ E-KRU' : 'ใช้ LINE OA ของตัวเอง'}
+                  </Typography>
+                  <Typography variant="h5" color="primary.darker" sx={{ mt: 0.5 }}>
+                    {formatPrice(option.price)}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {option.description}
+                    {option.quota ? ` · ${option.quota} ข้อความ` : ' · ซื้อขาด'}
+                  </Typography>
+                  <Button
+                    fullWidth
+                    variant="contained"
+                    loading={buying}
+                    startIcon={<RiShoppingCart2Line />}
+                    onClick={() => buyNow(option.productId)}
+                    sx={{ mt: 1.5 }}
+                  >
+                    ซื้อเลย
+                  </Button>
+                </Box>
+              ))}
+            </Stack>
+            {!!error && (
+              <Alert severity="error" sx={{ mt: 2 }}>
+                {error}
+              </Alert>
+            )}
+            {!purchaseProductId && (
+              <Alert severity="warning" sx={{ mt: 2 }}>
+                ยังไม่มีสินค้าสำหรับฟีเจอร์นี้ กรุณาติดต่อผู้ดูแลระบบ
+              </Alert>
+            )}
+          </DialogContent>
+          <DialogActions sx={{ gap: 2 }}>
+            <Button component={RouterLink} href={paths.marketplace.seller} color="inherit">
+              กลับร้านค้าของฉัน
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Container>
     );
   }
@@ -257,7 +396,7 @@ export function MarketplaceSellerLineSettingsView() {
                   <Box>
                     <Typography variant="subtitle2">แจ้งเมื่อผู้ซื้อชำระเงินแล้ว</Typography>
                     <Typography variant="caption" color="text.secondary">
-                      ส่งหลัง Stripe ยืนยัน หรือผู้ดูแลอนุมัติสลิปแล้วเท่านั้น
+                      ส่งหลังระบบยืนยันการชำระออนไลน์ หรือผู้ดูแลอนุมัติสลิปแล้วเท่านั้น
                     </Typography>
                   </Box>
                 }

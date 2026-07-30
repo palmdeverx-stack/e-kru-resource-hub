@@ -6,6 +6,10 @@ import { encryptLineCredential, decryptLineCredential } from 'src/lib/line-crede
 
 import { provisionEkruSystemSeller } from 'src/sections/marketplace/seller/server/system-seller';
 import { pushSellerLineText } from 'src/sections/marketplace/seller/server/seller-line-notifications';
+import {
+  getSellerLineFeatureAccess,
+  type SellerLineFeatureAccess,
+} from 'src/sections/marketplace/seller/server/seller-line-access';
 
 const LINE_USER_ID_PATTERN = /^U[0-9a-f]{32}$/i;
 
@@ -25,15 +29,23 @@ async function findSeller(caller: Caller) {
   return result.data;
 }
 
-async function sellerLineAllowed(caller: Caller) {
-  if (caller.role === 'master_admin') return true;
-  const { data, error } = await supabaseAdmin
-    .from('marketplace_line_settings')
-    .select('allow_seller_notifications')
-    .eq('id', 'default')
-    .maybeSingle();
-  if (error) throw error;
-  return data?.allow_seller_notifications === true;
+function sellerLineAccessError(access: SellerLineFeatureAccess) {
+  if (!access.allowed) {
+    return NextResponse.json(
+      { message: 'Super Admin ยังไม่อนุญาตให้ใช้ LINE แจ้งเตือนร้านค้า' },
+      { status: 403 }
+    );
+  }
+  if (!access.entitled) {
+    return NextResponse.json(
+      {
+        message: 'กรุณาซื้อฟีเจอร์ LINE แจ้งเตือนยอดขายก่อนใช้งาน',
+        purchaseProductId: access.purchaseProductId,
+      },
+      { status: 402 }
+    );
+  }
+  return null;
 }
 
 export async function GET(request: Request) {
@@ -41,16 +53,12 @@ export async function GET(request: Request) {
   if (!caller) return NextResponse.json({ message: 'กรุณาเข้าสู่ระบบ' }, { status: 401 });
 
   try {
-    const allowed = await sellerLineAllowed(caller);
+    const access = await getSellerLineFeatureAccess(caller.sub, caller.role);
     if (new URL(request.url).searchParams.get('access') === '1') {
-      return NextResponse.json({ allowed });
+      return NextResponse.json(access);
     }
-    if (!allowed) {
-      return NextResponse.json(
-        { message: 'Super Admin ยังไม่อนุญาตให้ใช้ LINE แจ้งเตือนร้านค้า' },
-        { status: 403 }
-      );
-    }
+    const accessError = sellerLineAccessError(access);
+    if (accessError) return accessError;
     const seller = await findSeller(caller);
     if (!seller) return NextResponse.json({ message: 'กรุณาสมัครเปิดร้านก่อน' }, { status: 404 });
 
@@ -96,12 +104,10 @@ export async function PATCH(request: Request) {
   const body = await request.json().catch(() => null);
 
   try {
-    if (!(await sellerLineAllowed(caller))) {
-      return NextResponse.json(
-        { message: 'Super Admin ยังไม่อนุญาตให้ใช้ LINE แจ้งเตือนร้านค้า' },
-        { status: 403 }
-      );
-    }
+    const accessError = sellerLineAccessError(
+      await getSellerLineFeatureAccess(caller.sub, caller.role)
+    );
+    if (accessError) return accessError;
     const seller = await findSeller(caller);
     if (!seller) return NextResponse.json({ message: 'กรุณาสมัครเปิดร้านก่อน' }, { status: 404 });
 
@@ -125,10 +131,7 @@ export async function PATCH(request: Request) {
       .eq('seller_id', seller.id)
       .maybeSingle();
 
-    if (
-      isEnabled &&
-      (!lineUserId || !(accessToken || existing?.channel_access_token_encrypted))
-    ) {
+    if (isEnabled && (!lineUserId || !(accessToken || existing?.channel_access_token_encrypted))) {
       return NextResponse.json(
         { message: 'กรุณากรอก Channel access token และ LINE User ID ก่อนเปิดใช้งาน' },
         { status: 400 }
@@ -167,12 +170,10 @@ export async function POST(request: Request) {
   }
 
   try {
-    if (!(await sellerLineAllowed(caller))) {
-      return NextResponse.json(
-        { message: 'Super Admin ยังไม่อนุญาตให้ใช้ LINE แจ้งเตือนร้านค้า' },
-        { status: 403 }
-      );
-    }
+    const accessError = sellerLineAccessError(
+      await getSellerLineFeatureAccess(caller.sub, caller.role)
+    );
+    if (accessError) return accessError;
     const seller = await findSeller(caller);
     if (!seller) return NextResponse.json({ message: 'กรุณาสมัครเปิดร้านก่อน' }, { status: 404 });
     const { data: settings } = await supabaseAdmin

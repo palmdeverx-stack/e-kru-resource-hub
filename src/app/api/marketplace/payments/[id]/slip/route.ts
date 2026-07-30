@@ -31,7 +31,7 @@ export async function POST(request: Request, { params }: Context) {
   }
   if (session.payment_method !== 'promptpay') {
     return NextResponse.json(
-      { message: 'รายการ Stripe ต้องยืนยันการชำระผ่าน Stripe webhook เท่านั้น' },
+      { message: 'รายการชำระเงินออนไลน์จะยืนยันผลผ่านระบบอัตโนมัติ ไม่ต้องแนบสลิป' },
       { status: 409 }
     );
   }

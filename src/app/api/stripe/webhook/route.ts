@@ -5,9 +5,9 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { createNotifications } from 'src/lib/notifications';
 
+import { getStripe, getStripeWebhookSecret } from 'src/sections/marketplace/checkout/server/stripe';
 import { finalizeMarketplacePayment } from 'src/sections/marketplace/checkout/server/finalize-payment';
 import { revokeLicensesForPaymentSession } from 'src/sections/marketplace/checkout/server/license-lifecycle';
-import { getStripe, getStripeWebhookSecret } from 'src/sections/marketplace/checkout/server/stripe';
 
 export const runtime = 'nodejs';
 
@@ -72,7 +72,10 @@ async function markStripePaymentFailed(
       userId: local.buyer_id,
       schoolId: null,
       type: `marketplace_stripe_${status}`,
-      title: status === 'expired' ? 'รายการ Stripe หมดอายุ' : 'การชำระผ่าน Stripe ไม่สำเร็จ',
+      title:
+        status === 'expired'
+          ? 'รายการชำระเงินออนไลน์หมดอายุ'
+          : 'การชำระเงินออนไลน์ไม่สำเร็จ',
       body: reason,
       link: `/checkout/payment/${local.id}`,
     },
@@ -115,7 +118,8 @@ async function markPaymentIntentFailed(intent: Stripe.PaymentIntent) {
   const paymentSessionId = intent.metadata?.marketplace_payment_session_id;
   if (!paymentSessionId)
     throw new Error('Stripe Payment Intent ไม่มี marketplace_payment_session_id');
-  const reason = intent.last_payment_error?.message ?? 'Stripe แจ้งว่าการชำระเงินไม่สำเร็จ';
+  const reason =
+    intent.last_payment_error?.message ?? 'ผู้ให้บริการชำระเงินแจ้งว่าการชำระเงินไม่สำเร็จ';
   const now = new Date().toISOString();
   const { data: session, error } = await supabaseAdmin
     .from('marketplace_payment_sessions')
@@ -136,7 +140,7 @@ async function markPaymentIntentFailed(intent: Stripe.PaymentIntent) {
       userId: session.buyer_id,
       schoolId: null,
       type: 'marketplace_stripe_rejected',
-      title: 'การชำระผ่าน Stripe ไม่สำเร็จ',
+      title: 'การชำระเงินออนไลน์ไม่สำเร็จ',
       body: reason,
       link: `/checkout/payment/${paymentSessionId}`,
     },

@@ -41,7 +41,9 @@ import { Upload } from 'src/components/upload';
 import { Editor } from 'src/components/editor';
 import {
   RemixIcon,
+  RiAddLine,
   RiEyeLine,
+  RiGiftLine,
   RiSaveLine,
   RiImageAddLine,
   RiFileList3Line,
@@ -54,6 +56,8 @@ import { useAuthContext } from 'src/auth/hooks';
 
 import { getMarketplacePricing } from '../../shared/pricing';
 import { MARKETPLACE_CATEGORIES } from '../../shared/constants';
+import { MARKETPLACE_SELLER_LINE_FEATURE } from '../line-feature';
+import { MARKETPLACE_MINIMUM_PAID_PRICE_THB } from '../../shared/payment';
 import {
   getTags,
   getCurricula,
@@ -95,6 +99,8 @@ const PRODUCT_FILE_ACCEPT = {
   'image/webp': ['.webp'],
 };
 const MAX_PRODUCT_FILE_SIZE = 50 * 1024 * 1024;
+const MAX_EXTERNAL_LINKS = 3;
+const MAX_PURCHASE_BENEFITS = 8;
 
 type Props = {
   productId?: string;
@@ -132,6 +138,8 @@ const initialForm = {
   licenseMaxStudents: '',
   licenseMaxSchoolAdmins: '',
   licenseLineQuota: '',
+  externalLinks: [] as Array<{ label: string; url: string }>,
+  purchaseBenefits: [] as string[],
 };
 
 function plainTextLength(html: string) {
@@ -139,6 +147,15 @@ function plainTextLength(html: string) {
     .replace(/<[^>]*>/g, '')
     .replace(/\s+/g, ' ')
     .trim().length;
+}
+
+function isValidExternalUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password;
+  } catch {
+    return false;
+  }
 }
 
 export function MarketplaceProductFormView({ productId: initialProductId }: Props = {}) {
@@ -271,6 +288,8 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
       licenseMaxStudents: String(product.license_max_students ?? ''),
       licenseMaxSchoolAdmins: String(product.license_max_school_admins ?? ''),
       licenseLineQuota: String(product.license_line_quota ?? ''),
+      externalLinks: (product.external_links ?? []).slice(0, MAX_EXTERNAL_LINKS),
+      purchaseBenefits: (product.purchase_benefits ?? []).slice(0, MAX_PURCHASE_BENEFITS),
     });
     setImages(product.images ?? []);
     setPendingCover(null);
@@ -310,7 +329,10 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
   const licenseFeatures =
     form.licenseScope === 'teacher'
       ? SCHOOL_FEATURES.filter((feature) => feature.key.startsWith('teacher.'))
-      : SCHOOL_FEATURES;
+      : form.licenseScope === 'individual'
+        ? [...SCHOOL_FEATURES, MARKETPLACE_SELLER_LINE_FEATURE]
+        : SCHOOL_FEATURES;
+  const isPerpetualLicense = form.grantsFeatureKeys.includes(MARKETPLACE_SELLER_LINE_FEATURE.key);
   const visibleImages = images.filter((image) => !pendingDeletedImageIds.includes(image.id));
   const coverImage = visibleImages.find((image) => image.is_cover) ?? visibleImages[0];
   const previewImages = visibleImages.filter((image) => image.id !== coverImage?.id);
@@ -354,11 +376,12 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
     {
       label:
         selectedSaleType?.pricing_mode === 'paid'
-          ? 'เลือกประเภทการจำหน่ายและระบุราคา'
+          ? `เลือกประเภทการจำหน่ายและระบุราคาอย่างน้อย ${MARKETPLACE_MINIMUM_PAID_PRICE_THB} บาท`
           : 'เลือกประเภทการจำหน่าย',
       completed:
         Boolean(form.saleTypeId) &&
-        (selectedSaleType?.pricing_mode !== 'paid' || Number(form.price) > 0),
+        (selectedSaleType?.pricing_mode !== 'paid' ||
+          Number(form.price) >= MARKETPLACE_MINIMUM_PAID_PRICE_THB),
     },
     {
       label: 'เพิ่มภาพปกสินค้า',
@@ -367,8 +390,9 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
     ...(!isFileOptional
       ? [
           {
-            label: 'อัปโหลดไฟล์สินค้าอย่างน้อย 1 ไฟล์',
-            completed: visibleFiles.length + pendingProductFiles.length > 0,
+            label: 'เพิ่มไฟล์หรือลิงก์ส่งมอบอย่างน้อย 1 รายการ',
+            completed:
+              visibleFiles.length + pendingProductFiles.length > 0 || form.externalLinks.length > 0,
           },
         ]
       : []),
@@ -380,7 +404,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
           },
           {
             label: 'กำหนดระยะเวลาของ License',
-            completed: Number(form.grantDurationDays) > 0,
+            completed: isPerpetualLicense || Number(form.grantDurationDays) > 0,
           },
           ...(form.licenseScope === 'school' &&
           form.grantsFeatureKeys.length === SCHOOL_FEATURES.length
@@ -404,6 +428,20 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                 },
               ]
             : []),
+        ]
+      : []),
+    ...(form.externalLinks.length
+      ? [
+          {
+            label: 'กรอกชื่อและ URL ของลิงก์ส่งมอบให้ถูกต้อง',
+            completed: form.externalLinks.every(
+              (link) =>
+                link.label.trim().length > 0 &&
+                link.label.trim().length <= 80 &&
+                link.url.trim().length <= 2048 &&
+                isValidExternalUrl(link.url.trim())
+            ),
+          },
         ]
       : []),
   ];
@@ -434,7 +472,9 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
     grantsPlanCode: isLicenseProduct ? form.grantsPlanCode.trim() || undefined : undefined,
     grantDurationDays:
       isLicenseProduct && form.grantsFeatureKeys.length
-        ? Number(form.grantDurationDays)
+        ? isPerpetualLicense
+          ? null
+          : Number(form.grantDurationDays)
         : undefined,
     licenseScope: form.licenseScope,
     licenseSeatCount: form.licenseScope === 'teacher' ? Number(form.licenseSeatCount) || 1 : 1,
@@ -452,6 +492,11 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
         : undefined,
     licenseLineQuota:
       isLicenseProduct && form.licenseLineQuota !== '' ? Number(form.licenseLineQuota) : undefined,
+    externalLinks: form.externalLinks.map((link) => ({
+      label: link.label.trim(),
+      url: link.url.trim(),
+    })),
+    purchaseBenefits: form.purchaseBenefits.map((item) => item.trim()).filter(Boolean),
     ...(submit && { submit: true }),
   });
 
@@ -581,6 +626,18 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
       setError('กรุณากรอกชื่อสินค้าอย่างน้อย 3 ตัวอักษร');
       return;
     }
+    if (
+      form.externalLinks.some(
+        (link) =>
+          !link.label.trim() ||
+          link.label.trim().length > 80 ||
+          link.url.trim().length > 2048 ||
+          !isValidExternalUrl(link.url.trim())
+      )
+    ) {
+      setError('กรุณากรอกชื่อและ URL ของลิงก์ส่งมอบให้ถูกต้อง');
+      return;
+    }
     if (submit && requirements.length) {
       setError('กรุณากรอกข้อมูลที่จำเป็นให้ครบก่อนส่งตรวจ');
       return;
@@ -702,7 +759,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
   }
 
   return (
-    <Container maxWidth={false} sx={{ py: { xs: 4, md: 6 } }}>
+    <Container maxWidth={false} sx={{ py: { xs: 3 } }}>
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
         alignItems={{ sm: 'center' }}
@@ -748,14 +805,53 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
 
       <Grid container spacing={3} alignItems="flex-start">
         <Grid size={{ xs: 12, lg: 8 }}>
-          <Stack spacing={3}>
+          <Stack spacing={{ xs: 2.5, md: 4 }}>
             <FormSection
               number="01"
-              title="ข้อมูลสินค้า"
-              description="ชื่อและรายละเอียดที่ผู้ซื้อจะเห็นในหน้าสินค้า"
+              title="รายละเอียดสินค้า"
+              description="บอกว่าสินค้านี้ช่วยเรื่องอะไร เหมาะกับใคร และใช้อย่างไร"
               icon={<RiFileList3Line />}
             >
               <Stack spacing={2.5}>
+                <Grid container spacing={1.5}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <Box
+                      sx={{
+                        p: 2,
+                        height: 1,
+                        borderRadius: 2,
+                        bgcolor: 'primary.lighter',
+                        border: '1px solid',
+                        borderColor: 'primary.light',
+                      }}
+                    >
+                      <Typography variant="subtitle2" color="primary.darker">
+                        เขียนในส่วนนี้
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                        เนื้อหาเหมาะกับใคร และนำไปใช้สอนอย่างไร
+                      </Typography>
+                    </Box>
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <Box
+                      sx={{
+                        p: 2,
+                        height: 1,
+                        borderRadius: 2,
+                        bgcolor: 'background.neutral',
+                        border: '1px solid',
+                        borderColor: 'divider',
+                      }}
+                    >
+                      <Typography variant="subtitle2">ไปเขียนในส่วนที่ 05</Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                        จำนวนไฟล์ จำนวนหน้า เฉลย และลิงก์ที่ลูกค้าจะได้รับ
+                      </Typography>
+                    </Box>
+                  </Grid>
+                </Grid>
+
                 <Stack direction="row" spacing={1} alignItems="center">
                   <Chip size="small" color="primary" label="TH" />
                   <Typography variant="subtitle1">ข้อมูลภาษาไทย</Typography>
@@ -783,12 +879,12 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                   }
                 />
                 <Stack spacing={1}>
-                  <Typography variant="subtitle2">รายละเอียดสินค้า *</Typography>
+                  <Typography variant="subtitle2">รายละเอียดสำหรับช่วยตัดสินใจ *</Typography>
                   <Editor
                     value={form.description}
                     onChange={(value) => setForm((current) => ({ ...current, description: value }))}
-                    placeholder="อธิบายเนื้อหา จำนวนหน้า รูปแบบไฟล์ วิธีใช้งาน และสิ่งที่ผู้ซื้อจะได้รับ"
-                    sx={{ minHeight: 260 }}
+                    placeholder="เช่น แบบฝึกเรื่องเศษส่วนสำหรับ ป.4 ใช้ทบทวนในชั้นเรียนหรือมอบหมายเป็นการบ้าน"
+                    sx={{ minHeight: 220 }}
                   />
                   <Typography
                     variant="caption"
@@ -1055,11 +1151,28 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                     label="ราคาขาย (บาท)"
                     value={form.price}
                     disabled={selectedSaleType?.pricing_mode === 'free'}
-                    slotProps={{ htmlInput: { min: 0, step: 1 } }}
+                    slotProps={{
+                      htmlInput: {
+                        min:
+                          selectedSaleType?.pricing_mode === 'paid'
+                            ? MARKETPLACE_MINIMUM_PAID_PRICE_THB
+                            : 0,
+                        step: 1,
+                      },
+                    }}
                     onChange={(event) =>
                       setForm((current) => ({ ...current, price: event.target.value }))
                     }
-                    helperText="ยอดที่ผู้ซื้อชำระจริง"
+                    error={
+                      selectedSaleType?.pricing_mode === 'paid' &&
+                      Number(form.price) < MARKETPLACE_MINIMUM_PAID_PRICE_THB
+                    }
+                    helperText={
+                      selectedSaleType?.pricing_mode === 'paid' &&
+                      Number(form.price) < MARKETPLACE_MINIMUM_PAID_PRICE_THB
+                        ? `ราคาขายหลังส่วนลดต้องไม่น้อยกว่า ${MARKETPLACE_MINIMUM_PAID_PRICE_THB} บาท`
+                        : 'ยอดที่ผู้ซื้อชำระจริงหลังส่วนลด'
+                    }
                   />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 3 }}>
@@ -1128,7 +1241,11 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                                 ? current.grantsFeatureKeys.filter((key) =>
                                     key.startsWith('teacher.')
                                   )
-                                : current.grantsFeatureKeys,
+                                : licenseScope === 'school'
+                                  ? current.grantsFeatureKeys.filter(
+                                      (key) => key !== MARKETPLACE_SELLER_LINE_FEATURE.key
+                                    )
+                                  : current.grantsFeatureKeys,
                             licenseMaxTeachers: '',
                             licenseMaxStudents: '',
                             licenseMaxSchoolAdmins: '',
@@ -1142,23 +1259,27 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                       </TextField>
                     </Grid>
                     <Grid size={{ xs: 12, sm: 6 }}>
-                      <TextField
-                        fullWidth
-                        type="number"
-                        label="ระยะเวลาปลดล็อก (วัน)"
-                        value={form.grantDurationDays}
-                        disabled={
-                          selectedSubscriptionPlan?.billing_cycle === 'monthly' ||
-                          selectedSubscriptionPlan?.billing_cycle === 'yearly'
-                        }
-                        slotProps={{ htmlInput: { min: 1 } }}
-                        onChange={(event) =>
-                          setForm((current) => ({
-                            ...current,
-                            grantDurationDays: event.target.value,
-                          }))
-                        }
-                      />
+                      {isPerpetualLicense ? (
+                        <Alert severity="success">License ซื้อขาด · ไม่มีวันหมดอายุ</Alert>
+                      ) : (
+                        <TextField
+                          fullWidth
+                          type="number"
+                          label="ระยะเวลาปลดล็อก (วัน)"
+                          value={form.grantDurationDays}
+                          disabled={
+                            selectedSubscriptionPlan?.billing_cycle === 'monthly' ||
+                            selectedSubscriptionPlan?.billing_cycle === 'yearly'
+                          }
+                          slotProps={{ htmlInput: { min: 1 } }}
+                          onChange={(event) =>
+                            setForm((current) => ({
+                              ...current,
+                              grantDurationDays: event.target.value,
+                            }))
+                          }
+                        />
+                      )}
                     </Grid>
                     <Grid size={{ xs: 12 }}>
                       {form.licenseScope === 'school' && (
@@ -1204,7 +1325,9 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                                 ? `ดึง ${selectedSubscriptionPlan.enabled_features.length} ฟีเจอร์จากแพ็กเกจ ${selectedSubscriptionPlan.name}`
                                 : form.licenseScope === 'teacher'
                                   ? 'License รายครูเลือกได้เฉพาะฟีเจอร์สำหรับครู'
-                                  : 'สิทธิ์จะเปิดให้ผู้ใช้ทั้งโรงเรียน'
+                                  : form.licenseScope === 'individual'
+                                    ? 'สิทธิ์จะเปิดให้บัญชีผู้ซื้อรายบุคคล'
+                                    : 'สิทธิ์จะเปิดให้ผู้ใช้ทั้งโรงเรียน'
                             }
                           />
                         )}
@@ -1313,17 +1436,37 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
 
             <FormSection
               number="04"
-              title={isLicenseProduct ? 'รูปภาพสินค้า' : 'รูปภาพและไฟล์สินค้า'}
-              description={
-                isLicenseProduct
-                  ? 'รูปภาพใช้แสดงรายละเอียด Package และสิทธิ์ที่ผู้ซื้อจะได้รับ'
-                  : 'รูปภาพใช้แสดงหน้าร้าน ส่วนไฟล์จะส่งให้ผู้ซื้อหลังชำระเงิน'
-              }
+              title="รูปภาพสินค้า"
+              description="รูปภาพใช้แสดงตัวอย่างและรายละเอียดสินค้าในหน้าร้าน"
               icon={<RiImageAddLine />}
             >
-              <Stack spacing={4}>
-                <Stack spacing={1.5}>
-                  <Typography variant="subtitle1">ภาพพรีวิวสินค้า</Typography>
+              <Stack spacing={2.5}>
+                <Stack
+                  spacing={1.5}
+                  sx={{
+                    p: { xs: 2, md: 2.5 },
+                    borderRadius: 2,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    bgcolor: 'background.paper',
+                  }}
+                >
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Box
+                      sx={{
+                        width: 32,
+                        height: 32,
+                        display: 'grid',
+                        borderRadius: 1,
+                        placeItems: 'center',
+                        color: 'primary.main',
+                        bgcolor: 'primary.lighter',
+                      }}
+                    >
+                      <RiImageAddLine size={18} />
+                    </Box>
+                    <Typography variant="subtitle1">ภาพพรีวิวสินค้า</Typography>
+                  </Stack>
                   <Typography variant="body2" color="text.secondary">
                     เพิ่มภาพรายละเอียดหรือภาพตัวอย่างที่ผู้ซื้อจะเห็นถัดจากภาพปก · สูงสุด 9 รูป
                   </Typography>
@@ -1389,162 +1532,441 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                     </Grid>
                   )}
                 </Stack>
+              </Stack>
+            </FormSection>
+
+            <FormSection
+              number="05"
+              title="ของที่ลูกค้าจะได้รับหลังซื้อ"
+              description="ระบุของที่ส่งมอบจริง เช่น ไฟล์ จำนวนหน้า เฉลย หรือลิงก์"
+              icon={<RiGiftLine />}
+            >
+              <Stack spacing={3}>
+                <Alert severity="info" variant="outlined">
+                  ส่วนนี้ไม่ใช่คำอธิบายสินค้า — ระบุเฉพาะของที่ลูกค้าจะได้รับจริง
+                </Alert>
 
                 {!isLicenseProduct && (
-                  <>
-                    <Divider />
-
-                    <Stack spacing={1.5}>
+                  <Stack
+                    spacing={1.5}
+                    sx={{
+                      p: { xs: 2, md: 2.5 },
+                      borderRadius: 2,
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      bgcolor: 'background.paper',
+                    }}
+                  >
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Box
+                        sx={{
+                          width: 32,
+                          height: 32,
+                          display: 'grid',
+                          borderRadius: 1,
+                          placeItems: 'center',
+                          color: 'primary.main',
+                          bgcolor: 'primary.lighter',
+                        }}
+                      >
+                        <RiFileList3Line size={18} />
+                      </Box>
                       <Typography variant="subtitle1">
-                        ไฟล์สินค้า {isFileOptional ? '(ไม่บังคับ)' : '*'}
+                        แนบไฟล์ที่จะส่งให้ลูกค้า (เลือกได้)
                       </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        PDF, DOC/DOCX, PPT/PPTX, XLS/XLSX, ZIP หรือรูปภาพ ไม่เกิน 50MB ต่อไฟล์
-                      </Typography>
-                      {isFileOptional && selectedMediaType && (
-                        <Alert severity="info" variant="outlined">
-                          ประเภทสื่อ “{selectedMediaType.name}” ไม่บังคับอัปโหลดไฟล์
-                        </Alert>
-                      )}
-                      <Upload
-                        multiple
-                        value={[]}
-                        accept={PRODUCT_FILE_ACCEPT}
-                        maxSize={MAX_PRODUCT_FILE_SIZE}
-                        loading={filesUploading}
-                        disabled={filesUploading}
-                        onDrop={handleFileDrop}
-                        sx={{ height: 170 }}
-                      />
-                      {!!pendingProductFiles.length && (
-                        <Alert severity="info" variant="outlined">
-                          ไฟล์ใหม่ {pendingProductFiles.length} ไฟล์ยังไม่ได้อัปโหลดเข้าระบบ
-                          สามารถตรวจสอบไฟล์ได้ก่อน แล้วกดบันทึกเพื่อยืนยันการอัปโหลด
-                        </Alert>
-                      )}
-                      {!!pendingProductFiles.length && (
-                        <Stack spacing={1}>
-                          <Typography variant="subtitle2">ไฟล์ใหม่ (รอบันทึก)</Typography>
-                          {pendingProductFiles.map((item) => (
+                    </Stack>
+                    <Typography variant="body2" color="text.secondary">
+                      PDF, DOC/DOCX, PPT/PPTX, XLS/XLSX, ZIP หรือรูปภาพ ไม่เกิน 50MB ต่อไฟล์
+                    </Typography>
+                    {isFileOptional && selectedMediaType && (
+                      <Alert severity="info" variant="outlined">
+                        ประเภทสื่อ “{selectedMediaType.name}” ไม่บังคับอัปโหลดไฟล์
+                      </Alert>
+                    )}
+                    <Upload
+                      multiple
+                      value={[]}
+                      accept={PRODUCT_FILE_ACCEPT}
+                      maxSize={MAX_PRODUCT_FILE_SIZE}
+                      loading={filesUploading}
+                      disabled={filesUploading}
+                      onDrop={handleFileDrop}
+                      sx={{ height: 170 }}
+                    />
+                    {!!pendingProductFiles.length && (
+                      <Alert severity="info" variant="outlined">
+                        ไฟล์ใหม่ {pendingProductFiles.length} ไฟล์ยังไม่ได้อัปโหลดเข้าระบบ
+                        สามารถตรวจสอบไฟล์ได้ก่อน แล้วกดบันทึกเพื่อยืนยันการอัปโหลด
+                      </Alert>
+                    )}
+                    {!!pendingProductFiles.length && (
+                      <Stack spacing={1}>
+                        <Typography variant="subtitle2">ไฟล์ใหม่ (รอบันทึก)</Typography>
+                        {pendingProductFiles.map((item) => (
+                          <Stack
+                            key={item.key}
+                            direction={{ xs: 'column', sm: 'row' }}
+                            alignItems={{ xs: 'stretch', sm: 'center' }}
+                            spacing={1.25}
+                            sx={{
+                              p: 1.5,
+                              border: '1px solid',
+                              borderColor: 'primary.light',
+                              borderRadius: 1.5,
+                              bgcolor: 'primary.lighter',
+                            }}
+                          >
+                            <RemixIcon icon="solar:file-text-bold-duotone" width={22} />
+                            <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                              <Typography variant="body2" noWrap>
+                                {item.file.name}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {(item.file.size / 1024 / 1024).toLocaleString('th-TH', {
+                                  maximumFractionDigits: 2,
+                                })}{' '}
+                                MB · ยังไม่ได้อัปโหลด
+                              </Typography>
+                            </Box>
+                            <Button
+                              size="small"
+                              color="inherit"
+                              variant="outlined"
+                              startIcon={<RiEyeLine />}
+                              onClick={() => openPendingFile(item.file)}
+                            >
+                              ดูไฟล์
+                            </Button>
+                            <Chip
+                              size="small"
+                              label={item.isPreview ? 'ไฟล์ตัวอย่าง' : 'ตั้งเป็นตัวอย่าง'}
+                              color={item.isPreview ? 'primary' : 'default'}
+                              onClick={() => handlePendingFilePreview(item.key, !item.isPreview)}
+                              sx={{ cursor: 'pointer' }}
+                            />
+                            <IconButton
+                              size="small"
+                              onClick={() => handlePendingFileDelete(item.key)}
+                            >
+                              <RemixIcon icon="mingcute:close-line" width={16} />
+                            </IconButton>
+                          </Stack>
+                        ))}
+                      </Stack>
+                    )}
+                    {!!visibleFiles.length && (
+                      <Stack spacing={1}>
+                        <Typography variant="subtitle2">ไฟล์ที่บันทึกแล้ว</Typography>
+                        {visibleFiles.map((file) => {
+                          const isPreview = pendingFilePreview[file.id] ?? file.is_preview;
+                          return (
                             <Stack
-                              key={item.key}
+                              key={file.id}
                               direction={{ xs: 'column', sm: 'row' }}
                               alignItems={{ xs: 'stretch', sm: 'center' }}
                               spacing={1.25}
                               sx={{
                                 p: 1.5,
                                 border: '1px solid',
-                                borderColor: 'primary.light',
+                                borderColor: 'divider',
                                 borderRadius: 1.5,
-                                bgcolor: 'primary.lighter',
                               }}
                             >
                               <RemixIcon icon="solar:file-text-bold-duotone" width={22} />
                               <Box sx={{ flexGrow: 1, minWidth: 0 }}>
                                 <Typography variant="body2" noWrap>
-                                  {item.file.name}
+                                  {file.file_name}
                                 </Typography>
                                 <Typography variant="caption" color="text.secondary">
-                                  {(item.file.size / 1024 / 1024).toLocaleString('th-TH', {
+                                  {(Number(file.file_size) / 1024 / 1024).toLocaleString('th-TH', {
                                     maximumFractionDigits: 2,
                                   })}{' '}
-                                  MB · ยังไม่ได้อัปโหลด
+                                  MB
                                 </Typography>
                               </Box>
                               <Button
+                                component="a"
+                                href={file.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
                                 size="small"
                                 color="inherit"
                                 variant="outlined"
                                 startIcon={<RiEyeLine />}
-                                onClick={() => openPendingFile(item.file)}
                               >
                                 ดูไฟล์
                               </Button>
                               <Chip
                                 size="small"
-                                label={item.isPreview ? 'ไฟล์ตัวอย่าง' : 'ตั้งเป็นตัวอย่าง'}
-                                color={item.isPreview ? 'primary' : 'default'}
-                                onClick={() => handlePendingFilePreview(item.key, !item.isPreview)}
+                                label={isPreview ? 'ไฟล์ตัวอย่าง' : 'ตั้งเป็นตัวอย่าง'}
+                                color={isPreview ? 'primary' : 'default'}
+                                onClick={() => handleTogglePreview(file.id, !isPreview)}
                                 sx={{ cursor: 'pointer' }}
                               />
-                              <IconButton
-                                size="small"
-                                onClick={() => handlePendingFileDelete(item.key)}
-                              >
+                              <IconButton size="small" onClick={() => handleFileDelete(file.id)}>
                                 <RemixIcon icon="mingcute:close-line" width={16} />
                               </IconButton>
                             </Stack>
-                          ))}
-                        </Stack>
-                      )}
-                      {!!visibleFiles.length && (
-                        <Stack spacing={1}>
-                          <Typography variant="subtitle2">ไฟล์ที่บันทึกแล้ว</Typography>
-                          {visibleFiles.map((file) => {
-                            const isPreview = pendingFilePreview[file.id] ?? file.is_preview;
-                            return (
-                              <Stack
-                                key={file.id}
-                                direction={{ xs: 'column', sm: 'row' }}
-                                alignItems={{ xs: 'stretch', sm: 'center' }}
-                                spacing={1.25}
-                                sx={{
-                                  p: 1.5,
-                                  border: '1px solid',
-                                  borderColor: 'divider',
-                                  borderRadius: 1.5,
-                                }}
-                              >
-                                <RemixIcon icon="solar:file-text-bold-duotone" width={22} />
-                                <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                                  <Typography variant="body2" noWrap>
-                                    {file.file_name}
-                                  </Typography>
-                                  <Typography variant="caption" color="text.secondary">
-                                    {(Number(file.file_size) / 1024 / 1024).toLocaleString(
-                                      'th-TH',
-                                      {
-                                        maximumFractionDigits: 2,
-                                      }
-                                    )}{' '}
-                                    MB
-                                  </Typography>
-                                </Box>
-                                <Button
-                                  component="a"
-                                  href={file.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  size="small"
-                                  color="inherit"
-                                  variant="outlined"
-                                  startIcon={<RiEyeLine />}
-                                >
-                                  ดูไฟล์
-                                </Button>
-                                <Chip
-                                  size="small"
-                                  label={isPreview ? 'ไฟล์ตัวอย่าง' : 'ตั้งเป็นตัวอย่าง'}
-                                  color={isPreview ? 'primary' : 'default'}
-                                  onClick={() => handleTogglePreview(file.id, !isPreview)}
-                                  sx={{ cursor: 'pointer' }}
-                                />
-                                <IconButton size="small" onClick={() => handleFileDelete(file.id)}>
-                                  <RemixIcon icon="mingcute:close-line" width={16} />
-                                </IconButton>
-                              </Stack>
-                            );
-                          })}
-                        </Stack>
-                      )}
-                      {!!pendingDeletedFileIds.length && (
-                        <Typography variant="caption" color="warning.dark">
-                          มีไฟล์รอลบ {pendingDeletedFileIds.length} ไฟล์ การลบจะมีผลเมื่อกดบันทึก
-                        </Typography>
-                      )}
-                    </Stack>
-                  </>
+                          );
+                        })}
+                      </Stack>
+                    )}
+                    {!!pendingDeletedFileIds.length && (
+                      <Typography variant="caption" color="warning.dark">
+                        มีไฟล์รอลบ {pendingDeletedFileIds.length} ไฟล์ การลบจะมีผลเมื่อกดบันทึก
+                      </Typography>
+                    )}
+                  </Stack>
                 )}
+
+                <Stack
+                  spacing={1.5}
+                  sx={{
+                    p: { xs: 2, md: 2.5 },
+                    borderRadius: 2,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    bgcolor: 'background.paper',
+                  }}
+                >
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Box
+                      sx={{
+                        width: 32,
+                        height: 32,
+                        display: 'grid',
+                        borderRadius: 1,
+                        placeItems: 'center',
+                        color: 'primary.main',
+                        bgcolor: 'primary.lighter',
+                      }}
+                    >
+                      <RemixIcon icon="eva:link-2-fill" width={18} />
+                    </Box>
+                    <Box>
+                      <Typography variant="subtitle1">
+                        เพิ่มลิงก์ที่จะส่งให้ลูกค้า (ไม่บังคับ)
+                      </Typography>
+                    </Box>
+                  </Stack>
+                  <Box>
+                    <Typography variant="body2" color="text.secondary">
+                      เช่น Google Drive, Canva หรือเว็บไซต์สำหรับเข้าใช้งาน · สูงสุด 3 ลิงก์
+                    </Typography>
+                  </Box>
+
+                  {form.externalLinks.map((link, index) => {
+                    const labelError = !link.label.trim() || link.label.trim().length > 80;
+                    const urlError = !isValidExternalUrl(link.url.trim());
+
+                    return (
+                      <Stack
+                        key={`external-link-${index}`}
+                        direction={{ xs: 'column', sm: 'row' }}
+                        spacing={1}
+                        alignItems={{ xs: 'stretch', sm: 'flex-start' }}
+                      >
+                        <TextField
+                          fullWidth
+                          label={`ชื่อลิงก์ ${index + 1}`}
+                          placeholder="เช่น เปิดไฟล์ Canva"
+                          value={link.label}
+                          error={labelError}
+                          helperText={
+                            labelError
+                              ? link.label.trim().length > 80
+                                ? 'ชื่อลิงก์ต้องไม่เกิน 80 ตัวอักษร'
+                                : 'กรุณากรอกชื่อลิงก์'
+                              : ' '
+                          }
+                          slotProps={{ htmlInput: { maxLength: 80 } }}
+                          onChange={(event) =>
+                            setForm((current) => ({
+                              ...current,
+                              externalLinks: current.externalLinks.map((item, itemIndex) =>
+                                itemIndex === index ? { ...item, label: event.target.value } : item
+                              ),
+                            }))
+                          }
+                        />
+                        <TextField
+                          fullWidth
+                          type="url"
+                          label="URL"
+                          placeholder="https://example.com"
+                          value={link.url}
+                          error={urlError}
+                          helperText={
+                            urlError ? 'กรุณากรอก URL ที่ขึ้นต้นด้วย http:// หรือ https://' : ' '
+                          }
+                          slotProps={{ htmlInput: { maxLength: 2048 } }}
+                          onChange={(event) =>
+                            setForm((current) => ({
+                              ...current,
+                              externalLinks: current.externalLinks.map((item, itemIndex) =>
+                                itemIndex === index ? { ...item, url: event.target.value } : item
+                              ),
+                            }))
+                          }
+                        />
+                        <IconButton
+                          aria-label={`ลบลิงก์ ${index + 1}`}
+                          color="error"
+                          onClick={() =>
+                            setForm((current) => ({
+                              ...current,
+                              externalLinks: current.externalLinks.filter(
+                                (_, itemIndex) => itemIndex !== index
+                              ),
+                            }))
+                          }
+                          sx={{ mt: { sm: 1 } }}
+                        >
+                          <RemixIcon icon="mingcute:close-line" width={18} />
+                        </IconButton>
+                      </Stack>
+                    );
+                  })}
+
+                  {form.externalLinks.length < MAX_EXTERNAL_LINKS && (
+                    <Button
+                      variant="outlined"
+                      startIcon={<RiAddLine />}
+                      onClick={() =>
+                        setForm((current) => ({
+                          ...current,
+                          externalLinks: [...current.externalLinks, { label: '', url: '' }],
+                        }))
+                      }
+                      sx={{ alignSelf: 'flex-start' }}
+                    >
+                      เพิ่มลิงก์
+                    </Button>
+                  )}
+                  <Typography variant="caption" color="text.secondary">
+                    เพิ่มแล้ว {form.externalLinks.length}/{MAX_EXTERNAL_LINKS} ลิงก์
+                  </Typography>
+                </Stack>
+
+                <Box
+                  sx={{
+                    p: 2.5,
+                    borderRadius: 2,
+                    bgcolor: 'background.neutral',
+                    border: '1px solid',
+                    borderColor: 'divider',
+                  }}
+                >
+                  <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
+                    ระบบจะส่งมอบให้อัตโนมัติ
+                  </Typography>
+                  <Stack spacing={1.25}>
+                    {isLicenseProduct ? (
+                      <>
+                        <Stack direction="row" spacing={1} alignItems="flex-start">
+                          <RiCheckboxCircleLine size={20} color="#16A34A" />
+                          <Typography variant="body2">
+                            เปิดสิทธิ์ License หลังยืนยันการชำระเงินสำเร็จ
+                          </Typography>
+                        </Stack>
+                        <Stack direction="row" spacing={1} alignItems="flex-start">
+                          <RiCheckboxCircleLine size={20} color="#16A34A" />
+                          <Typography variant="body2">
+                            {isPerpetualLicense
+                              ? `สิทธิ์ถาวร · ${form.grantsFeatureKeys.length} ฟีเจอร์`
+                              : `ใช้งาน ${Number(form.grantDurationDays) || 0} วัน · ${
+                                  form.grantsFeatureKeys.length
+                                } ฟีเจอร์`}
+                          </Typography>
+                        </Stack>
+                      </>
+                    ) : (
+                      <Stack direction="row" spacing={1} alignItems="flex-start">
+                        <RiCheckboxCircleLine size={20} color="#16A34A" />
+                        <Typography variant="body2">
+                          {visibleFiles.length + pendingProductFiles.length > 0
+                            ? `ไฟล์สินค้าฉบับเต็ม ${
+                                visibleFiles.length + pendingProductFiles.length
+                              } ไฟล์ พร้อมดาวน์โหลดจากรายละเอียดการซื้อ`
+                            : form.externalLinks.length > 0
+                              ? `ลิงก์ส่งมอบ ${form.externalLinks.length} ลิงก์ พร้อมเปิดจากรายละเอียดการซื้อ`
+                              : isFileOptional
+                                ? 'ผู้ซื้อเข้าดูรายละเอียดและขั้นตอนรับสินค้าหรือบริการได้จากรายการซื้อ'
+                                : 'ยังไม่มีสิ่งที่จะส่งมอบ กรุณาเพิ่มไฟล์หรือลิงก์อย่างน้อย 1 รายการ'}
+                        </Typography>
+                      </Stack>
+                    )}
+                  </Stack>
+                </Box>
+
+                <Box>
+                  <Typography variant="subtitle1">สรุปสิ่งที่ลูกค้าจะได้รับ (แนะนำ)</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    เขียนสั้น ๆ รายการละ 1 อย่าง เช่น “ไฟล์ PDF 30 หน้า”
+                  </Typography>
+                </Box>
+
+                <Stack spacing={1.25}>
+                  {form.purchaseBenefits.map((benefit, index) => (
+                    <Stack
+                      key={`purchase-benefit-${index}`}
+                      direction="row"
+                      spacing={1}
+                      alignItems="flex-start"
+                    >
+                      <TextField
+                        fullWidth
+                        label={`รายการที่ ${index + 1}`}
+                        placeholder="เช่น ไฟล์ PDF พร้อมเฉลย จำนวน 30 หน้า"
+                        value={benefit}
+                        helperText={`${benefit.length}/120 ตัวอักษร`}
+                        slotProps={{ htmlInput: { maxLength: 120 } }}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            purchaseBenefits: current.purchaseBenefits.map((item, itemIndex) =>
+                              itemIndex === index ? event.target.value : item
+                            ),
+                          }))
+                        }
+                      />
+                      <IconButton
+                        aria-label={`ลบรายการที่ ${index + 1}`}
+                        color="error"
+                        onClick={() =>
+                          setForm((current) => ({
+                            ...current,
+                            purchaseBenefits: current.purchaseBenefits.filter(
+                              (_, itemIndex) => itemIndex !== index
+                            ),
+                          }))
+                        }
+                        sx={{ mt: 1 }}
+                      >
+                        <RemixIcon icon="mingcute:close-line" width={18} />
+                      </IconButton>
+                    </Stack>
+                  ))}
+                </Stack>
+
+                {form.purchaseBenefits.length < MAX_PURCHASE_BENEFITS && (
+                  <Button
+                    variant="outlined"
+                    startIcon={<RiAddLine />}
+                    onClick={() =>
+                      setForm((current) => ({
+                        ...current,
+                        purchaseBenefits: [...current.purchaseBenefits, ''],
+                      }))
+                    }
+                    sx={{ alignSelf: 'flex-start' }}
+                  >
+                    เพิ่มรายการที่ลูกค้าจะได้รับ
+                  </Button>
+                )}
+                <Typography variant="caption" color="text.secondary">
+                  เพิ่มได้สูงสุด {MAX_PURCHASE_BENEFITS} รายการ
+                </Typography>
               </Stack>
             </FormSection>
           </Stack>
@@ -1724,34 +2146,58 @@ function FormSection({
   children: React.ReactNode;
 }) {
   return (
-    <Card variant="outlined" sx={{ p: { xs: 2.5, md: 3.5 } }}>
-      <Stack direction="row" spacing={2} alignItems="flex-start">
-        <Box
-          sx={{
-            width: 44,
-            height: 44,
-            flexShrink: 0,
-            borderRadius: 2,
-            color: 'primary.main',
-            bgcolor: 'primary.lighter',
-            display: 'grid',
-            placeItems: 'center',
-          }}
-        >
-          {icon}
-        </Box>
-        <Box>
-          <Typography variant="overline" color="primary.main">
-            SECTION {number}
-          </Typography>
-          <Typography variant="h5">{title}</Typography>
-          <Typography variant="body2" color="text.secondary">
-            {description}
-          </Typography>
-        </Box>
-      </Stack>
-      <Divider sx={{ my: 3 }} />
-      {children}
+    <Card
+      variant="outlined"
+      sx={{
+        p: 0,
+        overflow: 'hidden',
+        borderRadius: 2.5,
+        borderColor: 'divider',
+        boxShadow: '0 8px 24px rgba(15, 23, 42, 0.04)',
+      }}
+    >
+      <Box
+        sx={{
+          px: { xs: 2, md: 3 },
+          py: { xs: 2, md: 2.5 },
+          bgcolor: 'background.neutral',
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+        }}
+      >
+        <Stack direction="row" spacing={2} alignItems="center">
+          <Box
+            sx={{
+              width: 48,
+              height: 48,
+              flexShrink: 0,
+              borderRadius: 2,
+              color: 'primary.main',
+              bgcolor: 'primary.lighter',
+              display: 'grid',
+              placeItems: 'center',
+              border: '1px solid',
+              borderColor: 'primary.light',
+            }}
+          >
+            {icon}
+          </Box>
+          <Box sx={{ minWidth: 0 }}>
+            <Typography
+              variant="overline"
+              color="primary.main"
+              sx={{ display: 'block', lineHeight: 1.4, fontWeight: 700 }}
+            >
+              SECTION {number}
+            </Typography>
+            <Typography variant="h5">{title}</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
+              {description}
+            </Typography>
+          </Box>
+        </Stack>
+      </Box>
+      <Box sx={{ p: { xs: 2, md: 3 }, bgcolor: 'background.paper' }}>{children}</Box>
     </Card>
   );
 }

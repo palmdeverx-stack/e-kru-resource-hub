@@ -10,9 +10,21 @@ type Context = { params: Promise<{ id: string }> };
 
 type OrderProduct = {
   file_url: string | null;
+  external_links?: Array<{ label: string; url: string }>;
   images?: Array<{ storage_bucket: string; storage_path: string; [key: string]: unknown }>;
   files?: Array<{ storage_bucket: string; storage_path: string; [key: string]: unknown }>;
 };
+
+function safeDeliveryLinks(links: OrderProduct['external_links']) {
+  return (links ?? []).filter((link) => {
+    if (!link.label?.trim()) return false;
+    try {
+      return ['http:', 'https:'].includes(new URL(link.url).protocol);
+    } catch {
+      return false;
+    }
+  });
+}
 
 export async function GET(request: Request, { params }: Context) {
   const caller = requireAuthenticated(request);
@@ -22,7 +34,7 @@ export async function GET(request: Request, { params }: Context) {
   const { data: order, error } = await supabaseAdmin
     .from('marketplace_orders')
     .select(
-      '*, seller:marketplace_sellers(id, display_name, slug, logo_url, owner_role), payment_session:marketplace_payment_sessions(id, amount, currency, payment_method, status, account_name_snapshot, submitted_at, reviewed_at, rejection_reason, bank_transaction_reference, stripe_payment_intent_id, processor_fee, expires_at, created_at), items:marketplace_order_items(*, product:marketplace_products(id, title, title_en, short_description, short_description_en, file_url, cover_url, category, subject_label, resource_type, license_scope, license_seat_count, grants_plan_code, grant_duration_days, images:marketplace_product_images(*), files:marketplace_product_files(*)))'
+      '*, seller:marketplace_sellers(id, display_name, slug, logo_url, owner_role), payment_session:marketplace_payment_sessions(id, amount, currency, payment_method, status, account_name_snapshot, submitted_at, reviewed_at, rejection_reason, bank_transaction_reference, stripe_payment_intent_id, processor_fee, expires_at, created_at), items:marketplace_order_items(*, product:marketplace_products(id, title, title_en, short_description, short_description_en, file_url, cover_url, category, subject_label, resource_type, license_scope, license_seat_count, grants_plan_code, grant_duration_days, external_links, images:marketplace_product_images(*), files:marketplace_product_files(*)))'
     )
     .eq('id', id)
     .eq('buyer_id', caller.sub)
@@ -82,6 +94,7 @@ export async function GET(request: Request, { params }: Context) {
           images: media.images,
           files,
           file_url: isPaid ? product.file_url : null,
+          external_links: isPaid ? safeDeliveryLinks(product.external_links) : [],
         },
       };
     })

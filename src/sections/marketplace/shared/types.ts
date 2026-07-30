@@ -231,6 +231,11 @@ export type MarketplaceSellerDocument = {
   url: string | null;
 };
 
+export type MarketplaceProductLink = {
+  label: string;
+  url: string;
+};
+
 export type MarketplaceProduct = {
   id: string;
   seller_id: string;
@@ -262,11 +267,18 @@ export type MarketplaceProduct = {
   currency: string;
   cover_url: string | null;
   file_url?: string | null;
+  external_links?: MarketplaceProductLink[];
+  purchase_benefits?: string[];
   status: ProductStatus;
   submitted_at?: string | null;
   reviewed_at?: string | null;
   reviewed_by?: string | null;
   rejection_reason?: string | null;
+  purchase_count?: number;
+  has_order_references?: boolean;
+  has_deal_references?: boolean;
+  can_delete?: boolean;
+  can_hide?: boolean;
   created_at: string;
   seller?:
     | (Pick<MarketplaceSeller, 'id' | 'display_name' | 'seller_type' | 'slug' | 'logo_url'> &
@@ -317,12 +329,10 @@ export type MarketplaceOrder = {
   updated_at?: string;
   currency: string;
   created_at: string;
-  seller?:
-    | Pick<
-        MarketplaceSeller,
-        'id' | 'display_name' | 'slug' | 'logo_url' | 'is_system_store'
-      >
-    | null;
+  seller?: Pick<
+    MarketplaceSeller,
+    'id' | 'display_name' | 'slug' | 'logo_url' | 'is_system_store'
+  > | null;
   payment_session?: {
     id: string;
     amount: number;
@@ -363,6 +373,7 @@ export type MarketplaceOrder = {
           | 'license_seat_count'
           | 'grants_plan_code'
           | 'grant_duration_days'
+          | 'external_links'
         > & {
           images?: MarketplaceProductImage[];
           files?: MarketplaceProductFile[];
@@ -410,9 +421,9 @@ export type MarketplaceOrder = {
     product_id: string;
     feature_keys: string[];
     grants_plan_code: string | null;
-    duration_days: number;
+    duration_days: number | null;
     starts_at: string;
-    expires_at: string;
+    expires_at: string | null;
     status: 'active' | 'renewed' | 'expired' | 'revoked' | 'refunded';
   }>;
 };
@@ -473,12 +484,14 @@ export type ProductInput = {
   grantsFeatureKey?: string;
   grantsFeatureKeys?: string[];
   grantsPlanCode?: string;
-  grantDurationDays?: number;
+  grantDurationDays?: number | null;
   licenseScope?: 'individual' | 'school' | 'teacher';
   licenseSeatCount?: number;
   licenseMaxTeachers?: number;
   licenseMaxStudents?: number;
   licenseMaxSchoolAdmins?: number;
   licenseLineQuota?: number;
+  externalLinks?: MarketplaceProductLink[];
+  purchaseBenefits?: string[];
   submit?: boolean;
 };

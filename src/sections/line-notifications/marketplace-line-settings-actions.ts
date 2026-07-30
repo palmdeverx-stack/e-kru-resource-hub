@@ -10,6 +10,11 @@ export type MarketplaceLineSettings = {
     notifyNewSeller: boolean;
     notifyProductApproval: boolean;
     allowSellerNotifications: boolean;
+    sellerNotificationPrice: number;
+    sellerByoaDescription: string;
+    sellerManagedPrice: number;
+    sellerManagedDescription: string;
+    sellerManagedQuota: number;
     lineDisplayName: string | null;
     lineLinkedAt: string | null;
   };
@@ -46,6 +51,11 @@ export type MarketplaceLineSettingsInput = {
   notifyNewSeller: boolean;
   notifyProductApproval: boolean;
   allowSellerNotifications: boolean;
+  sellerNotificationPrice: number;
+  sellerByoaDescription: string;
+  sellerManagedPrice: number;
+  sellerManagedDescription: string;
+  sellerManagedQuota: number;
 };
 
 async function parse<T>(response: Response, fallback: string): Promise<T> {
