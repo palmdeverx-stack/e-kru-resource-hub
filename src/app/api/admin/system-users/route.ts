@@ -139,6 +139,33 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ message: 'ไม่สามารถระงับบัญชีที่กำลังใช้งานอยู่' }, { status: 409 });
   }
 
+  const { data: marketplaceAccount, error: scopeError } = await supabaseAdmin
+    .from('system_user_accounts')
+    .select('id')
+    .eq('id', id)
+    .eq('source', source)
+    .maybeSingle();
+  if (scopeError) {
+    const setupRequired = ['42P01', '42703', 'PGRST204', 'PGRST205'].includes(
+      scopeError.code ?? ''
+    );
+    return NextResponse.json(
+      {
+        message: setupRequired
+          ? 'กรุณารัน migration ระบบจัดการบัญชีผู้ใช้ก่อนใช้งาน'
+          : scopeError.message,
+        setupRequired,
+      },
+      { status: setupRequired ? 503 : 500 }
+    );
+  }
+  if (!marketplaceAccount) {
+    return NextResponse.json(
+      { message: 'บัญชีนี้ไม่มีประวัติการใช้งาน Marketplace' },
+      { status: 404 }
+    );
+  }
+
   const table = source === 'app' ? 'app_users' : 'marketplace_users';
   const { data: target, error: targetError } = await supabaseAdmin
     .from(table)

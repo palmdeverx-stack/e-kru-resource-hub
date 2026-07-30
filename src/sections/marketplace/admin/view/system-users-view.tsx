@@ -30,8 +30,8 @@ import CircularProgress from '@mui/material/CircularProgress';
 import { formatThaiDateTime } from 'src/utils/timezone';
 
 import {
-  RiSearchLine,
   RiUser3Line,
+  RiSearchLine,
   RiUserForbidLine,
   RiShieldUserLine,
   RiCheckboxCircleLine,
@@ -161,7 +161,7 @@ export function SystemUsersView() {
   };
 
   return (
-    <Container maxWidth={false} sx={{ py: { xs: 4, md: 6 } }}>
+    <Container maxWidth={false} sx={{ py: { xs: 3 } }}>
       <Stack
         direction={{ xs: 'column', md: 'row' }}
         justifyContent="space-between"
@@ -171,10 +171,10 @@ export function SystemUsersView() {
       >
         <Box>
           <Typography component="h1" variant="h3">
-            บัญชีผู้ใช้งาน
+            บัญชีผู้ใช้งาน Marketplace
           </Typography>
           <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-            ดูบัญชีทั้งหมดจากระบบโรงเรียนและ Marketplace พร้อมควบคุมการเข้าใช้งาน
+            แสดงเฉพาะบัญชี Marketplace และบัญชี E-KRU ที่มีประวัติใช้งาน Marketplace
           </Typography>
         </Box>
         <Chip
@@ -302,7 +302,9 @@ export function SystemUsersView() {
                         </Stack>
                       </TableCell>
                       <TableCell>
-                        <Typography variant="body2">{roleLabels[account.role] ?? account.role}</Typography>
+                        <Typography variant="body2">
+                          {roleLabels[account.role] ?? account.role}
+                        </Typography>
                         <Typography variant="caption" color="text.secondary">
                           {account.source === 'marketplace' ? 'Marketplace' : 'ระบบโรงเรียน'}
                         </Typography>

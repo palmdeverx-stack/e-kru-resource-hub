@@ -31,6 +31,7 @@ import {
   RiShieldStarLine,
   RiUserFollowLine,
   RiShieldCheckLine,
+  RiShareForwardLine,
   RiUserSettingsLine,
   RiChatSettingsLine,
   RiSecurePaymentLine,
@@ -82,6 +83,11 @@ const memberNavData: NavSectionProps['data'] = [
         title: 'Feedback',
         path: '/dashboard/feedback',
         icon: <RiFeedbackLine />,
+      },
+      {
+        title: 'แนะนำเพื่อน',
+        path: '/dashboard/referrals',
+        icon: <RiShareForwardLine />,
       },
     ],
   },
@@ -256,6 +262,11 @@ const adminNavData: NavSectionProps['data'] = [
         icon: <RiSecurePaymentLine />,
       },
       {
+        title: 'ตั้งค่าแนะนำเพื่อน',
+        path: '/dashboard/settings/referrals',
+        icon: <RiShareForwardLine />,
+      },
+      {
         title: 'บัญชีผู้ใช้งาน',
         path: '/dashboard/settings/system-users',
         icon: <RiUserSettingsLine />,
@@ -283,6 +294,28 @@ export default function Layout({ children }: Props) {
   const [canViewSchoolEntitlements, setCanViewSchoolEntitlements] = useState(false);
   const [canUseSellerLine, setCanUseSellerLine] = useState(false);
   const [hasSubmittedSeller, setHasSubmittedSeller] = useState(false);
+  const [referralEnabled, setReferralEnabled] = useState(false);
+
+  useEffect(() => {
+    if (!user?.role || user.role === 'master_admin') {
+      setReferralEnabled(false);
+      return undefined;
+    }
+    const controller = new AbortController();
+    fetch('/api/marketplace/referrals/status', {
+      cache: 'no-store',
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) return { enabled: false };
+        return response.json() as Promise<{ enabled?: boolean }>;
+      })
+      .then((result) => setReferralEnabled(Boolean(result.enabled)))
+      .catch((error) => {
+        if ((error as Error).name !== 'AbortError') setReferralEnabled(false);
+      });
+    return () => controller.abort();
+  }, [user?.id, user?.role]);
 
   useEffect(() => {
     if (user?.role !== 'teacher' && user?.role !== 'marketplace_user') {
@@ -398,6 +431,9 @@ export default function Layout({ children }: Props) {
             return { ...section, items: [...sellerItems, ...lineItems] };
           }
           if (section.subheader !== 'บัญชีของฉัน') return section;
+          const visibleAccountItems = referralEnabled
+            ? section.items
+            : section.items.filter((item) => item.path !== '/dashboard/referrals');
           const roleItems =
             user?.role === 'school_admin'
               ? [
@@ -416,7 +452,7 @@ export default function Layout({ children }: Props) {
                     },
                   ]
                 : [];
-          return { ...section, items: [...section.items, ...roleItems] };
+          return { ...section, items: [...visibleAccountItems, ...roleItems] };
         });
 
   return (

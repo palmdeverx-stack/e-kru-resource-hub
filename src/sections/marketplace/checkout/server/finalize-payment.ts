@@ -4,6 +4,7 @@ import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { createNotifications } from 'src/lib/notifications';
 
 import { money, getFinanceSettings } from '../../admin/server/finance';
+import { createReferralRewards } from '../../referrals/server/referrals';
 import { createSchoolOnboardingForPaidOrders } from './school-onboarding';
 import { grantFeatureEntitlementsForOrders } from './grant-feature-entitlements';
 import { notifySellerPaymentReceived } from '../../seller/server/seller-line-notifications';
@@ -28,6 +29,7 @@ export async function finalizeMarketplacePayment(input: FinalizeInput) {
   const orders = (session.orders ?? []) as Array<Record<string, unknown>>;
   const orderIds = orders.map((order) => String(order.id));
   if (session.status === 'verified') {
+    await createReferralRewards(orders, String(session.buyer_id));
     await grantFeatureEntitlementsForOrders(orderIds);
     await createSchoolOnboardingForPaidOrders({
       paymentSessionId: session.id,
@@ -112,6 +114,8 @@ export async function finalizeMarketplacePayment(input: FinalizeInput) {
       .in('status', input.allowedStatuses);
     if (orderError) throw orderError;
   }
+
+  await createReferralRewards(orders, String(session.buyer_id));
 
   const { error: approveError } = await supabaseAdmin
     .from('marketplace_payment_sessions')

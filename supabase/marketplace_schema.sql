@@ -1003,6 +1003,86 @@ on conflict (id) do nothing;
 alter table public.marketplace_finance_settings
   add column if not exists stripe_enabled boolean not null default false;
 
+-- Referral / affiliate rewards. The feature is opt-in at platform level and
+-- defaults to disabled. Attribution terms are snapshotted on the order so
+-- disabling the feature only stops new referrals, not rewards already promised.
+create table if not exists public.marketplace_referral_settings (
+  id text primary key default 'default' check (id = 'default'),
+  is_enabled boolean not null default false,
+  reward_rate numeric(5, 2) not null default 20
+    check (reward_rate >= 0 and reward_rate <= 100),
+  attribution_days integer not null default 30
+    check (attribution_days >= 1 and attribution_days <= 365),
+  hold_days integer not null default 14
+    check (hold_days >= 0 and hold_days <= 180),
+  minimum_payout numeric(12, 2) not null default 500
+    check (minimum_payout >= 0),
+  max_reward_per_order numeric(12, 2) not null default 300
+    check (max_reward_per_order >= 0),
+  updated_by uuid,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+insert into public.marketplace_referral_settings (id)
+values ('default')
+on conflict (id) do nothing;
+
+create table if not exists public.marketplace_referral_codes (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null unique,
+  code text not null unique check (code ~ '^[A-Z0-9]{8,20}$'),
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.marketplace_referral_clicks (
+  id uuid primary key default gen_random_uuid(),
+  referral_code_id uuid not null
+    references public.marketplace_referral_codes(id) on delete cascade,
+  landing_path text not null default '/',
+  created_at timestamptz not null default now()
+);
+
+alter table public.marketplace_orders
+  add column if not exists referral_code_id uuid
+    references public.marketplace_referral_codes(id) on delete set null,
+  add column if not exists referrer_id uuid,
+  add column if not exists referral_reward_rate numeric(5, 2)
+    check (referral_reward_rate is null or (referral_reward_rate >= 0 and referral_reward_rate <= 100)),
+  add column if not exists referral_hold_days integer
+    check (referral_hold_days is null or (referral_hold_days >= 0 and referral_hold_days <= 180)),
+  add column if not exists referral_reward_cap numeric(12, 2)
+    check (referral_reward_cap is null or referral_reward_cap >= 0);
+
+create table if not exists public.marketplace_referral_rewards (
+  id uuid primary key default gen_random_uuid(),
+  referral_code_id uuid not null
+    references public.marketplace_referral_codes(id) on delete restrict,
+  order_id uuid not null unique references public.marketplace_orders(id) on delete restrict,
+  referrer_id uuid not null,
+  referred_buyer_id uuid not null,
+  order_amount numeric(12, 2) not null check (order_amount >= 0),
+  platform_fee numeric(12, 2) not null check (platform_fee >= 0),
+  reward_rate numeric(5, 2) not null check (reward_rate >= 0 and reward_rate <= 100),
+  reward_amount numeric(12, 2) not null check (reward_amount > 0),
+  currency text not null default 'THB',
+  status text not null default 'pending'
+    check (status in ('pending', 'available', 'paid', 'cancelled')),
+  available_at timestamptz not null,
+  paid_at timestamptz,
+  cancelled_at timestamptz,
+  cancellation_reason text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists marketplace_referral_rewards_referrer_status_idx
+  on public.marketplace_referral_rewards (referrer_id, status, available_at);
+create index if not exists marketplace_referral_clicks_code_created_idx
+  on public.marketplace_referral_clicks (referral_code_id, created_at desc);
+
 create table if not exists public.marketplace_payment_sessions (
   id uuid primary key default gen_random_uuid(),
   buyer_id uuid not null,
@@ -1306,6 +1386,10 @@ alter table public.marketplace_order_items enable row level security;
 alter table public.marketplace_seller_line_settings enable row level security;
 alter table public.marketplace_seller_line_deliveries enable row level security;
 alter table public.marketplace_finance_settings enable row level security;
+alter table public.marketplace_referral_settings enable row level security;
+alter table public.marketplace_referral_codes enable row level security;
+alter table public.marketplace_referral_clicks enable row level security;
+alter table public.marketplace_referral_rewards enable row level security;
 alter table public.marketplace_payment_sessions enable row level security;
 alter table public.marketplace_seller_payout_accounts enable row level security;
 alter table public.marketplace_payouts enable row level security;

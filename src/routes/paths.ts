@@ -69,6 +69,8 @@ export const paths = {
     receipts: '/dashboard/receipts',
     payouts: '/dashboard/payouts',
     feedback: '/dashboard/feedback',
+    referrals: '/dashboard/referrals',
+    referralSettings: '/dashboard/settings/referrals',
     purchases: '/dashboard/purchases',
     licenses: '/dashboard/licenses',
     personalEntitlements: '/dashboard/my-apps',

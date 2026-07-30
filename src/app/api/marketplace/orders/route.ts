@@ -6,6 +6,7 @@ import { requireAuthenticated } from 'src/lib/auth-token';
 import { withMediaUrls } from 'src/sections/marketplace/seller/server/product-media';
 import { money, getFinanceSettings } from 'src/sections/marketplace/admin/server/finance';
 import { getStripe, isStripeConfigured } from 'src/sections/marketplace/checkout/server/stripe';
+import { resolveReferralAttribution } from 'src/sections/marketplace/referrals/server/referrals';
 import { withPublicSystemStoreFlag } from 'src/sections/marketplace/seller/server/public-seller';
 import { getEligibleLicenseSchools } from 'src/sections/marketplace/checkout/server/school-targets';
 import { createSchoolOnboardingForPaidOrders } from 'src/sections/marketplace/checkout/server/school-onboarding';
@@ -298,6 +299,7 @@ export async function POST(request: Request) {
 
   const createdOrders = [];
   for (const [sellerId, items] of itemsBySeller) {
+    const referralAttribution = await resolveReferralAttribution(request, caller.sub, sellerId);
     const grossAmount = money(
       items.reduce((sum, item) => sum + Number(item.price) * item.quantity, 0)
     );
@@ -334,6 +336,7 @@ export async function POST(request: Request) {
         paid_at: isFree ? now.toISOString() : null,
         available_at: isFree ? availableAt : null,
         currency: items[0]?.currency ?? 'THB',
+        ...(referralAttribution ?? {}),
       })
       .select('*')
       .single();
