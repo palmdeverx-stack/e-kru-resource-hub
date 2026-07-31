@@ -10,93 +10,33 @@ import Alert from '@mui/material/Alert';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
-import Switch from '@mui/material/Switch';
-import MenuItem from '@mui/material/MenuItem';
+import { Container } from '@mui/material';
 import TableRow from '@mui/material/TableRow';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
-import TextField from '@mui/material/TextField';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import TableContainer from '@mui/material/TableContainer';
-import FormControlLabel from '@mui/material/FormControlLabel';
 import CircularProgress from '@mui/material/CircularProgress';
 
-import { formatThaiDateTime, formatBangkokDateTimeInput } from 'src/utils/timezone';
+import { formatThaiDateTime } from 'src/utils/timezone';
 
 import {
   RiAddLine,
   RiEditLine,
-  RiImageAddLine,
   RiDeleteBinLine,
   RiNotification3Line,
 } from 'src/components/remix-icon';
 
-type Audience = 'all' | 'authenticated' | 'guests' | 'roles';
-type AppRole = 'master_admin' | 'school_admin' | 'teacher' | 'student' | 'marketplace_user';
-
-type Announcement = {
-  id: string;
-  title: string;
-  message: string;
-  image_url: string | null;
-  link_url: string | null;
-  button_label: string | null;
-  audience: Audience;
-  role_targets: AppRole[];
-  priority: number;
-  is_active: boolean;
-  starts_at: string | null;
-  ends_at: string | null;
-  updated_at: string;
-};
-
-type FormState = {
-  title: string;
-  message: string;
-  imageUrl: string;
-  linkUrl: string;
-  buttonLabel: string;
-  audience: Audience;
-  roleTargets: AppRole[];
-  priority: number;
-  isActive: boolean;
-  startsAt: string;
-  endsAt: string;
-};
-
-const EMPTY_FORM: FormState = {
-  title: '',
-  message: '',
-  imageUrl: '',
-  linkUrl: '',
-  buttonLabel: '',
-  audience: 'all',
-  roleTargets: [],
-  priority: 0,
-  isActive: false,
-  startsAt: '',
-  endsAt: '',
-};
-
-const AUDIENCE_LABELS: Record<Audience, string> = {
-  all: 'ทุกคน',
-  authenticated: 'ผู้ที่เข้าสู่ระบบ',
-  guests: 'ผู้เยี่ยมชม',
-  roles: 'เลือกตาม Role',
-};
-
-const ROLE_OPTIONS: Array<{ value: AppRole; label: string }> = [
-  { value: 'master_admin', label: 'Super Admin' },
-  { value: 'school_admin', label: 'ผู้ดูแลโรงเรียน' },
-  { value: 'teacher', label: 'ครู' },
-  { value: 'student', label: 'นักเรียน' },
-  { value: 'marketplace_user', label: 'ผู้ใช้ Marketplace' },
-];
+import {
+  type PopupAnnouncement,
+  PopupAnnouncementDialog,
+  ANNOUNCEMENT_AUDIENCE_LABELS,
+} from './popup-announcement-dialog';
 
 async function parseResponse(response: Response) {
   const result = await response.json();
@@ -105,16 +45,14 @@ async function parseResponse(response: Response) {
 }
 
 export function PopupAnnouncementManagementView() {
-  const [items, setItems] = useState<Announcement[]>([]);
+  const [items, setItems] = useState<PopupAnnouncement[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<Announcement | null>(null);
-  const [deleting, setDeleting] = useState<Announcement | null>(null);
-  const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [editing, setEditing] = useState<PopupAnnouncement | null>(null);
+  const [deleting, setDeleting] = useState<PopupAnnouncement | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -137,57 +75,12 @@ export function PopupAnnouncementManagementView() {
 
   const openCreate = () => {
     setEditing(null);
-    setForm(EMPTY_FORM);
     setDialogOpen(true);
   };
 
-  const openEdit = (item: Announcement) => {
+  const openEdit = (item: PopupAnnouncement) => {
     setEditing(item);
-    setForm({
-      title: item.title,
-      message: item.message,
-      imageUrl: item.image_url ?? '',
-      linkUrl: item.link_url ?? '',
-      buttonLabel: item.button_label ?? '',
-      audience: item.audience,
-      roleTargets: item.role_targets ?? [],
-      priority: item.priority,
-      isActive: item.is_active,
-      startsAt: formatBangkokDateTimeInput(item.starts_at),
-      endsAt: formatBangkokDateTimeInput(item.ends_at),
-    });
     setDialogOpen(true);
-  };
-
-  const save = async () => {
-    setSaving(true);
-    setError('');
-    setMessage('');
-    try {
-      await parseResponse(
-        await fetch(
-          editing
-            ? `/api/marketplace/announcements/${editing.id}`
-            : '/api/marketplace/announcements',
-          {
-            method: editing ? 'PATCH' : 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              ...form,
-              startsAt: form.startsAt ? new Date(form.startsAt).toISOString() : null,
-              endsAt: form.endsAt ? new Date(form.endsAt).toISOString() : null,
-            }),
-          }
-        )
-      );
-      setDialogOpen(false);
-      setMessage(editing ? 'แก้ไขประกาศแล้ว' : 'สร้างประกาศแล้ว');
-      await load();
-    } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'บันทึกประกาศไม่สำเร็จ');
-    } finally {
-      setSaving(false);
-    }
   };
 
   const remove = async () => {
@@ -208,26 +101,8 @@ export function PopupAnnouncementManagementView() {
     }
   };
 
-  const uploadImage = async (file: File | undefined) => {
-    if (!file) return;
-    setUploading(true);
-    setError('');
-    try {
-      const data = new FormData();
-      data.set('file', file);
-      const result = await parseResponse(
-        await fetch('/api/marketplace/announcements/image', { method: 'POST', body: data })
-      );
-      setForm((current) => ({ ...current, imageUrl: result.url }));
-    } catch (uploadError) {
-      setError(uploadError instanceof Error ? uploadError.message : 'อัปโหลดรูปไม่สำเร็จ');
-    } finally {
-      setUploading(false);
-    }
-  };
-
   return (
-    <Box sx={{ p: { xs: 2.5, md: 4 } }}>
+    <Container maxWidth="lg" sx={{ py: { xs: 3 } }}>
       <Stack
         direction={{ xs: 'column', md: 'row' }}
         justifyContent="space-between"
@@ -302,7 +177,7 @@ export function PopupAnnouncementManagementView() {
                         </Box>
                       </Stack>
                     </TableCell>
-                    <TableCell>{AUDIENCE_LABELS[item.audience]}</TableCell>
+                    <TableCell>{ANNOUNCEMENT_AUDIENCE_LABELS[item.audience]}</TableCell>
                     <TableCell>
                       <Typography variant="body2">
                         {item.starts_at ? formatThaiDateTime(item.starts_at) : 'แสดงทันที'}
@@ -341,187 +216,16 @@ export function PopupAnnouncementManagementView() {
         </TableContainer>
       </Card>
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="md">
-        <DialogTitle>{editing ? 'แก้ไขประกาศ' : 'สร้างประกาศ'}</DialogTitle>
-        <DialogContent dividers>
-          <Stack spacing={2.5}>
-            <TextField
-              required
-              label="หัวข้อประกาศ"
-              value={form.title}
-              inputProps={{ maxLength: 150 }}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, title: event.target.value }))
-              }
-            />
-            <TextField
-              required
-              multiline
-              minRows={4}
-              label="รายละเอียด"
-              value={form.message}
-              inputProps={{ maxLength: 3000 }}
-              helperText={`${form.message.length}/3,000`}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, message: event.target.value }))
-              }
-            />
-            {form.imageUrl && (
-              <Box
-                component="img"
-                src={form.imageUrl}
-                alt="ตัวอย่าง Banner"
-                sx={{ width: 1, maxHeight: 300, objectFit: 'cover', borderRadius: 2 }}
-              />
-            )}
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-              <Button
-                component="label"
-                variant="outlined"
-                loading={uploading}
-                startIcon={<RiImageAddLine />}
-              >
-                อัปโหลดรูป Banner
-                <input
-                  hidden
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  onChange={(event) => {
-                    void uploadImage(event.target.files?.[0]);
-                    event.target.value = '';
-                  }}
-                />
-              </Button>
-              {form.imageUrl && (
-                <Button
-                  color="error"
-                  onClick={() => setForm((current) => ({ ...current, imageUrl: '' }))}
-                >
-                  นำรูปออก
-                </Button>
-              )}
-            </Stack>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-              <TextField
-                fullWidth
-                label="ลิงก์ปุ่ม"
-                placeholder="/products หรือ https://..."
-                value={form.linkUrl}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, linkUrl: event.target.value }))
-                }
-              />
-              <TextField
-                fullWidth
-                label="ข้อความบนปุ่ม"
-                placeholder="ดูรายละเอียด"
-                value={form.buttonLabel}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, buttonLabel: event.target.value }))
-                }
-              />
-            </Stack>
-            <TextField
-              select
-              label="กลุ่มผู้ชม"
-              value={form.audience}
-              onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  audience: event.target.value as Audience,
-                  roleTargets: event.target.value === 'roles' ? current.roleTargets : [],
-                }))
-              }
-            >
-              {Object.entries(AUDIENCE_LABELS).map(([value, label]) => (
-                <MenuItem key={value} value={value}>
-                  {label}
-                </MenuItem>
-              ))}
-            </TextField>
-            {form.audience === 'roles' && (
-              <TextField
-                select
-                label="Role ที่เห็นประกาศ"
-                value={form.roleTargets}
-                slotProps={{ select: { multiple: true } }}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    roleTargets:
-                      typeof event.target.value === 'string'
-                        ? (event.target.value.split(',') as AppRole[])
-                        : (event.target.value as AppRole[]),
-                  }))
-                }
-              >
-                {ROLE_OPTIONS.map((role) => (
-                  <MenuItem key={role.value} value={role.value}>
-                    {role.label}
-                  </MenuItem>
-                ))}
-              </TextField>
-            )}
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-              <TextField
-                fullWidth
-                type="datetime-local"
-                label="เริ่มแสดง"
-                value={form.startsAt}
-                slotProps={{ inputLabel: { shrink: true } }}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, startsAt: event.target.value }))
-                }
-              />
-              <TextField
-                fullWidth
-                type="datetime-local"
-                label="สิ้นสุด"
-                value={form.endsAt}
-                slotProps={{ inputLabel: { shrink: true } }}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, endsAt: event.target.value }))
-                }
-              />
-              <TextField
-                type="number"
-                label="ลำดับ"
-                value={form.priority}
-                inputProps={{ min: 0, max: 999 }}
-                helperText="มากแสดงก่อน"
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, priority: Number(event.target.value) }))
-                }
-                sx={{ width: { sm: 150 } }}
-              />
-            </Stack>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={form.isActive}
-                  onChange={(event) =>
-                    setForm((current) => ({ ...current, isActive: event.target.checked }))
-                  }
-                />
-              }
-              label="เปิดใช้งานประกาศ"
-            />
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button color="inherit" onClick={() => setDialogOpen(false)}>
-            ยกเลิก
-          </Button>
-          <Button
-            variant="contained"
-            loading={saving}
-            disabled={uploading || form.title.trim().length < 3 || form.message.trim().length < 3}
-            onClick={save}
-          >
-            บันทึก
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <PopupAnnouncementDialog
+        open={dialogOpen}
+        announcement={editing}
+        onClose={() => setDialogOpen(false)}
+        onSaved={async (successMessage) => {
+          setMessage(successMessage);
+          setError('');
+          await load();
+        }}
+      />
 
       <Dialog open={Boolean(deleting)} onClose={() => setDeleting(null)} maxWidth="xs" fullWidth>
         <DialogTitle>ลบประกาศนี้หรือไม่</DialogTitle>
@@ -539,6 +243,6 @@ export function PopupAnnouncementManagementView() {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </Container>
   );
 }

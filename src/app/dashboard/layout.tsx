@@ -182,62 +182,6 @@ const adminNavData: NavSectionProps['data'] = [
     ],
   },
   {
-    subheader: 'Master',
-    items: [
-      {
-        title: 'Master',
-        path: '/dashboard/master',
-        icon: <RiSettings3Line />,
-        children: [
-          {
-            title: 'หมวดหมู่',
-            path: '/dashboard/master/categories',
-          },
-          {
-            title: 'ประเภทสื่อ',
-            path: '/dashboard/master/media-types',
-          },
-          {
-            title: 'ประเภทการจำหน่าย',
-            path: '/dashboard/master/sale-types',
-          },
-          {
-            title: 'ตรวจสอบสื่อ',
-            path: '/dashboard/master/media-review-rules',
-          },
-          {
-            title: 'คำสั่งซื้อและการเงิน',
-            path: '/dashboard/master/order-finance-types',
-          },
-          {
-            title: 'รีวิวและรายงาน',
-            path: '/dashboard/master/report-reasons',
-          },
-          {
-            title: 'ระดับชั้น',
-            path: '/dashboard/master/grade-levels',
-          },
-          {
-            title: 'หลักสูตร',
-            path: '/dashboard/master/curricula',
-          },
-          {
-            title: 'แท็ก',
-            path: '/dashboard/master/tags',
-          },
-          {
-            title: 'เอกสารข้อกำหนด',
-            path: '/dashboard/master/legal-documents',
-          },
-          {
-            title: 'ประกาศ',
-            path: '/dashboard/master/popup-announcements',
-          },
-        ],
-      },
-    ],
-  },
-  {
     subheader: 'ผู้ขาย',
     items: [
       {
@@ -311,6 +255,62 @@ const adminNavData: NavSectionProps['data'] = [
         title: 'Feedback จากผู้ใช้',
         path: '/dashboard/feedback',
         icon: <RiFeedbackLine />,
+      },
+    ],
+  },
+  {
+    subheader: 'Master',
+    items: [
+      {
+        title: 'ข้อมูลหลัก',
+        path: '/dashboard/master',
+        icon: <RiSettings3Line />,
+        children: [
+          {
+            title: 'หมวดหมู่',
+            path: '/dashboard/master/categories',
+          },
+          {
+            title: 'ประเภทสื่อ',
+            path: '/dashboard/master/media-types',
+          },
+          {
+            title: 'ประเภทการจำหน่าย',
+            path: '/dashboard/master/sale-types',
+          },
+          {
+            title: 'ตรวจสอบสื่อ',
+            path: '/dashboard/master/media-review-rules',
+          },
+          {
+            title: 'คำสั่งซื้อและการเงิน',
+            path: '/dashboard/master/order-finance-types',
+          },
+          {
+            title: 'รีวิวและรายงาน',
+            path: '/dashboard/master/report-reasons',
+          },
+          {
+            title: 'ระดับชั้น',
+            path: '/dashboard/master/grade-levels',
+          },
+          {
+            title: 'หลักสูตร',
+            path: '/dashboard/master/curricula',
+          },
+          {
+            title: 'แท็ก',
+            path: '/dashboard/master/tags',
+          },
+          {
+            title: 'เอกสารข้อกำหนด',
+            path: '/dashboard/master/legal-documents',
+          },
+          {
+            title: 'ประกาศ',
+            path: '/dashboard/master/popup-announcements',
+          },
+        ],
       },
     ],
   },
