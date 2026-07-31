@@ -152,6 +152,7 @@ const initialForm = {
   grantsFeatureKeys: [] as string[],
   grantsPlanCode: '',
   grantDurationDays: '30',
+  licenseTargetSystem: 'marketplace' as 'marketplace' | 'ekru',
   licenseScope: 'school' as 'individual' | 'school' | 'teacher',
   licenseSeatCount: '1',
   licenseMaxTeachers: '',
@@ -341,6 +342,11 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
           : [],
       grantsPlanCode: product.grants_plan_code ?? '',
       grantDurationDays: String(product.grant_duration_days ?? 30),
+      licenseTargetSystem:
+        product.license_target_system ??
+        (product.grants_feature_keys?.some((key) => key.startsWith('marketplace.'))
+          ? 'marketplace'
+          : 'ekru'),
       licenseScope: product.license_scope ?? 'school',
       licenseSeatCount: String(product.license_seat_count ?? 1),
       licenseMaxTeachers: String(product.license_max_teachers ?? ''),
@@ -388,10 +394,10 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
     selectedMediaType?.delivery_mode === 'feature_unlock';
   const visibleMediaTypes = mediaTypes.filter((item) => item.delivery_mode !== 'feature_unlock');
   const licenseFeatures =
-    form.licenseScope === 'teacher'
-      ? SCHOOL_FEATURES.filter((feature) => feature.key.startsWith('teacher.'))
-      : form.licenseScope === 'individual'
-        ? [...SCHOOL_FEATURES, MARKETPLACE_SELLER_LINE_FEATURE]
+    form.licenseTargetSystem === 'marketplace'
+      ? [MARKETPLACE_SELLER_LINE_FEATURE]
+      : form.licenseScope === 'teacher'
+        ? SCHOOL_FEATURES.filter((feature) => feature.key.startsWith('teacher.'))
         : SCHOOL_FEATURES;
   const isPerpetualLicense = form.grantsFeatureKeys.includes(MARKETPLACE_SELLER_LINE_FEATURE.key);
   const visibleImages = images.filter((image) => !pendingDeletedImageIds.includes(image.id));
@@ -537,6 +543,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
     grantsFeatureKey: isLicenseProduct ? form.grantsFeatureKeys[0] || undefined : undefined,
     grantsFeatureKeys: isLicenseProduct ? form.grantsFeatureKeys : [],
     grantsPlanCode: isLicenseProduct ? form.grantsPlanCode.trim() || undefined : undefined,
+    licenseTargetSystem: isLicenseProduct ? form.licenseTargetSystem : undefined,
     grantDurationDays:
       isLicenseProduct && form.grantsFeatureKeys.length
         ? isPerpetualLicense
@@ -1432,9 +1439,42 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                     <Grid size={{ xs: 12, sm: 6 }}>
                       <TextField
                         fullWidth
+                        required
+                        select
+                        label="ระบบที่นำ License ไปใช้"
+                        value={form.licenseTargetSystem}
+                        onChange={(event) => {
+                          const licenseTargetSystem = event.target.value as 'marketplace' | 'ekru';
+                          setForm((current) => ({
+                            ...current,
+                            licenseTargetSystem,
+                            licenseScope:
+                              licenseTargetSystem === 'marketplace' ? 'individual' : 'school',
+                            grantsFeatureKeys: current.grantsFeatureKeys.filter((key) =>
+                              licenseTargetSystem === 'marketplace'
+                                ? key.startsWith('marketplace.')
+                                : !key.startsWith('marketplace.')
+                            ),
+                            grantsPlanCode: '',
+                          }));
+                        }}
+                        helperText={
+                          form.licenseTargetSystem === 'marketplace'
+                            ? 'เปิดใช้ภายใน E-KRU Marketplace นี้'
+                            : 'เปิดใช้ในระบบ E-KRU ตามบทบาทผู้ใช้งาน'
+                        }
+                      >
+                        <MenuItem value="marketplace">E-KRU Marketplace — แอปนี้</MenuItem>
+                        <MenuItem value="ekru">ระบบ E-KRU — e-kru.com</MenuItem>
+                      </TextField>
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <TextField
+                        fullWidth
                         select
                         label="ขอบเขต License"
                         value={form.licenseScope}
+                        disabled={form.licenseTargetSystem === 'marketplace'}
                         onChange={(event) => {
                           const licenseScope = event.target.value as
                             | 'individual'
@@ -1461,9 +1501,21 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                           }));
                         }}
                       >
-                        <MenuItem value="individual">บุคคล — ไม่ต้องสังกัดโรงเรียน</MenuItem>
-                        <MenuItem value="school">ทั้งโรงเรียน</MenuItem>
-                        <MenuItem value="teacher">รายครูภายใต้โรงเรียน</MenuItem>
+                        {form.licenseTargetSystem === 'marketplace' ? (
+                          <MenuItem value="individual">บุคคล — ใช้ใน Marketplace</MenuItem>
+                        ) : (
+                          [
+                            <MenuItem key="individual" value="individual">
+                              บุคคล — ไม่ต้องสังกัดโรงเรียน
+                            </MenuItem>,
+                            <MenuItem key="school" value="school">
+                              ทั้งโรงเรียน
+                            </MenuItem>,
+                            <MenuItem key="teacher" value="teacher">
+                              รายครูภายใต้โรงเรียน
+                            </MenuItem>,
+                          ]
+                        )}
                       </TextField>
                     </Grid>
                     <Grid size={{ xs: 12, sm: 6 }}>

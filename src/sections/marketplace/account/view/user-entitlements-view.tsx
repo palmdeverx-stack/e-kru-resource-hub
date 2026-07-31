@@ -23,6 +23,8 @@ import {
   RiCalendarCheckLine,
 } from 'src/components/remix-icon';
 
+import { getLicenseAppDestination } from '../ekru-app-link';
+
 type Entitlement = {
   id: string;
   featureKeys: string[];
@@ -36,6 +38,8 @@ type Entitlement = {
     shortDescription: string | null;
     shortDescriptionEn: string | null;
     coverUrl: string | null;
+    licenseScope: 'individual' | 'school' | 'teacher';
+    licenseTargetSystem: 'marketplace' | 'ekru' | null;
   } | null;
 };
 
@@ -64,10 +68,6 @@ export function UserEntitlementsView() {
       )
       .finally(() => setLoading(false));
   }, []);
-
-  const ekruHref = CONFIG.ekruUrl
-    ? `${CONFIG.ekruUrl.replace(/\/+$/, '')}/dashboard?source=marketplace`
-    : '';
 
   return (
     <Container maxWidth={false} sx={{ py: { xs: 3 } }}>
@@ -106,6 +106,12 @@ export function UserEntitlementsView() {
               currentLang.value === 'en' && entitlement.product?.shortDescriptionEn
                 ? entitlement.product.shortDescriptionEn
                 : entitlement.product?.shortDescription;
+            const isSchoolEntitlement = entitlement.product?.licenseScope === 'school';
+            const destination = getLicenseAppDestination({
+              baseUrl: CONFIG.ekruUrl,
+              targetSystem: entitlement.product?.licenseTargetSystem,
+              featureKeys: entitlement.featureKeys,
+            });
             return (
               <Grid key={entitlement.id} size={{ xs: 12, md: 6 }}>
                 <Card variant="outlined" sx={{ height: 1, overflow: 'hidden', borderRadius: 3 }}>
@@ -131,7 +137,7 @@ export function UserEntitlementsView() {
                         color="success"
                         variant="soft"
                         icon={<RiShieldCheckLine />}
-                        label="สิทธิ์บุคคล"
+                        label={isSchoolEntitlement ? 'สิทธิ์จากโรงเรียน' : 'สิทธิ์บุคคล'}
                       />
                     </Stack>
                     <Alert severity="success" icon={<RiCalendarCheckLine />}>
@@ -139,16 +145,16 @@ export function UserEntitlementsView() {
                         ? `ใช้งานได้ถึง ${formatDate(entitlement.expiresAt)}`
                         : 'สิทธิ์ถาวร · ไม่มีวันหมดอายุ'}
                     </Alert>
-                    {!!ekruHref && (
+                    {!!destination.href && (
                       <Button
                         fullWidth
                         variant="contained"
-                        href={ekruHref}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        href={destination.href}
+                        target={destination.external ? '_blank' : undefined}
+                        rel={destination.external ? 'noopener noreferrer' : undefined}
                         endIcon={<RiExternalLinkLine />}
                       >
-                        เปิดใช้งานใน E-KRU
+                        {destination.label}
                       </Button>
                     )}
                   </Stack>

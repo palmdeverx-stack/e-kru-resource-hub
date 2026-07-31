@@ -7,6 +7,7 @@ export type SellerType =
   | 'university';
 export type ProductStatus = 'draft' | 'pending_review' | 'published' | 'rejected' | 'archived';
 export type ResourceType = 'digital' | 'physical' | 'service' | 'feature_unlock';
+export type LicenseTargetSystem = 'marketplace' | 'ekru';
 
 export type MarketplaceCategory = {
   id: string;
@@ -267,6 +268,7 @@ export type MarketplaceProduct = {
   grants_plan_code?: string | null;
   grant_duration_days?: number | null;
   license_scope?: 'individual' | 'school' | 'teacher';
+  license_target_system?: LicenseTargetSystem | null;
   license_seat_count?: number;
   license_max_teachers?: number | null;
   license_max_students?: number | null;
@@ -512,6 +514,7 @@ export type ProductInput = {
   grantsPlanCode?: string;
   grantDurationDays?: number | null;
   licenseScope?: 'individual' | 'school' | 'teacher';
+  licenseTargetSystem?: LicenseTargetSystem;
   licenseSeatCount?: number;
   licenseMaxTeachers?: number;
   licenseMaxStudents?: number;

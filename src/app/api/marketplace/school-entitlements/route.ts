@@ -88,7 +88,7 @@ export async function GET(request: Request) {
   const { data: licenses, error } = await supabaseAdmin
     .from('marketplace_school_licenses')
     .select(
-      'id,school_id,license_scope,feature_keys,seat_count,starts_at,expires_at,status,grants_plan_code,max_teachers,max_students,max_school_admins,line_quota,product:marketplace_products(id,title,title_en,short_description,short_description_en,cover_url,images:marketplace_product_images(*)),assignments:marketplace_teacher_license_assignments(teacher_id,revoked_at)'
+      'id,school_id,license_scope,feature_keys,seat_count,starts_at,expires_at,status,grants_plan_code,max_teachers,max_students,max_school_admins,line_quota,product:marketplace_products(id,title,title_en,short_description,short_description_en,cover_url,license_target_system,images:marketplace_product_images(*)),assignments:marketplace_teacher_license_assignments(teacher_id,revoked_at)'
     )
     .in('school_id', schoolIds)
     .eq('status', 'active')
@@ -133,6 +133,7 @@ export async function GET(request: Request) {
               shortDescription: product.short_description,
               shortDescriptionEn: product.short_description_en,
               coverUrl: cover?.url ?? product.cover_url,
+              licenseTargetSystem: product.license_target_system,
             }
           : null,
       };

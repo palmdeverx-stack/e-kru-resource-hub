@@ -430,6 +430,34 @@ export async function PATCH(request: Request, { params }: Context) {
     }
     update.license_scope = licenseScope;
   }
+  if (body.licenseTargetSystem !== undefined) {
+    const licenseTargetSystem = String(body.licenseTargetSystem);
+    if (!['marketplace', 'ekru'].includes(licenseTargetSystem)) {
+      return NextResponse.json({ message: 'ระบบปลายทางของ License ไม่ถูกต้อง' }, { status: 400 });
+    }
+    const requestedFeatureKeys: string[] = Array.isArray(body.grantsFeatureKeys)
+      ? body.grantsFeatureKeys.map((value: unknown) => String(value))
+      : [];
+    const hasMarketplaceFeature = requestedFeatureKeys.some((key) =>
+      key.startsWith('marketplace.')
+    );
+    if (
+      licenseTargetSystem === 'marketplace' &&
+      requestedFeatureKeys.some((key) => !key.startsWith('marketplace.'))
+    ) {
+      return NextResponse.json(
+        { message: 'License ของ Marketplace เลือกได้เฉพาะฟีเจอร์ใน Marketplace' },
+        { status: 400 }
+      );
+    }
+    if (licenseTargetSystem === 'ekru' && hasMarketplaceFeature) {
+      return NextResponse.json(
+        { message: 'License ของระบบ E-KRU ไม่สามารถใช้ฟีเจอร์ Marketplace' },
+        { status: 400 }
+      );
+    }
+    update.license_target_system = licenseTargetSystem;
+  }
   if (body.licenseSeatCount !== undefined) {
     const seatCount = Number(body.licenseSeatCount);
     if (!Number.isInteger(seatCount) || seatCount <= 0 || seatCount > 10000) {
@@ -670,8 +698,7 @@ export async function PATCH(request: Request, { params }: Context) {
     if (missingDocumentTypes.length) {
       return NextResponse.json(
         {
-          message:
-            'ยังไม่มีเอกสารนโยบายฉบับเผยแพร่ครบถ้วน กรุณาให้ผู้ดูแลเผยแพร่เอกสารฉบับสมบูรณ์',
+          message: 'ยังไม่มีเอกสารนโยบายฉบับเผยแพร่ครบถ้วน กรุณาให้ผู้ดูแลเผยแพร่เอกสารฉบับสมบูรณ์',
         },
         { status: 409 }
       );
@@ -742,6 +769,9 @@ export async function PATCH(request: Request, { params }: Context) {
           { message: 'กรุณาเลือกฟีเจอร์ในแพ็กเกจอย่างน้อย 1 รายการ' },
           { status: 400 }
         );
+      }
+      if (!product.license_target_system) {
+        return NextResponse.json({ message: 'กรุณาเลือกระบบที่นำ License ไปใช้' }, { status: 400 });
       }
       if (
         !featureKeys.some((featureKey) => SELLER_LINE_FEATURE_KEYS.has(featureKey)) &&

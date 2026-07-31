@@ -50,6 +50,7 @@ export async function syncSellerLineFeatureProducts({
     category: 'เครื่องมือผู้ขาย',
     media_type_id: mediaType?.id ?? null,
     resource_type: 'feature_unlock',
+    license_target_system: 'marketplace',
     list_price: null,
     status: enabled ? 'published' : 'archived',
     license_scope: 'individual',

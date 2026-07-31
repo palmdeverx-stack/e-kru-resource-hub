@@ -26,6 +26,8 @@ import {
   RiCalendarCheckLine,
 } from 'src/components/remix-icon';
 
+import { getLicenseAppDestination } from '../ekru-app-link';
+
 type Entitlement = {
   id: string;
   school: { id: string; name: string; membershipRole: string };
@@ -48,6 +50,7 @@ type Entitlement = {
     shortDescription: string | null;
     shortDescriptionEn: string | null;
     coverUrl: string | null;
+    licenseTargetSystem: 'marketplace' | 'ekru' | null;
   } | null;
 };
 
@@ -85,9 +88,14 @@ export function SchoolEntitlementsView() {
     return () => controller.abort();
   }, []);
 
-  const ekruHref = CONFIG.ekruUrl
-    ? `${CONFIG.ekruUrl.replace(/\/+$/, '')}/dashboard?source=marketplace`
-    : '';
+  const primaryDestination = entitlements[0]
+    ? getLicenseAppDestination({
+        baseUrl: CONFIG.ekruUrl,
+        role: entitlements[0].school.membershipRole,
+        targetSystem: entitlements[0].product?.licenseTargetSystem,
+        featureKeys: entitlements[0].featureKeys,
+      })
+    : null;
 
   return (
     <Container maxWidth={false} sx={{ py: { xs: 3 } }}>
@@ -110,16 +118,16 @@ export function SchoolEntitlementsView() {
             สินค้าและฟีเจอร์ที่โรงเรียนเปิดสิทธิ์ให้คุณใช้งาน
           </Typography>
         </Box>
-        {!!ekruHref && (
+        {!!primaryDestination?.href && (
           <Button
             size="large"
             variant="contained"
-            href={ekruHref}
-            target="_blank"
-            rel="noopener noreferrer"
+            href={primaryDestination.href}
+            target={primaryDestination.external ? '_blank' : undefined}
+            rel={primaryDestination.external ? 'noopener noreferrer' : undefined}
             endIcon={<RiExternalLinkLine />}
           >
-            เปิดใช้งานใน E-KRU
+            {primaryDestination.label}
           </Button>
         )}
       </Stack>
@@ -151,6 +159,12 @@ export function SchoolEntitlementsView() {
                 ? entitlement.product.shortDescriptionEn
                 : entitlement.product?.shortDescription;
             const groups = new Map<string, string[]>();
+            const destination = getLicenseAppDestination({
+              baseUrl: CONFIG.ekruUrl,
+              role: entitlement.school.membershipRole,
+              targetSystem: entitlement.product?.licenseTargetSystem,
+              featureKeys: entitlement.featureKeys,
+            });
             for (const featureKey of entitlement.featureKeys) {
               const feature = featureMap.get(featureKey as (typeof SCHOOL_FEATURES)[number]['key']);
               const group = feature?.group ?? 'ฟีเจอร์อื่น';
@@ -226,17 +240,17 @@ export function SchoolEntitlementsView() {
                       ))}
                     </Stack>
 
-                    {!!ekruHref && (
+                    {!!destination.href && (
                       <Button
                         fullWidth
                         size="large"
                         variant="outlined"
-                        href={ekruHref}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        href={destination.href}
+                        target={destination.external ? '_blank' : undefined}
+                        rel={destination.external ? 'noopener noreferrer' : undefined}
                         endIcon={<RiExternalLinkLine />}
                       >
-                        เปิดใช้งานใน E-KRU
+                        {destination.label}
                       </Button>
                     )}
                   </Stack>

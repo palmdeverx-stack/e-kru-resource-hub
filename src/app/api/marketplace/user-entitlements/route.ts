@@ -12,7 +12,7 @@ export async function GET(request: Request) {
   const { data: licenses, error } = await supabaseAdmin
     .from('marketplace_user_licenses')
     .select(
-      'id,feature_keys,grants_plan_code,starts_at,expires_at,status,product:marketplace_products(id,title,title_en,short_description,short_description_en,cover_url,images:marketplace_product_images(*))'
+      'id,feature_keys,grants_plan_code,starts_at,expires_at,status,product:marketplace_products(id,title,title_en,short_description,short_description_en,cover_url,license_scope,license_target_system,images:marketplace_product_images(*))'
     )
     .eq('buyer_id', caller.sub)
     .eq('status', 'active')
@@ -50,6 +50,8 @@ export async function GET(request: Request) {
               shortDescription: product.short_description,
               shortDescriptionEn: product.short_description_en,
               coverUrl: cover?.url ?? product.cover_url,
+              licenseScope: product.license_scope,
+              licenseTargetSystem: product.license_target_system,
             }
           : null,
       };
