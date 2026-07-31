@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { requireAuthenticated } from 'src/lib/auth-token';
+import { optimizeUploadedImage } from 'src/lib/server-image-optimizer';
 
 import {
   hasPurchasedProduct,
@@ -45,9 +46,7 @@ export async function POST(request: Request, { params }: Context) {
   }
   if (
     uploadedImages.length > MAX_REVIEW_IMAGES ||
-    uploadedImages.some(
-      (image) => !IMAGE_EXTENSIONS[image.type] || image.size > MAX_IMAGE_BYTES
-    )
+    uploadedImages.some((image) => !IMAGE_EXTENSIONS[image.type] || image.size > MAX_IMAGE_BYTES)
   ) {
     return NextResponse.json(
       { message: 'แนบรูปได้สูงสุด 3 รูป รองรับ JPG, PNG, WEBP ขนาดไม่เกิน 5 MB ต่อรูป' },
@@ -74,9 +73,7 @@ export async function POST(request: Request, { params }: Context) {
 
   const { data: existingReview } = await supabaseAdmin
     .from('marketplace_product_reviews')
-    .select(
-      'id, images:marketplace_review_images(id, storage_bucket, storage_path, position)'
-    )
+    .select('id, images:marketplace_review_images(id, storage_bucket, storage_path, position)')
     .eq('product_id', productId)
     .eq('buyer_id', caller.sub)
     .maybeSingle();
@@ -105,11 +102,14 @@ export async function POST(request: Request, { params }: Context) {
     position: number;
   }> = [];
   for (const [index, image] of uploadedImages.entries()) {
-    const extension = IMAGE_EXTENSIONS[image.type];
-    const storagePath = `${productId}/${reviewId}/${crypto.randomUUID()}.${extension}`;
+    const optimizedImage = await optimizeUploadedImage(image, { preset: 'content' });
+    const storagePath = `${productId}/${reviewId}/${crypto.randomUUID()}.${optimizedImage.extension}`;
     const { error: uploadError } = await supabaseAdmin.storage
       .from(REVIEW_IMAGE_BUCKET)
-      .upload(storagePath, image, { contentType: image.type, upsert: false });
+      .upload(storagePath, optimizedImage.data, {
+        contentType: optimizedImage.contentType,
+        upsert: false,
+      });
     if (uploadError) {
       if (newStorageRows.length) {
         await supabaseAdmin.storage
@@ -122,8 +122,8 @@ export async function POST(request: Request, { params }: Context) {
       review_id: reviewId,
       storage_bucket: REVIEW_IMAGE_BUCKET,
       storage_path: storagePath,
-      mime_type: image.type,
-      file_size: image.size,
+      mime_type: optimizedImage.contentType,
+      file_size: optimizedImage.size,
       position: keptImages.length + index,
     });
   }
@@ -162,7 +162,9 @@ export async function POST(request: Request, { params }: Context) {
     }
   }
 
-  const removedImages = existingImages.filter((image) => !keptImages.some((kept) => kept.id === image.id));
+  const removedImages = existingImages.filter(
+    (image) => !keptImages.some((kept) => kept.id === image.id)
+  );
   if (removedImages.length) {
     await supabaseAdmin.storage
       .from(REVIEW_IMAGE_BUCKET)

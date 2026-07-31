@@ -63,6 +63,10 @@ export type MarketplaceTag = {
   description: string | null;
   sort_order: number;
   is_active: boolean;
+  created_by?: string | null;
+  first_used_at?: string | null;
+  expires_at?: string | null;
+  can_delete?: boolean;
 };
 
 export type MarketplaceSubjectOption = {
@@ -210,6 +214,11 @@ export type MarketplaceSeller = {
   reviewed_at: string | null;
   reviewed_by: string | null;
   rejection_reason: string | null;
+  pending_profile_data?: Record<string, unknown> | null;
+  profile_review_status?: 'draft' | 'pending' | 'rejected' | null;
+  profile_submitted_at?: string | null;
+  profile_rejection_reason?: string | null;
+  is_profile_revision?: boolean;
   created_at: string;
   updated_at: string;
   documents?: MarketplaceSellerDocument[];
@@ -510,5 +519,8 @@ export type ProductInput = {
   externalLinks?: MarketplaceProductLink[];
   purchaseBenefits?: string[];
   purchaseBenefitsHtml?: string;
+  submissionAcceptance?: {
+    accepted: boolean;
+  };
   submit?: boolean;
 };

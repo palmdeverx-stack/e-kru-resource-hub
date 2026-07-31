@@ -109,6 +109,7 @@ type Payout = {
 type FinanceResult = {
   seller: { id: string; display_name: string; status: string };
   canViewPaymentTransactions: boolean;
+  canViewPayoutHistory: boolean;
   balance: {
     grossSales: number;
     underReview: number;
@@ -203,6 +204,7 @@ function getMoneyStatus(
     if (payout?.status === 'paid') return { label: 'โอนสำเร็จ', color: 'success' };
     if (payout?.status === 'processing') return { label: 'กำลังโอน', color: 'info' };
     if (payout?.status === 'pending') return { label: 'รอรอบโอน', color: 'warning' };
+    return { label: 'รวมในรอบจ่ายแล้ว', color: 'info' };
   }
 
   if (entry.available_at && new Date(entry.available_at).getTime() <= Date.now()) {
@@ -282,6 +284,9 @@ export function MarketplaceSellerFinanceView() {
   const canViewPaymentTransactions =
     Boolean(data?.canViewPaymentTransactions) &&
     (user?.role === 'super_admin' || user?.role === 'master_admin');
+  const canViewPayoutHistory =
+    Boolean(data?.canViewPayoutHistory) &&
+    (user?.role === 'super_admin' || user?.role === 'master_admin');
 
   const summaryCards = [
     {
@@ -318,7 +323,9 @@ export function MarketplaceSellerFinanceView() {
     },
     {
       label: 'ยอดที่ได้รับแล้ว',
-      description: `${data?.payouts.filter((item) => item.status === 'paid').length ?? 0} รายการโอน`,
+      description: canViewPayoutHistory
+        ? `${data?.payouts.filter((item) => item.status === 'paid').length ?? 0} รายการโอน`
+        : 'ยอดโอนสะสมเข้าบัญชี',
       amount: data?.balance.paid ?? 0,
       color: 'primary.main',
       background: 'primary.lighter',
@@ -436,12 +443,14 @@ export function MarketplaceSellerFinanceView() {
         >
           <Tab value="income" label="รายได้ของฉัน" icon={<RiWallet3Line />} iconPosition="start" />
           <Tab value="sales" label="รายการขาย" icon={<RiShoppingBag3Line />} iconPosition="start" />
-          <Tab
-            value="payouts"
-            label="ประวัติการจ่ายเงิน"
-            icon={<RiBankLine />}
-            iconPosition="start"
-          />
+          {canViewPayoutHistory && (
+            <Tab
+              value="payouts"
+              label="ประวัติการจ่ายเงิน"
+              icon={<RiBankLine />}
+              iconPosition="start"
+            />
+          )}
         </Tabs>
 
         {activeTab === 'income' && (
@@ -859,7 +868,7 @@ export function MarketplaceSellerFinanceView() {
           </Box>
         )}
 
-        {activeTab === 'payouts' && (
+        {canViewPayoutHistory && activeTab === 'payouts' && (
           <Box sx={{ p: { xs: 2.5, md: 3 } }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
               <Box>
@@ -1065,7 +1074,7 @@ export function MarketplaceSellerFinanceView() {
       </Dialog>
 
       <Dialog
-        open={Boolean(selectedPayout)}
+        open={canViewPayoutHistory && Boolean(selectedPayout)}
         onClose={() => setSelectedPayout(null)}
         fullWidth
         maxWidth="md"

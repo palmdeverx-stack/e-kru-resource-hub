@@ -1,5 +1,8 @@
 const LOCAL_SITE_URL = 'http://localhost:8800';
 
+export const MARKETPLACE_OG_IMAGE_URL =
+  'https://res.cloudinary.com/dkdbilwtj/image/upload/v1785509072/marketplace_ahtoum.png';
+
 function withProtocol(value: string) {
   return /^https?:\/\//i.test(value) ? value : `https://${value}`;
 }

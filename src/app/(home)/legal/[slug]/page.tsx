@@ -16,6 +16,7 @@ const DOCUMENTS: Record<string, LegalDocumentType> = {
   'child-student-data-policy': 'child_data_policy',
   'data-processing-agreement': 'data_processing_agreement',
   'subscription-renewal-policy': 'subscription_policy',
+  'product-submission-terms': 'product_submission_terms',
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {

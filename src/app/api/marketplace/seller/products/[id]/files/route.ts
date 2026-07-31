@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { requireAuthenticated } from 'src/lib/auth-token';
+import { optimizeUploadedImage } from 'src/lib/server-image-optimizer';
 
 import { refreshedFiles } from 'src/sections/marketplace/seller/server/product-media';
 import { ownedProduct, ownedSellerId } from 'src/sections/marketplace/seller/server/owned-seller';
@@ -45,9 +46,7 @@ export async function POST(request: Request, { params }: Context) {
     return NextResponse.json({ message: 'กรุณาเลือกไฟล์' }, { status: 400 });
   }
 
-  const invalid = files.find(
-    (file) => !EXTENSION_BY_TYPE[file.type] || file.size > MAX_SIZE
-  );
+  const invalid = files.find((file) => !EXTENSION_BY_TYPE[file.type] || file.size > MAX_SIZE);
   if (invalid) {
     return NextResponse.json(
       { message: `ไฟล์ "${invalid.name}" ไม่รองรับหรือมีขนาดเกิน 50MB` },
@@ -79,11 +78,17 @@ export async function POST(request: Request, { params }: Context) {
   const rows: Record<string, unknown>[] = [];
   try {
     for (const file of files) {
-      const extension = EXTENSION_BY_TYPE[file.type];
+      const image =
+        file.type === 'image/png'
+          ? await optimizeUploadedImage(file, { output: 'original', resize: false })
+          : null;
+      const extension = image?.extension ?? EXTENSION_BY_TYPE[file.type];
       const path = `${productId}/file-${crypto.randomUUID()}.${extension}`;
       const { error: uploadError } = await supabaseAdmin.storage
         .from(BUCKET)
-        .upload(path, await file.arrayBuffer(), { contentType: file.type });
+        .upload(path, image?.data ?? (await file.arrayBuffer()), {
+          contentType: image?.contentType ?? file.type,
+        });
       if (uploadError) throw new Error(uploadError.message);
       uploadedPaths.push(path);
       rows.push({
@@ -91,13 +96,15 @@ export async function POST(request: Request, { params }: Context) {
         storage_bucket: BUCKET,
         storage_path: path,
         file_name: file.name.slice(0, 255),
-        mime_type: file.type,
-        file_size: file.size,
+        mime_type: image?.contentType ?? file.type,
+        file_size: image?.size ?? file.size,
         position: nextPosition++,
         is_preview: false,
       });
     }
-    const { error: insertError } = await supabaseAdmin.from('marketplace_product_files').insert(rows);
+    const { error: insertError } = await supabaseAdmin
+      .from('marketplace_product_files')
+      .insert(rows);
     if (insertError) throw new Error(insertError.message);
   } catch (uploadError) {
     if (uploadedPaths.length) await supabaseAdmin.storage.from(BUCKET).remove(uploadedPaths);

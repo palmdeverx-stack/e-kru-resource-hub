@@ -1,6 +1,6 @@
 import type { User } from '@supabase/supabase-js';
 
-import { NextResponse } from 'next/server';
+import { after, NextResponse } from 'next/server';
 
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { writeSecurityAudit } from 'src/lib/security-audit';
@@ -233,21 +233,23 @@ export async function POST(request: Request) {
     requiresPin?: boolean;
   };
 
-  await writeSecurityAudit({
-    request,
-    actorId: responseBody.user?.id ?? null,
-    actorUsername: responseBody.user?.username ?? null,
-    actorRole: responseBody.user?.role ?? responseBody.role ?? null,
-    category: 'authentication',
-    action: 'auth.google_login',
-    targetType: 'user_account',
-    targetId: responseBody.user?.id ?? null,
-    result: response.ok ? 'success' : response.status === 403 ? 'denied' : 'failure',
-    metadata: {
-      http_status: response.status,
-      requires_pin: Boolean(responseBody.requiresPin),
-    },
-  });
+  after(() =>
+    writeSecurityAudit({
+      request,
+      actorId: responseBody.user?.id ?? null,
+      actorUsername: responseBody.user?.username ?? null,
+      actorRole: responseBody.user?.role ?? responseBody.role ?? null,
+      category: 'authentication',
+      action: 'auth.google_login',
+      targetType: 'user_account',
+      targetId: responseBody.user?.id ?? null,
+      result: response.ok ? 'success' : response.status === 403 ? 'denied' : 'failure',
+      metadata: {
+        http_status: response.status,
+        requires_pin: Boolean(responseBody.requiresPin),
+      },
+    })
+  );
 
   return response;
 }

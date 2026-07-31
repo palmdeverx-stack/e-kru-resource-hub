@@ -16,6 +16,10 @@ import {
   MARKETPLACE_SELLER_LINE_MANAGED_FEATURE_KEY,
 } from 'src/sections/marketplace/seller/line-feature';
 import {
+  REQUIRED_PRODUCT_LEGAL_DOCUMENT_TYPES,
+  PRODUCT_SUBMISSION_TERMS_DOCUMENT_TYPE,
+} from 'src/sections/marketplace/shared/product-submission-attestation';
+import {
   hasUnsafePurchaseBenefitsHtml,
   MAX_PURCHASE_BENEFITS_HTML_LENGTH,
   MAX_PURCHASE_BENEFITS_TEXT_LENGTH,
@@ -155,6 +159,7 @@ export async function PATCH(request: Request, { params }: Context) {
           submitted_at: now,
           reviewed_at: caller.role === 'master_admin' ? now : null,
           reviewed_by: caller.role === 'master_admin' ? caller.sub : null,
+          submission_acceptance_snapshot: {},
         }),
         updated_at: now,
       })
@@ -367,7 +372,7 @@ export async function PATCH(request: Request, { params }: Context) {
     if (ids.length) {
       const { data: rows } = await supabaseAdmin
         .from('marketplace_tags')
-        .select('id')
+        .select('id, created_by')
         .in('id', ids)
         .eq('is_active', true);
       if ((rows?.length ?? 0) !== ids.length) {
@@ -652,6 +657,12 @@ export async function PATCH(request: Request, { params }: Context) {
       await supabaseAdmin
         .from('marketplace_product_tags')
         .insert(tagIds.map((tag_id) => ({ product_id: id, tag_id })));
+      await supabaseAdmin
+        .from('marketplace_tags')
+        .update({ first_used_at: new Date().toISOString(), expires_at: null })
+        .in('id', tagIds)
+        .not('created_by', 'is', null)
+        .is('first_used_at', null);
     }
   }
 
@@ -665,6 +676,38 @@ export async function PATCH(request: Request, { params }: Context) {
   }
 
   if (body.submit) {
+    const submissionAcceptance =
+      body.submissionAcceptance && typeof body.submissionAcceptance === 'object'
+        ? (body.submissionAcceptance as Record<string, unknown>)
+        : null;
+    if (!submissionAcceptance || submissionAcceptance.accepted !== true) {
+      return NextResponse.json(
+        { message: 'กรุณาอ่านและยอมรับเงื่อนไขการเผยแพร่สินค้าก่อนดำเนินการ' },
+        { status: 400 }
+      );
+    }
+
+    const { data: legalDocuments, error: legalDocumentsError } = await supabaseAdmin
+      .from('marketplace_legal_documents')
+      .select('id, document_type, title, version, effective_at, published_at, content_html')
+      .in('document_type', [...REQUIRED_PRODUCT_LEGAL_DOCUMENT_TYPES])
+      .eq('status', 'published');
+    if (legalDocumentsError) {
+      return NextResponse.json({ message: legalDocumentsError.message }, { status: 500 });
+    }
+    const missingDocumentTypes = REQUIRED_PRODUCT_LEGAL_DOCUMENT_TYPES.filter(
+      (documentType) => !legalDocuments?.some((document) => document.document_type === documentType)
+    );
+    if (missingDocumentTypes.length) {
+      return NextResponse.json(
+        {
+          message:
+            'ยังไม่มีเอกสารนโยบายฉบับเผยแพร่ครบถ้วน กรุณาให้ผู้ดูแลเผยแพร่เอกสารฉบับสมบูรณ์',
+        },
+        { status: 409 }
+      );
+    }
+
     if (String(product.title ?? '').trim().length < 3) {
       return NextResponse.json(
         { message: 'กรุณากรอกชื่อสินค้าอย่างน้อย 3 ตัวอักษร' },
@@ -761,6 +804,28 @@ export async function PATCH(request: Request, { params }: Context) {
     }
 
     const now = new Date().toISOString();
+    const submissionTerms = legalDocuments?.find(
+      (document) => document.document_type === PRODUCT_SUBMISSION_TERMS_DOCUMENT_TYPE
+    );
+    const attestationSnapshot = {
+      accepted: {
+        accepted: true,
+        label: `ยอมรับ${submissionTerms?.title ?? 'เงื่อนไขการเผยแพร่สินค้า'}`,
+      },
+    };
+    const legalDocumentSnapshot = Object.fromEntries(
+      (legalDocuments ?? []).map((document) => [
+        document.document_type,
+        {
+          id: document.id,
+          title: document.title,
+          version: document.version,
+          effective_at: document.effective_at,
+          published_at: document.published_at,
+          content_html: document.content_html,
+        },
+      ])
+    );
     const { data: submitted, error: submitError } = await supabaseAdmin
       .from('marketplace_products')
       .update({
@@ -769,6 +834,11 @@ export async function PATCH(request: Request, { params }: Context) {
         reviewed_at: caller.role === 'master_admin' ? now : null,
         reviewed_by: caller.role === 'master_admin' ? caller.sub : null,
         rejection_reason: null,
+        submission_acceptance_snapshot: {
+          version: submissionTerms?.version ?? 'ไม่ระบุ',
+          attestations: attestationSnapshot,
+          legal_documents: legalDocumentSnapshot,
+        },
         updated_at: now,
       })
       .eq('id', id)

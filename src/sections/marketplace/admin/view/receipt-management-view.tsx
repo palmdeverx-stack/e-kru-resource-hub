@@ -31,7 +31,7 @@ import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 
 import { formatThaiDateTime } from 'src/utils/timezone';
 
-import { Logo } from 'src/components/logo';
+import { MarketplaceBrand } from 'src/components/marketplace-brand';
 import {
   RiEyeLine,
   RiSearchLine,
@@ -702,11 +702,9 @@ function ReceiptDocument({ receipt }: { receipt: Receipt }) {
       )}
       <Stack direction="row" justifyContent="space-between" spacing={3}>
         <Box>
-          <Logo
-            disabled
-            isSingle={false}
-            sx={{ width: '140px', height: '36px', mb: 1.5, justifyContent: 'flex-start' }}
-          />
+          <Box sx={{ mb: 1.5 }}>
+            <MarketplaceBrand compact disabled />
+          </Box>
           <Typography variant="h4">ใบเสร็จรับเงิน</Typography>
           <Typography color="text.secondary">RECEIPT</Typography>
         </Box>

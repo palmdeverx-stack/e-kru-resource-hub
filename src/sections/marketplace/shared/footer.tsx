@@ -13,7 +13,7 @@ import Typography from '@mui/material/Typography';
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
-import { Logo } from 'src/components/logo';
+import { MarketplaceBrand } from 'src/components/marketplace-brand';
 import {
   RiLineFill,
   RiMailLine,
@@ -30,6 +30,14 @@ type FooterLink = {
 
 type MarketplaceContact = {
   email: string;
+  supportPhone: string | null;
+  businessHours: string | null;
+  platformName: string;
+  brandName: string;
+  logoUrl: string | null;
+  transparentLogoUrl: string | null;
+  footerText: string | null;
+  copyrightText: string | null;
   line: {
     basicId: string;
     displayName: string;
@@ -108,10 +116,10 @@ export function MarketplaceFooter() {
                     placeItems: 'center',
                   }}
                 >
-                  <Logo />
+                  <MarketplaceBrand compact variant="transparent" disabled />
                 </Box>
                 <Box>
-                  <Typography variant="h5">E-KRU Marketplace</Typography>
+                  <Typography variant="h5">{contact?.platformName ?? 'E-KRU Marketplace'}</Typography>
                   <Typography variant="caption" sx={{ color: '#82B1FF', fontWeight: 700 }}>
                     จากครู เพื่อการเรียนรู้ที่ดีขึ้น
                   </Typography>
@@ -122,8 +130,8 @@ export function MarketplaceFooter() {
                 variant="body2"
                 sx={{ mt: 2.5, maxWidth: 420, color: 'rgba(255,255,255,0.68)', lineHeight: 1.9 }}
               >
-                พื้นที่ค้นหา ซื้อ และแบ่งปันสื่อการสอนคุณภาพจากครูและนักสร้างสรรค์ทั่วประเทศ
-                เชื่อมต่อกับระบบ E-KRU ด้วยบัญชีเดียว
+                {contact?.footerText ??
+                  'พื้นที่ค้นหา ซื้อ และแบ่งปันสื่อการสอนคุณภาพจากครูและนักสร้างสรรค์ทั่วประเทศ เชื่อมต่อกับระบบ E-KRU ด้วยบัญชีเดียว'}
               </Typography>
 
               <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 2.5 }}>
@@ -146,9 +154,21 @@ export function MarketplaceFooter() {
                 />
                 <ContactLink
                   icon={<RiCustomerService2Line size={18} />}
-                  href="mailto:ekru.team@gmail.com?subject=E-KRU Marketplace Support"
+                  href={`mailto:${contact?.email ?? 'ekru.team@gmail.com'}?subject=Marketplace Support`}
                   label="ติดต่อฝ่ายช่วยเหลือ Marketplace"
                 />
+                {!!contact?.supportPhone && (
+                  <ContactLink
+                    icon={<RiCustomerService2Line size={18} />}
+                    href={`tel:${contact.supportPhone}`}
+                    label={contact.supportPhone}
+                  />
+                )}
+                {!!contact?.businessHours && (
+                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.56)' }}>
+                    เวลาทำการ: {contact.businessHours}
+                  </Typography>
+                )}
               </Stack>
             </Box>
           </Grid>
@@ -174,7 +194,8 @@ export function MarketplaceFooter() {
         >
           <Stack>
             <Typography variant="caption">
-              © {year} E-KRU Marketplace. All rights reserved.
+              {contact?.copyrightText ??
+                `© ${year} ${contact?.platformName ?? 'E-KRU Marketplace'}. All rights reserved.`}
             </Typography>
             <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
               Developed by CODE FOR CAT.

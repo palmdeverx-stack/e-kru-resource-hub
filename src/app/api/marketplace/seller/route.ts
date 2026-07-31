@@ -36,10 +36,10 @@ async function withSellerRelations(seller: Record<string, unknown> | null) {
           .getPublicUrl(document.storage_path);
         return { ...document, url: data.publicUrl };
       }
-      const { data } = await supabaseAdmin.storage
-        .from(document.storage_bucket)
-        .createSignedUrl(document.storage_path, 10 * 60);
-      return { ...document, url: data?.signedUrl ?? null };
+      return {
+        ...document,
+        url: `/api/marketplace/seller/documents?documentId=${encodeURIComponent(document.id)}`,
+      };
     })
   );
   return { ...seller, documents: documentsWithUrls, payout_account: payoutAccount };
@@ -71,7 +71,12 @@ export async function GET(request: Request) {
     }
     return NextResponse.json({ seller: await withSellerRelations(result.data) });
   }
-  return NextResponse.json({ seller: await withSellerRelations(existingSeller) });
+  const sellerWithRelations = await withSellerRelations(existingSeller);
+  const pendingProfile = existingSeller?.pending_profile_data as Record<string, unknown> | null;
+  if (new URL(request.url).searchParams.get('edit') === '1' && pendingProfile) {
+    return NextResponse.json({ seller: { ...sellerWithRelations, ...pendingProfile } });
+  }
+  return NextResponse.json({ seller: sellerWithRelations });
 }
 
 export async function POST(request: Request) {
@@ -149,13 +154,30 @@ export async function POST(request: Request) {
   }
 
   if (action === 'submit') {
-    const { data: documents } = existing
-      ? await supabaseAdmin
-          .from('marketplace_seller_documents')
+    const [{ data: documents }, { data: legalDocuments, error: legalDocumentsError }] =
+      await Promise.all([
+        existing
+          ? supabaseAdmin
+              .from('marketplace_seller_documents')
+              .select('document_type')
+              .eq('seller_id', existing.id)
+          : Promise.resolve({ data: [] }),
+        supabaseAdmin
+          .from('marketplace_legal_documents')
           .select('document_type')
-          .eq('seller_id', existing.id)
-      : { data: [] };
+          .eq('status', 'published')
+          .in('document_type', [
+            'seller_agreement',
+            'copyright_takedown',
+            'payment_payout_policy',
+            'privacy_policy',
+          ]),
+      ]);
+    if (legalDocumentsError) {
+      return NextResponse.json({ message: legalDocumentsError.message }, { status: 500 });
+    }
     const documentTypes = new Set((documents ?? []).map((item) => item.document_type));
+    const legalDocumentTypes = new Set((legalDocuments ?? []).map((item) => item.document_type));
     const companyValid =
       sellerType !== 'company' ||
       (String(body?.companyName ?? '').trim().length >= 2 &&
@@ -175,54 +197,124 @@ export async function POST(request: Request) {
       !documentTypes.has('store_logo') ||
       !documentTypes.has('identity_card') ||
       !documentTypes.has('bank_book') ||
+      !['seller_agreement', 'copyright_takedown', 'payment_payout_policy', 'privacy_policy'].every(
+        (documentType) => legalDocumentTypes.has(documentType)
+      ) ||
       body?.sellerAgreement !== true ||
       body?.copyrightConfirmed !== true ||
       body?.feeAgreement !== true ||
       body?.pdpaAccepted !== true
     ) {
       return NextResponse.json(
-        { message: 'กรุณากรอกข้อมูลที่จำเป็น อัปโหลดเอกสาร และยอมรับข้อตกลงให้ครบ' },
+        {
+          message:
+            legalDocumentTypes.size < 4
+              ? 'ยังไม่มีข้อตกลงผู้ขายฉบับเผยแพร่ครบถ้วน กรุณาให้ผู้ดูแลเผยแพร่เอกสารฉบับสมบูรณ์'
+              : 'กรุณากรอกข้อมูลที่จำเป็น อัปโหลดเอกสาร และยอมรับข้อตกลงให้ครบ',
+        },
         { status: 400 }
       );
     }
   }
 
   const remainsActive = existing?.status === 'active';
+  const existingPending = (existing?.pending_profile_data ?? {}) as Record<string, unknown>;
+  const sellerProfilePayload = {
+    owner_id: caller.sub,
+    owner_role: caller.role,
+    seller_type: sellerType,
+    display_name: displayName || existing?.display_name || 'ร้านค้าของฉัน',
+    display_name_en: String(body?.displayNameEn ?? '').trim() || null,
+    slug: slug || existing?.slug || null,
+    bio: String(body?.bio ?? '').trim() || null,
+    contact_email: contactEmail || null,
+    seller_name: sellerName || null,
+    phone: phone || null,
+    national_tax_id: String(body?.nationalTaxId ?? '').replace(/\D/g, '') || null,
+    company_name: String(body?.companyName ?? '').trim() || null,
+    company_registration_no: String(body?.companyRegistrationNo ?? '').replace(/\D/g, '') || null,
+    company_tax_id: String(body?.companyTaxId ?? '').replace(/\D/g, '') || null,
+    business_address: String(body?.businessAddress ?? '').trim() || null,
+    wizard_step: Math.min(5, Math.max(1, Number(body?.wizardStep) || 1)),
+    logo_url: existingPending.logo_url ?? existing?.logo_url ?? null,
+    cover_url: existingPending.cover_url ?? existing?.cover_url ?? null,
+    seller_agreement_accepted_at:
+      action === 'submit' && body.sellerAgreement ? now : existing?.seller_agreement_accepted_at,
+    copyright_confirmed_at:
+      action === 'submit' && body.copyrightConfirmed ? now : existing?.copyright_confirmed_at,
+    fee_agreement_accepted_at:
+      action === 'submit' && body.feeAgreement ? now : existing?.fee_agreement_accepted_at,
+    pdpa_accepted_at: action === 'submit' && body.pdpaAccepted ? now : existing?.pdpa_accepted_at,
+  };
+  const payoutPayload = {
+    bank_code: bankCode || null,
+    bank_name: bankName || null,
+    account_number: accountNumber || null,
+    account_name: accountName || null,
+    promptpay_id: String(body?.promptpayId ?? '').replace(/\D/g, '') || null,
+  };
+
+  if (remainsActive) {
+    if (sellerProfilePayload.slug && sellerProfilePayload.slug !== existing.slug) {
+      const { data: slugOwner } = await supabaseAdmin
+        .from('marketplace_sellers')
+        .select('id')
+        .ilike('slug', sellerProfilePayload.slug)
+        .neq('id', existing.id)
+        .maybeSingle();
+      if (slugOwner) {
+        return NextResponse.json({ message: 'Slug URL นี้ถูกใช้แล้ว' }, { status: 409 });
+      }
+    }
+    const pendingProfileData = { ...sellerProfilePayload, payout_account: payoutPayload };
+    const { data: stagedSeller, error: stageError } = await supabaseAdmin
+      .from('marketplace_sellers')
+      .update({
+        pending_profile_data: pendingProfileData,
+        profile_review_status: action === 'submit' ? 'pending' : 'draft',
+        profile_submitted_at: action === 'submit' ? now : existing.profile_submitted_at,
+        profile_rejection_reason: null,
+        updated_at: now,
+      })
+      .eq('id', existing.id)
+      .select('*')
+      .single();
+    if (stageError || !stagedSeller) {
+      return NextResponse.json({ message: stageError?.message }, { status: 500 });
+    }
+    if (action === 'submit') {
+      await notifyMarketplaceAdmins({
+        event: 'new_seller',
+        sourceId: existing.id,
+        title: 'มีข้อมูลร้านค้าแก้ไขรอตรวจสอบ',
+        message: `📝 ร้านค้าส่งข้อมูลแก้ไขให้ตรวจสอบ\nชื่อร้าน: ${sellerProfilePayload.display_name}\nผู้ขาย: ${sellerProfilePayload.seller_name}`,
+        actionUrl: `${new URL(request.url).origin}/dashboard/seller-approvals/${existing.id}`,
+      });
+    }
+    const sellerWithRelations = await withSellerRelations(stagedSeller);
+    return NextResponse.json({
+      seller: {
+        ...sellerWithRelations,
+        ...sellerProfilePayload,
+        payout_account: payoutPayload,
+      },
+      message:
+        action === 'submit'
+          ? 'ส่งข้อมูลแก้ไขให้ผู้ดูแลตรวจสอบแล้ว ข้อมูลเดิมจะยังแสดงจนกว่าจะอนุมัติ'
+          : 'บันทึกข้อมูลแก้ไขเป็นแบบร่างแล้ว',
+    });
+  }
+
   const { data: seller, error } = await supabaseAdmin
     .from('marketplace_sellers')
     .upsert(
       {
-        owner_id: caller.sub,
-        owner_role: caller.role,
-        seller_type: sellerType,
-        display_name: displayName || existing?.display_name || 'ร้านค้าของฉัน',
-        display_name_en: String(body?.displayNameEn ?? '').trim() || null,
-        slug: slug || existing?.slug || null,
-        bio: String(body?.bio ?? '').trim() || null,
-        contact_email: contactEmail || null,
-        seller_name: sellerName || null,
-        phone: phone || null,
-        national_tax_id: String(body?.nationalTaxId ?? '').replace(/\D/g, '') || null,
-        company_name: String(body?.companyName ?? '').trim() || null,
-        company_registration_no:
-          String(body?.companyRegistrationNo ?? '').replace(/\D/g, '') || null,
-        company_tax_id: String(body?.companyTaxId ?? '').replace(/\D/g, '') || null,
-        wizard_step: Math.min(5, Math.max(1, Number(body?.wizardStep) || 1)),
-        status: remainsActive ? 'active' : action === 'submit' ? 'pending' : 'draft',
+        ...sellerProfilePayload,
+        status: action === 'submit' ? 'pending' : 'draft',
         submitted_at: action === 'submit' ? now : existing?.submitted_at,
-        reviewed_at: remainsActive ? existing?.reviewed_at : null,
-        reviewed_by: remainsActive ? existing?.reviewed_by : null,
+        reviewed_at: null,
+        reviewed_by: null,
         rejection_reason: action === 'submit' ? null : existing?.rejection_reason,
-        seller_agreement_accepted_at:
-          action === 'submit' && body.sellerAgreement
-            ? now
-            : existing?.seller_agreement_accepted_at,
-        copyright_confirmed_at:
-          action === 'submit' && body.copyrightConfirmed ? now : existing?.copyright_confirmed_at,
-        fee_agreement_accepted_at:
-          action === 'submit' && body.feeAgreement ? now : existing?.fee_agreement_accepted_at,
-        pdpa_accepted_at:
-          action === 'submit' && body.pdpaAccepted ? now : existing?.pdpa_accepted_at,
         updated_at: now,
       },
       { onConflict: 'owner_id' }

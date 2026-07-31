@@ -137,10 +137,12 @@ export async function notifySellerPaymentReceived(input: PaymentNotificationInpu
   else if (!lineUserId) skipReason = 'ยังไม่ได้ผูก LINE ผู้รับแจ้งเตือน';
 
   if (!skipReason && managedLicense && !useOwnAccount) {
-    const managedProduct = managedLicense.product as Array<{
-      license_line_quota: number | null;
-    }> | null;
-    const quota = Number(managedProduct?.[0]?.license_line_quota);
+    const productRelation = managedLicense.product as
+      | { license_line_quota: number | null }
+      | Array<{ license_line_quota: number | null }>
+      | null;
+    const managedProduct = Array.isArray(productRelation) ? productRelation[0] : productRelation;
+    const quota = Number(managedProduct?.license_line_quota);
     if (Number.isFinite(quota) && quota > 0) {
       const { count } = await supabaseAdmin
         .from('marketplace_entitlement_usage_events')
@@ -239,4 +241,43 @@ export async function notifySellerPaymentReceived(input: PaymentNotificationInpu
       sent_at: status === 'sent' ? new Date().toISOString() : null,
     })
     .eq('id', delivery.id);
+}
+
+export async function retryFailedSellerPaymentNotifications(sellerId: string, limit = 5) {
+  const { data: failedDeliveries, error: deliveryError } = await supabaseAdmin
+    .from('marketplace_seller_line_deliveries')
+    .select('order_id')
+    .eq('seller_id', sellerId)
+    .eq('event_type', 'payment_received')
+    .eq('status', 'failed')
+    .not('order_id', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (deliveryError) throw deliveryError;
+
+  const orderIds = (failedDeliveries ?? [])
+    .map((delivery) => delivery.order_id)
+    .filter((orderId): orderId is string => Boolean(orderId));
+  if (!orderIds.length) return;
+
+  const { data: orders, error: orderError } = await supabaseAdmin
+    .from('marketplace_orders')
+    .select('id, payment_session_id, gross_amount, seller_net, available_at')
+    .eq('seller_id', sellerId)
+    .in('id', orderIds)
+    .in('status', ['paid', 'completed']);
+  if (orderError) throw orderError;
+
+  await Promise.allSettled(
+    (orders ?? []).map((order) =>
+      notifySellerPaymentReceived({
+        sellerId,
+        orderId: order.id,
+        paymentSessionId: order.payment_session_id,
+        grossAmount: Number(order.gross_amount),
+        sellerNet: Number(order.seller_net),
+        availableAt: order.available_at ?? new Date().toISOString(),
+      })
+    )
+  );
 }

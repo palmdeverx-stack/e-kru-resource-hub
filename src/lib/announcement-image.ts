@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { supabaseAdmin } from './supabase-admin';
+import { optimizeUploadedImage } from './server-image-optimizer';
 
 // ----------------------------------------------------------------------
 
@@ -34,11 +35,11 @@ export async function replaceAnnouncementImage(
 ) {
   await removeAnnouncementImage(schoolId, announcementId);
 
-  const extension = file.type === 'image/jpeg' ? 'jpg' : file.type.split('/')[1];
-  const path = `${schoolId}/${announcementId}/cover.${extension}`;
+  const image = await optimizeUploadedImage(file, { preset: 'content' });
+  const path = `${schoolId}/${announcementId}/cover.${image.extension}`;
   const { error } = await supabaseAdmin.storage
     .from(BUCKET)
-    .upload(path, file, { upsert: true, contentType: file.type });
+    .upload(path, image.data, { upsert: true, contentType: image.contentType });
   if (error) throw new Error(error.message);
 
   const {

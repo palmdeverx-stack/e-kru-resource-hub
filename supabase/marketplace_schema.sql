@@ -45,6 +45,9 @@ create table if not exists public.marketplace_categories (
   description text,
   sort_order integer not null default 0 check (sort_order >= 0),
   is_active boolean not null default true,
+  created_by uuid,
+  first_used_at timestamptz,
+  expires_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -183,6 +186,9 @@ create unique index if not exists marketplace_tags_code_lower_key
   on public.marketplace_tags (lower(code));
 create unique index if not exists marketplace_tags_name_lower_key
   on public.marketplace_tags (lower(name));
+create index if not exists marketplace_tags_unused_expiry_idx
+  on public.marketplace_tags (expires_at)
+  where created_by is not null and first_used_at is null;
 
 insert into public.marketplace_tags (code, name, sort_order)
 values
@@ -352,17 +358,20 @@ create table if not exists public.marketplace_legal_documents (
         'complaint_dispute_policy',
         'child_data_policy',
         'data_processing_agreement',
-        'subscription_policy'
+        'subscription_policy',
+        'product_submission_terms'
       )
     ),
   title text not null,
   summary text,
   content_html text not null default '<p></p>',
-  provider_type text not null default 'individual' check (provider_type = 'individual'),
+  provider_type text not null default 'individual' check (provider_type in ('individual', 'company')),
   provider_name text,
+  provider_registration_no text,
   provider_tax_id text,
   provider_address text,
   contact_email text,
+  provider_phone text,
   version text not null default '1.0',
   status text not null default 'draft' check (status in ('draft', 'published')),
   effective_at timestamptz,
@@ -372,8 +381,115 @@ create table if not exists public.marketplace_legal_documents (
   updated_at timestamptz not null default now()
 );
 
+insert into public.marketplace_legal_documents (
+  document_type,
+  title,
+  summary,
+  content_html,
+  status,
+  version
+)
+values (
+  'product_submission_terms',
+  'เงื่อนไขการเผยแพร่สินค้า',
+  'หลักเกณฑ์ด้านสิทธิ ความถูกต้องของข้อมูล และการตรวจสอบร่วมกันก่อนเผยแพร่สินค้า',
+  '<ul><li>ผู้ขายมีสิทธิหรือได้รับอนุญาตให้เผยแพร่และจำหน่ายข้อความ รูปภาพ วิดีโอ เสียง ฟอนต์ แบบฝึกหัด และไฟล์ที่ใช้ในสินค้า</li><li>เนื้อหาสินค้าเป็นไปตามหลักเกณฑ์ด้านลิขสิทธิ์ เครื่องหมายการค้า สิทธิส่วนบุคคล และการคุ้มครองข้อมูลเด็ก นักเรียน หรือบุคคลอื่น</li><li>รายละเอียด ราคา เงื่อนไขการใช้งาน และสิ่งที่ผู้ซื้อจะได้รับแสดงไว้อย่างถูกต้องและครบถ้วน</li><li>หากมีข้อสงสัยหรือข้อร้องเรียน แพลตฟอร์มและผู้ขายจะร่วมกันตรวจสอบข้อมูลและดำเนินการตามนโยบายที่เกี่ยวข้อง</li></ul>',
+  'draft',
+  '1.0'
+)
+on conflict (document_type) do nothing;
+
 create index if not exists marketplace_legal_documents_status_idx
   on public.marketplace_legal_documents (status, document_type);
+
+create table if not exists public.marketplace_provider_settings (
+  id text primary key default 'default' check (id = 'default'),
+  provider_type text not null default 'individual' check (provider_type in ('individual', 'company')),
+  first_name text,
+  last_name text,
+  company_name text,
+  company_registration_no text,
+  tax_id text,
+  address text,
+  contact_email text,
+  contact_phone text,
+  platform_name_th text,
+  platform_name_en text,
+  brand_name text,
+  website_url text,
+  support_email text,
+  support_phone text,
+  finance_email text,
+  privacy_email text,
+  line_oa_id text,
+  business_hours text,
+  complaint_url text,
+  vat_registered boolean not null default false,
+  vat_rate numeric(5,2) not null default 7,
+  office_type text not null default 'head_office' check (office_type in ('head_office', 'branch')),
+  branch_number text,
+  document_issuer_name text,
+  document_tax_address text,
+  authorized_signatory_name text,
+  signature_url text,
+  seal_url text,
+  receipt_prefix text,
+  tax_invoice_prefix text,
+  logo_url text,
+  transparent_logo_url text,
+  favicon_url text,
+  og_image_url text,
+  primary_color text default '#1565C0',
+  footer_text text,
+  copyright_text text,
+  timezone text not null default 'Asia/Bangkok',
+  currency text not null default 'THB',
+  default_language text not null default 'th',
+  service_country text not null default 'TH',
+  production_url text,
+  updated_by uuid,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+insert into public.marketplace_provider_settings (id)
+values ('default')
+on conflict (id) do nothing;
+
+create or replace function public.sync_marketplace_provider_to_legal_documents()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.marketplace_legal_documents
+  set
+    provider_type = new.provider_type,
+    provider_name = case
+      when new.provider_type = 'company' then nullif(trim(new.company_name), '')
+      else nullif(trim(concat_ws(' ', new.first_name, new.last_name)), '')
+    end,
+    provider_registration_no = case
+      when new.provider_type = 'company' then nullif(trim(new.company_registration_no), '')
+      else null
+    end,
+    provider_tax_id = nullif(trim(new.tax_id), ''),
+    provider_address = nullif(trim(new.address), ''),
+    contact_email = nullif(trim(new.contact_email), ''),
+    provider_phone = nullif(trim(new.contact_phone), ''),
+    updated_at = now()
+  where id is not null;
+  return new;
+end;
+$$;
+
+drop trigger if exists sync_marketplace_provider_to_legal_documents_trigger
+  on public.marketplace_provider_settings;
+
+create trigger sync_marketplace_provider_to_legal_documents_trigger
+after insert or update on public.marketplace_provider_settings
+for each row execute function public.sync_marketplace_provider_to_legal_documents();
 
 insert into public.marketplace_legal_documents (
   document_type,
@@ -511,7 +627,21 @@ alter table public.marketplace_sellers
   add column if not exists copyright_confirmed_at timestamptz,
   add column if not exists fee_agreement_accepted_at timestamptz,
   add column if not exists pdpa_accepted_at timestamptz,
-  add column if not exists commission_rate_override numeric(5, 2);
+  add column if not exists commission_rate_override numeric(5, 2),
+  add column if not exists pending_profile_data jsonb,
+  add column if not exists profile_review_status text,
+  add column if not exists profile_submitted_at timestamptz,
+  add column if not exists profile_rejection_reason text;
+
+alter table public.marketplace_sellers
+  drop constraint if exists marketplace_sellers_profile_review_status_check;
+alter table public.marketplace_sellers
+  add constraint marketplace_sellers_profile_review_status_check
+  check (profile_review_status is null or profile_review_status in ('draft', 'pending', 'rejected'));
+
+create index if not exists marketplace_sellers_profile_review_pending_idx
+  on public.marketplace_sellers (profile_submitted_at desc)
+  where profile_review_status = 'pending';
 
 alter table public.marketplace_sellers
   drop constraint if exists marketplace_sellers_commission_rate_override_check;
@@ -653,6 +783,7 @@ create table if not exists public.marketplace_products (
   reviewed_at timestamptz,
   reviewed_by uuid,
   rejection_reason text,
+  submission_acceptance_snapshot jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -675,6 +806,8 @@ alter table public.marketplace_products
   add column if not exists reviewed_by uuid;
 alter table public.marketplace_products
   add column if not exists rejection_reason text;
+alter table public.marketplace_products
+  add column if not exists submission_acceptance_snapshot jsonb not null default '{}'::jsonb;
 alter table public.marketplace_products
   drop column if exists file_url_2;
 alter table public.marketplace_products
@@ -1628,6 +1761,20 @@ alter table public.marketplace_grade_levels enable row level security;
 alter table public.marketplace_curricula enable row level security;
 alter table public.marketplace_tags enable row level security;
 alter table public.marketplace_legal_documents enable row level security;
+alter table public.marketplace_provider_settings enable row level security;
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'marketplace-platform-assets',
+  'marketplace-platform-assets',
+  true,
+  5242880,
+  array['image/jpeg', 'image/png', 'image/webp']
+)
+on conflict (id) do update set
+  public = excluded.public,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
 alter table public.marketplace_product_grade_levels enable row level security;
 alter table public.marketplace_product_tags enable row level security;
 alter table public.marketplace_product_images enable row level security;
@@ -1854,12 +2001,24 @@ create table if not exists public.marketplace_product_review_submissions (
   reviewed_at timestamptz,
   reviewed_by uuid,
   rejection_reason text,
+  acceptance_version text,
+  seller_attestations jsonb not null default '{}'::jsonb,
+  legal_document_versions jsonb not null default '{}'::jsonb,
+  accepted_by uuid,
+  accepted_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (product_id, submission_number)
 );
 create index if not exists marketplace_product_review_submissions_product_idx
   on public.marketplace_product_review_submissions (product_id, submission_number desc);
+
+alter table public.marketplace_product_review_submissions
+  add column if not exists acceptance_version text,
+  add column if not exists seller_attestations jsonb not null default '{}'::jsonb,
+  add column if not exists legal_document_versions jsonb not null default '{}'::jsonb,
+  add column if not exists accepted_by uuid,
+  add column if not exists accepted_at timestamptz;
 
 alter table public.marketplace_product_review_submissions enable row level security;
 revoke all on table public.marketplace_product_review_submissions from anon, authenticated;
@@ -1872,9 +2031,14 @@ set search_path = public
 as $$
 declare
   next_submission_number integer;
+  submitting_user_id uuid;
 begin
   if new.submitted_at is distinct from old.submitted_at and new.submitted_at is not null then
     perform pg_advisory_xact_lock(hashtextextended(new.id::text, 0));
+
+    select owner_id into submitting_user_id
+      from public.marketplace_sellers
+      where id = new.seller_id;
 
     select coalesce(max(submission_number), 0) + 1
       into next_submission_number
@@ -1890,6 +2054,11 @@ begin
       reviewed_at,
       reviewed_by,
       rejection_reason,
+      acceptance_version,
+      seller_attestations,
+      legal_document_versions,
+      accepted_by,
+      accepted_at,
       updated_at
     )
     values (
@@ -1904,6 +2073,11 @@ begin
       new.reviewed_at,
       new.reviewed_by,
       new.rejection_reason,
+      nullif(new.submission_acceptance_snapshot ->> 'version', ''),
+      coalesce(new.submission_acceptance_snapshot -> 'attestations', '{}'::jsonb),
+      coalesce(new.submission_acceptance_snapshot -> 'legal_documents', '{}'::jsonb),
+      submitting_user_id,
+      new.submitted_at,
       now()
     );
   elsif (

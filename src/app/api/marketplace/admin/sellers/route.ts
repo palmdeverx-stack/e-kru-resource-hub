@@ -7,7 +7,7 @@ const allowedStatuses = ['pending', 'active', 'rejected'] as const;
 type SellerStatus = (typeof allowedStatuses)[number];
 
 export async function GET(request: Request) {
-  if (!requireRole(request, ['master_admin'])) {
+  if (!requireRole(request, ['master_admin', 'super_admin'])) {
     return NextResponse.json({ message: 'ไม่มีสิทธิ์ตรวจสอบคำขอเปิดร้าน' }, { status: 403 });
   }
 
@@ -24,23 +24,31 @@ export async function GET(request: Request) {
     : 10;
   const from = (page - 1) * pageSize;
 
-  const sellersQuery = supabaseAdmin
+  let sellersQuery = supabaseAdmin
     .from('marketplace_sellers')
     .select(
-      'id, seller_type, display_name, slug, logo_url, seller_name, phone, contact_email, status, submitted_at, rejection_reason, created_at',
+      'id, seller_type, display_name, slug, logo_url, seller_name, phone, contact_email, status, submitted_at, rejection_reason, created_at, profile_review_status, profile_submitted_at, profile_rejection_reason, pending_profile_data',
       { count: 'exact' }
     )
-    .eq('status', status)
     .neq('owner_role', 'master_admin')
-    .order('submitted_at', { ascending: false, nullsFirst: false })
-    .order('created_at', { ascending: false })
-    .range(from, from + pageSize - 1);
+    .order('profile_submitted_at', { ascending: false, nullsFirst: false })
+    .order('submitted_at', { ascending: false, nullsFirst: false });
+  if (status === 'pending') {
+    sellersQuery = sellersQuery.or('status.eq.pending,profile_review_status.eq.pending');
+  } else if (status === 'rejected') {
+    sellersQuery = sellersQuery.or('status.eq.rejected,profile_review_status.eq.rejected');
+  } else {
+    sellersQuery = sellersQuery
+      .eq('status', 'active')
+      .or('profile_review_status.is.null,profile_review_status.eq.draft');
+  }
+  sellersQuery = sellersQuery.range(from, from + pageSize - 1);
 
   const [sellersResult, pendingResult, activeResult, rejectedResult] = await Promise.all([
     sellersQuery,
-    countSellers('pending'),
-    countSellers('active'),
-    countSellers('rejected'),
+    countReviewStatus('pending'),
+    countReviewStatus('active'),
+    countReviewStatus('rejected'),
   ]);
 
   const error =
@@ -58,7 +66,18 @@ export async function GET(request: Request) {
   }
 
   return NextResponse.json({
-    sellers: sellersResult.data ?? [],
+    sellers: (sellersResult.data ?? []).map((seller) => {
+      const pendingProfile = seller.pending_profile_data as Record<string, unknown> | null;
+      const reviewStatus = seller.profile_review_status ?? seller.status;
+      return {
+        ...seller,
+        ...(reviewStatus === 'pending' && pendingProfile ? pendingProfile : {}),
+        status: reviewStatus,
+        submitted_at: seller.profile_submitted_at ?? seller.submitted_at,
+        rejection_reason: seller.profile_rejection_reason ?? seller.rejection_reason,
+        is_profile_revision: seller.status === 'active' && Boolean(seller.profile_review_status),
+      };
+    }),
     counts: {
       pending: pendingResult.count ?? 0,
       active: activeResult.count ?? 0,
@@ -73,10 +92,19 @@ export async function GET(request: Request) {
   });
 }
 
-function countSellers(status: SellerStatus) {
-  return supabaseAdmin
+function countReviewStatus(status: SellerStatus) {
+  let query = supabaseAdmin
     .from('marketplace_sellers')
     .select('*', { count: 'exact', head: true })
-    .eq('status', status)
     .neq('owner_role', 'master_admin');
+  if (status === 'pending') {
+    query = query.or('status.eq.pending,profile_review_status.eq.pending');
+  } else if (status === 'rejected') {
+    query = query.or('status.eq.rejected,profile_review_status.eq.rejected');
+  } else {
+    query = query
+      .eq('status', 'active')
+      .or('profile_review_status.is.null,profile_review_status.eq.draft');
+  }
+  return query;
 }

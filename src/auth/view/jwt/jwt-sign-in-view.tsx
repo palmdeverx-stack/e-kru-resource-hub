@@ -63,7 +63,7 @@ export function JwtSignInView() {
     role: 'master_admin' | 'school_admin';
   } | null>(null);
 
-  const { checkUserSession } = useAuthContext();
+  const { setSessionUser } = useAuthContext();
 
   const defaultValues: SignInSchemaType = {
     username: '',
@@ -102,18 +102,20 @@ export function JwtSignInView() {
         return;
       }
 
-      await checkUserSession?.();
-
-      router.replace(returnTo ?? getHomePathForRole(result.role));
+      const destination = returnTo ?? getHomePathForRole(result.role);
+      setSessionUser?.(result);
+      router.prefetch(destination);
+      router.replace(destination);
     },
   });
 
   const verifyPinMutation = useMutation({
     mutationFn: verifySignInPin,
     onSuccess: async (user) => {
-      await checkUserSession?.();
-
-      router.replace(returnTo ?? getHomePathForRole(user.role));
+      const destination = returnTo ?? getHomePathForRole(user.role);
+      setSessionUser?.(user);
+      router.prefetch(destination);
+      router.replace(destination);
     },
   });
 

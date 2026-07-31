@@ -28,6 +28,7 @@ const documents = [
   ['child_data_policy', paths.legal.childDataPolicy],
   ['data_processing_agreement', paths.legal.dataProcessingAgreement],
   ['subscription_policy', paths.legal.subscriptionPolicy],
+  ['product_submission_terms', paths.legal.productSubmissionTerms],
 ] as const;
 
 export default function Page() {

@@ -6,8 +6,31 @@ import { writeSecurityAudit } from 'src/lib/security-audit';
 
 type Context = { params: Promise<{ id: string }> };
 
+const PROFILE_FIELDS = [
+  'seller_type',
+  'display_name',
+  'display_name_en',
+  'slug',
+  'bio',
+  'contact_email',
+  'seller_name',
+  'phone',
+  'national_tax_id',
+  'company_name',
+  'company_registration_no',
+  'company_tax_id',
+  'business_address',
+  'wizard_step',
+  'logo_url',
+  'cover_url',
+  'seller_agreement_accepted_at',
+  'copyright_confirmed_at',
+  'fee_agreement_accepted_at',
+  'pdpa_accepted_at',
+] as const;
+
 export async function PATCH(request: Request, { params }: Context) {
-  const reviewer = requireRole(request, ['master_admin']);
+  const reviewer = requireRole(request, ['master_admin', 'super_admin']);
   if (!reviewer) {
     return NextResponse.json({ message: 'ไม่มีสิทธิ์อนุมัติร้านค้า' }, { status: 403 });
   }
@@ -45,6 +68,15 @@ export async function PATCH(request: Request, { params }: Context) {
       { status: 400 }
     );
   }
+  const pendingProfile = existingSeller.pending_profile_data as Record<string, unknown> | null;
+  const isProfileRevision =
+    existingSeller.status === 'active' &&
+    existingSeller.profile_review_status === 'pending' &&
+    Boolean(pendingProfile);
+  const sellerForReview = isProfileRevision
+    ? { ...existingSeller, ...pendingProfile }
+    : existingSeller;
+  const proposedPayout = pendingProfile?.payout_account as Record<string, unknown> | undefined;
 
   if (action === 'approve') {
     const [{ data: documents }, { data: payoutAccount }] = await Promise.all([
@@ -60,18 +92,18 @@ export async function PATCH(request: Request, { params }: Context) {
     ]);
     const types = new Set((documents ?? []).map((document) => document.document_type));
     if (
-      existingSeller.status !== 'pending' ||
-      !existingSeller.logo_url ||
-      !existingSeller.seller_name ||
-      !existingSeller.phone ||
-      !existingSeller.contact_email ||
-      !payoutAccount ||
+      (existingSeller.status !== 'pending' && !isProfileRevision) ||
+      !sellerForReview.logo_url ||
+      !sellerForReview.seller_name ||
+      !sellerForReview.phone ||
+      !sellerForReview.contact_email ||
+      !(isProfileRevision ? proposedPayout : payoutAccount) ||
       !types.has('identity_card') ||
       !types.has('bank_book') ||
-      !existingSeller.seller_agreement_accepted_at ||
-      !existingSeller.copyright_confirmed_at ||
-      !existingSeller.fee_agreement_accepted_at ||
-      !existingSeller.pdpa_accepted_at
+      !sellerForReview.seller_agreement_accepted_at ||
+      !sellerForReview.copyright_confirmed_at ||
+      !sellerForReview.fee_agreement_accepted_at ||
+      !sellerForReview.pdpa_accepted_at
     ) {
       return NextResponse.json(
         { message: 'ข้อมูล บัญชี เอกสาร หรือข้อตกลงของผู้ขายยังไม่ครบ' },
@@ -81,15 +113,42 @@ export async function PATCH(request: Request, { params }: Context) {
   }
 
   const now = new Date().toISOString();
+  const approvedProfile = isProfileRevision
+    ? PROFILE_FIELDS.reduce<Record<string, unknown>>((result, field) => {
+        if (Object.hasOwn(pendingProfile!, field)) result[field] = pendingProfile![field];
+        return result;
+      }, {})
+    : {};
   const { data: seller, error } = await supabaseAdmin
     .from('marketplace_sellers')
-    .update({
-      status: action === 'approve' ? 'active' : 'rejected',
-      reviewed_at: now,
-      reviewed_by: reviewer.sub,
-      rejection_reason: action === 'reject' ? reason : null,
-      updated_at: now,
-    })
+    .update(
+      isProfileRevision
+        ? action === 'approve'
+          ? {
+              ...approvedProfile,
+              pending_profile_data: null,
+              profile_review_status: null,
+              profile_submitted_at: null,
+              profile_rejection_reason: null,
+              reviewed_at: now,
+              reviewed_by: reviewer.sub,
+              updated_at: now,
+            }
+          : {
+              profile_review_status: 'rejected',
+              profile_rejection_reason: reason,
+              reviewed_at: now,
+              reviewed_by: reviewer.sub,
+              updated_at: now,
+            }
+        : {
+            status: action === 'approve' ? 'active' : 'rejected',
+            reviewed_at: now,
+            reviewed_by: reviewer.sub,
+            rejection_reason: action === 'reject' ? reason : null,
+            updated_at: now,
+          }
+    )
     .eq('id', id)
     .select('*')
     .maybeSingle();
@@ -102,10 +161,29 @@ export async function PATCH(request: Request, { params }: Context) {
   }
 
   if (action === 'approve') {
-    await supabaseAdmin
-      .from('marketplace_seller_payout_accounts')
-      .update({ is_verified: true, verified_at: now, verified_by: reviewer.sub, updated_at: now })
-      .eq('seller_id', id);
+    if (isProfileRevision && proposedPayout) {
+      const { error: payoutError } = await supabaseAdmin
+        .from('marketplace_seller_payout_accounts')
+        .upsert(
+          {
+            seller_id: id,
+            ...proposedPayout,
+            is_verified: true,
+            verified_at: now,
+            verified_by: reviewer.sub,
+            updated_at: now,
+          },
+          { onConflict: 'seller_id' }
+        );
+      if (payoutError) {
+        return NextResponse.json({ message: payoutError.message }, { status: 500 });
+      }
+    } else {
+      await supabaseAdmin
+        .from('marketplace_seller_payout_accounts')
+        .update({ is_verified: true, verified_at: now, verified_by: reviewer.sub, updated_at: now })
+        .eq('seller_id', id);
+    }
   }
 
   await writeSecurityAudit({
@@ -121,6 +199,7 @@ export async function PATCH(request: Request, { params }: Context) {
     metadata: {
       previous_status: existingSeller.status,
       new_status: seller.status,
+      profile_revision: isProfileRevision,
       ...(action === 'reject' && { reason }),
     },
   });

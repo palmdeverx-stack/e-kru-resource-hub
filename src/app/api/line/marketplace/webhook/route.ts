@@ -1,8 +1,10 @@
-import { NextResponse } from 'next/server';
+import { after, NextResponse } from 'next/server';
 import { createHmac, createHash, timingSafeEqual } from 'node:crypto';
 
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { decryptLineCredential } from 'src/lib/line-credentials';
+
+import { retryFailedSellerPaymentNotifications } from 'src/sections/marketplace/seller/server/seller-line-notifications';
 
 function validSignature(body: string, signature: string, secret: string) {
   const expected = Buffer.from(createHmac('sha256', secret).update(body).digest('base64'));
@@ -95,24 +97,45 @@ export async function POST(request: Request) {
         displayName = profile.displayName ?? null;
       }
 
-      await supabaseAdmin.from('marketplace_seller_line_settings').upsert(
-        {
-          seller_id: token.seller_id,
-          line_user_id: event.source.userId,
-          line_display_name: displayName,
-          line_linked_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'seller_id' }
-      );
-      await supabaseAdmin
+      const { error: sellerLinkError } = await supabaseAdmin
+        .from('marketplace_seller_line_settings')
+        .upsert(
+          {
+            seller_id: token.seller_id,
+            line_user_id: event.source.userId,
+            line_display_name: displayName,
+            line_linked_at: new Date().toISOString(),
+            is_enabled: true,
+            notify_payment_received: true,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'seller_id' }
+        );
+      if (sellerLinkError) {
+        console.error('Unable to save seller LINE link', sellerLinkError);
+        await reply(
+          accessToken,
+          event.replyToken,
+          '❌ ไม่สามารถบันทึกการผูก LINE ได้ กรุณาสร้างรหัสใหม่แล้วลองอีกครั้ง'
+        );
+        continue;
+      }
+      const { error: tokenUpdateError } = await supabaseAdmin
         .from('marketplace_seller_line_link_tokens')
         .update({ used_at: new Date().toISOString() })
         .eq('id', token.id);
+      if (tokenUpdateError) {
+        console.error('Unable to mark seller LINE link token as used', tokenUpdateError);
+      }
       await reply(
         accessToken,
         event.replyToken,
         '✅ ผูก LINE กับร้านค้าของคุณสำเร็จ\nคุณจะได้รับแจ้งเตือนเมื่อระบบยืนยันยอดขาย'
+      );
+      after(() =>
+        retryFailedSellerPaymentNotifications(token.seller_id).catch((error) => {
+          console.error('Unable to retry seller LINE notifications after linking', error);
+        })
       );
       continue;
     }
@@ -138,7 +161,7 @@ export async function POST(request: Request) {
       displayName = profile.displayName ?? null;
     }
 
-    await supabaseAdmin
+    const { error: adminLinkError } = await supabaseAdmin
       .from('marketplace_line_settings')
       .update({
         line_user_id: event.source.userId,
@@ -147,10 +170,22 @@ export async function POST(request: Request) {
         updated_at: new Date().toISOString(),
       })
       .eq('id', 'default');
-    await supabaseAdmin
+    if (adminLinkError) {
+      console.error('Unable to save Marketplace admin LINE link', adminLinkError);
+      await reply(
+        accessToken,
+        event.replyToken,
+        '❌ ไม่สามารถบันทึกการผูก LINE ได้ กรุณาสร้างรหัสใหม่แล้วลองอีกครั้ง'
+      );
+      continue;
+    }
+    const { error: adminTokenUpdateError } = await supabaseAdmin
       .from('marketplace_line_link_tokens')
       .update({ used_at: new Date().toISOString() })
       .eq('id', token.id);
+    if (adminTokenUpdateError) {
+      console.error('Unable to mark Marketplace LINE link token as used', adminTokenUpdateError);
+    }
     await reply(
       accessToken,
       event.replyToken,

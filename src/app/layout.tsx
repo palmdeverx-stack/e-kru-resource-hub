@@ -22,11 +22,12 @@ import { detectSettings } from 'src/components/settings/server';
 import { defaultSettings, SettingsProvider, LazySettingsDrawer } from 'src/components/settings';
 
 import { MarketplaceCartProvider } from 'src/sections/marketplace/cart/cart-context';
+import { getPublicPlatformSettings } from 'src/sections/marketplace/admin/server/platform-settings';
 import { MarketplaceCookieConsentBanner } from 'src/sections/marketplace/legal/cookie-consent-banner';
 import { MarketplacePopupAnnouncement } from 'src/sections/marketplace/announcements/popup-announcement';
 import {
   getMarketplaceSiteUrl,
-  absoluteMarketplaceUrl,
+  MARKETPLACE_OG_IMAGE_URL,
 } from 'src/sections/marketplace/seo/site-url';
 
 import { AuthProvider } from 'src/auth/context/jwt';
@@ -36,67 +37,73 @@ import { AuthProvider } from 'src/auth/context/jwt';
 const SITE_NAME = 'E-KRU Marketplace';
 const SITE_DESCRIPTION =
   'ตลาดสื่อการสอนออนไลน์สำหรับค้นหา ซื้อ และแบ่งปันแผนการสอน ใบงาน แบบทดสอบ และสื่อคุณภาพจากครูทั่วประเทศ';
-const OG_IMAGE_URL = absoluteMarketplaceUrl('/assets/background/og-images-class-go.jpg');
 
-export const viewport: Viewport = {
-  width: 'device-width',
-  initialScale: 1,
-  themeColor: primaryColor.main,
-};
+export async function generateViewport(): Promise<Viewport> {
+  const settings = await getPublicPlatformSettings();
+  return {
+    width: 'device-width',
+    initialScale: 1,
+    themeColor: settings?.primary_color || primaryColor.main,
+  };
+}
 
-export const metadata: Metadata = {
-  metadataBase: new URL(getMarketplaceSiteUrl()),
-  applicationName: SITE_NAME,
-  title: SITE_NAME,
-  description: SITE_DESCRIPTION,
-  keywords: [
-    'สื่อการสอน',
-    'แผนการสอน',
-    'ใบงาน',
-    'แบบทดสอบ',
-    'สื่อครู',
-    'Marketplace การศึกษา',
-    'E-KRU',
-  ],
-  authors: [{ name: 'E-KRU' }],
-  creator: 'E-KRU',
-  publisher: 'E-KRU',
-  category: 'education',
-  manifest: '/favicon/site.webmanifest',
-  icons: [
-    {
-      rel: 'icon',
-      url: `${CONFIG.assetsDir}/favicon.ico`,
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getPublicPlatformSettings();
+  const siteName = settings?.platform_name_th || settings?.platform_name_en || SITE_NAME;
+  const brandName = settings?.brand_name || 'E-KRU';
+  const siteUrl = settings?.production_url || settings?.website_url || getMarketplaceSiteUrl();
+  const ogImage = settings?.og_image_url || MARKETPLACE_OG_IMAGE_URL;
+  return {
+    metadataBase: new URL(siteUrl),
+    applicationName: siteName,
+    title: siteName,
+    description: SITE_DESCRIPTION,
+    keywords: [
+      'สื่อการสอน',
+      'แผนการสอน',
+      'ใบงาน',
+      'แบบทดสอบ',
+      'สื่อครู',
+      'Marketplace การศึกษา',
+      brandName,
+    ],
+    authors: [{ name: brandName }],
+    creator: brandName,
+    publisher: brandName,
+    category: 'education',
+    manifest: '/favicon/site.webmanifest',
+    icons: [
+      { rel: 'icon', url: settings?.favicon_url || `${CONFIG.assetsDir}/favicon.ico` },
+      { rel: 'apple-touch-icon', url: '/favicon/apple-touch-icon.png' },
+    ],
+    openGraph: {
+      type: 'website',
+      locale: 'th_TH',
+      siteName,
+      title: siteName,
+      description: SITE_DESCRIPTION,
+      url: '/',
+      images: [{ url: ogImage, alt: siteName }],
     },
-    { rel: 'apple-touch-icon', url: '/favicon/apple-touch-icon.png' },
-  ],
-  openGraph: {
-    type: 'website',
-    locale: 'th_TH',
-    siteName: SITE_NAME,
-    title: SITE_NAME,
-    description: SITE_DESCRIPTION,
-    url: '/',
-    images: [OG_IMAGE_URL],
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: SITE_NAME,
-    description: SITE_DESCRIPTION,
-    images: [OG_IMAGE_URL],
-  },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
+    twitter: {
+      card: 'summary_large_image',
+      title: siteName,
+      description: SITE_DESCRIPTION,
+      images: [ogImage],
+    },
+    robots: {
       index: true,
       follow: true,
-      'max-image-preview': 'large',
-      'max-snippet': -1,
-      'max-video-preview': -1,
+      googleBot: {
+        index: true,
+        follow: true,
+        'max-image-preview': 'large',
+        'max-snippet': -1,
+        'max-video-preview': -1,
+      },
     },
-  },
-};
+  };
+}
 
 // ----------------------------------------------------------------------
 

@@ -7,6 +7,11 @@ import {
   type MarketplaceReceiptPdfData,
 } from 'src/lib/marketplace-receipt-pdf';
 
+import {
+  getPlatformBrandAssets,
+  getPlatformReceiptProviderSnapshot,
+} from 'src/sections/marketplace/admin/server/platform-settings';
+
 export const runtime = 'nodejs';
 
 type Context = { params: Promise<{ id: string }> };
@@ -58,6 +63,9 @@ async function getBuyerSnapshot(buyerId: string, role: string) {
 }
 
 async function getProviderSnapshot() {
+  const platformProvider = await getPlatformReceiptProviderSnapshot();
+  if (platformProvider?.provider_name) return platformProvider;
+
   const { data, error } = await supabaseAdmin
     .from('marketplace_sellers')
     .select(
@@ -127,6 +135,7 @@ export async function GET(request: Request, { params }: Context) {
 
   try {
     let signatureDataUrl: string | null = null;
+    let brandLogoDataUrl: string | null = null;
     if (
       receipt.provider_signature_bucket &&
       receipt.provider_signature_path &&
@@ -140,9 +149,20 @@ export async function GET(request: Request, { params }: Context) {
         signatureDataUrl = `data:${receipt.provider_signature_mime_type};base64,${signatureBytes.toString('base64')}`;
       }
     }
+    const brand = await getPlatformBrandAssets();
+    if (brand.logo) {
+      const { data: logoFile } = await supabaseAdmin.storage
+        .from(brand.logo.bucket)
+        .download(brand.logo.path);
+      if (logoFile) {
+        const logoBytes = Buffer.from(await logoFile.arrayBuffer());
+        brandLogoDataUrl = `data:${brand.logo.mimeType};base64,${logoBytes.toString('base64')}`;
+      }
+    }
     const pdf = await renderMarketplaceReceiptPdf(
       receipt as MarketplaceReceiptPdfData,
-      signatureDataUrl
+      signatureDataUrl,
+      { name: brand.platformName, logoDataUrl: brandLogoDataUrl }
     );
     const download = new URL(request.url).searchParams.get('download') === '1';
     const safeNumber =

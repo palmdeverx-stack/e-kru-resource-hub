@@ -91,6 +91,13 @@ const styles = StyleSheet.create({
     fontWeight: 700,
     lineHeight: 1.35,
   },
+  brandLogo: {
+    width: 150,
+    height: 42,
+    marginBottom: 6,
+    objectFit: 'contain',
+    objectPosition: 'left',
+  },
   title: {
     marginBottom: 3,
     fontSize: 18,
@@ -248,18 +255,25 @@ function formatDate(value: string | null) {
 function ReceiptDocument({
   receipt,
   signatureDataUrl,
+  brand,
 }: {
   receipt: MarketplaceReceiptPdfData;
   signatureDataUrl?: string | null;
+  brand?: { name?: string | null; logoDataUrl?: string | null };
 }) {
+  const brandName = brand?.name || 'E-KRU Marketplace';
   return (
-    <Document title={`ใบเสร็จรับเงิน ${receipt.receipt_number}`} author="E-KRU Marketplace">
+    <Document title={`ใบเสร็จรับเงิน ${receipt.receipt_number}`} author={brandName}>
       <Page size="A4" style={styles.page}>
         {receipt.status === 'void' && <Text style={styles.watermark}>ยกเลิก</Text>}
 
         <View style={styles.header}>
           <View style={styles.headerHeading}>
-            <Text style={styles.brand}>E-KRU Marketplace</Text>
+            {brand?.logoDataUrl ? (
+              <Image style={styles.brandLogo} src={brand.logoDataUrl} />
+            ) : (
+              <Text style={styles.brand}>{brandName}</Text>
+            )}
             <Text style={styles.title}>ใบเสร็จรับเงิน</Text>
             <Text style={[styles.muted, styles.receiptLabel]}>RECEIPT</Text>
           </View>
@@ -277,7 +291,7 @@ function ReceiptDocument({
 
         <View style={styles.parties}>
           <View style={styles.party}>
-            <Text style={styles.overline}>E-KRU Marketplace</Text>
+            <Text style={styles.overline}>{brandName}</Text>
             <Text style={styles.partyName}>{receipt.provider_name}</Text>
             {!!receipt.provider_tax_id && <Text>เลขผู้เสียภาษี {receipt.provider_tax_id}</Text>}
             {!!receipt.provider_address && <Text>{receipt.provider_address}</Text>}
@@ -382,7 +396,7 @@ function ReceiptDocument({
         )}
 
         <Text style={styles.footer}>
-          เอกสารนี้สร้างจากระบบ E-KRU Marketplace และดาวน์โหลดโดยเจ้าของคำสั่งซื้อ
+          เอกสารนี้สร้างจากระบบ {brandName} และดาวน์โหลดโดยเจ้าของคำสั่งซื้อ
         </Text>
       </Page>
     </Document>
@@ -391,9 +405,10 @@ function ReceiptDocument({
 
 export function renderMarketplaceReceiptPdf(
   receipt: MarketplaceReceiptPdfData,
-  signatureDataUrl?: string | null
+  signatureDataUrl?: string | null,
+  brand?: { name?: string | null; logoDataUrl?: string | null }
 ) {
   return renderToBuffer(
-    <ReceiptDocument receipt={receipt} signatureDataUrl={signatureDataUrl} />
+    <ReceiptDocument receipt={receipt} signatureDataUrl={signatureDataUrl} brand={brand} />
   );
 }

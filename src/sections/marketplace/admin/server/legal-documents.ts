@@ -21,6 +21,7 @@ export const LEGAL_DOCUMENT_TYPES = [
   'child_data_policy',
   'data_processing_agreement',
   'subscription_policy',
+  'product_submission_terms',
 ] as const;
 
 export type LegalDocumentType = (typeof LEGAL_DOCUMENT_TYPES)[number];
@@ -39,6 +40,7 @@ const TYPE_TITLES: Record<LegalDocumentType, string> = {
   child_data_policy: 'นโยบายข้อมูลเด็กและนักเรียน',
   data_processing_agreement: 'ข้อตกลงการประมวลผลข้อมูล (DPA)',
   subscription_policy: 'นโยบายแพ็กเกจ การต่ออายุ และการยกเลิก',
+  product_submission_terms: 'เงื่อนไขการเผยแพร่สินค้า',
 };
 
 function isMaster(request: Request) {
@@ -52,15 +54,31 @@ function plainText(html: string) {
     .trim();
 }
 
-function inputFrom(body: Record<string, unknown>, callerId: string) {
+type ProviderSettings = {
+  provider_type: 'individual' | 'company';
+  first_name: string | null;
+  last_name: string | null;
+  company_name: string | null;
+  company_registration_no: string | null;
+  tax_id: string | null;
+  address: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+};
+
+function inputFrom(
+  body: Record<string, unknown>,
+  callerId: string,
+  provider: ProviderSettings | null
+) {
   const documentType = String(body.documentType ?? '') as LegalDocumentType;
   const title = String(body.title ?? '').trim();
   const summary = String(body.summary ?? '').trim();
   const contentHtml = String(body.contentHtml ?? '').trim();
-  const providerName = String(body.providerName ?? '').trim();
-  const providerTaxId = String(body.providerTaxId ?? '').replace(/\D/g, '');
-  const providerAddress = String(body.providerAddress ?? '').trim();
-  const contactEmail = String(body.contactEmail ?? '').trim();
+  const providerName =
+    provider?.provider_type === 'company'
+      ? String(provider.company_name ?? '').trim()
+      : [provider?.first_name, provider?.last_name].filter(Boolean).join(' ').trim();
   const version = String(body.version ?? '').trim();
   const status = body.status === 'published' ? 'published' : 'draft';
   const effectiveAt = String(body.effectiveAt ?? '').trim();
@@ -80,13 +98,17 @@ function inputFrom(body: Record<string, unknown>, callerId: string) {
   if (status === 'published') {
     if (
       providerName.length < 3 ||
-      providerAddress.length < 10 ||
-      !contactEmail.includes('@') ||
+      String(provider?.address ?? '').trim().length < 10 ||
+      !String(provider?.contact_email ?? '').includes('@') ||
+      (provider?.provider_type === 'company' &&
+        (String(provider.company_registration_no ?? '').length !== 13 ||
+          String(provider.tax_id ?? '').length !== 13)) ||
       !effectiveAt ||
       !effectiveAtIso
     ) {
       return {
-        error: 'ก่อนเผยแพร่ กรุณาระบุชื่อบุคคลผู้ให้บริการ ที่อยู่ อีเมล และวันที่เริ่มมีผลให้ครบ',
+        error:
+          'ก่อนเผยแพร่ กรุณาบันทึกข้อมูลผู้ให้บริการส่วนกลางและวันที่เริ่มมีผลให้ครบถ้วน',
       };
     }
   }
@@ -98,11 +120,14 @@ function inputFrom(body: Record<string, unknown>, callerId: string) {
       title,
       summary: summary || null,
       content_html: contentHtml,
-      provider_type: 'individual',
+      provider_type: provider?.provider_type ?? 'individual',
       provider_name: providerName || null,
-      provider_tax_id: providerTaxId || null,
-      provider_address: providerAddress || null,
-      contact_email: contactEmail || null,
+      provider_registration_no:
+        provider?.provider_type === 'company' ? provider.company_registration_no : null,
+      provider_tax_id: provider?.tax_id || null,
+      provider_address: provider?.address || null,
+      contact_email: provider?.contact_email || null,
+      provider_phone: provider?.contact_phone || null,
       version,
       status,
       effective_at: effectiveAtIso,
@@ -135,7 +160,15 @@ export async function createLegalDocument(request: Request) {
   if (!caller) return NextResponse.json({ message: 'ไม่มีสิทธิ์เพิ่มเอกสาร' }, { status: 403 });
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
   if (!body) return NextResponse.json({ message: 'ข้อมูลไม่ถูกต้อง' }, { status: 400 });
-  const input = inputFrom(body, caller.sub);
+  const { data: provider, error: providerError } = await supabaseAdmin
+    .from('marketplace_provider_settings')
+    .select(
+      'provider_type, first_name, last_name, company_name, company_registration_no, tax_id, address, contact_email, contact_phone'
+    )
+    .eq('id', 'default')
+    .maybeSingle();
+  if (providerError) return NextResponse.json({ message: providerError.message }, { status: 500 });
+  const input = inputFrom(body, caller.sub, provider as ProviderSettings | null);
   if ('error' in input) return NextResponse.json({ message: input.error }, { status: 400 });
   const { data, error } = await supabaseAdmin
     .from('marketplace_legal_documents')
@@ -161,7 +194,15 @@ export async function updateLegalDocument(request: Request, id: string) {
   if (!caller) return NextResponse.json({ message: 'ไม่มีสิทธิ์แก้ไขเอกสาร' }, { status: 403 });
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
   if (!body) return NextResponse.json({ message: 'ข้อมูลไม่ถูกต้อง' }, { status: 400 });
-  const input = inputFrom(body, caller.sub);
+  const { data: provider, error: providerError } = await supabaseAdmin
+    .from('marketplace_provider_settings')
+    .select(
+      'provider_type, first_name, last_name, company_name, company_registration_no, tax_id, address, contact_email, contact_phone'
+    )
+    .eq('id', 'default')
+    .maybeSingle();
+  if (providerError) return NextResponse.json({ message: providerError.message }, { status: 500 });
+  const input = inputFrom(body, caller.sub, provider as ProviderSettings | null);
   if ('error' in input) return NextResponse.json({ message: input.error }, { status: 400 });
   const { data, error } = await supabaseAdmin
     .from('marketplace_legal_documents')

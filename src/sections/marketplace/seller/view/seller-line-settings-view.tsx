@@ -16,6 +16,7 @@ import Checkbox from '@mui/material/Checkbox';
 import TextField from '@mui/material/TextField';
 import Container from '@mui/material/Container';
 import IconButton from '@mui/material/IconButton';
+import Pagination from '@mui/material/Pagination';
 import Typography from '@mui/material/Typography';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogActions from '@mui/material/DialogActions';
@@ -72,6 +73,12 @@ type SettingsResult = {
     last_error: string | null;
     created_at: string;
   }>;
+  deliveryPagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 };
 
 type AccessResult = {
@@ -99,6 +106,8 @@ type LineInvitation = {
   lineChatUrl: string;
   qrCodeUrl: string;
 };
+
+const DELIVERY_PAGE_SIZE = 5;
 
 async function readJson(response: Response) {
   const result = await response.json().catch(() => null);
@@ -130,6 +139,7 @@ export function MarketplaceSellerLineSettingsView() {
   const [purchaseProductId, setPurchaseProductId] = useState<string | null>(null);
   const [purchasePrice, setPurchasePrice] = useState<number | null>(null);
   const [purchaseOptions, setPurchaseOptions] = useState<PurchaseOption[]>([]);
+  const [deliveryPage, setDeliveryPage] = useState(1);
   const usesManagedLine = data?.mode === 'managed';
   const usage = data?.usage;
   const remainingDays = usage?.expiresAt
@@ -167,8 +177,18 @@ export function MarketplaceSellerLineSettingsView() {
       setPurchaseProductId(null);
 
       const result = (await readJson(
-        await fetch('/api/marketplace/seller/line-settings', { cache: 'no-store' })
+        await fetch(
+          `/api/marketplace/seller/line-settings?deliveryPage=${deliveryPage}&deliveryLimit=${DELIVERY_PAGE_SIZE}`,
+          { cache: 'no-store' }
+        )
       )) as SettingsResult;
+      if (
+        result.deliveryPagination.totalPages > 0 &&
+        deliveryPage > result.deliveryPagination.totalPages
+      ) {
+        setDeliveryPage(result.deliveryPagination.totalPages);
+        return;
+      }
       setData(result);
       setLineUserId(result.settings.lineUserId);
       setIsEnabled(result.settings.isEnabled);
@@ -178,7 +198,7 @@ export function MarketplaceSellerLineSettingsView() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [deliveryPage]);
 
   useEffect(() => {
     load();
@@ -551,13 +571,29 @@ export function MarketplaceSellerLineSettingsView() {
             </Card>
           )}
 
-          <Card variant="outlined" sx={{ p: { xs: 2.5, md: 3 } }}>
+          <DeliveryHistoryCard
+            deliveries={data?.recentDeliveries ?? []}
+            pagination={data?.deliveryPagination}
+            page={deliveryPage}
+            onPageChange={setDeliveryPage}
+          />
+        </Stack>
+
+        <Stack spacing={3}>
+          <Card variant="outlined" sx={{ p: 3 }}>
             <Typography variant="h6">เปิด–ปิดการแจ้งเตือน</Typography>
+            {usesManagedLine && !data?.lineConnection.linkedAt && (
+              <Alert severity="info" sx={{ mt: 2 }}>
+                แพ็กเกจนี้ไม่ต้องกรอก LINE User ID กรุณาผูกบัญชีผ่าน QR
+                แล้วระบบจะเปิดแจ้งเตือนให้อัตโนมัติ
+              </Alert>
+            )}
             <Stack divider={<Divider flexItem />} sx={{ mt: 1.5 }}>
               <FormControlLabel
                 control={
                   <Switch
                     checked={isEnabled}
+                    disabled={usesManagedLine && !data?.lineConnection.linkedAt}
                     onChange={(event) => setIsEnabled(event.target.checked)}
                   />
                 }
@@ -565,7 +601,9 @@ export function MarketplaceSellerLineSettingsView() {
                   <Box>
                     <Typography variant="subtitle2">เปิดใช้ LINE สำหรับร้านนี้</Typography>
                     <Typography variant="caption" color="text.secondary">
-                      ปิดได้ทุกเมื่อโดยไม่ลบ Token ที่บันทึกไว้
+                      {usesManagedLine && !data?.lineConnection.linkedAt
+                        ? 'ระบบจะเปิดให้อัตโนมัติหลังผูก LINE ผ่าน QR สำเร็จ'
+                        : 'ปิดได้ทุกเมื่อโดยไม่ลบข้อมูลการเชื่อมต่อที่บันทึกไว้'}
                     </Typography>
                   </Box>
                 }
@@ -591,12 +629,19 @@ export function MarketplaceSellerLineSettingsView() {
                 labelPlacement="start"
               />
             </Stack>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mt: 3 }}>
-              <Button variant="contained" loading={saving} onClick={save}>
+            <Stack direction="column" spacing={1.5} sx={{ mt: 3 }}>
+              <Button
+                fullWidth
+                variant="contained"
+                loading={saving}
+                disabled={usesManagedLine && !data?.lineConnection.linkedAt}
+                onClick={save}
+              >
                 บันทึกการตั้งค่า
               </Button>
               {!usesManagedLine && (
                 <Button
+                  fullWidth
                   variant="outlined"
                   startIcon={<RiSendPlaneLine />}
                   loading={testing}
@@ -613,9 +658,7 @@ export function MarketplaceSellerLineSettingsView() {
               </Alert>
             )}
           </Card>
-        </Stack>
 
-        <Stack spacing={3}>
           {usage && (
             <Card variant="outlined" sx={{ p: 3 }}>
               <Typography variant="h6">โควต้าข้อความเดือนนี้</Typography>
@@ -778,50 +821,90 @@ export function MarketplaceSellerLineSettingsView() {
               )}
             </Card>
           )}
-
-          <Card variant="outlined" sx={{ p: 3 }}>
-            <Typography variant="h6">ประวัติการส่งล่าสุด</Typography>
-            <Divider sx={{ my: 2 }} />
-            <Stack divider={<Divider flexItem />}>
-              {data?.recentDeliveries.length ? (
-                data.recentDeliveries.map((delivery) => (
-                  <Box key={delivery.id} sx={{ py: 1.5 }}>
-                    <Stack direction="row" justifyContent="space-between" spacing={1}>
-                      <Typography variant="subtitle2">
-                        {delivery.event_type === 'test' ? 'ข้อความทดสอบ' : 'ผู้ซื้อชำระเงิน'}
-                      </Typography>
-                      <Chip
-                        size="small"
-                        color={delivery.status === 'sent' ? 'success' : 'error'}
-                        label={delivery.status === 'sent' ? 'ส่งสำเร็จ' : 'ส่งไม่สำเร็จ'}
-                      />
-                    </Stack>
-                    {delivery.amount !== null && (
-                      <Typography variant="body2">
-                        {formatPrice(Number(delivery.amount))}
-                      </Typography>
-                    )}
-                    <Typography variant="caption" color="text.secondary">
-                      {new Date(delivery.created_at).toLocaleString('th-TH', {
-                        timeZone: 'Asia/Bangkok',
-                      })}
-                    </Typography>
-                    {!!delivery.last_error && (
-                      <Typography variant="caption" color="error" display="block">
-                        {delivery.last_error}
-                      </Typography>
-                    )}
-                  </Box>
-                ))
-              ) : (
-                <Typography variant="body2" color="text.secondary">
-                  ยังไม่มีประวัติการส่ง
-                </Typography>
-              )}
-            </Stack>
-          </Card>
         </Stack>
       </Box>
     </Container>
+  );
+}
+
+function DeliveryHistoryCard({
+  deliveries,
+  pagination,
+  page,
+  onPageChange,
+}: {
+  deliveries: SettingsResult['recentDeliveries'];
+  pagination?: SettingsResult['deliveryPagination'];
+  page: number;
+  onPageChange: (page: number) => void;
+}) {
+  const total = pagination?.total ?? deliveries.length;
+  const totalPages = Math.max(1, pagination?.totalPages ?? 1);
+  const limit = pagination?.limit ?? DELIVERY_PAGE_SIZE;
+
+  return (
+    <Card variant="outlined" sx={{ p: { xs: 2.5, md: 3 } }}>
+      <Typography variant="h6">ประวัติการส่งข้อความ LINE ล่าสุด</Typography>
+      <Alert severity="info" sx={{ mt: 2 }}>
+        สถานะด้านล่างเป็นผลการส่งข้อความ LINE เท่านั้น
+        รายการขายและการชำระเงินที่ยืนยันแล้วถือว่าสำเร็จตามปกติ
+      </Alert>
+      <Divider sx={{ my: 2 }} />
+      <Stack divider={<Divider flexItem />}>
+        {deliveries.length ? (
+          deliveries.map((delivery) => (
+            <Box key={delivery.id} sx={{ py: 1.5 }}>
+              <Stack direction="row" justifyContent="space-between" spacing={1}>
+                <Typography variant="subtitle2">
+                  {delivery.event_type === 'test' ? 'ข้อความทดสอบ' : 'ผู้ซื้อชำระเงิน'}
+                </Typography>
+                <Chip
+                  size="small"
+                  color={delivery.status === 'sent' ? 'success' : 'error'}
+                  label={delivery.status === 'sent' ? 'ส่ง LINE สำเร็จ' : 'ส่ง LINE ไม่สำเร็จ'}
+                />
+              </Stack>
+              {delivery.amount !== null && (
+                <Typography variant="body2">{formatPrice(Number(delivery.amount))}</Typography>
+              )}
+              <Typography variant="caption" color="text.secondary">
+                {new Date(delivery.created_at).toLocaleString('th-TH', {
+                  timeZone: 'Asia/Bangkok',
+                })}
+              </Typography>
+              {!!delivery.last_error && (
+                <Typography variant="caption" color="error" display="block">
+                  สาเหตุที่ส่ง LINE ไม่สำเร็จ: {delivery.last_error}
+                </Typography>
+              )}
+            </Box>
+          ))
+        ) : (
+          <Typography variant="body2" color="text.secondary">
+            ยังไม่มีประวัติการส่ง
+          </Typography>
+        )}
+      </Stack>
+      {total > 0 && (
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          alignItems="center"
+          justifyContent="space-between"
+          spacing={1.5}
+          sx={{ pt: 2.5, mt: 1, borderTop: '1px solid', borderColor: 'divider' }}
+        >
+          <Typography variant="caption" color="text.secondary">
+            แสดง {(page - 1) * limit + 1}–{Math.min(page * limit, total)} จาก {total} รายการ
+          </Typography>
+          <Pagination
+            size="small"
+            page={Math.min(page, totalPages)}
+            count={totalPages}
+            color="primary"
+            onChange={(_event, value) => onPageChange(value)}
+          />
+        </Stack>
+      )}
+    </Card>
   );
 }

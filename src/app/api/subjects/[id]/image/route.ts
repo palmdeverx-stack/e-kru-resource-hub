@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
+import { optimizeUploadedImage } from 'src/lib/server-image-optimizer';
 
 // ----------------------------------------------------------------------
 
@@ -72,11 +73,11 @@ export async function POST(request: Request, { params }: RouteParams) {
   const removeError = await removeStoredImages(folder);
   if (removeError) return NextResponse.json({ message: removeError.message }, { status: 500 });
 
-  const extension = file.type === 'image/jpeg' ? 'jpg' : file.type.split('/')[1];
-  const path = `${folder}/cover.${extension}`;
+  const image = await optimizeUploadedImage(file, { preset: 'content' });
+  const path = `${folder}/cover.${image.extension}`;
   const { error: uploadError } = await supabaseAdmin.storage
     .from(BUCKET)
-    .upload(path, file, { upsert: true, contentType: file.type });
+    .upload(path, image.data, { upsert: true, contentType: image.contentType });
 
   if (uploadError) return NextResponse.json({ message: uploadError.message }, { status: 500 });
 

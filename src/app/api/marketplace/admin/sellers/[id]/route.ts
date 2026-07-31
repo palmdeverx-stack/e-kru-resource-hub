@@ -8,7 +8,7 @@ import { getFinanceSettings } from 'src/sections/marketplace/admin/server/financ
 type Context = { params: Promise<{ id: string }> };
 
 export async function GET(request: Request, { params }: Context) {
-  if (!requireRole(request, ['master_admin'])) {
+  if (!requireRole(request, ['master_admin', 'super_admin'])) {
     return NextResponse.json({ message: 'ไม่มีสิทธิ์ดูข้อมูลร้านค้า' }, { status: 403 });
   }
 
@@ -26,10 +26,8 @@ export async function GET(request: Request, { params }: Context) {
     );
   }
 
-  const [
-    { data: documents, error: documentsError },
-    { data: payoutAccount, error: payoutError },
-  ] = await Promise.all([
+  const [{ data: documents, error: documentsError }, { data: payoutAccount, error: payoutError }] =
+    await Promise.all([
       supabaseAdmin
         .from('marketplace_seller_documents')
         .select('*')
@@ -56,26 +54,40 @@ export async function GET(request: Request, { params }: Context) {
           .getPublicUrl(document.storage_path).data.publicUrl;
         return { ...document, url: publicUrl };
       }
-      const signed = await supabaseAdmin.storage
-        .from(document.storage_bucket)
-        .createSignedUrl(document.storage_path, 15 * 60);
-      return { ...document, url: signed.data?.signedUrl ?? null };
+      return {
+        ...document,
+        url: `/api/marketplace/seller/documents?documentId=${encodeURIComponent(document.id)}`,
+      };
     })
   );
   const financeSettings = await getFinanceSettings();
+  const pendingProfile = seller.pending_profile_data as Record<string, unknown> | null;
+  const proposedPayout = pendingProfile?.payout_account as Record<string, unknown> | undefined;
+  const isProfileRevision =
+    seller.status === 'active' && seller.profile_review_status === 'pending';
 
   return NextResponse.json({
     seller: {
       ...seller,
+      ...(isProfileRevision && pendingProfile ? pendingProfile : {}),
+      status: isProfileRevision ? 'pending' : seller.status,
+      submitted_at: isProfileRevision ? seller.profile_submitted_at : seller.submitted_at,
+      rejection_reason: isProfileRevision
+        ? seller.profile_rejection_reason
+        : seller.rejection_reason,
       documents: signedDocuments,
-      payout_account: payoutAccount,
+      payout_account: isProfileRevision && proposedPayout ? proposedPayout : payoutAccount,
+      is_profile_revision: isProfileRevision,
+      approved_profile: isProfileRevision
+        ? { ...seller, payout_account: payoutAccount, pending_profile_data: undefined }
+        : null,
     },
     defaultCommissionRate: Number(financeSettings.commission_rate),
   });
 }
 
 export async function PATCH(request: Request, { params }: Context) {
-  if (!requireRole(request, ['master_admin'])) {
+  if (!requireRole(request, ['master_admin', 'super_admin'])) {
     return NextResponse.json({ message: 'ไม่มีสิทธิ์ตั้งค่าค่าธรรมเนียมร้านค้า' }, { status: 403 });
   }
 

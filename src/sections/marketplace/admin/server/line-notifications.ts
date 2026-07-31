@@ -11,6 +11,7 @@ type NotificationInput = {
   sourceId: string;
   message: string;
   actionUrl: string;
+  title?: string;
 };
 
 export async function notifyMarketplaceAdmins({
@@ -18,11 +19,12 @@ export async function notifyMarketplaceAdmins({
   sourceId,
   message,
   actionUrl,
+  title,
 }: NotificationInput) {
   const { data: admins } = await supabaseAdmin
     .from('app_users')
     .select('id')
-    .eq('role', 'master_admin')
+    .in('role', ['master_admin', 'super_admin'])
     .eq('is_active', true);
 
   await createNotifications(
@@ -30,7 +32,7 @@ export async function notifyMarketplaceAdmins({
       userId: admin.id,
       schoolId: null,
       type: event === 'new_seller' ? 'marketplace_seller_request' : 'marketplace_product_approval',
-      title: event === 'new_seller' ? 'มีคำขอเปิดร้านใหม่' : 'มีสินค้ารออนุมัติ',
+      title: title ?? (event === 'new_seller' ? 'มีคำขอเปิดร้านใหม่' : 'มีสินค้ารออนุมัติ'),
       body: message.replace(/^[^\n]*\n?/, ''),
       link: new URL(actionUrl).pathname,
     }))

@@ -62,6 +62,11 @@ type ProductReviewSubmission = {
   reviewed_at: string | null;
   reviewed_by: string | null;
   rejection_reason: string | null;
+  acceptance_version: string | null;
+  seller_attestations: Record<string, { accepted?: boolean; label?: string } | boolean> | null;
+  legal_document_versions: Record<string, { id?: string; title?: string; version?: string }> | null;
+  accepted_by: string | null;
+  accepted_at: string | null;
 };
 type ReviewProduct = MarketplaceProduct & {
   submission_count?: number;
@@ -977,6 +982,73 @@ function ProductReviewDetail({ product }: { product: ReviewProduct }) {
                         {!!submission.rejection_reason && (
                           <Alert severity="error" sx={{ mt: 1.25, py: 0.25 }}>
                             {submission.rejection_reason}
+                          </Alert>
+                        )}
+                        {submission.acceptance_version ? (
+                          <Box
+                            sx={{
+                              p: 1.5,
+                              mt: 1.25,
+                              borderRadius: 1.5,
+                              bgcolor: 'success.lighter',
+                              border: '1px solid',
+                              borderColor: 'success.light',
+                            }}
+                          >
+                            <Stack direction="row" spacing={1} alignItems="center">
+                              <RiCheckboxCircleLine size={20} color="var(--palette-success-main)" />
+                              <Typography variant="subtitle2" color="success.darker">
+                                ผู้ขายตรวจสอบและยอมรับเงื่อนไขการเผยแพร่แล้ว · เวอร์ชัน{' '}
+                                {submission.acceptance_version}
+                              </Typography>
+                            </Stack>
+                            <Stack spacing={0.5} sx={{ mt: 1 }}>
+                              {Object.values(submission.seller_attestations ?? {}).map(
+                                (attestation, index) => {
+                                  const label =
+                                    typeof attestation === 'object'
+                                      ? attestation.label
+                                      : `การยืนยันข้อที่ ${index + 1}`;
+                                  return (
+                                    <Typography
+                                      key={`${submission.id}-attestation-${index}`}
+                                      variant="caption"
+                                      color="text.secondary"
+                                    >
+                                      • {label}
+                                    </Typography>
+                                  );
+                                }
+                              )}
+                            </Stack>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              display="block"
+                              sx={{ mt: 1 }}
+                            >
+                              ยืนยันเมื่อ {formatDateTime(submission.accepted_at)} · เอกสาร Master{' '}
+                              {Object.keys(
+                                submission.legal_document_versions ?? {}
+                              ).length.toLocaleString('th-TH')}{' '}
+                              ฉบับ
+                            </Typography>
+                            <Stack direction="row" flexWrap="wrap" gap={0.75} sx={{ mt: 1 }}>
+                              {Object.entries(submission.legal_document_versions ?? {}).map(
+                                ([documentType, document]) => (
+                                  <Chip
+                                    key={`${submission.id}-${documentType}`}
+                                    size="small"
+                                    variant="outlined"
+                                    label={`${document.title ?? documentType} v${document.version ?? '-'}`}
+                                  />
+                                )
+                              )}
+                            </Stack>
+                          </Box>
+                        ) : (
+                          <Alert severity="warning" variant="outlined" sx={{ mt: 1.25, py: 0.25 }}>
+                            รอบการส่งเดิมก่อนเปิดใช้ระบบยืนยันรายสินค้า
                           </Alert>
                         )}
                       </Box>

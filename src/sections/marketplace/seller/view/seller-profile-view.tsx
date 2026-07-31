@@ -32,13 +32,16 @@ import {
   RiShieldStarFill,
   RiShieldCheckLine,
   RiInformationLine,
-  RiExternalLinkLine,
   RiVerifiedBadgeFill,
   RiCheckboxCircleLine,
 } from 'src/components/remix-icon';
 
 import { getSeller } from '../../shared/api';
 import { ThaiBankLogo } from '../../shared/bank-logo';
+import {
+  DocumentPreviewDialog,
+  type DocumentPreviewFile,
+} from '../../shared/document-preview-dialog';
 import {
   isSellerProfileVerified,
   isSystemMarketplaceSeller,
@@ -63,11 +66,19 @@ const documentLabel: Record<string, string> = {
   vat_certificate: 'ภ.พ.20',
 };
 
+const VERIFICATION_DOCUMENT_TYPES = new Set([
+  'identity_card',
+  'bank_book',
+  'company_certificate',
+  'vat_certificate',
+]);
+
 export function MarketplaceSellerProfileView() {
   const theme = useTheme();
   const [seller, setSeller] = useState<MarketplaceSeller | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [previewFile, setPreviewFile] = useState<DocumentPreviewFile | null>(null);
 
   useEffect(() => {
     getSeller()
@@ -123,6 +134,10 @@ export function MarketplaceSellerProfileView() {
 
   const storeHref = `/dashboard/store/${seller.slug || seller.id}`;
   const completion = getSellerProfileCompletion(seller);
+  const verificationDocuments =
+    seller.documents?.filter((document) =>
+      VERIFICATION_DOCUMENT_TYPES.has(document.document_type)
+    ) ?? [];
 
   return (
     <Container maxWidth={false} sx={{ py: { xs: 3, md: 4 }, pb: { xs: 8, md: 5 } }}>
@@ -465,59 +480,79 @@ export function MarketplaceSellerProfileView() {
                 <Chip
                   size="small"
                   variant="outlined"
-                  label={`${seller.documents?.length ?? 0} ไฟล์`}
+                  label={`${verificationDocuments.length} ไฟล์`}
                 />
               }
             >
-              {seller.documents?.length ? (
-                <Grid container columnSpacing={4} rowSpacing={0}>
-                  {seller.documents.map((document) => (
+              {verificationDocuments.length ? (
+                <Grid container spacing={2}>
+                  {verificationDocuments.map((document) => (
                     <Grid key={document.id} size={{ xs: 12, sm: 6 }}>
-                      <Stack
-                        direction="row"
-                        spacing={1.5}
-                        alignItems="center"
+                      <Card
+                        variant="outlined"
                         sx={{
-                          py: 1.5,
-                          minHeight: 68,
-                          borderBottom: '1px solid',
-                          borderColor: 'divider',
+                          p: 2,
+                          height: 1,
+                          borderRadius: 2.5,
+                          bgcolor: 'background.paper',
                         }}
                       >
-                        <Avatar
-                          variant="rounded"
-                          sx={{
-                            width: 38,
-                            height: 38,
-                            color: 'primary.main',
-                            bgcolor: 'primary.lighter',
-                          }}
-                        >
-                          <RiFileTextLine size={20} />
-                        </Avatar>
-                        <Box sx={{ minWidth: 0, flexGrow: 1 }}>
-                          <Typography variant="subtitle2" noWrap>
-                            {documentLabel[document.document_type] || document.file_name}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {(document.file_size / 1024 / 1024).toFixed(2)} MB ·{' '}
-                            {document.file_name}
-                          </Typography>
-                        </Box>
-                        {document.url && (
+                        <Stack spacing={2} height={1}>
+                          <Stack direction="row" spacing={1.5} alignItems="center">
+                            <Avatar
+                              variant="rounded"
+                              sx={{
+                                width: 42,
+                                height: 42,
+                                flexShrink: 0,
+                                color: 'primary.main',
+                                bgcolor: 'primary.lighter',
+                              }}
+                            >
+                              <RiFileTextLine size={22} />
+                            </Avatar>
+                            <Box sx={{ minWidth: 0, flexGrow: 1 }}>
+                              <Typography variant="subtitle2" noWrap>
+                                {documentLabel[document.document_type] || document.file_name}
+                              </Typography>
+                              <Typography
+                                noWrap
+                                variant="caption"
+                                color="text.secondary"
+                                title={document.file_name}
+                                sx={{ display: 'block' }}
+                              >
+                                {document.file_name}
+                              </Typography>
+                            </Box>
+                            <Chip
+                              size="small"
+                              variant="soft"
+                              label={`${(document.file_size / 1024 / 1024).toFixed(2)} MB`}
+                              sx={{ flexShrink: 0 }}
+                            />
+                          </Stack>
                           <Button
-                            href={document.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            color="inherit"
+                            fullWidth
                             size="small"
-                            aria-label={`เปิด ${document.file_name}`}
-                            sx={{ minWidth: 36, px: 1 }}
+                            color="inherit"
+                            variant="outlined"
+                            disabled={!document.url}
+                            startIcon={<RiEyeLine />}
+                            onClick={() => {
+                              if (!document.url) return;
+                              setPreviewFile({
+                                url: document.url,
+                                title: documentLabel[document.document_type] || document.file_name,
+                                fileName: document.file_name,
+                                mimeType: document.mime_type,
+                              });
+                            }}
                           >
-                            <RiExternalLinkLine />
+                            ดูตัวอย่าง
                           </Button>
-                        )}
-                      </Stack>
+                        </Stack>
+                      </Card>
                     </Grid>
                   ))}
                 </Grid>
@@ -550,6 +585,7 @@ export function MarketplaceSellerProfileView() {
           </Stack>
         </Grid>
       </Grid>
+      <DocumentPreviewDialog file={previewFile} onClose={() => setPreviewFile(null)} />
     </Container>
   );
 }

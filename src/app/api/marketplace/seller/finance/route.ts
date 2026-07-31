@@ -44,6 +44,7 @@ export async function GET(request: Request) {
   const now = new Date().toISOString();
   const canViewPaymentTransactions =
     caller.role === 'super_admin' || caller.role === 'master_admin';
+  const canViewPayoutHistory = canViewPaymentTransactions;
   const [
     { data: ledger, error: ledgerError },
     { data: payouts, error: payoutError },
@@ -117,6 +118,7 @@ export async function GET(request: Request) {
   return NextResponse.json({
     seller,
     canViewPaymentTransactions,
+    canViewPayoutHistory,
     balance: {
       grossSales,
       underReview,
@@ -148,6 +150,6 @@ export async function GET(request: Request) {
           payment_session: null,
         })),
     ledger: rows,
-    payouts: payouts ?? [],
+    payouts: canViewPayoutHistory ? (payouts ?? []) : [],
   });
 }

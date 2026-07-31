@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
+import { optimizeUploadedImage } from 'src/lib/server-image-optimizer';
 
 const BUCKET = 'marketplace-announcement-assets';
 const EXTENSIONS: Record<string, string> = {
@@ -12,7 +13,8 @@ const EXTENSIONS: Record<string, string> = {
 
 export async function POST(request: Request) {
   const caller = requireRole(request, ['master_admin']);
-  if (!caller) return NextResponse.json({ message: 'ไม่มีสิทธิ์อัปโหลดรูปประกาศ' }, { status: 403 });
+  if (!caller)
+    return NextResponse.json({ message: 'ไม่มีสิทธิ์อัปโหลดรูปประกาศ' }, { status: 403 });
 
   const form = await request.formData().catch(() => null);
   const file = form?.get('file');
@@ -28,13 +30,13 @@ export async function POST(request: Request) {
     );
   }
 
-  const path = `${caller.sub}/${crypto.randomUUID()}.${EXTENSIONS[file.type]}`;
+  const image = await optimizeUploadedImage(file, { preset: 'content' });
+  const path = `${caller.sub}/${crypto.randomUUID()}.${image.extension}`;
   const { error } = await supabaseAdmin.storage
     .from(BUCKET)
-    .upload(path, file, { contentType: file.type, upsert: false });
+    .upload(path, image.data, { contentType: image.contentType, upsert: false });
   if (error) return NextResponse.json({ message: error.message }, { status: 500 });
 
   const url = supabaseAdmin.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
   return NextResponse.json({ url });
 }
-

@@ -148,7 +148,7 @@ export function UserEntitlementsView() {
                         rel="noopener noreferrer"
                         endIcon={<RiExternalLinkLine />}
                       >
-                        เปิดใช้งานใน e-Kru
+                        เปิดใช้งานใน E-KRU
                       </Button>
                     )}
                   </Stack>

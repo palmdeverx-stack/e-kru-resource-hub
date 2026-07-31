@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server';
 import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 
+import { getPlatformReceiptProviderSnapshot } from 'src/sections/marketplace/admin/server/platform-settings';
+
 type BuyerInfo = {
   id: string;
   name: string;
@@ -65,6 +67,9 @@ async function getBuyers(buyerIds: string[]) {
 }
 
 async function getProviderSnapshot(ownerId: string) {
+  const platformProvider = await getPlatformReceiptProviderSnapshot(ownerId);
+  if (platformProvider?.provider_name) return platformProvider;
+
   const { data, error } = await supabaseAdmin
     .from('marketplace_sellers')
     .select(
@@ -233,7 +238,8 @@ export async function POST(request: Request) {
   ) {
     return NextResponse.json(
       {
-        message: 'กรุณากรอกชื่อผู้ออก เลขผู้เสียภาษี และที่อยู่ในเมนูข้อมูลร้านค้าก่อนออกใบเสร็จ',
+        message:
+          'กรุณากรอกชื่อผู้ออก เลขผู้เสียภาษี และที่อยู่ในเมนูข้อมูลแพลตฟอร์มก่อนออกใบเสร็จ',
       },
       { status: 409 }
     );

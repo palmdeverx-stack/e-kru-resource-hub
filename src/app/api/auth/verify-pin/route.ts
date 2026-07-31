@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { NextResponse } from 'next/server';
+import { after, NextResponse } from 'next/server';
 
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { isSignInAllowed } from 'src/lib/auth-rate-limit';
@@ -66,7 +66,11 @@ async function handleVerifyPin(request: Request) {
     }
   } else if (user.role === 'school_admin' && user.school_id) {
     const [{ data: school }, subscription] = await Promise.all([
-      supabaseAdmin.from('schools').select('code, is_active').eq('id', user.school_id).maybeSingle(),
+      supabaseAdmin
+        .from('schools')
+        .select('code, is_active')
+        .eq('id', user.school_id)
+        .maybeSingle(),
       loadSchoolSubscription(user.school_id),
     ]);
 
@@ -122,18 +126,20 @@ export async function POST(request: Request) {
     user?: { id?: string; username?: string; role?: string };
   };
 
-  await writeSecurityAudit({
-    request,
-    actorId: responseBody.user?.id ?? actorId,
-    actorUsername: responseBody.user?.username ?? null,
-    actorRole: responseBody.user?.role ?? null,
-    category: 'authentication',
-    action: 'auth.admin_pin_verification',
-    targetType: 'user_account',
-    targetId: responseBody.user?.id ?? actorId,
-    result: response.ok ? 'success' : [403, 429].includes(response.status) ? 'denied' : 'failure',
-    metadata: { http_status: response.status },
-  });
+  after(() =>
+    writeSecurityAudit({
+      request,
+      actorId: responseBody.user?.id ?? actorId,
+      actorUsername: responseBody.user?.username ?? null,
+      actorRole: responseBody.user?.role ?? null,
+      category: 'authentication',
+      action: 'auth.admin_pin_verification',
+      targetType: 'user_account',
+      targetId: responseBody.user?.id ?? actorId,
+      result: response.ok ? 'success' : [403, 429].includes(response.status) ? 'denied' : 'failure',
+      metadata: { http_status: response.status },
+    })
+  );
 
   return response;
 }

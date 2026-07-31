@@ -5,6 +5,7 @@ import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { createNotifications } from 'src/lib/notifications';
 import { schoolHasFeature } from 'src/lib/school-subscription';
 import { decodeSignatureDataUrl } from 'src/lib/signature-image';
+import { optimizeUploadedImage } from 'src/lib/server-image-optimizer';
 import { canApproveSchedule, canManageClassroomSchedule } from 'src/lib/schedule-access';
 
 // ----------------------------------------------------------------------
@@ -106,10 +107,14 @@ export async function POST(request: Request, { params }: RouteParams) {
       return NextResponse.json({ message: 'ตารางเรียนนี้ได้รับการอนุมัติแล้ว' }, { status: 409 });
     }
     const approvalId = existingApproval?.id ?? crypto.randomUUID();
+    const optimizedSignature = await optimizeUploadedImage(
+      new File([submitterSignature], 'signature.png', { type: 'image/png' }),
+      { preset: 'avatar', output: 'original' }
+    );
     const submitterSignaturePath = `${classroom.school_id}/${approvalId}/submitter.png`;
     const { error: signatureError } = await supabaseAdmin.storage
       .from('schedule-approval-signatures')
-      .upload(submitterSignaturePath, submitterSignature, {
+      .upload(submitterSignaturePath, optimizedSignature.data, {
         upsert: true,
         contentType: 'image/png',
       });
@@ -255,10 +260,14 @@ export async function POST(request: Request, { params }: RouteParams) {
     );
   }
 
+  const optimizedSignature = await optimizeUploadedImage(
+    new File([signatureBuffer], 'signature.png', { type: 'image/png' }),
+    { preset: 'avatar', output: 'original' }
+  );
   const signaturePath = `${classroom.school_id}/${current.id}/signature.png`;
   const { error: signatureError } = await supabaseAdmin.storage
     .from('schedule-approval-signatures')
-    .upload(signaturePath, signatureBuffer, { upsert: true, contentType: 'image/png' });
+    .upload(signaturePath, optimizedSignature.data, { upsert: true, contentType: 'image/png' });
   if (signatureError) {
     return NextResponse.json({ message: signatureError.message }, { status: 500 });
   }

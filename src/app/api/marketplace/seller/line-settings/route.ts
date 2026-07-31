@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { after, NextResponse } from 'next/server';
 import { createHash, randomBytes } from 'node:crypto';
 
 import { supabaseAdmin } from 'src/lib/supabase-admin';
@@ -6,11 +6,14 @@ import { requireAuthenticated } from 'src/lib/auth-token';
 import { encryptLineCredential, decryptLineCredential } from 'src/lib/line-credentials';
 
 import { provisionEkruSystemSeller } from 'src/sections/marketplace/seller/server/system-seller';
-import { pushSellerLineText } from 'src/sections/marketplace/seller/server/seller-line-notifications';
 import {
   getSellerLineFeatureAccess,
   type SellerLineFeatureAccess,
 } from 'src/sections/marketplace/seller/server/seller-line-access';
+import {
+  pushSellerLineText,
+  retryFailedSellerPaymentNotifications,
+} from 'src/sections/marketplace/seller/server/seller-line-notifications';
 
 const LINE_USER_ID_PATTERN = /^U[0-9a-f]{32}$/i;
 
@@ -87,10 +90,20 @@ function sellerLineAccessError(access: SellerLineFeatureAccess) {
 export async function GET(request: Request) {
   const caller = requireAuthenticated(request);
   if (!caller) return NextResponse.json({ message: 'กรุณาเข้าสู่ระบบ' }, { status: 401 });
+  const url = new URL(request.url);
+  const deliveryPage = Math.max(
+    1,
+    Number.parseInt(url.searchParams.get('deliveryPage') ?? '1', 10) || 1
+  );
+  const deliveryLimit = Math.min(
+    20,
+    Math.max(1, Number.parseInt(url.searchParams.get('deliveryLimit') ?? '5', 10) || 5)
+  );
+  const deliveryOffset = (deliveryPage - 1) * deliveryLimit;
 
   try {
     const access = await getSellerLineFeatureAccess(caller.sub, caller.role);
-    if (new URL(request.url).searchParams.get('access') === '1') {
+    if (url.searchParams.get('access') === '1') {
       return NextResponse.json(access);
     }
     const accessError = sellerLineAccessError(access);
@@ -98,28 +111,35 @@ export async function GET(request: Request) {
     const seller = await findSeller(caller);
     if (!seller) return NextResponse.json({ message: 'กรุณาสมัครเปิดร้านก่อน' }, { status: 404 });
 
-    const [{ data: settings, error }, { data: deliveries }, { data: globalLineSettings }] =
-      await Promise.all([
-        supabaseAdmin
-          .from('marketplace_seller_line_settings')
-          .select(
-            'line_user_id, line_display_name, line_linked_at, is_enabled, notify_payment_received, channel_access_token_encrypted, updated_at'
-          )
-          .eq('seller_id', seller.id)
-          .maybeSingle(),
-        supabaseAdmin
-          .from('marketplace_seller_line_deliveries')
-          .select('id, event_type, amount, status, last_error, created_at, sent_at')
-          .eq('seller_id', seller.id)
-          .order('created_at', { ascending: false })
-          .limit(10),
-        supabaseAdmin
-          .from('marketplace_line_settings')
-          .select('oa_basic_id, channel_access_token_encrypted')
-          .eq('id', 'default')
-          .maybeSingle(),
-      ]);
-    if (error) throw error;
+    const [
+      { data: settings, error: settingsError },
+      { data: deliveries, error: deliveriesError, count: deliveryCount },
+      { data: globalLineSettings, error: globalSettingsError },
+    ] = await Promise.all([
+      supabaseAdmin
+        .from('marketplace_seller_line_settings')
+        .select(
+          'line_user_id, line_display_name, line_linked_at, is_enabled, notify_payment_received, channel_access_token_encrypted, updated_at'
+        )
+        .eq('seller_id', seller.id)
+        .maybeSingle(),
+      supabaseAdmin
+        .from('marketplace_seller_line_deliveries')
+        .select('id, event_type, amount, status, last_error, created_at, sent_at', {
+          count: 'exact',
+        })
+        .eq('seller_id', seller.id)
+        .order('created_at', { ascending: false })
+        .range(deliveryOffset, deliveryOffset + deliveryLimit - 1),
+      supabaseAdmin
+        .from('marketplace_line_settings')
+        .select('oa_basic_id, channel_access_token_encrypted')
+        .eq('id', 'default')
+        .maybeSingle(),
+    ]);
+    if (settingsError || deliveriesError || globalSettingsError) {
+      throw settingsError ?? deliveriesError ?? globalSettingsError;
+    }
     const lineQuota =
       access.mode === 'byoa' && settings?.channel_access_token_encrypted
         ? await loadLineQuota(settings.channel_access_token_encrypted)
@@ -142,7 +162,7 @@ export async function GET(request: Request) {
       mode: access.mode,
       usage,
       settings: {
-        lineUserId: settings?.line_user_id ?? '',
+        lineUserId: access.mode === 'managed' ? '' : (settings?.line_user_id ?? ''),
         isEnabled: settings?.is_enabled ?? false,
         notifyPaymentReceived: settings?.notify_payment_received ?? true,
         hasAccessToken: Boolean(settings?.channel_access_token_encrypted),
@@ -156,6 +176,12 @@ export async function GET(request: Request) {
         ),
       },
       recentDeliveries: deliveries ?? [],
+      deliveryPagination: {
+        page: deliveryPage,
+        limit: deliveryLimit,
+        total: deliveryCount ?? 0,
+        totalPages: Math.ceil((deliveryCount ?? 0) / deliveryLimit),
+      },
     });
   } catch (error) {
     return NextResponse.json(
@@ -180,8 +206,9 @@ export async function PATCH(request: Request) {
     const lineUserId = String(body?.lineUserId ?? '').trim();
     const accessToken = String(body?.accessToken ?? '').trim();
     const isEnabled = body?.isEnabled === true;
+    const usesManagedLine = access.mode === 'managed';
     if (
-      (lineUserId && !LINE_USER_ID_PATTERN.test(lineUserId)) ||
+      (!usesManagedLine && lineUserId && !LINE_USER_ID_PATTERN.test(lineUserId)) ||
       accessToken.length > 2000 ||
       typeof body?.notifyPaymentReceived !== 'boolean'
     ) {
@@ -193,22 +220,24 @@ export async function PATCH(request: Request) {
 
     const { data: existing } = await supabaseAdmin
       .from('marketplace_seller_line_settings')
-      .select('channel_access_token_encrypted')
+      .select('channel_access_token_encrypted, line_user_id')
       .eq('seller_id', seller.id)
       .maybeSingle();
 
     const requiresOwnToken = access.mode === 'byoa';
+    if (isEnabled && usesManagedLine && !existing?.line_user_id) {
+      return NextResponse.json(
+        { message: 'กรุณาผูกบัญชี LINE ผ่าน QR ก่อนเปิดใช้งาน' },
+        { status: 400 }
+      );
+    }
     if (
       isEnabled &&
-      (!lineUserId ||
-        (requiresOwnToken && !(accessToken || existing?.channel_access_token_encrypted)))
+      requiresOwnToken &&
+      (!lineUserId || !(accessToken || existing?.channel_access_token_encrypted))
     ) {
       return NextResponse.json(
-        {
-          message: requiresOwnToken
-            ? 'กรุณากรอก Channel access token และ LINE User ID ก่อนเปิดใช้งาน'
-            : 'กรุณากรอก LINE User ID ก่อนเปิดใช้งาน',
-        },
+        { message: 'กรุณากรอก Channel access token และ LINE User ID ก่อนเปิดใช้งาน' },
         { status: 400 }
       );
     }
@@ -216,17 +245,25 @@ export async function PATCH(request: Request) {
     const { error } = await supabaseAdmin.from('marketplace_seller_line_settings').upsert(
       {
         seller_id: seller.id,
-        line_user_id: lineUserId || null,
+        ...(!usesManagedLine && { line_user_id: lineUserId || null }),
         is_enabled: isEnabled,
         notify_payment_received: body.notifyPaymentReceived,
-        ...(accessToken && {
-          channel_access_token_encrypted: encryptLineCredential(accessToken),
-        }),
+        ...(!usesManagedLine &&
+          accessToken && {
+            channel_access_token_encrypted: encryptLineCredential(accessToken),
+          }),
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'seller_id' }
     );
     if (error) throw error;
+    if (isEnabled && body.notifyPaymentReceived) {
+      after(() =>
+        retryFailedSellerPaymentNotifications(seller.id).catch((retryError) => {
+          console.error('Unable to retry seller LINE notifications after enabling', retryError);
+        })
+      );
+    }
     return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json(
@@ -336,7 +373,7 @@ export async function POST(request: Request) {
         {
           message:
             access.mode === 'managed'
-              ? 'กรุณากรอก LINE User ID และให้ผู้ดูแลตั้งค่า LINE OA ระบบก่อนทดสอบ'
+              ? 'กรุณาผูกบัญชี LINE ผ่าน QR และให้ผู้ดูแลตั้งค่า LINE OA ระบบก่อนทดสอบ'
               : 'กรุณาบันทึก Channel access token และ LINE User ID ก่อนทดสอบ',
         },
         { status: 400 }

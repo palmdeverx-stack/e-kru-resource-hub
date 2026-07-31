@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
+import { optimizeUploadedImage } from 'src/lib/server-image-optimizer';
 
 // ----------------------------------------------------------------------
 
@@ -41,15 +42,30 @@ export async function POST(request: Request, { params }: RouteParams) {
     return NextResponse.json({ message: 'ไฟล์ต้องมีขนาดไม่เกิน 2MB' }, { status: 400 });
   }
 
-  const ext = file.name.split('.').pop() || 'png';
-  const path = `${id}/logo.${ext}`;
+  const image =
+    file.type === 'image/svg+xml'
+      ? {
+          data: Buffer.from(await file.arrayBuffer()),
+          contentType: file.type,
+          extension: 'svg',
+        }
+      : await optimizeUploadedImage(file, { preset: 'avatar' });
+  const path = `${id}/logo.${image.extension}`;
 
   const { error: uploadError } = await supabaseAdmin.storage
     .from('school-logos')
-    .upload(path, file, { upsert: true, contentType: file.type });
+    .upload(path, image.data, { upsert: true, contentType: image.contentType });
 
   if (uploadError) {
     return NextResponse.json({ message: uploadError.message }, { status: 500 });
+  }
+
+  const { data: oldLogos } = await supabaseAdmin.storage.from('school-logos').list(id);
+  const stalePaths = (oldLogos ?? [])
+    .map((storedFile) => `${id}/${storedFile.name}`)
+    .filter((storedPath) => storedPath !== path);
+  if (stalePaths.length) {
+    await supabaseAdmin.storage.from('school-logos').remove(stalePaths);
   }
 
   const {

@@ -2,6 +2,7 @@
 
 import type { LegalDocumentType, MarketplaceLegalDocument } from '../../legal/types';
 
+import dayjs from 'dayjs';
 import { useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
@@ -25,6 +26,7 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import TableContainer from '@mui/material/TableContainer';
 import TablePagination from '@mui/material/TablePagination';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import CircularProgress from '@mui/material/CircularProgress';
 
 import { paths } from 'src/routes/paths';
@@ -54,10 +56,6 @@ type LegalForm = {
   title: string;
   summary: string;
   contentHtml: string;
-  providerName: string;
-  providerTaxId: string;
-  providerAddress: string;
-  contactEmail: string;
   version: string;
   status: 'draft' | 'published';
   effectiveAt: string;
@@ -68,10 +66,6 @@ const initialForm: LegalForm = {
   title: '',
   summary: '',
   contentHtml: '<p></p>',
-  providerName: '',
-  providerTaxId: '',
-  providerAddress: '',
-  contactEmail: '',
   version: '1.0',
   status: 'draft',
   effectiveAt: '',
@@ -91,6 +85,7 @@ const PUBLIC_PATHS: Record<LegalDocumentType, string> = {
   child_data_policy: paths.legal.childDataPolicy,
   data_processing_agreement: paths.legal.dataProcessingAgreement,
   subscription_policy: paths.legal.subscriptionPolicy,
+  product_submission_terms: paths.legal.productSubmissionTerms,
 };
 
 async function parseResponse(response: Response) {
@@ -108,6 +103,7 @@ export function MarketplaceLegalDocumentManagementView() {
   const [items, setItems] = useState<MarketplaceLegalDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [providerDisplayName, setProviderDisplayName] = useState('');
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [editing, setEditing] = useState<MarketplaceLegalDocument | null>(null);
@@ -136,6 +132,28 @@ export function MarketplaceLegalDocumentManagementView() {
   useEffect(() => {
     if (user?.role === 'master_admin' || user?.role === 'super_admin') load();
   }, [load, user?.role]);
+
+  useEffect(() => {
+    if (user?.role !== 'master_admin' && user?.role !== 'super_admin') return;
+    fetch('/api/marketplace/admin/provider-settings', { cache: 'no-store' })
+      .then(parseResponse)
+      .then((result) => {
+        const settings = result.settings as {
+          providerType: 'individual' | 'company';
+          firstName: string;
+          lastName: string;
+          companyName: string;
+        };
+        setProviderDisplayName(
+          settings.providerType === 'company'
+            ? settings.companyName
+            : `${settings.firstName} ${settings.lastName}`.trim()
+        );
+      })
+      .catch((loadError) =>
+        setError(loadError instanceof Error ? loadError.message : 'โหลดข้อมูลผู้ให้บริการไม่สำเร็จ')
+      );
+  }, [user?.role]);
 
   useEffect(() => {
     const lastPage = Math.max(0, Math.ceil(items.length / rowsPerPage) - 1);
@@ -168,10 +186,6 @@ export function MarketplaceLegalDocumentManagementView() {
       title: item.title,
       summary: item.summary ?? '',
       contentHtml: item.content_html,
-      providerName: item.provider_name ?? '',
-      providerTaxId: item.provider_tax_id ?? '',
-      providerAddress: item.provider_address ?? '',
-      contactEmail: item.contact_email ?? '',
       version: item.version,
       status: item.status,
       effectiveAt: toLocalDateTime(item.effective_at),
@@ -256,9 +270,17 @@ export function MarketplaceLegalDocumentManagementView() {
         </Button>
       </Stack>
 
-      <Alert severity="warning" sx={{ mt: 3 }}>
-        ระบบจัดทำในนามบุคคลธรรมดา กรุณากรอกชื่อ ที่อยู่ และอีเมลของผู้ให้บริการให้ถูกต้อง
-        และให้ผู้เชี่ยวชาญด้านกฎหมายตรวจเนื้อหาก่อนเปลี่ยนสถานะเป็น “เผยแพร่”
+      <Alert
+        severity="info"
+        sx={{ mt: 3 }}
+        action={
+          <Button color="inherit" size="small" href={paths.marketplace.platformSettings}>
+            แก้ไขข้อมูล
+          </Button>
+        }
+      >
+        ข้อมูลผู้ให้บริการเป็นค่ากลางของระบบ เมื่อแก้ไขแล้วเอกสารทุกฉบับจะอัปเดตตามอัตโนมัติ
+        กรุณาให้ผู้เชี่ยวชาญด้านกฎหมายตรวจเนื้อหาก่อนเปลี่ยนสถานะเป็น “เผยแพร่”
       </Alert>
       {!!error && (
         <Alert severity="error" sx={{ mt: 2 }} onClose={() => setError('')}>
@@ -310,7 +332,7 @@ export function MarketplaceLegalDocumentManagementView() {
                         {item.provider_name || 'ยังไม่ระบุชื่อ'}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        บุคคลธรรมดา
+                        {item.provider_type === 'company' ? 'นิติบุคคล / บริษัท' : 'บุคคลธรรมดา'}
                       </Typography>
                     </TableCell>
                     <TableCell>
@@ -444,46 +466,12 @@ export function MarketplaceLegalDocumentManagementView() {
               />
             </Box>
 
-            <Box>
-              <Typography variant="h6">ข้อมูลผู้ให้บริการ</Typography>
-              <Typography variant="body2" color="text.secondary">
-                เอกสารทั้งหมดออกในนามบุคคลธรรมดา
-              </Typography>
-            </Box>
+            <Alert severity={providerDisplayName ? 'success' : 'warning'}>
+              {providerDisplayName
+                ? `เอกสารนี้จะใช้ข้อมูลผู้ให้บริการส่วนกลาง: ${providerDisplayName}`
+                : 'กรุณาบันทึกข้อมูลผู้ให้บริการส่วนกลางก่อนเผยแพร่เอกสาร'}
+            </Alert>
             <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-              <TextField
-                required={form.status === 'published'}
-                fullWidth
-                label="ชื่อ–นามสกุล ผู้ให้บริการ"
-                value={form.providerName}
-                onChange={(event) => setForm({ ...form, providerName: event.target.value })}
-              />
-              <TextField
-                fullWidth
-                label="เลขประจำตัวผู้เสียภาษี (ถ้ามี)"
-                value={form.providerTaxId}
-                onChange={(event) => setForm({ ...form, providerTaxId: event.target.value })}
-                slotProps={{ htmlInput: { inputMode: 'numeric', maxLength: 13 } }}
-              />
-            </Stack>
-            <TextField
-              required={form.status === 'published'}
-              fullWidth
-              multiline
-              minRows={3}
-              label="ที่อยู่สำหรับติดต่อ"
-              value={form.providerAddress}
-              onChange={(event) => setForm({ ...form, providerAddress: event.target.value })}
-            />
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-              <TextField
-                required={form.status === 'published'}
-                fullWidth
-                type="email"
-                label="อีเมลติดต่อ"
-                value={form.contactEmail}
-                onChange={(event) => setForm({ ...form, contactEmail: event.target.value })}
-              />
               <TextField
                 required
                 fullWidth
@@ -492,14 +480,21 @@ export function MarketplaceLegalDocumentManagementView() {
                 onChange={(event) => setForm({ ...form, version: event.target.value })}
                 helperText="เช่น 1.0 หรือ 2026.07"
               />
-              <TextField
-                required={form.status === 'published'}
-                fullWidth
-                type="datetime-local"
+              <DatePicker
                 label="วันที่เริ่มมีผล"
-                value={form.effectiveAt}
-                onChange={(event) => setForm({ ...form, effectiveAt: event.target.value })}
-                slotProps={{ inputLabel: { shrink: true } }}
+                value={form.effectiveAt ? dayjs(form.effectiveAt) : null}
+                onChange={(value) =>
+                  setForm((current) => ({
+                    ...current,
+                    effectiveAt: value?.isValid() ? value.format('YYYY-MM-DD') : '',
+                  }))
+                }
+                slotProps={{
+                  textField: {
+                    fullWidth: true,
+                    required: form.status === 'published',
+                  },
+                }}
               />
             </Stack>
           </Stack>

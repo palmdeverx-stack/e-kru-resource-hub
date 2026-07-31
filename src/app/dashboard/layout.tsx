@@ -18,7 +18,6 @@ import { DashboardLayout } from 'src/layouts/dashboard';
 import { LanguagePopover } from 'src/layouts/components/language-popover';
 import { NotificationsMenu } from 'src/layouts/components/notifications-menu';
 
-import { Logo } from 'src/components/logo';
 import { MarketplaceBrand } from 'src/components/marketplace-brand';
 import {
   RiKey2Line,
@@ -274,6 +273,11 @@ const adminNavData: NavSectionProps['data'] = [
     subheader: 'ตั้งค่าระบบ',
     items: [
       {
+        title: 'ข้อมูลแพลตฟอร์ม',
+        path: '/dashboard/settings/platform',
+        icon: <RiIdCardLine />,
+      },
+      {
         title: 'ตั้งค่า LINE',
         path: '/dashboard/settings/line',
         icon: <RiChatSettingsLine />,
@@ -511,16 +515,7 @@ export default function Layout({ children }: Props) {
               <MarketplaceBrand />
             </div>
           ),
-          mobileHeaderIdentity: (
-            <Logo
-              isSingle={false}
-              href="/dashboard"
-              sx={{
-                width: { xs: 96, sm: 126 },
-                height: { xs: 34, sm: 38 },
-              }}
-            />
-          ),
+          mobileHeaderIdentity: <MarketplaceBrand compact href="/dashboard" />,
         },
         header: {
           slots: {

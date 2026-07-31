@@ -8,7 +8,7 @@ import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
 import Typography from '@mui/material/Typography';
 
-import { Logo } from 'src/components/logo';
+import { MarketplaceBrand } from 'src/components/marketplace-brand';
 
 type Props = {
   open: boolean;
@@ -74,7 +74,9 @@ export function MarketplacePayoutAccessDialog({ open, onClose, onGranted }: Prop
       }}
     >
       <Box component="form" onSubmit={submit} sx={{ p: { xs: 3, sm: 4 } }}>
-        <Logo disabled isSingle={false} sx={{ width: 112, height: 42, mb: 3.5 }} />
+        <Box sx={{ mb: 3.5 }}>
+          <MarketplaceBrand compact disabled />
+        </Box>
 
         <Typography component="h2" variant="h5">
           ยืนยัน PIN

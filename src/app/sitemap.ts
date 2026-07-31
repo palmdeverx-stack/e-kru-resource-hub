@@ -28,6 +28,7 @@ const staticRoutes: Array<{
   { path: '/legal/child-student-data-policy', changeFrequency: 'monthly', priority: 0.3 },
   { path: '/legal/data-processing-agreement', changeFrequency: 'monthly', priority: 0.3 },
   { path: '/legal/subscription-renewal-policy', changeFrequency: 'monthly', priority: 0.3 },
+  { path: '/legal/product-submission-terms', changeFrequency: 'monthly', priority: 0.3 },
 ];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {

@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs';
-import { NextResponse } from 'next/server';
+import { after, NextResponse } from 'next/server';
 
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { isSignInAllowed } from 'src/lib/auth-rate-limit';
@@ -218,33 +218,41 @@ export async function POST(request: Request) {
       requiresPin?: boolean;
     };
 
-    await writeSecurityAudit({
-      request,
-      actorId: responseBody.user?.id ?? null,
-      actorUsername: responseBody.user?.username ?? (username || null),
-      actorRole: responseBody.user?.role ?? responseBody.role ?? null,
-      category: 'authentication',
-      action: 'auth.password_login',
-      targetType: 'user_account',
-      targetId: responseBody.user?.id ?? null,
-      result: response.ok ? 'success' : [403, 429].includes(response.status) ? 'denied' : 'failure',
-      metadata: {
-        http_status: response.status,
-        requires_pin: Boolean(responseBody.requiresPin),
-      },
-    });
+    after(() =>
+      writeSecurityAudit({
+        request,
+        actorId: responseBody.user?.id ?? null,
+        actorUsername: responseBody.user?.username ?? (username || null),
+        actorRole: responseBody.user?.role ?? responseBody.role ?? null,
+        category: 'authentication',
+        action: 'auth.password_login',
+        targetType: 'user_account',
+        targetId: responseBody.user?.id ?? null,
+        result: response.ok
+          ? 'success'
+          : [403, 429].includes(response.status)
+            ? 'denied'
+            : 'failure',
+        metadata: {
+          http_status: response.status,
+          requires_pin: Boolean(responseBody.requiresPin),
+        },
+      })
+    );
 
     return response;
   } catch (error) {
     console.error('Sign-in failed unexpectedly', error);
-    await writeSecurityAudit({
-      request,
-      actorUsername: username || null,
-      category: 'authentication',
-      action: 'auth.password_login',
-      result: 'failure',
-      metadata: { http_status: 500, reason: 'unexpected_error' },
-    });
+    after(() =>
+      writeSecurityAudit({
+        request,
+        actorUsername: username || null,
+        category: 'authentication',
+        action: 'auth.password_login',
+        result: 'failure',
+        metadata: { http_status: 500, reason: 'unexpected_error' },
+      })
+    );
     return NextResponse.json(
       { message: 'ระบบเข้าสู่ระบบขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้ง' },
       { status: 500 }

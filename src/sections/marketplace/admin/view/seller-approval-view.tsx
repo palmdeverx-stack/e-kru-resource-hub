@@ -91,10 +91,10 @@ export function MarketplaceSellerApprovalView() {
   }, [page, rowsPerPage, status]);
 
   useEffect(() => {
-    if (user?.role === 'master_admin') load();
+    if (user?.role === 'master_admin' || user?.role === 'super_admin') load();
   }, [load, user?.role]);
 
-  if (user?.role !== 'master_admin') {
+  if (user?.role !== 'master_admin' && user?.role !== 'super_admin') {
     return (
       <Container maxWidth="lg" sx={{ py: 5 }}>
         <Alert severity="error">หน้านี้สำหรับ Super Admin เท่านั้น</Alert>

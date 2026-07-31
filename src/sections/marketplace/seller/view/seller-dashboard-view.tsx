@@ -2,7 +2,7 @@
 
 import type { MarketplaceSeller, MarketplaceProduct } from '../../shared/types';
 
-import { useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Tab from '@mui/material/Tab';
@@ -63,8 +63,17 @@ import {
 } from '../../shared/seller-completion';
 
 type ProductFilter = 'all' | MarketplaceProduct['status'];
+type ProductCounts = Record<ProductFilter, number>;
 
 const PAGE_SIZE = 8;
+const EMPTY_PRODUCT_COUNTS: ProductCounts = {
+  all: 0,
+  draft: 0,
+  pending_review: 0,
+  published: 0,
+  rejected: 0,
+  archived: 0,
+};
 
 export function MarketplaceSellerDashboardView() {
   const theme = useTheme();
@@ -73,6 +82,7 @@ export function MarketplaceSellerDashboardView() {
   const [seller, setSeller] = useState<MarketplaceSeller | null>(null);
   const [products, setProducts] = useState<MarketplaceProduct[]>([]);
   const [loading, setLoading] = useState(true);
+  const [productsLoading, setProductsLoading] = useState(true);
   const [error, setError] = useState('');
   const [deleting, setDeleting] = useState<MarketplaceProduct | null>(null);
   const [deletingBusy, setDeletingBusy] = useState(false);
@@ -80,13 +90,17 @@ export function MarketplaceSellerDashboardView() {
   const [visibilityBusyId, setVisibilityBusyId] = useState('');
   const [productFilter, setProductFilter] = useState<ProductFilter>('all');
   const [productSearch, setProductSearch] = useState('');
+  const [debouncedProductSearch, setDebouncedProductSearch] = useState('');
   const [productPage, setProductPage] = useState(1);
+  const [productTotal, setProductTotal] = useState(0);
+  const [productPageCount, setProductPageCount] = useState(0);
+  const [productCounts, setProductCounts] = useState<ProductCounts>(EMPTY_PRODUCT_COUNTS);
+  const productRequestRef = useRef(0);
 
   useEffect(() => {
-    Promise.all([getSeller(), getProducts({ mine: true })])
-      .then(([sellerResult, productResult]) => {
+    getSeller()
+      .then((sellerResult) => {
         setSeller(sellerResult.seller);
-        setProducts(productResult.products);
       })
       .catch((loadError) =>
         setError(loadError instanceof Error ? loadError.message : 'ไม่สามารถโหลดข้อมูลร้านได้')
@@ -94,14 +108,57 @@ export function MarketplaceSellerDashboardView() {
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setDebouncedProductSearch(productSearch.trim()), 300);
+    return () => window.clearTimeout(timeout);
+  }, [productSearch]);
+
+  const loadProducts = useCallback(async () => {
+    const requestId = productRequestRef.current + 1;
+    productRequestRef.current = requestId;
+    setProductsLoading(true);
+    try {
+      const result = await getProducts({
+        mine: true,
+        q: debouncedProductSearch || undefined,
+        status: productFilter,
+        page: productPage,
+        limit: PAGE_SIZE,
+      });
+      if (requestId !== productRequestRef.current) return;
+      const totalPages = result.pagination?.totalPages ?? 0;
+      if (totalPages > 0 && productPage > totalPages) {
+        setProductPage(totalPages);
+        return;
+      }
+      setProducts(result.products);
+      setProductTotal(result.pagination?.total ?? result.products.length);
+      setProductPageCount(totalPages);
+      setProductCounts(result.counts ?? EMPTY_PRODUCT_COUNTS);
+    } catch (loadError) {
+      if (requestId !== productRequestRef.current) return;
+      setError(loadError instanceof Error ? loadError.message : 'ไม่สามารถโหลดรายการสินค้าได้');
+    } finally {
+      if (requestId === productRequestRef.current) setProductsLoading(false);
+    }
+  }, [debouncedProductSearch, productFilter, productPage]);
+
+  useEffect(() => {
+    void loadProducts();
+  }, [loadProducts]);
+
   const confirmDelete = async () => {
     if (!deleting) return;
     setDeletingBusy(true);
     setError('');
     try {
       await deleteProduct(deleting.id);
-      setProducts((current) => current.filter((item) => item.id !== deleting.id));
       setDeleting(null);
+      if (products.length === 1 && productPage > 1) {
+        setProductPage((current) => current - 1);
+      } else {
+        await loadProducts();
+      }
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : 'ลบสินค้าไม่สำเร็จ');
     } finally {
@@ -113,26 +170,9 @@ export function MarketplaceSellerDashboardView() {
     setVisibilityBusyId(product.id);
     setError('');
     try {
-      const result = await setProductHidden(product.id, hidden);
-      setProducts((current) =>
-        current.map((item) =>
-          item.id === product.id
-            ? {
-                ...item,
-                ...result.product,
-                purchase_count: item.purchase_count,
-                has_order_references: item.has_order_references,
-                has_deal_references: item.has_deal_references,
-                can_delete: item.can_delete,
-                can_hide:
-                  !hidden &&
-                  result.product.status === 'published' &&
-                  (item.purchase_count ?? 0) === 0,
-              }
-            : item
-        )
-      );
+      await setProductHidden(product.id, hidden);
       setHiding(null);
+      await loadProducts();
     } catch (visibilityError) {
       setError(
         visibilityError instanceof Error ? visibilityError.message : 'เปลี่ยนการแสดงสินค้าไม่สำเร็จ'
@@ -143,29 +183,6 @@ export function MarketplaceSellerDashboardView() {
   };
 
   const sellerCompletion = seller ? getSellerProfileCompletion(seller) : 0;
-
-  const productCounts = {
-    all: products.length,
-    published: products.filter((product) => product.status === 'published').length,
-    pending_review: products.filter((product) => product.status === 'pending_review').length,
-    draft: products.filter((product) => product.status === 'draft').length,
-    rejected: products.filter((product) => product.status === 'rejected').length,
-    archived: products.filter((product) => product.status === 'archived').length,
-  };
-  const normalizedSearch = productSearch.trim().toLowerCase();
-  const filteredProducts = products.filter(
-    (product) =>
-      (productFilter === 'all' || product.status === productFilter) &&
-      (!normalizedSearch ||
-        product.title.toLowerCase().includes(normalizedSearch) ||
-        product.title_en?.toLowerCase().includes(normalizedSearch) ||
-        product.category?.toLowerCase().includes(normalizedSearch))
-  );
-  const pageCount = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE));
-  const visibleProducts = filteredProducts.slice(
-    (productPage - 1) * PAGE_SIZE,
-    productPage * PAGE_SIZE
-  );
 
   const changeProductFilter = (value: ProductFilter) => {
     setProductFilter(value);
@@ -219,6 +236,18 @@ export function MarketplaceSellerDashboardView() {
         <SellerReviewState seller={seller} />
       ) : (
         <Stack spacing={4}>
+          {seller.profile_review_status === 'pending' && (
+            <Alert severity="info">
+              ข้อมูลร้านที่แก้ไขกำลังรอผู้ดูแลตรวจสอบ
+              ระหว่างนี้หน้าร้านยังแสดงข้อมูลเดิมที่อนุมัติแล้ว
+            </Alert>
+          )}
+          {seller.profile_review_status === 'rejected' && (
+            <Alert severity="warning">
+              ข้อมูลร้านที่แก้ไขไม่ผ่านการอนุมัติ:{' '}
+              {seller.profile_rejection_reason || 'กรุณาตรวจสอบและแก้ไขข้อมูลแล้วส่งใหม่'}
+            </Alert>
+          )}
           <Stack
             direction={{ xs: 'column', sm: 'row' }}
             justifyContent="space-between"
@@ -364,9 +393,13 @@ export function MarketplaceSellerDashboardView() {
 
             <Divider />
 
-            {visibleProducts.length ? (
+            {productsLoading ? (
+              <Box sx={{ py: 8, display: 'grid', placeItems: 'center' }}>
+                <CircularProgress size={32} />
+              </Box>
+            ) : products.length ? (
               <Stack divider={<Divider flexItem />}>
-                {visibleProducts.map((product) => {
+                {products.map((product) => {
                   const coverUrl =
                     product.images?.find((image) => image.is_cover)?.url ??
                     product.images?.[0]?.url ??
@@ -551,14 +584,14 @@ export function MarketplaceSellerDashboardView() {
                   <RiBookOpenLine size={34} />
                 </Box>
                 <Typography variant="h6" sx={{ mt: 2 }}>
-                  {products.length ? 'ไม่พบสินค้าที่ค้นหา' : 'ยังไม่มีสินค้า'}
+                  {productCounts.all ? 'ไม่พบสินค้าที่ค้นหา' : 'ยังไม่มีสินค้า'}
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                  {products.length
+                  {productCounts.all
                     ? 'ลองเปลี่ยนคำค้นหาหรือตัวกรองสถานะ'
                     : 'เริ่มสร้างสินค้าแรกของร้านและส่งให้ผู้ดูแลตรวจสอบ'}
                 </Typography>
-                {products.length ? (
+                {productCounts.all ? (
                   <Button
                     color="inherit"
                     sx={{ mt: 2 }}
@@ -583,13 +616,23 @@ export function MarketplaceSellerDashboardView() {
               </Box>
             )}
 
-            {filteredProducts.length > PAGE_SIZE && (
+            {!productsLoading && productTotal > 0 && (
               <>
                 <Divider />
-                <Stack alignItems="center" sx={{ py: 2.5 }}>
+                <Stack
+                  direction={{ xs: 'column', sm: 'row' }}
+                  alignItems="center"
+                  justifyContent="space-between"
+                  spacing={1.5}
+                  sx={{ px: { xs: 2, md: 3 }, py: 2.5 }}
+                >
+                  <Typography variant="body2" color="text.secondary">
+                    แสดง {(productPage - 1) * PAGE_SIZE + 1}–
+                    {Math.min(productPage * PAGE_SIZE, productTotal)} จาก {productTotal} รายการ
+                  </Typography>
                   <Pagination
-                    page={Math.min(productPage, pageCount)}
-                    count={pageCount}
+                    page={Math.min(productPage, Math.max(1, productPageCount))}
+                    count={Math.max(1, productPageCount)}
                     color="primary"
                     onChange={(_event, value) => setProductPage(value)}
                   />

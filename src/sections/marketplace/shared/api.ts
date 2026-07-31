@@ -55,6 +55,27 @@ export async function getTags(includeInactive = false) {
   return parseResponse<{ items: MarketplaceTag[]; setupRequired?: boolean }>(response);
 }
 
+export async function getSellerTags() {
+  const response = await fetch('/api/marketplace/seller/tags', { cache: 'no-store' });
+  return parseResponse<{ items: MarketplaceTag[] }>(response);
+}
+
+export async function createSellerTag(name: string) {
+  const response = await fetch('/api/marketplace/seller/tags', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  });
+  return parseResponse<{ item: MarketplaceTag; reused: boolean }>(response);
+}
+
+export async function deleteSellerTag(id: string) {
+  const response = await fetch(`/api/marketplace/seller/tags/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
+  return parseResponse<{ success: true }>(response);
+}
+
 export async function getMarketplaceSubjects() {
   const response = await fetch('/api/marketplace/subjects');
   return parseResponse<{ items: MarketplaceSubjectOption[] }>(response);
@@ -74,6 +95,7 @@ export async function getProducts(params?: {
   price?: 'all' | 'free' | 'paid';
   gradeGroup?: 'kindergarten' | 'primary' | 'secondary';
   mine?: boolean;
+  status?: MarketplaceProduct['status'] | 'all';
   page?: number;
   limit?: number;
 }) {
@@ -88,6 +110,7 @@ export async function getProducts(params?: {
   if (params?.price && params.price !== 'all') searchParams.set('price', params.price);
   if (params?.gradeGroup) searchParams.set('grade', params.gradeGroup);
   if (params?.mine) searchParams.set('mine', '1');
+  if (params?.status && params.status !== 'all') searchParams.set('status', params.status);
   if (params?.page) searchParams.set('page', String(params.page));
   if (params?.limit) searchParams.set('limit', String(params.limit));
 
@@ -96,6 +119,13 @@ export async function getProducts(params?: {
     products: MarketplaceProduct[];
     hasMore?: boolean;
     nextPage?: number | null;
+    pagination?: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+    counts?: Record<MarketplaceProduct['status'] | 'all', number>;
     setupRequired?: boolean;
   }>(response);
 }
@@ -194,8 +224,10 @@ export async function replyProductReview(id: string, reviewId: string, comment: 
   }>(response);
 }
 
-export async function getSeller() {
-  const response = await fetch('/api/marketplace/seller', { cache: 'no-store' });
+export async function getSeller(options?: { edit?: boolean }) {
+  const response = await fetch(`/api/marketplace/seller${options?.edit ? '?edit=1' : ''}`, {
+    cache: 'no-store',
+  });
   return parseResponse<{ seller: MarketplaceSeller | null }>(response);
 }
 

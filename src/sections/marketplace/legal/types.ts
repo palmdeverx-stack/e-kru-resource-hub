@@ -12,6 +12,7 @@ export const LEGAL_DOCUMENT_TYPES = [
   'child_data_policy',
   'data_processing_agreement',
   'subscription_policy',
+  'product_submission_terms',
 ] as const;
 
 export type LegalDocumentType = (typeof LEGAL_DOCUMENT_TYPES)[number];
@@ -22,11 +23,13 @@ export type MarketplaceLegalDocument = {
   title: string;
   summary: string | null;
   content_html: string;
-  provider_type: 'individual';
+  provider_type: 'individual' | 'company';
   provider_name: string | null;
+  provider_registration_no?: string | null;
   provider_tax_id: string | null;
   provider_address: string | null;
   contact_email: string | null;
+  provider_phone?: string | null;
   version: string;
   status: 'draft' | 'published';
   effective_at: string | null;
@@ -49,6 +52,7 @@ export const LEGAL_DOCUMENT_LABELS: Record<LegalDocumentType, string> = {
   child_data_policy: 'Child & Student Data Policy',
   data_processing_agreement: 'Data Processing Agreement (DPA)',
   subscription_policy: 'Subscription & Renewal Policy',
+  product_submission_terms: 'เงื่อนไขการเผยแพร่สินค้า',
 };
 
 export const LEGAL_DOCUMENT_USAGE: Record<LegalDocumentType, string> = {
@@ -65,4 +69,5 @@ export const LEGAL_DOCUMENT_USAGE: Record<LegalDocumentType, string> = {
   child_data_policy: 'ข้อมูลนักเรียน ห้องเรียน โรงเรียน และสื่อการสอน',
   data_processing_agreement: 'โรงเรียน/องค์กร และผู้ให้บริการประมวลผลข้อมูล',
   subscription_policy: 'แพ็กเกจ ฟีเจอร์เสริม การต่ออายุ และยกเลิกบริการ',
+  product_submission_terms: 'หน้าสร้าง/แก้ไขสินค้า และก่อนส่งสินค้าเผยแพร่',
 };

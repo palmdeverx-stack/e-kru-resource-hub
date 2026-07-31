@@ -1,7 +1,9 @@
 'use client';
 
+import type { MarketplaceLegalDocument } from '../../legal/types';
 import type {
   ProductInput,
+  ProductStatus,
   MarketplaceTag,
   MarketplaceProduct,
   MarketplaceSaleType,
@@ -24,13 +26,19 @@ import Link from '@mui/material/Link';
 import Alert from '@mui/material/Alert';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
 import Divider from '@mui/material/Divider';
+import Checkbox from '@mui/material/Checkbox';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import Container from '@mui/material/Container';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
+import DialogTitle from '@mui/material/DialogTitle';
 import Autocomplete from '@mui/material/Autocomplete';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import CircularProgress from '@mui/material/CircularProgress';
 
 import { paths } from 'src/routes/paths';
@@ -63,14 +71,21 @@ import { MARKETPLACE_SELLER_LINE_FEATURE } from '../line-feature';
 import { MARKETPLACE_MINIMUM_PAID_PRICE_THB } from '../../shared/payment';
 import { MAX_PURCHASE_BENEFITS_HTML_LENGTH } from '../../shared/purchase-benefits';
 import {
-  getTags,
+  type ProductSubmissionAcceptance,
+  initialProductSubmissionAcceptance,
+  PRODUCT_SUBMISSION_TERMS_DOCUMENT_TYPE,
+} from '../../shared/product-submission-attestation';
+import {
   getCurricula,
   getSaleTypes,
   getCategories,
+  getSellerTags,
   createProduct,
   updateProduct,
   getMediaTypes,
   getGradeLevels,
+  createSellerTag,
+  deleteSellerTag,
   deleteProductFile,
   getManagedProduct,
   uploadProductFiles,
@@ -147,6 +162,10 @@ const initialForm = {
   purchaseBenefitsHtml: '',
 };
 
+function normalizeNumberInput(value: string) {
+  return value.replace(/^0+(?=\d)/, '');
+}
+
 function plainTextLength(html: string) {
   return html
     .replace(/<[^>]*>/g, '')
@@ -175,6 +194,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [rejectionReason, setRejectionReason] = useState<string | null>(null);
+  const [productStatus, setProductStatus] = useState<ProductStatus>('draft');
 
   const [categories, setCategories] = useState<string[]>(
     MARKETPLACE_CATEGORIES.filter((item) => item !== 'all')
@@ -182,6 +202,17 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
   const [gradeLevels, setGradeLevels] = useState<MarketplaceGradeLevel[]>([]);
   const [curricula, setCurricula] = useState<MarketplaceCurriculum[]>([]);
   const [tags, setTags] = useState<MarketplaceTag[]>([]);
+  const [newTagName, setNewTagName] = useState('');
+  const [tagSaving, setTagSaving] = useState(false);
+  const [deletingTagId, setDeletingTagId] = useState('');
+  const [tagToDelete, setTagToDelete] = useState<MarketplaceTag | null>(null);
+  const [submissionDialogOpen, setSubmissionDialogOpen] = useState(false);
+  const [submissionAcceptance, setSubmissionAcceptance] = useState<ProductSubmissionAcceptance>(
+    initialProductSubmissionAcceptance
+  );
+  const [submissionTerms, setSubmissionTerms] = useState<MarketplaceLegalDocument | null>(null);
+  const [submissionTermsLoading, setSubmissionTermsLoading] = useState(true);
+  const [submissionTermsError, setSubmissionTermsError] = useState('');
   const [mediaTypes, setMediaTypes] = useState<MarketplaceMediaType[]>([]);
   const [saleTypes, setSaleTypes] = useState<MarketplaceSaleType[]>([]);
   const [subjectOptions, setSubjectOptions] = useState<MarketplaceSubjectOption[]>([]);
@@ -204,7 +235,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
       getCategories(),
       getGradeLevels(),
       getCurricula(),
-      getTags(),
+      getSellerTags(),
       getMediaTypes(),
       getSaleTypes(),
       getMarketplaceSubjects(),
@@ -231,6 +262,28 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
         }
       )
       .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/marketplace/legal-documents', { cache: 'no-store' })
+      .then(async (response) => {
+        const result = (await response.json()) as {
+          items?: MarketplaceLegalDocument[];
+          message?: string;
+        };
+        if (!response.ok) throw new Error(result.message ?? 'โหลดข้อตกลงไม่สำเร็จ');
+        setSubmissionTerms(
+          result.items?.find(
+            (document) => document.document_type === PRODUCT_SUBMISSION_TERMS_DOCUMENT_TYPE
+          ) ?? null
+        );
+      })
+      .catch((loadError) =>
+        setSubmissionTermsError(
+          loadError instanceof Error ? loadError.message : 'โหลดข้อตกลงไม่สำเร็จ'
+        )
+      )
+      .finally(() => setSubmissionTermsLoading(false));
   }, []);
 
   useEffect(() => {
@@ -295,8 +348,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
       licenseLineQuota: String(product.license_line_quota ?? ''),
       externalLinks: (product.external_links ?? []).slice(0, MAX_EXTERNAL_LINKS),
       purchaseBenefits: (product.purchase_benefits ?? []).slice(0, MAX_PURCHASE_BENEFITS),
-      purchaseBenefitsHtml:
-        product.purchase_benefits_html ?? '',
+      purchaseBenefitsHtml: product.purchase_benefits_html ?? '',
     });
     setImages(product.images ?? []);
     setPendingCover(null);
@@ -307,6 +359,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
     setPendingDeletedFileIds([]);
     setPendingFilePreview({});
     setRejectionReason(product.status === 'rejected' ? (product.rejection_reason ?? null) : null);
+    setProductStatus(product.status);
   }, []);
 
   useEffect(() => {
@@ -459,8 +512,12 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
     price: form.price,
     list_price: form.listPrice || null,
   });
+  const ownTags = tags.filter((tag) => tag.created_by === user?.id);
 
-  const productInput = (submit = false): ProductInput => ({
+  const productInput = (
+    submit = false,
+    acceptance?: ProductSubmissionAcceptance
+  ): ProductInput => ({
     title: form.title.trim(),
     titleEn: form.titleEn.trim() || undefined,
     shortDescription: form.shortDescription.trim() || undefined,
@@ -507,7 +564,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
     })),
     purchaseBenefits: form.purchaseBenefits.map((item) => item.trim()).filter(Boolean),
     purchaseBenefitsHtml: form.purchaseBenefitsHtml,
-    ...(submit && { submit: true }),
+    ...(submit && { submit: true, submissionAcceptance: acceptance }),
   });
 
   const ensureDraft = async () => {
@@ -634,7 +691,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
   const saveProduct = async (submit = false) => {
     if (form.title.trim().length < 3) {
       setError('กรุณากรอกชื่อสินค้าอย่างน้อย 3 ตัวอักษร');
-      return;
+      return false;
     }
     if (
       form.externalLinks.some(
@@ -646,11 +703,11 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
       )
     ) {
       setError('กรุณากรอกชื่อและ URL ของลิงก์ส่งมอบให้ถูกต้อง');
-      return;
+      return false;
     }
     if (submit && requirements.length) {
       setError('กรุณากรอกข้อมูลที่จำเป็นให้ครบก่อนส่งตรวจ');
-      return;
+      return false;
     }
     setSaving(true);
     setError('');
@@ -658,22 +715,90 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
     try {
       const id = await ensureDraft();
       await updateProduct(id, productInput(false));
+      setTags((current) =>
+        current.map((tag) =>
+          tag.created_by && form.tagIds.includes(tag.id)
+            ? {
+                ...tag,
+                can_delete: false,
+                first_used_at: tag.first_used_at ?? new Date().toISOString(),
+                expires_at: null,
+              }
+            : tag
+        )
+      );
       await syncPendingImages(id);
       await syncPendingFiles(id);
       const { product } = submit
-        ? await updateProduct(id, productInput(true))
+        ? await updateProduct(id, productInput(true, submissionAcceptance))
         : await getManagedProduct(id);
       hydrate(product);
       if (submit) {
         router.push('/dashboard/seller');
-        return;
+        return true;
       }
       setMessage('บันทึกฉบับร่างเรียบร้อยแล้ว');
       router.replace(`/dashboard/seller/products/${id}/edit`);
+      return true;
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : 'บันทึกสินค้าไม่สำเร็จ');
+      return false;
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleCreateSellerTag = async () => {
+    const name = newTagName.trim().replace(/\s+/g, ' ');
+    if (name.length < 2) {
+      setError('กรุณากรอกชื่อแท็กอย่างน้อย 2 ตัวอักษร');
+      return;
+    }
+
+    setTagSaving(true);
+    setError('');
+    try {
+      const { item, reused } = await createSellerTag(name);
+      setTags((current) =>
+        current.some((tag) => tag.id === item.id)
+          ? current
+          : [...current, item].sort((a, b) => a.name.localeCompare(b.name, 'th'))
+      );
+      setForm((current) => ({
+        ...current,
+        tagIds: current.tagIds.includes(item.id) ? current.tagIds : [...current.tagIds, item.id],
+      }));
+      setNewTagName('');
+      setMessage(
+        reused
+          ? `มีแท็ก “${item.name}” ในชุมชนอยู่แล้ว ระบบเลือกแท็กเดิมให้แล้ว`
+          : `เพิ่มแท็ก “${item.name}” ให้ชุมชนแล้ว`
+      );
+    } catch (tagError) {
+      setError(tagError instanceof Error ? tagError.message : 'เพิ่มแท็กไม่สำเร็จ');
+    } finally {
+      setTagSaving(false);
+    }
+  };
+
+  const handleDeleteSellerTag = async (tag: MarketplaceTag) => {
+    if (!tag.can_delete) return;
+
+    setDeletingTagId(tag.id);
+    setError('');
+    try {
+      await deleteSellerTag(tag.id);
+      setTags((current) => current.filter((item) => item.id !== tag.id));
+      setForm((current) => ({
+        ...current,
+        tagIds: current.tagIds.filter((id) => id !== tag.id),
+      }));
+      setMessage(`ลบแท็ก “${tag.name}” แล้ว`);
+      setTagToDelete(null);
+    } catch (tagError) {
+      setError(tagError instanceof Error ? tagError.message : 'ลบแท็กไม่สำเร็จ');
+    } finally {
+      setDeletingTagId('');
     }
   };
 
@@ -782,11 +907,12 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
             <Typography component="h1" variant="h3">
               {initialProductId ? 'แก้ไขสินค้า' : 'ลงสินค้าใหม่'}
             </Typography>
-            <Chip
+            <ProductStatusChip status={productStatus} />
+            {/* <Chip
               variant="soft"
               color={requirements.length ? 'warning' : 'success'}
               label={requirements.length ? `เหลือ ${requirements.length} รายการ` : 'ข้อมูลครบแล้ว'}
-            />
+            /> */}
           </Stack>
           <Typography color="text.secondary" sx={{ mt: 0.5 }}>
             กรอกข้อมูลทั้งหมดในหน้าเดียว บันทึกร่างได้ตลอด และส่งตรวจเมื่อพร้อม
@@ -1051,6 +1177,68 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                       <TextField {...params} label="แท็ก" placeholder="เลือกคำค้นที่เกี่ยวข้อง" />
                     )}
                   />
+                  <Box
+                    sx={{
+                      p: 2,
+                      mt: 1.5,
+                      borderRadius: 2,
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      bgcolor: 'background.neutral',
+                    }}
+                  >
+                    <Stack
+                      direction={{ xs: 'column', sm: 'row' }}
+                      spacing={1.5}
+                      alignItems={{ sm: 'flex-start' }}
+                    >
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="สร้างแท็กชุมชน"
+                        placeholder="เช่น ใบงานคณิตศาสตร์"
+                        value={newTagName}
+                        slotProps={{ htmlInput: { maxLength: 40 } }}
+                        onChange={(event) => setNewTagName(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key !== 'Enter') return;
+                          event.preventDefault();
+                          void handleCreateSellerTag();
+                        }}
+                        helperText="2–40 ตัวอักษร"
+                      />
+                      <Button
+                        variant="contained"
+                        loading={tagSaving}
+                        disabled={newTagName.trim().length < 2}
+                        startIcon={<RiAddLine />}
+                        onClick={() => void handleCreateSellerTag()}
+                        sx={{ minWidth: 120, height: 40 }}
+                      >
+                        เพิ่มแท็ก
+                      </Button>
+                    </Stack>
+
+                    <Typography variant="caption" color="text.secondary" display="block">
+                      ผู้ขายทุกคนใช้แท็กเดียวกันได้ หากชื่อซ้ำระบบจะเลือกแท็กเดิมให้
+                      แท็กที่ยังไม่เคยใช้จะถูกลบอัตโนมัติหลัง 24 ชั่วโมง
+                    </Typography>
+                    {!!ownTags.length && (
+                      <Stack direction="row" flexWrap="wrap" gap={1} sx={{ mt: 1.5 }}>
+                        {ownTags.map((tag) => (
+                          <Chip
+                            key={tag.id}
+                            size="small"
+                            color={tag.can_delete ? 'primary' : 'default'}
+                            variant="soft"
+                            disabled={deletingTagId === tag.id}
+                            label={tag.can_delete ? tag.name : `${tag.name} · ใช้งานแล้ว`}
+                            onDelete={tag.can_delete ? () => setTagToDelete(tag) : undefined}
+                          />
+                        ))}
+                      </Stack>
+                    )}
+                  </Box>
                 </Grid>
               </Grid>
             </FormSection>
@@ -1125,7 +1313,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                     <Alert severity={licenseMediaType ? 'info' : 'error'}>
                       {licenseMediaType
                         ? 'สินค้า License จะสร้างสิทธิ์ให้โรงเรียนหลังชำระเงินสำเร็จ และหมดอายุตามจำนวนวันที่กำหนด'
-                        : 'ไม่พบประเภทสื่อ License ที่เปิดใช้งาน กรุณาเปิดใช้งานในเมนู Master → ประเภทสื่อ'}
+                        : 'ยังไม่มีประเภทสื่อ License ที่เปิดใช้งาน กรุณาติดต่อผู้ดูแลระบบ'}
                     </Alert>
                   </Grid>
                 )}
@@ -1170,8 +1358,14 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                         step: 1,
                       },
                     }}
+                    onFocus={(event) => {
+                      if (event.target.value === '0') event.target.select();
+                    }}
                     onChange={(event) =>
-                      setForm((current) => ({ ...current, price: event.target.value }))
+                      setForm((current) => ({
+                        ...current,
+                        price: normalizeNumberInput(event.target.value),
+                      }))
                     }
                     error={
                       selectedSaleType?.pricing_mode === 'paid' &&
@@ -1194,7 +1388,10 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                     disabled={selectedSaleType?.pricing_mode === 'free'}
                     slotProps={{ htmlInput: { min: Number(form.price) || 0, step: 1 } }}
                     onChange={(event) =>
-                      setForm((current) => ({ ...current, listPrice: event.target.value }))
+                      setForm((current) => ({
+                        ...current,
+                        listPrice: normalizeNumberInput(event.target.value),
+                      }))
                     }
                     error={
                       form.listPrice !== '' && Number(form.listPrice) < Number(form.price || 0)
@@ -1971,9 +2168,9 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                               ? `ลิงก์ส่งมอบ ${form.externalLinks.length} ลิงก์ พร้อมเปิดจากรายละเอียดการซื้อ`
                               : plainTextLength(form.purchaseBenefitsHtml) > 0
                                 ? 'ข้อความส่งมอบเพิ่มเติม พร้อมแสดงในรายละเอียดการซื้อหลังชำระเงิน'
-                              : isFileOptional
-                                ? 'ผู้ซื้อเข้าดูรายละเอียดและขั้นตอนรับสินค้าหรือบริการได้จากรายการซื้อ'
-                                : 'ยังไม่มีสิ่งที่จะส่งมอบ กรุณาเพิ่มไฟล์ ลิงก์ หรือข้อความอย่างน้อย 1 รายการ'}
+                                : isFileOptional
+                                  ? 'ผู้ซื้อเข้าดูรายละเอียดและขั้นตอนรับสินค้าหรือบริการได้จากรายการซื้อ'
+                                  : 'ยังไม่มีสิ่งที่จะส่งมอบ กรุณาเพิ่มไฟล์ ลิงก์ หรือข้อความอย่างน้อย 1 รายการ'}
                         </Typography>
                       </Stack>
                     )}
@@ -2180,7 +2377,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
               )}
 
               <Alert severity="info" variant="outlined" sx={{ mt: 2 }}>
-                เมื่อส่งตรวจ คุณยืนยันว่าสินค้าเป็นไปตาม{' '}
+                ก่อนส่งตรวจ ระบบจะแสดงเงื่อนไขการเผยแพร่สินค้าและนโยบายฉบับล่าสุดให้ตรวจสอบตาม{' '}
                 <Link
                   component={RouterLink}
                   href={paths.legal.productContentPolicy}
@@ -2218,7 +2415,11 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                   loading={saving}
                   disabled={Boolean(requirements.length)}
                   startIcon={<RiCheckboxCircleLine />}
-                  onClick={() => saveProduct(true)}
+                  onClick={() => {
+                    setError('');
+                    setSubmissionAcceptance(initialProductSubmissionAcceptance);
+                    setSubmissionDialogOpen(true);
+                  }}
                 >
                   {user?.role === 'master_admin' ? 'เผยแพร่สินค้า' : 'ส่งตรวจอนุมัติ'}
                 </Button>
@@ -2232,8 +2433,163 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
           </Stack>
         </Grid>
       </Grid>
+      <Dialog
+        fullWidth
+        maxWidth="xs"
+        open={Boolean(tagToDelete)}
+        onClose={() => {
+          if (!deletingTagId) setTagToDelete(null);
+        }}
+      >
+        <DialogTitle>ลบแท็กของฉัน</DialogTitle>
+        <DialogContent>
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            เมื่อลบแล้วจะไม่สามารถกู้คืนแท็กนี้ได้
+          </Alert>
+          <Typography>
+            ต้องการลบแท็ก <strong>“{tagToDelete?.name}”</strong> ใช่หรือไม่
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            ระบบอนุญาตให้ลบได้เฉพาะแท็กที่ยังไม่เคยบันทึกใช้กับสินค้า
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            color="inherit"
+            disabled={Boolean(deletingTagId)}
+            onClick={() => setTagToDelete(null)}
+          >
+            ยกเลิก
+          </Button>
+          <Button
+            color="error"
+            variant="contained"
+            loading={Boolean(deletingTagId)}
+            onClick={() => tagToDelete && void handleDeleteSellerTag(tagToDelete)}
+          >
+            ลบแท็ก
+          </Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog
+        fullWidth
+        maxWidth="sm"
+        open={submissionDialogOpen}
+        onClose={() => {
+          if (!saving) setSubmissionDialogOpen(false);
+        }}
+      >
+        <DialogTitle>เงื่อนไขการเผยแพร่สินค้า</DialogTitle>
+        <DialogContent dividers>
+          {!!error && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
+          <Alert severity="info" sx={{ mb: 2.5 }}>
+            กรุณาตรวจสอบข้อมูลให้ครบถ้วน หากมีข้อมูลที่ต้องยืนยันเพิ่มเติม
+            ผู้ดูแลจะติดต่อกลับก่อนเผยแพร่สินค้า
+          </Alert>
+          {submissionTermsLoading ? (
+            <Box sx={{ py: 4, display: 'grid', placeItems: 'center' }}>
+              <CircularProgress size={28} />
+            </Box>
+          ) : submissionTermsError ? (
+            <Alert severity="error">{submissionTermsError}</Alert>
+          ) : !submissionTerms ? (
+            <Alert severity="warning">
+              ยังไม่มีเงื่อนไขการเผยแพร่สินค้าฉบับเผยแพร่ กรุณาให้ผู้ดูแลเผยแพร่เอกสารฉบับสมบูรณ์
+            </Alert>
+          ) : (
+            <Stack spacing={2}>
+              <Box
+                sx={{
+                  p: 2,
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  borderRadius: 2,
+                  bgcolor: 'background.neutral',
+                }}
+              >
+                <Stack direction="row" justifyContent="space-between" alignItems="center" gap={1}>
+                  <Typography variant="subtitle2">{submissionTerms.title}</Typography>
+                  <Chip size="small" label={`เวอร์ชัน ${submissionTerms.version}`} />
+                </Stack>
+                <Editor
+                  editable={false}
+                  value={submissionTerms.content_html}
+                  sx={{ mt: 1, minHeight: 0, bgcolor: 'transparent' }}
+                />
+              </Box>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={submissionAcceptance.accepted}
+                    onChange={(event) =>
+                      setSubmissionAcceptance({ accepted: event.target.checked })
+                    }
+                  />
+                }
+                label={
+                  <Typography variant="body2" fontWeight={600}>
+                    ฉันได้อ่านและยอมรับเงื่อนไขการเผยแพร่สินค้าพร้อมรายละเอียดข้างต้น
+                  </Typography>
+                }
+                sx={{ m: 0, alignItems: 'flex-start', '& .MuiCheckbox-root': { pt: 0.25 } }}
+              />
+            </Stack>
+          )}
+          <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 2.5 }}>
+            ระบบจะบันทึกวันเวลา รอบการส่ง และเวอร์ชันของ{' '}
+            <Link component={RouterLink} href={paths.legal.productContentPolicy} target="_blank">
+              นโยบายสินค้า
+            </Link>
+            ,{' '}
+            <Link component={RouterLink} href={paths.legal.copyrightTakedown} target="_blank">
+              นโยบายลิขสิทธิ์
+            </Link>
+            ,{' '}
+            <Link component={RouterLink} href={paths.legal.productSubmissionTerms} target="_blank">
+              เงื่อนไขการเผยแพร่สินค้า
+            </Link>{' '}
+            และเอกสารที่เกี่ยวข้องไว้เป็นหลักฐาน
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button color="inherit" disabled={saving} onClick={() => setSubmissionDialogOpen(false)}>
+            กลับไปตรวจสอบ
+          </Button>
+          <Button
+            variant="contained"
+            loading={saving}
+            disabled={!submissionTerms || !submissionAcceptance.accepted}
+            startIcon={<RiCheckboxCircleLine />}
+            onClick={async () => {
+              const submitted = await saveProduct(true);
+              if (submitted) setSubmissionDialogOpen(false);
+            }}
+          >
+            ยืนยันและ{user?.role === 'master_admin' ? 'เผยแพร่' : 'ส่งตรวจ'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
+}
+
+function ProductStatusChip({ status }: { status: ProductStatus }) {
+  const config = {
+    draft: { label: 'ฉบับร่าง', color: 'default' },
+    pending_review: { label: 'รอตรวจสอบ', color: 'warning' },
+    published: { label: 'เผยแพร่แล้ว', color: 'success' },
+    rejected: { label: 'ไม่ผ่านการตรวจ', color: 'error' },
+    archived: { label: 'ระงับชั่วคราว', color: 'default' },
+  }[status] as {
+    label: string;
+    color: 'default' | 'warning' | 'success' | 'error';
+  };
+
+  return <Chip variant="soft" color={config.color} label={`สถานะ: ${config.label}`} />;
 }
 
 function FormSection({

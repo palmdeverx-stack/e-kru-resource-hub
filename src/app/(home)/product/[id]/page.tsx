@@ -1,29 +1,36 @@
 import type { Metadata } from 'next';
 
-import { MarketplaceProductDetailView } from 'src/sections/marketplace/catalog/view/product-detail-view';
 import { getPublicProductSeo } from 'src/sections/marketplace/seo/server';
-import { absoluteMarketplaceUrl } from 'src/sections/marketplace/seo/site-url';
+import { getPublicPlatformSettings } from 'src/sections/marketplace/admin/server/platform-settings';
+import { MarketplaceProductDetailView } from 'src/sections/marketplace/catalog/view/product-detail-view';
+import {
+  absoluteMarketplaceUrl,
+  MARKETPLACE_OG_IMAGE_URL,
+} from 'src/sections/marketplace/seo/site-url';
 
 type Props = { params: Promise<{ id: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
-  const product = await getPublicProductSeo(id);
+  const [product, settings] = await Promise.all([
+    getPublicProductSeo(id),
+    getPublicPlatformSettings(),
+  ]);
+  const platformName = settings?.platform_name_th || 'E-KRU Marketplace';
 
   if (!product) {
     return {
-      title: 'ไม่พบสินค้า | E-KRU Marketplace',
+      title: `ไม่พบสินค้า | ${platformName}`,
       robots: { index: false, follow: false },
     };
   }
 
   const path = `/product/${encodeURIComponent(product.id)}`;
-  const images = product.image
-    ? [{ url: product.image, alt: product.title }]
-    : undefined;
+  const shareImage = product.image || settings?.og_image_url || MARKETPLACE_OG_IMAGE_URL;
+  const images = [{ url: shareImage, alt: product.title }];
 
   return {
-    title: `${product.title} | E-KRU Marketplace`,
+    title: `${product.title} | ${platformName}`,
     description: product.description,
     alternates: { canonical: path },
     openGraph: {
@@ -38,7 +45,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       card: 'summary_large_image',
       title: product.title,
       description: product.description,
-      images: product.image ? [product.image] : undefined,
+      images: [shareImage],
     },
   };
 }

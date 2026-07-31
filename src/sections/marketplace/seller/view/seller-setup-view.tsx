@@ -33,6 +33,7 @@ import { useRouter, useSearchParams } from 'src/routes/hooks';
 import { Editor } from 'src/components/editor';
 import { editorClasses } from 'src/components/editor/classes';
 import {
+  RiEyeLine,
   RiBankLine,
   RiFileLine,
   RiCloseLine,
@@ -51,6 +52,7 @@ import { useAuthContext } from 'src/auth/hooks';
 
 import { getSeller, saveSeller } from '../../shared/api';
 import { ThaiBankAutocomplete } from '../../shared/bank-autocomplete';
+import { DocumentPreviewDialog } from '../../shared/document-preview-dialog';
 
 const STEPS = [
   {
@@ -93,154 +95,21 @@ type AgreementKey = 'sellerAgreement' | 'copyrightConfirmed' | 'feeAgreement' | 
 type Agreement = {
   key: AgreementKey;
   documentType: LegalDocumentType;
-  title: string;
-  checkboxLabel: string;
-  introduction: string;
-  sections: Array<{ heading: string; content: string }>;
 };
 
-const AGREEMENTS: Agreement[] = [
-  {
-    key: 'sellerAgreement',
-    documentType: 'seller_agreement',
-    title: 'ข้อตกลงการเป็นผู้ขาย E-KRU Marketplace',
-    checkboxLabel: 'ยอมรับข้อตกลงการเป็นผู้ขาย',
-    introduction:
-      'ข้อตกลงนี้กำหนดสิทธิ หน้าที่ และมาตรฐานของผู้ขายที่เปิดร้านบน E-KRU Marketplace กรุณาอ่านเนื้อหาทั้งหมดก่อนยอมรับ',
-    sections: [
-      {
-        heading: '1. คุณสมบัติและข้อมูลผู้ขาย',
-        content:
-          'ผู้ขายยืนยันว่าข้อมูลชื่อ ที่อยู่ ช่องทางติดต่อ บัญชีรับเงิน และเอกสารยืนยันตัวตนที่ส่งให้แพลตฟอร์มเป็นข้อมูลจริง ถูกต้อง และเป็นปัจจุบัน ผู้ขายต้องแจ้งหรือแก้ไขข้อมูลทันทีเมื่อมีการเปลี่ยนแปลง และยินยอมให้ผู้ดูแลตรวจสอบข้อมูลก่อนอนุมัติร้าน',
-      },
-      {
-        heading: '2. การลงขายสินค้า',
-        content:
-          'ผู้ขายต้องระบุชื่อ รายละเอียด ราคา ประเภทไฟล์ เงื่อนไขการใช้งาน และภาพตัวอย่างให้ตรงกับสินค้าจริง ห้ามเผยแพร่เนื้อหาที่ผิดกฎหมาย ละเมิดสิทธิ ไม่เหมาะสม มีข้อมูลส่วนบุคคลโดยไม่ได้รับอนุญาต หรืออาจทำให้ผู้ซื้อเข้าใจผิด สินค้าต้องผ่านการตรวจสอบก่อนเผยแพร่',
-      },
-      {
-        heading: '3. การให้บริการผู้ซื้อ',
-        content:
-          'ผู้ขายรับผิดชอบคุณภาพ ความครบถ้วน และการใช้งานของไฟล์ รวมถึงตอบคำถามหรือแก้ไขปัญหาที่เกี่ยวกับสินค้าอย่างเหมาะสม หากสินค้าเสียหาย ไม่ตรงรายละเอียด หรือไม่สามารถใช้งานได้ ผู้ขายต้องร่วมตรวจสอบและดำเนินการตามนโยบายคืนเงินของแพลตฟอร์ม',
-      },
-      {
-        heading: '4. การตรวจสอบและระงับร้าน',
-        content:
-          'E-KRU Marketplace อาจขอเอกสารเพิ่มเติม ซ่อนสินค้า ระงับการขาย ระงับยอดโอน หรือปิดร้านชั่วคราวระหว่างตรวจสอบข้อร้องเรียน การทุจริต หรือการฝ่าฝืนข้อตกลง โดยจะแจ้งเหตุผลและเปิดช่องทางให้ผู้ขายชี้แจงตามความเหมาะสม',
-      },
-      {
-        heading: '5. การเปลี่ยนแปลงเงื่อนไข',
-        content:
-          'แพลตฟอร์มอาจปรับปรุงเงื่อนไขเพื่อให้สอดคล้องกับบริการ กฎหมาย หรือความปลอดภัย การเปลี่ยนแปลงที่มีสาระสำคัญจะแจ้งให้ทราบ และอาจต้องให้ผู้ขายยอมรับฉบับใหม่ก่อนใช้งานบางส่วนต่อไป',
-      },
-    ],
-  },
-  {
-    key: 'copyrightConfirmed',
-    documentType: 'copyright_takedown',
-    title: 'คำยืนยันสิทธิและลิขสิทธิ์ของสื่อ',
-    checkboxLabel: 'ยืนยันว่าเป็นเจ้าของลิขสิทธิ์หรือมีสิทธินำมาจำหน่าย',
-    introduction:
-      'ผู้ขายต้องมีสิทธิโดยชอบในทุกองค์ประกอบของสินค้าที่นำมาวางขาย รวมถึงข้อความ ภาพ เสียง วิดีโอ แบบฝึกหัด ฟอนต์ และไฟล์ประกอบ',
-    sections: [
-      {
-        heading: '1. การเป็นเจ้าของหรือได้รับอนุญาต',
-        content:
-          'ผู้ขายยืนยันว่าเป็นผู้สร้างผลงานเอง เป็นเจ้าของลิขสิทธิ์ หรือได้รับใบอนุญาตที่ครอบคลุมการทำซ้ำ ดัดแปลง เผยแพร่ และจำหน่ายเชิงพาณิชย์บนแพลตฟอร์มนี้ การพบเนื้อหาบนอินเทอร์เน็ตไม่ได้หมายความว่าสามารถนำมาขายได้',
-      },
-      {
-        heading: '2. ทรัพย์สินของบุคคลอื่น',
-        content:
-          'ห้ามนำหนังสือเรียน แบบฝึกหัด ข้อสอบ ภาพการ์ตูน เครื่องหมายการค้า โลโก้ ฟอนต์ เพลง คลิป หรือผลงานของบุคคลอื่นมาใช้เกินขอบเขตที่เจ้าของสิทธิอนุญาต หากใช้ทรัพยากรแบบมี License ผู้ขายต้องเก็บหลักฐานและปฏิบัติตามข้อกำหนดเรื่องเครดิต จำนวนผู้ใช้ และการจำหน่ายต่อ',
-      },
-      {
-        heading: '3. ข้อมูลนักเรียนและบุคคล',
-        content:
-          'สื่อต้องไม่มีชื่อ ภาพถ่าย เสียง ผลการเรียน เลขประจำตัว หรือข้อมูลที่ระบุตัวนักเรียน ครู หรือบุคคลอื่น เว้นแต่มีฐานกฎหมายและหนังสือยินยอมที่เหมาะสม ควรลบหรือปกปิดข้อมูลจริงก่อนอัปโหลดเสมอ',
-      },
-      {
-        heading: '4. การร้องเรียนละเมิดสิทธิ',
-        content:
-          'เมื่อได้รับรายงาน แพลตฟอร์มอาจซ่อนสินค้าและขอหลักฐานการสร้างผลงานหรือใบอนุญาต ผู้ขายต้องให้ความร่วมมือภายในเวลาที่กำหนด หากพิสูจน์สิทธิไม่ได้ สินค้าอาจถูกถอดถอน ยอดเงินอาจถูกพักเพื่อคืนผู้ซื้อ และบัญชีอาจถูกจำกัดตามความร้ายแรงหรือการกระทำซ้ำ',
-      },
-      {
-        heading: '5. ความรับผิดชอบ',
-        content:
-          'ผู้ขายรับผิดชอบต่อข้อเรียกร้อง ความเสียหาย และค่าใช้จ่ายที่เกิดจากสินค้าของตนตามกฎหมาย การอนุมัติสินค้าโดยผู้ดูแลเป็นการตรวจเบื้องต้นและไม่ใช่การรับรองว่าผลงานปราศจากการละเมิดสิทธิ',
-      },
-    ],
-  },
-  {
-    key: 'feeAgreement',
-    documentType: 'payment_payout_policy',
-    title: 'ข้อตกลงค่าธรรมเนียมและการรับเงิน',
-    checkboxLabel: 'ยอมรับการหักค่าธรรมเนียมและรอบการโอนเงิน',
-    introduction:
-      'ยอดขายที่ผู้ซื้อชำระจะผ่านแพลตฟอร์มก่อนคำนวณรายรับสุทธิและโอนให้ผู้ขายตามรอบที่กำหนด',
-    sections: [
-      {
-        heading: '1. ราคาขายและค่าธรรมเนียมแพลตฟอร์ม',
-        content:
-          'ผู้ขายเป็นผู้กำหนดราคาสินค้าตามประเภทการจำหน่าย ระบบจะหักค่าธรรมเนียมแพลตฟอร์มตามอัตราที่แสดงในระบบ ณ เวลาที่เกิดคำสั่งซื้อ อัตราดังกล่าวรองรับค่าใช้บริการ การตรวจสอบ การดูแลระบบ และการดำเนินงานของ Marketplace',
-      },
-      {
-        heading: '2. ค่าธรรมเนียมการชำระเงิน',
-        content:
-          'ช่องทางชำระเงินบางประเภทอาจมีค่าธรรมเนียมจากผู้ให้บริการภายนอก เช่น Stripe รายละเอียดค่าธรรมเนียมและผู้รับผิดชอบจะแสดงตามการตั้งค่าของแพลตฟอร์ม ผู้ขายสามารถตรวจยอดขาย ค่าธรรมเนียม และรายรับสุทธิได้ในหน้ารายได้ของร้าน',
-      },
-      {
-        heading: '3. ระยะพักยอดและรอบโอน',
-        content:
-          'หลังยืนยันการชำระเงิน รายรับจะอยู่ในสถานะพักยอดตามจำนวนวันที่กำหนดเพื่อรองรับการตรวจสอบ การคืนเงิน หรือข้อพิพาท เมื่อพ้นระยะพักยอดและถึงขั้นต่ำ ระบบจะนำยอดเข้ารอบโอนตามวันที่แพลตฟอร์มกำหนด การแจ้งเตือนเงินเข้า LINE หมายถึงแพลตฟอร์มรับชำระแล้ว ไม่ใช่เงินเข้าบัญชีธนาคารของผู้ขายทันที',
-      },
-      {
-        heading: '4. การคืนเงินและรายการผิดปกติ',
-        content:
-          'หากมีการคืนเงิน ยกเลิกคำสั่งซื้อ Chargeback การทุจริต หรือการโอนเงินผิดพลาด แพลตฟอร์มอาจหัก ปรับปรุง หรือพักยอดที่เกี่ยวข้อง หากยอดคงเหลือไม่เพียงพอ อาจนำไปหักจากรายรับรอบถัดไปพร้อมแสดงรายการในประวัติการเงิน',
-      },
-      {
-        heading: '5. บัญชีรับเงินและภาษี',
-        content:
-          'ผู้ขายต้องใช้บัญชีรับเงินที่ชื่อตรงกับข้อมูลยืนยันตัวตนและรับผิดชอบภาษีของตนเอง แพลตฟอร์มอาจขอเอกสารภาษีหรือหักภาษี ณ ที่จ่ายเมื่อกฎหมายกำหนด การแก้ไขบัญชีรับเงินอาจต้องผ่านการตรวจสอบใหม่ก่อนใช้ในรอบโอน',
-      },
-    ],
-  },
-  {
-    key: 'pdpaAccepted',
-    documentType: 'privacy_policy',
-    title: 'ประกาศความเป็นส่วนตัวสำหรับผู้ขาย',
-    checkboxLabel: 'รับทราบและยอมรับการประมวลผลข้อมูลส่วนบุคคล (PDPA)',
-    introduction:
-      'เอกสารนี้อธิบายการใช้ข้อมูลส่วนบุคคลที่จำเป็นต่อการสมัคร ตรวจสอบ และให้บริการร้านค้าบน E-KRU Marketplace',
-    sections: [
-      {
-        heading: '1. ข้อมูลที่เก็บรวบรวม',
-        content:
-          'แพลตฟอร์มเก็บข้อมูลบัญชี ชื่อและช่องทางติดต่อ ข้อมูลร้าน เลขประจำตัวหรือเลขผู้เสียภาษี เอกสารยืนยันตัวตน ข้อมูลบัญชีธนาคาร ประวัติสินค้า คำสั่งซื้อ รายรับ การติดต่อฝ่ายสนับสนุน และข้อมูลการใช้งานที่จำเป็นต่อความปลอดภัย',
-      },
-      {
-        heading: '2. วัตถุประสงค์',
-        content:
-          'ข้อมูลถูกใช้เพื่อยืนยันตัวตน พิจารณาคำขอเปิดร้าน เผยแพร่ข้อมูลหน้าร้าน รับชำระและโอนเงิน ป้องกันการทุจริต ดูแลข้อร้องเรียน ปฏิบัติตามสัญญา กฎหมาย ภาษี และบัญชี รวมถึงแจ้งเตือนเหตุการณ์ที่ผู้ขายเลือกเปิดใช้งาน',
-      },
-      {
-        heading: '3. การเปิดเผยข้อมูล',
-        content:
-          'ข้อมูลอาจถูกส่งให้ผู้ให้บริการที่จำเป็น เช่น ระบบจัดเก็บข้อมูล ผู้ให้บริการชำระเงิน ธนาคาร ผู้ให้บริการข้อความ และผู้ตรวจสอบที่อยู่ภายใต้หน้าที่รักษาความลับ รวมถึงหน่วยงานรัฐเมื่อมีกฎหมายหรือคำสั่งที่ชอบด้วยกฎหมาย ข้อมูลส่วนตัวที่ไม่จำเป็นจะไม่แสดงต่อผู้ซื้อ',
-      },
-      {
-        heading: '4. ระยะเวลาและความปลอดภัย',
-        content:
-          'แพลตฟอร์มเก็บข้อมูลเท่าที่จำเป็นต่อการให้บริการ ระยะเวลาตามกฎหมาย การบัญชี การป้องกันข้อพิพาท และความปลอดภัย เอกสารสำคัญจัดเก็บแบบจำกัดสิทธิ ส่วน Credential เช่น LINE Channel access token จะถูกเข้ารหัสก่อนบันทึก',
-      },
-      {
-        heading: '5. สิทธิของเจ้าของข้อมูล',
-        content:
-          'ผู้ขายอาจขอเข้าถึง แก้ไข โอน ลบ จำกัด หรือคัดค้านการใช้ข้อมูล และถอนความยินยอมในกรณีที่การประมวลผลอาศัยความยินยอม ทั้งนี้บางคำขออาจถูกจำกัดเมื่อจำเป็นต่อสัญญา การดำเนินธุรกรรม การเก็บหลักฐาน หรือหน้าที่ตามกฎหมาย ผู้ขายสามารถติดต่อผู้ดูแลผ่านช่องทางของแพลตฟอร์ม',
-      },
-    ],
-  },
-];
+const SELLER_AGREEMENT_KEYS = {
+  seller_agreement: 'sellerAgreement',
+  copyright_takedown: 'copyrightConfirmed',
+  payment_payout_policy: 'feeAgreement',
+  privacy_policy: 'pdpaAccepted',
+} as const satisfies Partial<Record<LegalDocumentType, AgreementKey>>;
+
+const AGREEMENT_CHECKBOX_LABELS: Record<AgreementKey, string> = {
+  sellerAgreement: 'ยอมรับข้อตกลงการเป็นผู้ขาย',
+  copyrightConfirmed: 'ยืนยันว่าเป็นเจ้าของลิขสิทธิ์หรือมีสิทธินำมาจำหน่าย',
+  feeAgreement: 'ยอมรับการหักค่าธรรมเนียมและรอบการโอนเงิน',
+  pdpaAccepted: 'รับทราบและยอมรับการประมวลผลข้อมูลส่วนบุคคล (PDPA)',
+};
 
 const initialAgreementRead: Record<AgreementKey, boolean> = {
   sellerAgreement: false,
@@ -298,6 +167,13 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
   const [openAgreement, setOpenAgreement] = useState<Agreement | null>(null);
   const [agreementRead, setAgreementRead] = useState(initialAgreementRead);
   const [legalDocuments, setLegalDocuments] = useState<MarketplaceLegalDocument[]>([]);
+  const agreements = legalDocuments.flatMap<Agreement>((document) => {
+    const key = SELLER_AGREEMENT_KEYS[document.document_type as keyof typeof SELLER_AGREEMENT_KEYS];
+    return key ? [{ key, documentType: document.document_type }] : [];
+  });
+  const missingAgreementTypes = Object.keys(SELLER_AGREEMENT_KEYS).filter(
+    (documentType) => !legalDocuments.some((document) => document.document_type === documentType)
+  );
 
   useEffect(() => {
     const controller = new AbortController();
@@ -318,7 +194,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
   }, []);
 
   useEffect(() => {
-    getSeller()
+    getSeller({ edit: mode === 'edit' })
       .then(({ seller: current }) => {
         setSeller(current);
         if (!current) {
@@ -368,7 +244,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
       })
       .catch((loadError) => setError(loadError.message))
       .finally(() => setLoading(false));
-  }, [searchParams, user?.email, user?.role]);
+  }, [mode, searchParams, user?.email, user?.role]);
 
   const update = (name: keyof typeof form, value: string | boolean) =>
     setForm((current) => ({ ...current, [name]: value }));
@@ -661,6 +537,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
           </Stack>
           <LinearProgress
             variant="determinate"
+            color="success"
             value={(completedCount / STEPS.length) * 100}
             sx={{ height: 8, borderRadius: 8 }}
           />
@@ -791,60 +668,105 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
         </Stack>
 
         {activeStep === 0 && (
-          <Stack spacing={2.5}>
-            <TextField
-              required
-              label="ชื่อร้าน"
-              value={form.displayName}
-              onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  displayName: event.target.value,
-                  slug:
-                    !current.slug || current.slug === slugify(current.displayName)
-                      ? slugify(event.target.value)
-                      : current.slug,
-                }))
-              }
-            />
-            <TextField
-              label="ชื่อร้านภาษาอังกฤษ"
-              value={form.displayNameEn}
-              onChange={(e) => update('displayNameEn', e.target.value)}
-            />
-            <TextField
-              required
-              label="Slug URL"
-              value={form.slug}
-              onChange={(e) => update('slug', slugify(e.target.value))}
-              helperText={`e-kru.com/store/${form.slug || 'your-store'}`}
-            />
-            <UploadField
-              required
-              label="โลโก้ร้าน"
-              done={hasDocument('store_logo')}
-              document={getDocument('store_logo')}
-              loading={uploading === 'store_logo'}
-              accept="image/*"
-              aspectRatio="1 / 1"
-              onFile={(file) => upload('store_logo', file)}
-            />
-            <UploadField
-              label="ภาพหน้าปกร้าน"
-              done={hasDocument('store_cover')}
-              document={getDocument('store_cover')}
-              loading={uploading === 'store_cover'}
-              accept="image/*"
-              aspectRatio="16 / 6"
-              onFile={(file) => upload('store_cover', file)}
-            />
-            <TextField
-              multiline
-              minRows={4}
-              label="คำอธิบายร้าน"
-              value={form.bio}
-              onChange={(e) => update('bio', e.target.value)}
-            />
+          <Stack>
+            <Box
+              sx={{
+                display: 'grid',
+                gap: { xs: 2.5, md: 3 },
+                alignItems: 'start',
+                gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) minmax(400px, 0.5fr)' },
+              }}
+            >
+              <Stack spacing={2.5}>
+                <Box>
+                  <Typography variant="subtitle1">รายละเอียดร้านค้า</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    ข้อมูลนี้จะแสดงบนหน้าร้านและช่วยให้ลูกค้าค้นหาร้านของคุณได้ง่ายขึ้น
+                  </Typography>
+                </Box>
+                <TextField
+                  required
+                  label="ชื่อร้าน"
+                  value={form.displayName}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      displayName: event.target.value,
+                      slug:
+                        !current.slug || current.slug === slugify(current.displayName)
+                          ? slugify(event.target.value)
+                          : current.slug,
+                    }))
+                  }
+                />
+                <TextField
+                  label="ชื่อร้านภาษาอังกฤษ"
+                  value={form.displayNameEn}
+                  onChange={(e) => update('displayNameEn', e.target.value)}
+                />
+                <TextField
+                  required
+                  label="Slug URL"
+                  value={form.slug}
+                  onChange={(e) => update('slug', slugify(e.target.value))}
+                  helperText={`e-kru.com/store/${form.slug || 'your-store'}`}
+                />
+                <TextField
+                  multiline
+                  minRows={4}
+                  label="คำอธิบายร้าน"
+                  value={form.bio}
+                  onChange={(e) => update('bio', e.target.value)}
+                />
+              </Stack>
+
+              <Stack spacing={2.5}>
+                <Box>
+                  <Typography variant="subtitle1">รูปภาพร้านค้า</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    อัปโหลดโลโก้และภาพหน้าปกให้ลูกค้าจดจำร้านของคุณได้ง่าย
+                  </Typography>
+                </Box>
+                <Box>
+                  <UploadField
+                    required
+                    label="โลโก้ร้าน"
+                    recommendation="แนะนำภาพสี่เหลี่ยมจัตุรัส อัตราส่วน 1:1 เช่น 800 x 800 px"
+                    done={hasDocument('store_logo')}
+                    document={getDocument('store_logo')}
+                    loading={uploading === 'store_logo'}
+                    accept="image/*"
+                    aspectRatio="1 / 1"
+                    previewHeight={180}
+                    maxSizeMb={2}
+                    onFile={(file) => upload('store_logo', file)}
+                  />
+                </Box>
+              </Stack>
+            </Box>
+
+            <Stack spacing={2.5} mt={2}>
+              <Box>
+                <Typography variant="subtitle1">รูปภาพร้านค้า</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  อัปโหลดโลโก้และภาพหน้าปกให้ลูกค้าจดจำร้านของคุณได้ง่าย
+                </Typography>
+              </Box>
+              <Box>
+                <UploadField
+                  label="ภาพหน้าปกร้าน"
+                  recommendation="แนะนำภาพแนวนอน อัตราส่วน 16:6 เช่น 1600 × 600 px"
+                  done={hasDocument('store_cover')}
+                  document={getDocument('store_cover')}
+                  loading={uploading === 'store_cover'}
+                  accept="image/*"
+                  aspectRatio="16 / 6"
+                  previewHeight={180}
+                  maxSizeMb={2}
+                  onFile={(file) => upload('store_cover', file)}
+                />
+              </Box>
+            </Stack>
           </Stack>
         )}
         {activeStep === 1 && (
@@ -912,63 +834,88 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
         {activeStep === 2 && (
           <Stack spacing={2.5}>
             <Box>
-              <Typography variant="h5">บัญชีรับเงินของผู้ขาย</Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                ระบบจะใช้บัญชีนี้สำหรับโอนยอดขายหลังพ้นระยะพักยอด กรุณาตรวจชื่อและเลขบัญชีให้ถูกต้อง
-              </Typography>
+              <Alert severity="warning">
+                <Typography variant="subtitle2">กรุณาตรวจสอบข้อมูลบัญชีให้ถูกต้อง</Typography>
+                <Typography variant="body2">
+                  หากชื่อบัญชี เลขบัญชี หรือธนาคารไม่ตรงกัน ระบบจะพักการโอน
+                  และนำยอดไปรวมในรอบถัดไปหลังแก้ไขข้อมูลแล้ว
+                </Typography>
+              </Alert>
             </Box>
-            <Alert severity="info">
-              <Typography variant="subtitle2">แนะนำ: บัญชีกสิกรไทยที่ผูกกับ K PLUS</Typography>
-              <Typography variant="body2">
-                ช่วยให้ตรวจสอบเงินเข้าและรับการแจ้งเตือนได้สะดวก แต่ไม่บังคับ
-                ผู้ขายสามารถเลือกบัญชีธนาคารอื่นได้ตามปกติ
-              </Typography>
-            </Alert>
-            <Alert severity="warning">
-              <Typography variant="subtitle2">กรุณาตรวจสอบข้อมูลบัญชีให้ถูกต้อง</Typography>
-              <Typography variant="body2">
-                หากชื่อบัญชี เลขบัญชี หรือธนาคารไม่ตรงกัน
-                ระบบจะไม่ดำเนินการโอนจนกว่าข้อมูลจะได้รับการแก้ไข
-                และยอดดังกล่าวจะถูกนำไปรวมในรอบโอนถัดไป
-              </Typography>
-            </Alert>
-            <TextField
-              required
-              label="ชื่อบัญชี"
-              value={form.accountName}
-              onChange={(e) => update('accountName', e.target.value)}
-            />
-            <ThaiBankAutocomplete
-              required
-              value={form.bankCode || form.bankName}
-              helperText="เลือกจากรายการเพื่อให้ชื่อและรหัสธนาคารตรงกับไฟล์โอนเงิน"
-              onChange={(bank) =>
-                setForm((current) => ({
-                  ...current,
-                  bankCode: bank?.code ?? '',
-                  bankName: bank?.name ?? '',
-                }))
-              }
-            />
-            <TextField
-              required
-              label="เลขบัญชี"
-              value={form.accountNumber}
-              onChange={(e) => update('accountNumber', e.target.value)}
-            />
-            <TextField
-              label="PromptPay (ถ้ามี)"
-              value={form.promptpayId}
-              onChange={(e) => update('promptpayId', e.target.value)}
-            />
-            <UploadField
-              required
-              label="หน้าสมุดบัญชี"
-              done={hasDocument('bank_book')}
-              document={getDocument('bank_book')}
-              loading={uploading === 'bank_book'}
-              onFile={(file) => upload('bank_book', file)}
-            />
+
+            <Box
+              sx={{
+                display: 'grid',
+                gap: { xs: 2.5, md: 3 },
+                alignItems: 'start',
+                gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) minmax(360px, 0.9fr)' },
+              }}
+            >
+              <Stack spacing={2.5}>
+                <Box>
+                  <Typography variant="subtitle1">ข้อมูลบัญชีรับเงิน</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    ระบบจะใช้บัญชีนี้สำหรับโอนยอดขายหลังพ้นระยะพักยอด
+                  </Typography>
+                </Box>
+                <TextField
+                  required
+                  label="ชื่อบัญชี"
+                  value={form.accountName}
+                  onChange={(e) => update('accountName', e.target.value)}
+                />
+                <ThaiBankAutocomplete
+                  required
+                  value={form.bankCode || form.bankName}
+                  helperText="เลือกจากรายการเพื่อให้ชื่อและรหัสธนาคารตรงกับไฟล์โอนเงิน"
+                  onChange={(bank) =>
+                    setForm((current) => ({
+                      ...current,
+                      bankCode: bank?.code ?? '',
+                      bankName: bank?.name ?? '',
+                    }))
+                  }
+                />
+                <TextField
+                  required
+                  label="เลขบัญชี"
+                  value={form.accountNumber}
+                  onChange={(e) => update('accountNumber', e.target.value)}
+                />
+                <TextField
+                  label="PromptPay (ถ้ามี)"
+                  value={form.promptpayId}
+                  onChange={(e) => update('promptpayId', e.target.value)}
+                />
+
+                <Alert severity="info">
+                  <Typography variant="subtitle2">แนะนำ: บัญชีกสิกรไทยที่ผูกกับ K PLUS</Typography>
+                  <Typography variant="body2">
+                    ช่วยให้ตรวจสอบเงินเข้าและรับการแจ้งเตือนได้สะดวก แต่ไม่บังคับ
+                    ผู้ขายสามารถเลือกบัญชีธนาคารอื่นได้ตามปกติ
+                  </Typography>
+                </Alert>
+              </Stack>
+
+              <Stack spacing={2.5}>
+                <Box>
+                  <Typography variant="subtitle1">เอกสารยืนยันบัญชี</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    ชื่อและเลขบัญชีในเอกสารต้องตรงกับข้อมูลที่กรอก
+                  </Typography>
+                </Box>
+                <UploadField
+                  required
+                  label="หน้าสมุดบัญชี"
+                  done={hasDocument('bank_book')}
+                  document={getDocument('bank_book')}
+                  loading={uploading === 'bank_book'}
+                  previewHeight={220}
+                  maxSizeMb={2}
+                  onFile={(file) => upload('bank_book', file)}
+                />
+              </Stack>
+            </Box>
           </Stack>
         )}
         {activeStep === 3 && (
@@ -976,45 +923,69 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
             <Alert severity="info">
               เอกสารเก็บแบบ private และเปิดให้เฉพาะผู้ขายกับ Super Admin
             </Alert>
-            <UploadField
-              required
-              label="บัตรประชาชน"
-              done={hasDocument('identity_card')}
-              document={getDocument('identity_card')}
-              loading={uploading === 'identity_card'}
-              onFile={(file) => upload('identity_card', file)}
-            />
-            <UploadField
-              required
-              label="หน้าสมุดบัญชี"
-              done={hasDocument('bank_book')}
-              document={getDocument('bank_book')}
-              loading={uploading === 'bank_book'}
-              onFile={(file) => upload('bank_book', file)}
-            />
-            <UploadField
-              label="หนังสือรับรองบริษัท (ถ้ามี)"
-              done={hasDocument('company_certificate')}
-              document={getDocument('company_certificate')}
-              loading={uploading === 'company_certificate'}
-              onFile={(file) => upload('company_certificate', file)}
-            />
-            <UploadField
-              label="ภ.พ.20 (ถ้ามี)"
-              done={hasDocument('vat_certificate')}
-              document={getDocument('vat_certificate')}
-              loading={uploading === 'vat_certificate'}
-              onFile={(file) => upload('vat_certificate', file)}
-            />
+            <Box
+              sx={{
+                display: 'grid',
+                gap: 2,
+                alignItems: 'stretch',
+                gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))' },
+              }}
+            >
+              <UploadField
+                required
+                label="บัตรประชาชน"
+                done={hasDocument('identity_card')}
+                document={getDocument('identity_card')}
+                loading={uploading === 'identity_card'}
+                previewHeight={180}
+                onFile={(file) => upload('identity_card', file)}
+              />
+              <UploadField
+                required
+                label="หน้าสมุดบัญชี"
+                done={hasDocument('bank_book')}
+                document={getDocument('bank_book')}
+                loading={uploading === 'bank_book'}
+                previewHeight={180}
+                maxSizeMb={2}
+                onFile={(file) => upload('bank_book', file)}
+              />
+              <UploadField
+                label="หนังสือรับรองบริษัท (ถ้ามี)"
+                done={hasDocument('company_certificate')}
+                document={getDocument('company_certificate')}
+                loading={uploading === 'company_certificate'}
+                previewHeight={180}
+                onFile={(file) => upload('company_certificate', file)}
+              />
+              <UploadField
+                label="ภ.พ.20 (ถ้ามี)"
+                done={hasDocument('vat_certificate')}
+                document={getDocument('vat_certificate')}
+                loading={uploading === 'vat_certificate'}
+                previewHeight={180}
+                onFile={(file) => upload('vat_certificate', file)}
+              />
+            </Box>
           </Stack>
         )}
         {activeStep === 4 && (
           <Stack spacing={2}>
             <Alert severity="info">
-              เปิดอ่านข้อตกลงแต่ละฉบับและเลื่อนจนถึงด้านล่าง จึงจะสามารถเลือกยอมรับได้
+              ข้อตกลงและนโยบายฉบับล่าสุดที่ระบบเผยแพร่
+              เปิดอ่านและเลื่อนจนถึงด้านล่างจึงจะสามารถเลือกยอมรับได้
             </Alert>
-            {AGREEMENTS.map((agreement) => {
+            {!!missingAgreementTypes.length && (
+              <Alert severity="error">
+                ยังไม่มีเอกสารนโยบายฉบับเผยแพร่ครบถ้วน กรุณาให้ผู้ดูแลเผยแพร่เอกสารฉบับสมบูรณ์
+                เอกสารก่อนส่งคำขอ
+              </Alert>
+            )}
+            {agreements.map((agreement) => {
               const hasRead = agreementRead[agreement.key];
+              const document = legalDocuments.find(
+                (item) => item.document_type === agreement.documentType
+              );
               return (
                 <Box
                   key={agreement.key}
@@ -1040,7 +1011,9 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                     }
                     label={
                       <Box>
-                        <Typography variant="subtitle2">{agreement.checkboxLabel}</Typography>
+                        <Typography variant="subtitle2">
+                          {document?.title ?? AGREEMENT_CHECKBOX_LABELS[agreement.key]}
+                        </Typography>
                         <Typography variant="caption" color="text.secondary">
                           {hasRead
                             ? 'อ่านครบแล้ว สามารถเลือกยอมรับได้'
@@ -1052,6 +1025,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                   />
                   <Button
                     variant={hasRead ? 'outlined' : 'contained'}
+                    disabled={!document}
                     onClick={() => setOpenAgreement(agreement)}
                     sx={{ flexShrink: 0 }}
                   >
@@ -1061,7 +1035,9 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
               );
             })}
             <Alert severity="warning">
-              ตรวจสอบข้อมูลและเอกสารให้ถูกต้องก่อนส่ง หลังส่งสถานะจะเป็น Pending Review
+              {mode === 'edit'
+                ? 'ตรวจสอบข้อมูลให้ถูกต้องก่อนส่ง ข้อมูลเดิมจะยังแสดงบนหน้าร้านจนกว่าผู้ดูแลจะอนุมัติข้อมูลใหม่'
+                : 'ตรวจสอบข้อมูลและเอกสารให้ถูกต้องก่อนส่ง หลังส่งสถานะจะเป็น Pending Review'}
             </Alert>
           </Stack>
         )}
@@ -1106,7 +1082,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                 onClick={submit}
               >
                 {mode === 'edit' && seller?.status === 'active'
-                  ? 'บันทึกและอัปเดตร้าน'
+                  ? 'ส่งตรวจข้อมูลแก้ไข'
                   : 'ส่งคำขอเปิดร้าน'}
               </Button>
             )}
@@ -1151,7 +1127,7 @@ function AgreementReadDialog({
 
   return (
     <Dialog open={Boolean(agreement)} onClose={onClose} fullWidth maxWidth="md">
-      <DialogTitle>{agreement?.title}</DialogTitle>
+      <DialogTitle>{document?.title ?? 'เอกสารข้อตกลง'}</DialogTitle>
       <DialogContent dividers>
         <Box
           onScroll={(event) => {
@@ -1194,28 +1170,9 @@ function AgreementReadDialog({
               />
             </>
           ) : (
-            <>
-              <Alert severity="warning" sx={{ mb: 2 }}>
-                ยังไม่มีเอกสารฉบับเผยแพร่ ระบบจะแสดงข้อความสำรองชั่วคราว
-              </Alert>
-              <Typography color="text.secondary" sx={{ mb: 3 }}>
-                {agreement?.introduction}
-              </Typography>
-              <Stack spacing={3}>
-                {agreement?.sections.map((section) => (
-                  <Box key={section.heading}>
-                    <Typography variant="subtitle1">{section.heading}</Typography>
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{ mt: 0.75, lineHeight: 1.8 }}
-                    >
-                      {section.content}
-                    </Typography>
-                  </Box>
-                ))}
-              </Stack>
-            </>
+            <Alert severity="error">
+              ไม่พบเอกสารฉบับเผยแพร่ กรุณาให้ผู้ดูแลเผยแพร่เอกสารฉบับสมบูรณ์
+            </Alert>
           )}
           <Stack spacing={3}>
             <Alert severity={reachedEnd ? 'success' : 'info'}>
@@ -1232,7 +1189,7 @@ function AgreementReadDialog({
         </Button>
         <Button
           variant="contained"
-          disabled={!reachedEnd || !agreement}
+          disabled={!reachedEnd || !agreement || !document}
           onClick={() => agreement && onRead(agreement.key)}
         >
           ยืนยันว่าอ่านครบแล้ว
@@ -1244,6 +1201,7 @@ function AgreementReadDialog({
 
 function UploadField({
   label,
+  recommendation,
   done,
   document,
   currentUrl,
@@ -1252,9 +1210,11 @@ function UploadField({
   accept = 'image/*,application/pdf',
   required = false,
   aspectRatio = '16 / 7',
+  previewHeight,
   maxSizeMb = 10,
 }: {
   label: string;
+  recommendation?: string;
   done: boolean;
   document?: NonNullable<MarketplaceSeller['documents']>[number];
   currentUrl?: string | null;
@@ -1263,11 +1223,13 @@ function UploadField({
   accept?: string;
   required?: boolean;
   aspectRatio?: string;
+  previewHeight?: number;
   maxSizeMb?: number;
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState('');
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [fileError, setFileError] = useState('');
 
@@ -1318,170 +1280,200 @@ function UploadField({
   const isImage = mimeType.startsWith('image/') || (accept === 'image/*' && Boolean(sourceUrl));
 
   return (
-    <Card
-      variant="outlined"
-      sx={{
-        p: 2,
-        borderRadius: 2.5,
-        borderColor: pendingFile ? 'primary.main' : done ? 'success.light' : 'divider',
-      }}
-    >
-      <Stack
-        direction="row"
-        justifyContent="space-between"
-        alignItems="center"
-        spacing={2}
-        sx={{ mb: 1.5 }}
-      >
-        <Box>
-          <Stack direction="row" spacing={0.75} alignItems="center">
-            <Typography variant="subtitle2">
-              {label}
-              {required ? ' *' : ''}
-            </Typography>
-            {done && !pendingFile && (
-              <Chip size="small" color="success" variant="soft" label="อัปโหลดแล้ว" />
-            )}
-            {pendingFile && (
-              <Chip size="small" color="primary" variant="soft" label="รอยืนยันอัปโหลด" />
-            )}
-          </Stack>
-          <Typography variant="caption" color="text.secondary">
-            รองรับ{' '}
-            {accept.includes('application/pdf')
-              ? 'JPG, PNG, WebP หรือ PDF'
-              : accept === 'image/png,image/jpeg'
-                ? 'JPG หรือ PNG'
-                : 'JPG, PNG หรือ WebP'}{' '}
-            ขนาดไม่เกิน {maxSizeMb} MB
-          </Typography>
-        </Box>
-        {pendingFile && (
-          <IconButton
-            size="small"
-            aria-label="ยกเลิกไฟล์ที่เลือก"
-            onClick={() => setPendingFile(null)}
-          >
-            <RiCloseLine />
-          </IconButton>
-        )}
-      </Stack>
-
-      <Box
-        role="button"
-        tabIndex={0}
-        onClick={() => inputRef.current?.click()}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter' || event.key === ' ') inputRef.current?.click();
-        }}
-        onDragEnter={(event) => {
-          event.preventDefault();
-          setDragging(true);
-        }}
-        onDragOver={(event) => event.preventDefault()}
-        onDragLeave={(event) => {
-          event.preventDefault();
-          if (!event.currentTarget.contains(event.relatedTarget as Node)) setDragging(false);
-        }}
-        onDrop={(event) => {
-          event.preventDefault();
-          setDragging(false);
-          selectFile(event.dataTransfer.files?.[0]);
-        }}
+    <>
+      <Card
+        variant="outlined"
         sx={{
           p: 2,
-          cursor: 'pointer',
-          minHeight: 160,
-          display: 'grid',
-          overflow: 'hidden',
-          position: 'relative',
-          borderRadius: 2,
-          placeItems: 'center',
-          border: '1.5px dashed',
-          borderColor: dragging ? 'primary.main' : sourceUrl ? 'divider' : 'text.disabled',
-          bgcolor: dragging ? 'primary.lighter' : 'background.neutral',
-          transition: 'border-color 160ms ease, background-color 160ms ease',
-          '&:hover': { borderColor: 'primary.main', bgcolor: 'primary.lighter' },
+          borderRadius: 2.5,
+          borderColor: pendingFile ? 'primary.main' : done ? 'success.light' : 'divider',
         }}
       >
-        {sourceUrl && isImage ? (
-          <Box
-            component="img"
-            src={sourceUrl}
-            alt={`ตัวอย่าง ${label}`}
-            sx={{
-              width: 1,
-              maxHeight: 280,
-              objectFit: 'contain',
-              aspectRatio,
-              borderRadius: 1.5,
-              bgcolor: 'background.paper',
+        <Stack
+          direction="row"
+          justifyContent="space-between"
+          alignItems="center"
+          spacing={2}
+          sx={{ mb: 1.5 }}
+        >
+          <Box>
+            <Stack direction="row" spacing={0.75} alignItems="center">
+              <Typography variant="subtitle2">
+                {label}
+                {required ? ' *' : ''}
+              </Typography>
+              {done && !pendingFile && (
+                <Chip size="small" color="success" variant="soft" label="อัปโหลดแล้ว" />
+              )}
+              {pendingFile && (
+                <Chip size="small" color="primary" variant="soft" label="รอยืนยันอัปโหลด" />
+              )}
+            </Stack>
+            <Typography variant="caption" color="text.secondary">
+              รองรับ{' '}
+              {accept.includes('application/pdf')
+                ? 'JPG, PNG, WebP หรือ PDF'
+                : accept === 'image/png,image/jpeg'
+                  ? 'JPG หรือ PNG'
+                  : 'JPG, PNG หรือ WebP'}{' '}
+              ขนาดไม่เกิน {maxSizeMb} MB
+            </Typography>
+            {recommendation && (
+              <Typography variant="caption" color="primary.main" sx={{ display: 'block' }}>
+                {recommendation}
+              </Typography>
+            )}
+          </Box>
+          {pendingFile && (
+            <IconButton
+              size="small"
+              aria-label="ยกเลิกไฟล์ที่เลือก"
+              onClick={() => setPendingFile(null)}
+            >
+              <RiCloseLine />
+            </IconButton>
+          )}
+        </Stack>
+
+        <Box
+          role="button"
+          tabIndex={0}
+          onClick={() => inputRef.current?.click()}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') inputRef.current?.click();
+          }}
+          onDragEnter={(event) => {
+            event.preventDefault();
+            setDragging(true);
+          }}
+          onDragOver={(event) => event.preventDefault()}
+          onDragLeave={(event) => {
+            event.preventDefault();
+            if (!event.currentTarget.contains(event.relatedTarget as Node)) setDragging(false);
+          }}
+          onDrop={(event) => {
+            event.preventDefault();
+            setDragging(false);
+            selectFile(event.dataTransfer.files?.[0]);
+          }}
+          sx={{
+            p: 2,
+            cursor: 'pointer',
+            minHeight: 160,
+            display: 'grid',
+            overflow: 'hidden',
+            position: 'relative',
+            borderRadius: 2,
+            placeItems: 'center',
+            border: '1.5px dashed',
+            borderColor: dragging ? 'primary.main' : sourceUrl ? 'divider' : 'text.disabled',
+            bgcolor: dragging ? 'primary.lighter' : 'background.neutral',
+            transition: 'border-color 160ms ease, background-color 160ms ease',
+            '&:hover': { borderColor: 'primary.main', bgcolor: 'primary.lighter' },
+          }}
+        >
+          {sourceUrl && isImage ? (
+            <Box
+              component="img"
+              src={sourceUrl}
+              alt={`ตัวอย่าง ${label}`}
+              sx={{
+                width: 1,
+                height: previewHeight ?? 'auto',
+                maxHeight: previewHeight ?? 280,
+                objectFit: 'contain',
+                aspectRatio,
+                borderRadius: 1.5,
+                bgcolor: 'background.paper',
+              }}
+            />
+          ) : sourceUrl || pendingFile ? (
+            <Stack alignItems="center" spacing={1}>
+              <Avatar
+                variant="rounded"
+                sx={{ width: 58, height: 58, color: 'primary.main', bgcolor: 'primary.lighter' }}
+              >
+                <RiFileLine size={30} />
+              </Avatar>
+              <Typography variant="subtitle2" sx={{ wordBreak: 'break-word', textAlign: 'center' }}>
+                {fileName || 'เอกสารที่อัปโหลด'}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {fileSize ? `${(fileSize / 1024 / 1024).toFixed(2)} MB` : 'คลิกเพื่อเลือกไฟล์ใหม่'}
+              </Typography>
+            </Stack>
+          ) : (
+            <Stack alignItems="center" spacing={1}>
+              <Avatar
+                variant="rounded"
+                sx={{ width: 58, height: 58, color: 'primary.main', bgcolor: 'primary.lighter' }}
+              >
+                {accept === 'image/*' ? (
+                  <RiImageLine size={30} />
+                ) : (
+                  <RiUploadCloud2Line size={30} />
+                )}
+              </Avatar>
+              <Typography variant="subtitle2">ลากไฟล์มาวางที่นี่</Typography>
+              <Typography variant="body2" color="text.secondary">
+                หรือคลิกเพื่อเลือกไฟล์จากอุปกรณ์
+              </Typography>
+            </Stack>
+          )}
+
+          <input
+            ref={inputRef}
+            hidden
+            type="file"
+            accept={accept}
+            onChange={(event) => {
+              selectFile(event.target.files?.[0]);
+              event.target.value = '';
             }}
           />
-        ) : sourceUrl || pendingFile ? (
-          <Stack alignItems="center" spacing={1}>
-            <Avatar
-              variant="rounded"
-              sx={{ width: 58, height: 58, color: 'primary.main', bgcolor: 'primary.lighter' }}
-            >
-              <RiFileLine size={30} />
-            </Avatar>
-            <Typography variant="subtitle2" sx={{ wordBreak: 'break-word', textAlign: 'center' }}>
-              {fileName || 'เอกสารที่อัปโหลด'}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              {fileSize ? `${(fileSize / 1024 / 1024).toFixed(2)} MB` : 'คลิกเพื่อเลือกไฟล์ใหม่'}
-            </Typography>
-          </Stack>
-        ) : (
-          <Stack alignItems="center" spacing={1}>
-            <Avatar
-              variant="rounded"
-              sx={{ width: 58, height: 58, color: 'primary.main', bgcolor: 'primary.lighter' }}
-            >
-              {accept === 'image/*' ? <RiImageLine size={30} /> : <RiUploadCloud2Line size={30} />}
-            </Avatar>
-            <Typography variant="subtitle2">ลากไฟล์มาวางที่นี่</Typography>
-            <Typography variant="body2" color="text.secondary">
-              หรือคลิกเพื่อเลือกไฟล์จากอุปกรณ์
-            </Typography>
-          </Stack>
+        </Box>
+
+        {!!fileError && (
+          <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block' }}>
+            {fileError}
+          </Typography>
         )}
 
-        <input
-          ref={inputRef}
-          hidden
-          type="file"
-          accept={accept}
-          onChange={(event) => {
-            selectFile(event.target.files?.[0]);
-            event.target.value = '';
-          }}
-        />
-      </Box>
-
-      {!!fileError && (
-        <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block' }}>
-          {fileError}
-        </Typography>
-      )}
-
-      <Stack direction="row" justifyContent="flex-end" spacing={1} sx={{ mt: 1.5 }}>
-        {(pendingFile || done) && (
-          <Button color="inherit" variant="outlined" onClick={() => inputRef.current?.click()}>
-            {pendingFile ? 'เลือกไฟล์ใหม่' : 'เปลี่ยนไฟล์'}
+        <Stack direction="row" justifyContent="flex-end" spacing={1} sx={{ mt: 1.5 }}>
+          {sourceUrl && (
+            <Button color="inherit" startIcon={<RiEyeLine />} onClick={() => setPreviewOpen(true)}>
+              ดูตัวอย่าง
+            </Button>
+          )}
+          {(pendingFile || done) && (
+            <Button color="inherit" variant="outlined" onClick={() => inputRef.current?.click()}>
+              {pendingFile ? 'เลือกไฟล์ใหม่' : 'เปลี่ยนไฟล์'}
+            </Button>
+          )}
+          <Button
+            variant="contained"
+            loading={loading}
+            disabled={!pendingFile}
+            startIcon={<RiUploadCloud2Line />}
+            onClick={handleUpload}
+          >
+            ยืนยันอัปโหลด
           </Button>
-        )}
-        <Button
-          variant="contained"
-          loading={loading}
-          disabled={!pendingFile}
-          startIcon={<RiUploadCloud2Line />}
-          onClick={handleUpload}
-        >
-          ยืนยันอัปโหลด
-        </Button>
-      </Stack>
-    </Card>
+        </Stack>
+      </Card>
+      <DocumentPreviewDialog
+        file={
+          previewOpen && sourceUrl
+            ? {
+                url: sourceUrl,
+                title: `ตัวอย่าง ${label}`,
+                fileName,
+                mimeType,
+              }
+            : null
+        }
+        onClose={() => setPreviewOpen(false)}
+      />
+    </>
   );
 }

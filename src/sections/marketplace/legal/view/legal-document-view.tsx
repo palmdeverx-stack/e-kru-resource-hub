@@ -115,8 +115,14 @@ export function MarketplaceLegalDocumentView({ documentType }: Props) {
                 <strong>ผู้ให้บริการ:</strong> {document.provider_name}
               </Typography>
               <Typography variant="body2">
-                <strong>ประเภท:</strong> บุคคลธรรมดา
+                <strong>ประเภท:</strong>{' '}
+                {document.provider_type === 'company' ? 'นิติบุคคล' : 'บุคคลธรรมดา'}
               </Typography>
+              {document.provider_registration_no && (
+                <Typography variant="body2">
+                  <strong>เลขทะเบียนนิติบุคคล:</strong> {document.provider_registration_no}
+                </Typography>
+              )}
               {document.provider_tax_id && (
                 <Typography variant="body2">
                   <strong>เลขประจำตัวผู้เสียภาษี:</strong> {document.provider_tax_id}
@@ -128,6 +134,11 @@ export function MarketplaceLegalDocumentView({ documentType }: Props) {
               <Typography variant="body2">
                 <strong>อีเมล:</strong> {document.contact_email}
               </Typography>
+              {document.provider_phone && (
+                <Typography variant="body2">
+                  <strong>โทรศัพท์:</strong> {document.provider_phone}
+                </Typography>
+              )}
               <Typography variant="body2" color="text.secondary">
                 มีผลตั้งแต่ {document.effective_at ? fDateTime(document.effective_at) : '-'}
               </Typography>

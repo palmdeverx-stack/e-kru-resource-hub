@@ -16,9 +16,19 @@ type Props = {
 export function AuthProvider({ children }: Props) {
   const { state, setState } = useSetState<AuthState>({ user: null, loading: true });
 
+  const setSessionUser = useCallback(
+    (user: AuthState['user']) => {
+      setState({ user, loading: false });
+    },
+    [setState]
+  );
+
   const checkUserSession = useCallback(async (): Promise<void> => {
     try {
-      const response = await fetch('/api/auth/me');
+      const response = await fetch('/api/auth/me', {
+        cache: 'no-store',
+        credentials: 'same-origin',
+      });
 
       if (!response.ok) {
         setState({ user: null, loading: false });
@@ -57,12 +67,13 @@ export function AuthProvider({ children }: Props) {
             role: state.user?.role ?? 'student',
           }
         : null,
+      setSessionUser,
       checkUserSession,
       loading: status === 'loading',
       authenticated: status === 'authenticated',
       unauthenticated: status === 'unauthenticated',
     }),
-    [checkUserSession, state.user, status]
+    [checkUserSession, setSessionUser, state.user, status]
   );
 
   return <AuthContext value={memoizedValue}>{children}</AuthContext>;

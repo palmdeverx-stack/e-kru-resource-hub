@@ -66,6 +66,12 @@ export async function GET(request: Request) {
   const category = url.searchParams.get('category');
   const requestedSellerId = url.searchParams.get('sellerId')?.trim();
   const search = url.searchParams.get('q')?.trim();
+  const requestedStatus = url.searchParams.get('status');
+  const mineStatus = ['draft', 'pending_review', 'published', 'rejected', 'archived'].includes(
+    requestedStatus ?? ''
+  )
+    ? requestedStatus
+    : null;
   const page = Math.max(1, Number.parseInt(url.searchParams.get('page') ?? '1', 10) || 1);
   const limit = Math.min(
     48,
@@ -110,7 +116,15 @@ export async function GET(request: Request) {
       .eq('owner_id', caller.sub)
       .maybeSingle();
     sellerId = seller?.id ?? null;
-    if (!sellerId) return NextResponse.json({ products: [] });
+    if (!sellerId) {
+      return NextResponse.json({
+        products: [],
+        hasMore: false,
+        nextPage: null,
+        pagination: { page, limit, total: 0, totalPages: 0 },
+        counts: { all: 0, draft: 0, pending_review: 0, published: 0, rejected: 0, archived: 0 },
+      });
+    }
   }
   const sellerToolsVisible = await canViewSellerTools(caller?.sub);
 
@@ -174,14 +188,45 @@ export async function GET(request: Request) {
     ? 'grade_levels:marketplace_product_grade_levels!inner(grade_level_id,grade_level:marketplace_grade_levels(id,name))'
     : 'grade_levels:marketplace_product_grade_levels(grade_level:marketplace_grade_levels(id,name))';
 
+  let safeSearch = '';
+  let tagMatchedProductIds: string[] = [];
+  if (search) {
+    safeSearch = search.replace(/[^\p{L}\p{N}\s_-]/gu, '').trim();
+    if (safeSearch) {
+      const { data: matchedTags, error: matchedTagsError } = await supabaseAdmin
+        .from('marketplace_tags')
+        .select('id')
+        .eq('is_active', true)
+        .ilike('name', `%${safeSearch}%`);
+      if (matchedTagsError) {
+        return NextResponse.json({ message: matchedTagsError.message }, { status: 500 });
+      }
+      if (matchedTags?.length) {
+        const { data: taggedProducts, error: taggedProductsError } = await supabaseAdmin
+          .from('marketplace_product_tags')
+          .select('product_id')
+          .in(
+            'tag_id',
+            matchedTags.map((tag) => tag.id)
+          );
+        if (taggedProductsError) {
+          return NextResponse.json({ message: taggedProductsError.message }, { status: 500 });
+        }
+        tagMatchedProductIds = [...new Set((taggedProducts ?? []).map((row) => row.product_id))];
+      }
+    }
+  }
+
   let query = supabaseAdmin
     .from('marketplace_products')
     .select(
-      `*, seller:marketplace_sellers(id, display_name, display_name_en, seller_type, slug, logo_url, bio, owner_role), media_type:marketplace_media_types(id, name, delivery_mode), sale_type:marketplace_sale_types(id, name, pricing_mode), ${gradeLevelsSelect}, images:marketplace_product_images(*), reviews:marketplace_product_reviews(rating)`
+      `*, seller:marketplace_sellers(id, display_name, display_name_en, seller_type, slug, logo_url, bio, owner_role), media_type:marketplace_media_types(id, name, delivery_mode), sale_type:marketplace_sale_types(id, name, pricing_mode), ${gradeLevelsSelect}, images:marketplace_product_images(*), reviews:marketplace_product_reviews(rating)`,
+      { count: mine ? 'exact' : undefined }
     )
     .order('created_at', { ascending: false });
 
   query = mine ? query.eq('seller_id', sellerId) : query.eq('status', 'published');
+  if (mine && mineStatus) query = query.eq('status', mineStatus);
   if (!mine && !sellerToolsVisible) query = query.neq('category', SELLER_TOOLS_CATEGORY);
   if (officialSellerIds) query = query.in('seller_id', officialSellerIds);
   if (bestSellingProductIds) {
@@ -192,19 +237,43 @@ export async function GET(request: Request) {
   if (gradeLevelIds) query = query.in('grade_levels.grade_level_id', gradeLevelIds);
   if (priceFilter === 'free') query = query.eq('price', 0);
   if (priceFilter === 'paid') query = query.gt('price', 0);
-  if (search) {
-    const safeSearch = search.replace(/[^\p{L}\p{N}\s_-]/gu, '').trim();
-    if (safeSearch) {
-      query = query.or(`title.ilike.%${safeSearch}%,title_en.ilike.%${safeSearch}%`);
+  if (safeSearch) {
+    const filters = [
+      `title.ilike.%${safeSearch}%`,
+      `title_en.ilike.%${safeSearch}%`,
+      `category.ilike.%${safeSearch}%`,
+    ];
+    if (tagMatchedProductIds.length) {
+      filters.push(`id.in.(${tagMatchedProductIds.join(',')})`);
     }
+    query = query.or(filters.join(','));
   }
   if (!bestSellingProductIds) query = query.range(offset, offset + limit);
 
-  const { data: products, error } = await query;
+  const [{ data: products, error, count: exactProductCount }, mineCountResults] = await Promise.all(
+    [
+      query,
+      mine
+        ? Promise.all(
+            ['draft', 'pending_review', 'published', 'rejected', 'archived'].map((status) =>
+              supabaseAdmin
+                .from('marketplace_products')
+                .select('id', { count: 'exact', head: true })
+                .eq('seller_id', sellerId)
+                .eq('status', status)
+            )
+          )
+        : Promise.resolve([]),
+    ]
+  );
 
   if (error) {
     if (error.code === '42P01') return NextResponse.json({ products: [], setupRequired: true });
     return NextResponse.json({ message: error.message }, { status: 500 });
+  }
+  const mineCountError = mineCountResults.find((result) => result.error)?.error;
+  if (mineCountError) {
+    return NextResponse.json({ message: mineCountError.message }, { status: 500 });
   }
 
   const rows = products ?? [];
@@ -221,19 +290,17 @@ export async function GET(request: Request) {
   const engagementCounts = new Map<string, ProductEngagementCount>();
   if (pageRows.length) {
     const productIds = pageRows.map((product) => product.id);
-    const [
-      { data: countRows, error: countError },
-      { data: favoriteRows, error: favoriteError },
-    ] = await Promise.all([
-      supabaseAdmin.rpc('marketplace_product_engagement_counts', {
-        product_ids: productIds,
-      }),
-      supabaseAdmin
-        .from('marketplace_product_collections')
-        .select('product_id')
-        .eq('collection_type', 'favorite')
-        .in('product_id', productIds),
-    ]);
+    const [{ data: countRows, error: countError }, { data: favoriteRows, error: favoriteError }] =
+      await Promise.all([
+        supabaseAdmin.rpc('marketplace_product_engagement_counts', {
+          product_ids: productIds,
+        }),
+        supabaseAdmin
+          .from('marketplace_product_collections')
+          .select('product_id')
+          .eq('collection_type', 'favorite')
+          .in('product_id', productIds),
+      ]);
     if (countError || favoriteError) {
       return NextResponse.json(
         {
@@ -333,10 +400,34 @@ export async function GET(request: Request) {
     delete publicProduct.purchase_benefits_html;
     return publicProduct;
   });
+  const total = mine ? (exactProductCount ?? 0) : 0;
+  const statusNames = ['draft', 'pending_review', 'published', 'rejected', 'archived'] as const;
+  const counts = statusNames.reduce(
+    (result, status, index) => {
+      result[status] = mineCountResults[index]?.count ?? 0;
+      return result;
+    },
+    { all: 0, draft: 0, pending_review: 0, published: 0, rejected: 0, archived: 0 } as Record<
+      (typeof statusNames)[number] | 'all',
+      number
+    >
+  );
+  counts.all = statusNames.reduce((sum, status) => sum + counts[status], 0);
   return NextResponse.json({
     products: safeProducts,
     hasMore,
     nextPage: hasMore ? page + 1 : null,
+    ...(mine
+      ? {
+          pagination: {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit),
+          },
+          counts,
+        }
+      : {}),
   });
 }
 

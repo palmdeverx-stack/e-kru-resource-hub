@@ -37,6 +37,10 @@ import {
 import { useAuthContext } from 'src/auth/hooks';
 
 import { ThaiBankLogo } from '../../shared/bank-logo';
+import {
+  DocumentPreviewDialog,
+  type DocumentPreviewFile,
+} from '../../shared/document-preview-dialog';
 
 const sellerTypeLabel = {
   individual: 'บุคคลทั่วไป',
@@ -92,6 +96,7 @@ export function MarketplaceSellerApprovalDetailView({
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [previewFile, setPreviewFile] = useState<DocumentPreviewFile | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -117,7 +122,7 @@ export function MarketplaceSellerApprovalDetailView({
   }, [sellerId]);
 
   useEffect(() => {
-    if (user?.role === 'master_admin') load();
+    if (user?.role === 'master_admin' || user?.role === 'super_admin') load();
   }, [load, user?.role]);
 
   const review = async (action: 'approve' | 'reject') => {
@@ -135,7 +140,13 @@ export function MarketplaceSellerApprovalDetailView({
       if (!response.ok) throw new Error(result.message ?? 'ตรวจสอบร้านค้าไม่สำเร็จ');
       setRejectOpen(false);
       setReason('');
-      setSuccess(action === 'approve' ? 'อนุมัติเปิดร้านเรียบร้อยแล้ว' : 'บันทึกการไม่อนุมัติแล้ว');
+      setSuccess(
+        action === 'approve'
+          ? seller?.is_profile_revision
+            ? 'อนุมัติข้อมูลแก้ไขเรียบร้อยแล้ว'
+            : 'อนุมัติเปิดร้านเรียบร้อยแล้ว'
+          : 'บันทึกการไม่อนุมัติแล้ว'
+      );
       await load();
     } catch (reviewError) {
       setError(reviewError instanceof Error ? reviewError.message : 'ตรวจสอบร้านค้าไม่สำเร็จ');
@@ -185,7 +196,7 @@ export function MarketplaceSellerApprovalDetailView({
     }
   };
 
-  if (user?.role !== 'master_admin') {
+  if (user?.role !== 'master_admin' && user?.role !== 'super_admin') {
     return (
       <Container maxWidth="lg" sx={{ py: 5 }}>
         <Alert severity="error">หน้านี้สำหรับ Super Admin เท่านั้น</Alert>
@@ -233,6 +244,13 @@ export function MarketplaceSellerApprovalDetailView({
       {!!error && (
         <Alert severity="error" sx={{ mb: 3 }}>
           {error}
+        </Alert>
+      )}
+
+      {seller.is_profile_revision && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          รายการนี้เป็นข้อมูลแก้ไขของร้านที่เปิดขายอยู่ หน้าร้านยังแสดงข้อมูลเดิมที่อนุมัติแล้ว
+          และจะเปลี่ยนเป็นข้อมูลชุดนี้เมื่ออนุมัติ
         </Alert>
       )}
       {!!success && (
@@ -377,10 +395,15 @@ export function MarketplaceSellerApprovalDetailView({
                       <Button
                         size="small"
                         variant="outlined"
-                        href={document.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
                         startIcon={<RiEyeLine />}
+                        onClick={() =>
+                          setPreviewFile({
+                            url: document.url!,
+                            title: documentLabel[document.document_type] || document.file_name,
+                            fileName: document.file_name,
+                            mimeType: document.mime_type,
+                          })
+                        }
                         sx={{ mt: 1.5 }}
                       >
                         เปิดดูเอกสาร
@@ -523,7 +546,7 @@ export function MarketplaceSellerApprovalDetailView({
                   startIcon={<RiCheckboxCircleLine />}
                   onClick={() => review('approve')}
                 >
-                  อนุมัติเปิดร้าน
+                  {seller.is_profile_revision ? 'อนุมัติข้อมูลแก้ไข' : 'อนุมัติเปิดร้าน'}
                 </Button>
                 <Button
                   color="error"
@@ -531,7 +554,7 @@ export function MarketplaceSellerApprovalDetailView({
                   startIcon={<RiCloseLine />}
                   onClick={() => setRejectOpen(true)}
                 >
-                  ไม่อนุมัติ
+                  {seller.is_profile_revision ? 'ไม่อนุมัติข้อมูลแก้ไข' : 'ไม่อนุมัติ'}
                 </Button>
               </Stack>
             </Card>
@@ -540,7 +563,10 @@ export function MarketplaceSellerApprovalDetailView({
       </Box>
 
       <Dialog open={rejectOpen} onClose={() => setRejectOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>ไม่อนุมัติร้าน {seller.display_name}</DialogTitle>
+        <DialogTitle>
+          {seller.is_profile_revision ? 'ไม่อนุมัติข้อมูลแก้ไข' : 'ไม่อนุมัติร้าน'}{' '}
+          {seller.display_name}
+        </DialogTitle>
         <Divider />
         <DialogContent>
           <TextField
@@ -569,6 +595,7 @@ export function MarketplaceSellerApprovalDetailView({
           </Button>
         </DialogActions>
       </Dialog>
+      <DocumentPreviewDialog file={previewFile} onClose={() => setPreviewFile(null)} />
     </Container>
   );
 }

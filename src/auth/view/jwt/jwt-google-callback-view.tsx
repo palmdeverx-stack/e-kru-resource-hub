@@ -16,6 +16,7 @@ import { getSupabaseBrowserClient } from 'src/lib/supabase-browser';
 
 import { RemixIcon } from 'src/components/remix-icon';
 
+import { useAuthContext } from '../../hooks';
 import { verifySignInPin } from '../../context/jwt';
 
 type PinChallenge = {
@@ -25,6 +26,7 @@ type PinChallenge = {
 
 export function JwtGoogleCallbackView() {
   const router = useRouter();
+  const { setSessionUser } = useAuthContext();
   const searchParams = useSearchParams();
   const started = useRef(false);
   const [error, setError] = useState('');
@@ -71,7 +73,9 @@ export function JwtGoogleCallbackView() {
           return;
         }
 
-        window.location.replace(returnTo);
+        setSessionUser?.(result.user);
+        router.prefetch(returnTo);
+        router.replace(returnTo);
       } catch (callbackError) {
         setError(
           callbackError instanceof Error
@@ -82,7 +86,7 @@ export function JwtGoogleCallbackView() {
     };
 
     completeGoogleSignIn();
-  }, [returnTo, searchParams]);
+  }, [returnTo, router, searchParams, setSessionUser]);
 
   const verifyPin = async () => {
     if (!pinChallenge || !/^\d{8}$/.test(pin)) {
@@ -92,8 +96,10 @@ export function JwtGoogleCallbackView() {
     setVerifyingPin(true);
     setError('');
     try {
-      await verifySignInPin({ pinChallengeToken: pinChallenge.token, pin });
-      window.location.replace(returnTo);
+      const user = await verifySignInPin({ pinChallengeToken: pinChallenge.token, pin });
+      setSessionUser?.(user);
+      router.prefetch(returnTo);
+      router.replace(returnTo);
     } catch (pinError) {
       setError(pinError instanceof Error ? pinError.message : 'PIN ไม่ถูกต้อง');
     } finally {
@@ -172,4 +178,3 @@ export function JwtGoogleCallbackView() {
     </Box>
   );
 }
-

@@ -5,6 +5,7 @@ import { parseBangkokDateTime } from 'src/utils/timezone';
 import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { canEditGradebook } from 'src/lib/grade-review-access';
+import { optimizeUploadedImage } from 'src/lib/server-image-optimizer';
 import {
   loadTeacherAssignment,
   canAccessTeacherAssignment,
@@ -295,12 +296,17 @@ export async function POST(request: Request, { params }: RouteParams) {
     try {
       const attachments = [];
       for (const file of files) {
-        const extension = FILE_EXTENSIONS[file.type];
+        const image = file.type.startsWith('image/')
+          ? await optimizeUploadedImage(file, { preset: 'document', output: 'original' })
+          : null;
+        const extension = image?.extension ?? FILE_EXTENSIONS[file.type];
         const classroom = teacherAssignment!.classrooms as unknown as { school_id: string };
         const storagePath = `${classroom.school_id}/${assignment.id}/${crypto.randomUUID()}.${extension}`;
         const { error: uploadError } = await supabaseAdmin.storage
           .from(BUCKET)
-          .upload(storagePath, file, { contentType: file.type });
+          .upload(storagePath, image?.data ?? file, {
+            contentType: image?.contentType ?? file.type,
+          });
         if (uploadError) throw new Error(uploadError.message);
 
         uploadedPaths.push(storagePath);
@@ -312,8 +318,8 @@ export async function POST(request: Request, { params }: RouteParams) {
           file_name: file.name,
           file_url: publicUrl,
           storage_path: storagePath,
-          mime_type: file.type,
-          file_size: file.size,
+          mime_type: image?.contentType ?? file.type,
+          file_size: image?.size ?? file.size,
         });
       }
 

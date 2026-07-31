@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { requireAuthenticated } from 'src/lib/auth-token';
+import { optimizeUploadedImage } from 'src/lib/server-image-optimizer';
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -52,12 +53,11 @@ export async function POST(request: Request, { params }: Context) {
     );
   }
 
-  const extension = slip.type === 'image/png' ? 'png' : slip.type === 'image/webp' ? 'webp' : 'jpg';
-  const path = `${caller.sub}/${id}/slip-${Date.now()}.${extension}`;
-  const bytes = await slip.arrayBuffer();
+  const image = await optimizeUploadedImage(slip, { preset: 'document', output: 'original' });
+  const path = `${caller.sub}/${id}/slip-${Date.now()}.${image.extension}`;
   const { error: uploadError } = await supabaseAdmin.storage
     .from('marketplace-payment-slips')
-    .upload(path, bytes, { contentType: slip.type, upsert: false });
+    .upload(path, image.data, { contentType: image.contentType, upsert: false });
   if (uploadError) return NextResponse.json({ message: uploadError.message }, { status: 500 });
 
   const now = new Date().toISOString();
@@ -67,7 +67,7 @@ export async function POST(request: Request, { params }: Context) {
       status: 'payment_review',
       slip_path: path,
       slip_file_name: slip.name.slice(0, 255),
-      slip_mime_type: slip.type,
+      slip_mime_type: image.contentType,
       submitted_at: now,
       rejection_reason: null,
       updated_at: now,

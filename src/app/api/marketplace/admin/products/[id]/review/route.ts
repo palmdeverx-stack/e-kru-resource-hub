@@ -34,7 +34,7 @@ export async function GET(request: Request, { params }: Context) {
   const { data: reviewHistory, error: historyError } = await supabaseAdmin
     .from('marketplace_product_review_submissions')
     .select(
-      'id, submission_number, product_title_snapshot, status, submitted_at, reviewed_at, reviewed_by, rejection_reason'
+      'id, submission_number, product_title_snapshot, status, submitted_at, reviewed_at, reviewed_by, rejection_reason, acceptance_version, seller_attestations, legal_document_versions, accepted_by, accepted_at'
     )
     .eq('product_id', id)
     .order('submission_number', { ascending: false });

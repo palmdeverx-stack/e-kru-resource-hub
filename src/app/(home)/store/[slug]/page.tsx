@@ -1,28 +1,37 @@
 import type { Metadata } from 'next';
 
-import { MarketplaceStorefrontView } from 'src/sections/marketplace/seller/view/storefront-view';
 import { getPublicStoreSeo } from 'src/sections/marketplace/seo/server';
-import { absoluteMarketplaceUrl } from 'src/sections/marketplace/seo/site-url';
+import { MarketplaceStorefrontView } from 'src/sections/marketplace/seller/view/storefront-view';
+import { getPublicPlatformSettings } from 'src/sections/marketplace/admin/server/platform-settings';
+import {
+  absoluteMarketplaceUrl,
+  MARKETPLACE_OG_IMAGE_URL,
+} from 'src/sections/marketplace/seo/site-url';
 
 type Props = { params: Promise<{ slug: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const store = await getPublicStoreSeo(slug);
+  const [store, settings] = await Promise.all([
+    getPublicStoreSeo(slug),
+    getPublicPlatformSettings(),
+  ]);
+  const platformName = settings?.platform_name_th || 'E-KRU Marketplace';
 
   if (!store) {
     return {
-      title: 'ไม่พบร้านค้า | E-KRU Marketplace',
+      title: `ไม่พบร้านค้า | ${platformName}`,
       robots: { index: false, follow: false },
     };
   }
 
   const identifier = store.slug || store.id;
   const path = `/store/${encodeURIComponent(identifier)}`;
-  const image = store.cover_url || store.logo_url;
+  const image =
+    store.cover_url || store.logo_url || settings?.og_image_url || MARKETPLACE_OG_IMAGE_URL;
 
   return {
-    title: `${store.display_name} | E-KRU Marketplace`,
+    title: `${store.display_name} | ${platformName}`,
     description: store.description,
     alternates: { canonical: path },
     openGraph: {
@@ -31,13 +40,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title: store.display_name,
       description: store.description,
       url: path,
-      images: image ? [{ url: image, alt: store.display_name }] : undefined,
+      images: [{ url: image, alt: store.display_name }],
     },
     twitter: {
       card: 'summary_large_image',
       title: store.display_name,
       description: store.description,
-      images: image ? [image] : undefined,
+      images: [image],
     },
   };
 }

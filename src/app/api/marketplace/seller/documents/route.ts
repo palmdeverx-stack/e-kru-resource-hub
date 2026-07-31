@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { requireAuthenticated } from 'src/lib/auth-token';
+import { optimizeUploadedImage } from 'src/lib/server-image-optimizer';
 
 const TYPES = new Set([
   'store_logo',
@@ -23,6 +24,50 @@ function hasValidSignatureHeader(bytes: Uint8Array, mimeType: string) {
   return bytes.length >= 3 && bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255;
 }
 
+export async function GET(request: Request) {
+  const caller = requireAuthenticated(request);
+  if (!caller) return NextResponse.json({ message: 'กรุณาเข้าสู่ระบบ' }, { status: 401 });
+
+  const documentId = new URL(request.url).searchParams.get('documentId');
+  if (!documentId) {
+    return NextResponse.json({ message: 'ไม่พบรหัสเอกสาร' }, { status: 400 });
+  }
+
+  const { data: document, error } = await supabaseAdmin
+    .from('marketplace_seller_documents')
+    .select('id, seller_id, storage_bucket, storage_path')
+    .eq('id', documentId)
+    .maybeSingle();
+  if (error || !document) {
+    return NextResponse.json({ message: 'ไม่พบเอกสาร' }, { status: 404 });
+  }
+
+  const { data: seller } = await supabaseAdmin
+    .from('marketplace_sellers')
+    .select('owner_id')
+    .eq('id', document.seller_id)
+    .maybeSingle();
+  const isAdmin = caller.role === 'master_admin' || caller.role === 'super_admin';
+  if (!seller || (seller.owner_id !== caller.sub && !isAdmin)) {
+    return NextResponse.json({ message: 'ไม่มีสิทธิ์ดูเอกสารนี้' }, { status: 403 });
+  }
+
+  if (document.storage_bucket === 'marketplace-seller-assets') {
+    const publicUrl = supabaseAdmin.storage
+      .from(document.storage_bucket)
+      .getPublicUrl(document.storage_path).data.publicUrl;
+    return NextResponse.redirect(publicUrl, 307);
+  }
+
+  const { data: signed, error: signedError } = await supabaseAdmin.storage
+    .from(document.storage_bucket)
+    .createSignedUrl(document.storage_path, 60);
+  if (signedError || !signed?.signedUrl) {
+    return NextResponse.json({ message: 'สร้างลิงก์ดูเอกสารไม่สำเร็จ' }, { status: 500 });
+  }
+  return NextResponse.redirect(signed.signedUrl, 307);
+}
+
 export async function POST(request: Request) {
   const caller = requireAuthenticated(request);
   if (!caller) return NextResponse.json({ message: 'กรุณาเข้าสู่ระบบ' }, { status: 401 });
@@ -39,15 +84,12 @@ export async function POST(request: Request) {
     : isAsset
       ? ['image/jpeg', 'image/png', 'image/webp']
       : ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
-  const maxSize = isReceiptSignature
-    ? 2 * 1024 * 1024
-    : isAsset
-      ? 5 * 1024 * 1024
-      : 10 * 1024 * 1024;
+  const maxSizeMb = isReceiptSignature || isAsset || documentType === 'bank_book' ? 2 : 10;
+  const maxSize = maxSizeMb * 1024 * 1024;
   if (!accepted.includes(file.type) || file.size > maxSize) {
     return NextResponse.json(
       {
-        message: `ไฟล์ไม่ถูกต้องหรือมีขนาดเกิน ${isReceiptSignature ? 2 : isAsset ? 5 : 10} MB`,
+        message: `ไฟล์ไม่ถูกต้องหรือมีขนาดเกิน ${maxSizeMb} MB`,
       },
       { status: 400 }
     );
@@ -61,7 +103,7 @@ export async function POST(request: Request) {
   }
   const { data: seller } = await supabaseAdmin
     .from('marketplace_sellers')
-    .select('id, owner_id, status')
+    .select('id, owner_id, status, pending_profile_data')
     .eq('owner_id', caller.sub)
     .maybeSingle();
   if (!seller) {
@@ -72,18 +114,21 @@ export async function POST(request: Request) {
   }
 
   const bucket = isAsset ? 'marketplace-seller-assets' : 'marketplace-seller-documents';
-  const extension =
+  const optimizedImage =
     file.type === 'application/pdf'
-      ? 'pdf'
-      : file.type === 'image/png'
-        ? 'png'
-        : file.type === 'image/webp'
-          ? 'webp'
-          : 'jpg';
+      ? null
+      : await optimizeUploadedImage(file, {
+          preset: isAsset ? 'content' : 'document',
+          output: isAsset ? 'webp' : 'original',
+        });
+  const uploadData = optimizedImage?.data ?? fileBytes;
+  const storedContentType = optimizedImage?.contentType ?? file.type;
+  const storedSize = optimizedImage?.size ?? file.size;
+  const extension = optimizedImage?.extension ?? 'pdf';
   const path = `${seller.id}/${documentType}-${Date.now()}.${extension}`;
   const { error: uploadError } = await supabaseAdmin.storage
     .from(bucket)
-    .upload(path, fileBytes, { contentType: file.type });
+    .upload(path, uploadData, { contentType: storedContentType });
   if (uploadError) return NextResponse.json({ message: uploadError.message }, { status: 500 });
 
   const { data: previous } = await supabaseAdmin
@@ -101,8 +146,8 @@ export async function POST(request: Request) {
         storage_bucket: bucket,
         storage_path: path,
         file_name: file.name.slice(0, 255),
-        mime_type: file.type,
-        file_size: file.size,
+        mime_type: storedContentType,
+        file_size: storedSize,
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'seller_id,document_type' }
@@ -113,7 +158,7 @@ export async function POST(request: Request) {
     await supabaseAdmin.storage.from(bucket).remove([path]);
     return NextResponse.json({ message: error?.message }, { status: 500 });
   }
-  if (previous && !isReceiptSignature) {
+  if (previous && !isReceiptSignature && !(isAsset && seller.status === 'active')) {
     await supabaseAdmin.storage.from(previous.storage_bucket).remove([previous.storage_path]);
   }
   if (isReceiptSignature) {
@@ -122,7 +167,7 @@ export async function POST(request: Request) {
       .update({
         provider_signature_bucket: bucket,
         provider_signature_path: path,
-        provider_signature_mime_type: file.type,
+        provider_signature_mime_type: storedContentType,
         updated_at: new Date().toISOString(),
       })
       .eq('issued_by', seller.owner_id)
@@ -135,18 +180,28 @@ export async function POST(request: Request) {
   let url: string | null = null;
   if (isAsset) {
     url = supabaseAdmin.storage.from(bucket).getPublicUrl(path).data.publicUrl;
+    const assetField = documentType === 'store_logo' ? 'logo_url' : 'cover_url';
     const { error: updateSellerError } = await supabaseAdmin
       .from('marketplace_sellers')
-      .update({
-        [documentType === 'store_logo' ? 'logo_url' : 'cover_url']: url,
-        updated_at: new Date().toISOString(),
-      })
+      .update(
+        seller.status === 'active'
+          ? {
+              pending_profile_data: {
+                ...((seller.pending_profile_data ?? {}) as Record<string, unknown>),
+                [assetField]: url,
+              },
+              profile_review_status: 'draft',
+              profile_rejection_reason: null,
+              updated_at: new Date().toISOString(),
+            }
+          : { [assetField]: url, updated_at: new Date().toISOString() }
+      )
       .eq('id', seller.id);
     if (updateSellerError) {
       return NextResponse.json({ message: updateSellerError.message }, { status: 500 });
     }
   } else {
-    url = (await supabaseAdmin.storage.from(bucket).createSignedUrl(path, 10 * 60)).data?.signedUrl ?? null;
+    url = `/api/marketplace/seller/documents?documentId=${encodeURIComponent(document.id)}`;
   }
   return NextResponse.json({ document: { ...document, url } });
 }

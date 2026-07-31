@@ -11,6 +11,10 @@
     {
       "path": "/api/internal/school-holiday-announcements/process",
       "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/internal/marketplace-tags/cleanup",
+      "schedule": "15 * * * *"
     }
   ]
 }
