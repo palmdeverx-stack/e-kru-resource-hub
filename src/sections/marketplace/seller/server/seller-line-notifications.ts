@@ -7,6 +7,7 @@ import { getSellerLineFeatureAccess } from './seller-line-access';
 import { recordEntitlementUsage } from '../../checkout/server/order-evidence';
 import {
   MARKETPLACE_SELLER_LINE_FEATURE_KEY,
+  MARKETPLACE_SELLER_LINE_TRIAL_FEATURE_KEY,
   MARKETPLACE_SELLER_LINE_MANAGED_FEATURE_KEY,
 } from '../line-feature';
 
@@ -83,21 +84,25 @@ export async function notifySellerPaymentReceived(input: PaymentNotificationInpu
     .overlaps('feature_keys', [
       MARKETPLACE_SELLER_LINE_FEATURE_KEY,
       MARKETPLACE_SELLER_LINE_MANAGED_FEATURE_KEY,
+      MARKETPLACE_SELLER_LINE_TRIAL_FEATURE_KEY,
     ])
     .order('created_at', { ascending: false });
 
   const ownLicense = featureLicenses?.find((license) =>
     license.feature_keys?.includes(MARKETPLACE_SELLER_LINE_FEATURE_KEY)
   );
-  const managedLicense = featureLicenses?.find((license) =>
-    license.feature_keys?.includes(MARKETPLACE_SELLER_LINE_MANAGED_FEATURE_KEY)
+  const managedLicense = featureLicenses?.find(
+    (license) =>
+      license.feature_keys?.includes(MARKETPLACE_SELLER_LINE_MANAGED_FEATURE_KEY) ||
+      license.feature_keys?.includes(MARKETPLACE_SELLER_LINE_TRIAL_FEATURE_KEY)
   );
-  const isSystemSeller = seller.owner_role === 'master_admin' || seller.owner_role === 'super_admin';
+  const isSystemSeller =
+    seller.owner_role === 'master_admin' || seller.owner_role === 'super_admin';
   const systemSellerUsesOwnAccount = Boolean(
     isSystemSeller &&
-      settings?.is_enabled &&
-      settings.channel_access_token_encrypted &&
-      settings.line_user_id
+    settings?.is_enabled &&
+    settings.channel_access_token_encrypted &&
+    settings.line_user_id
   );
   const useOwnAccount = Boolean(settings?.channel_access_token_encrypted && ownLicense);
   const featureLicense = useOwnAccount ? ownLicense : managedLicense;
@@ -132,9 +137,9 @@ export async function notifySellerPaymentReceived(input: PaymentNotificationInpu
   else if (!lineUserId) skipReason = 'ยังไม่ได้ผูก LINE ผู้รับแจ้งเตือน';
 
   if (!skipReason && managedLicense && !useOwnAccount) {
-    const managedProduct = managedLicense.product as
-      | Array<{ license_line_quota: number | null }>
-      | null;
+    const managedProduct = managedLicense.product as Array<{
+      license_line_quota: number | null;
+    }> | null;
     const quota = Number(managedProduct?.[0]?.license_line_quota);
     if (Number.isFinite(quota) && quota > 0) {
       const { count } = await supabaseAdmin
@@ -172,15 +177,15 @@ export async function notifySellerPaymentReceived(input: PaymentNotificationInpu
   // Reserve the order/event before calling LINE so concurrent Stripe webhooks
   // cannot send the same seller notification twice.
   const deliveryPayload = {
-      seller_id: input.sellerId,
-      order_id: input.orderId,
-      payment_session_id: input.paymentSessionId,
-      event_type: 'payment_received',
-      amount: input.sellerNet,
-      message_text: message,
-      status: 'failed',
-      last_error: skipReason ?? 'กำลังส่ง',
-    };
+    seller_id: input.sellerId,
+    order_id: input.orderId,
+    payment_session_id: input.paymentSessionId,
+    event_type: 'payment_received',
+    amount: input.sellerNet,
+    message_text: message,
+    status: 'failed',
+    last_error: skipReason ?? 'กำลังส่ง',
+  };
   const reservation = existing
     ? await supabaseAdmin
         .from('marketplace_seller_line_deliveries')

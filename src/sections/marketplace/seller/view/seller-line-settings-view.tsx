@@ -15,10 +15,12 @@ import Divider from '@mui/material/Divider';
 import Checkbox from '@mui/material/Checkbox';
 import TextField from '@mui/material/TextField';
 import Container from '@mui/material/Container';
+import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
+import LinearProgress from '@mui/material/LinearProgress';
 import CircularProgress from '@mui/material/CircularProgress';
 import FormControlLabel from '@mui/material/FormControlLabel';
 
@@ -26,19 +28,41 @@ import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 
-import { RiBookOpenLine, RiSendPlaneLine, RiShoppingCart2Line } from 'src/components/remix-icon';
+import {
+  RiCloseLine,
+  RiTimerLine,
+  RiBookOpenLine,
+  RiSendPlaneLine,
+  RiShoppingCart2Line,
+} from 'src/components/remix-icon';
 
 import { getProduct, formatPrice } from '../../shared/api';
 import { useMarketplaceCart } from '../../cart/cart-context';
+import { MARKETPLACE_SELLER_LINE_TRIAL_FEATURE_KEY } from '../line-feature';
 
 type SettingsResult = {
   seller: { display_name: string };
   mode: 'byoa' | 'managed' | 'system';
+  usage: {
+    planLabel: string;
+    quotaTotal: number | null;
+    quotaUsed: number;
+    startsAt: string;
+    expiresAt: string | null;
+    durationDays: number | null;
+    quotaSource: 'line' | 'package';
+    quotaError: string | null;
+  } | null;
   settings: {
     lineUserId: string;
     isEnabled: boolean;
     notifyPaymentReceived: boolean;
     hasAccessToken: boolean;
+  };
+  lineConnection: {
+    displayName: string | null;
+    linkedAt: string | null;
+    systemAvailable: boolean;
   };
   recentDeliveries: Array<{
     id: string;
@@ -65,6 +89,15 @@ type PurchaseOption = {
   price: number;
   description: string;
   quota: number | null;
+  durationDays: number | null;
+};
+
+type LineInvitation = {
+  code: string;
+  expiresAt: string;
+  addFriendUrl: string;
+  lineChatUrl: string;
+  qrCodeUrl: string;
 };
 
 async function readJson(response: Response) {
@@ -86,7 +119,10 @@ export function MarketplaceSellerLineSettingsView() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [linking, setLinking] = useState(false);
+  const [unlinking, setUnlinking] = useState(false);
   const [buying, setBuying] = useState(false);
+  const [invitation, setInvitation] = useState<LineInvitation | null>(null);
   const [error, setError] = useState('');
   const [subscriptionAccepted, setSubscriptionAccepted] = useState(false);
   const [success, setSuccess] = useState('');
@@ -95,6 +131,21 @@ export function MarketplaceSellerLineSettingsView() {
   const [purchasePrice, setPurchasePrice] = useState<number | null>(null);
   const [purchaseOptions, setPurchaseOptions] = useState<PurchaseOption[]>([]);
   const usesManagedLine = data?.mode === 'managed';
+  const usage = data?.usage;
+  const remainingDays = usage?.expiresAt
+    ? Math.max(
+        0,
+        Math.ceil((new Date(usage.expiresAt).getTime() - Date.now()) / (24 * 60 * 60 * 1000))
+      )
+    : null;
+  const quotaRemaining =
+    usage?.quotaTotal !== null && usage?.quotaTotal !== undefined
+      ? Math.max(0, usage.quotaTotal - usage.quotaUsed)
+      : null;
+  const quotaPercent =
+    usage?.quotaTotal && usage.quotaTotal > 0
+      ? Math.min(100, Math.round((usage.quotaUsed / usage.quotaTotal) * 100))
+      : 0;
 
   const load = useCallback(async () => {
     setError('');
@@ -133,6 +184,50 @@ export function MarketplaceSellerLineSettingsView() {
     load();
   }, [load]);
 
+  useEffect(() => {
+    if (!invitation || data?.lineConnection.linkedAt) return undefined;
+    const timer = window.setInterval(load, 5000);
+    return () => window.clearInterval(timer);
+  }, [data?.lineConnection.linkedAt, invitation, load]);
+
+  const createInvitation = async () => {
+    setLinking(true);
+    setError('');
+    try {
+      const result = (await readJson(
+        await fetch('/api/marketplace/seller/line-settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'invite' }),
+        })
+      )) as { invitation: LineInvitation };
+      setInvitation(result.invitation);
+    } catch (linkError) {
+      setError(linkError instanceof Error ? linkError.message : 'สร้างรหัสผูก LINE ไม่สำเร็จ');
+    } finally {
+      setLinking(false);
+    }
+  };
+
+  const unlinkLine = async () => {
+    setUnlinking(true);
+    setError('');
+    try {
+      await readJson(
+        await fetch('/api/marketplace/seller/line-settings', {
+          method: 'DELETE',
+        })
+      );
+      setInvitation(null);
+      setSuccess('ยกเลิกการผูก LINE แล้ว');
+      await load();
+    } catch (unlinkError) {
+      setError(unlinkError instanceof Error ? unlinkError.message : 'ยกเลิกการผูก LINE ไม่สำเร็จ');
+    } finally {
+      setUnlinking(false);
+    }
+  };
+
   const buyNow = async (productId = purchaseProductId) => {
     if (!productId) return;
     if (!subscriptionAccepted) {
@@ -143,6 +238,9 @@ export function MarketplaceSellerLineSettingsView() {
     setError('');
     try {
       const { product } = await getProduct(productId);
+      if (product.purchase_access?.canPurchase === false) {
+        throw new Error(product.purchase_access.message ?? 'ไม่สามารถเลือกแพ็กเกจนี้ได้');
+      }
       addItem(product);
       router.push(paths.marketplace.dashboardCheckout);
     } catch (buyError) {
@@ -185,6 +283,18 @@ export function MarketplaceSellerLineSettingsView() {
     try {
       await readJson(
         await fetch('/api/marketplace/seller/line-settings', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            lineUserId,
+            accessToken,
+            isEnabled,
+            notifyPaymentReceived,
+          }),
+        })
+      );
+      await readJson(
+        await fetch('/api/marketplace/seller/line-settings', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'test' }),
@@ -211,7 +321,21 @@ export function MarketplaceSellerLineSettingsView() {
     return (
       <Container maxWidth="sm" sx={{ py: { xs: 4, md: 8 } }}>
         <Dialog open disableEscapeKeyDown maxWidth="xs" fullWidth>
-          <DialogTitle>ซื้อฟีเจอร์ก่อนใช้งาน</DialogTitle>
+          <DialogTitle sx={{ pr: 7 }}>
+            ปลดล็อคฟีเจอร์ก่อนใช้งาน
+            <IconButton
+              aria-label="ปิดหน้าต่าง"
+              onClick={() => router.push(paths.marketplace.seller)}
+              sx={{
+                top: 8,
+                right: 8,
+                position: 'absolute',
+                color: 'text.secondary',
+              }}
+            >
+              <RiCloseLine />
+            </IconButton>
+          </DialogTitle>
           <DialogContent>
             <Typography color="text.secondary">
               LINE แจ้งเตือนยอดขายเป็นฟีเจอร์เสริมแบบซื้อขาด
@@ -247,7 +371,7 @@ export function MarketplaceSellerLineSettingsView() {
                   </Link>
                   <br />
                   <Typography component="span" variant="caption">
-                    ติ๊กช่องนี้เพื่อเปิดปุ่ม “ซื้อเลย”
+                    ติ๊กช่องนี้เพื่อเปิดปุ่มดำเนินการ
                   </Typography>
                 </Typography>
               }
@@ -264,43 +388,57 @@ export function MarketplaceSellerLineSettingsView() {
                         price: purchasePrice,
                         description: 'ใช้ LINE OA ของตัวเอง',
                         quota: null,
+                        durationDays: null,
                       },
                     ]
                   : []
-              ).map((option) => (
-                <Box
-                  key={option.productId}
-                  sx={{
-                    p: 2,
-                    borderRadius: 1.5,
-                    bgcolor: 'primary.lighter',
-                    border: '1px solid',
-                    borderColor: 'primary.light',
-                  }}
-                >
-                  <Typography variant="subtitle1">
-                    {option.quota ? 'ใช้ LINE ของระบบ E-KRU' : 'ใช้ LINE OA ของตัวเอง'}
-                  </Typography>
-                  <Typography variant="h5" color="primary.darker" sx={{ mt: 0.5 }}>
-                    {formatPrice(option.price)}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {option.description}
-                    {option.quota ? ` · ${option.quota} ข้อความ` : ' · ซื้อขาด'}
-                  </Typography>
-                  <Button
-                    fullWidth
-                    variant="contained"
-                    loading={buying}
-                    disabled={!subscriptionAccepted}
-                    startIcon={<RiShoppingCart2Line />}
-                    onClick={() => buyNow(option.productId)}
-                    sx={{ mt: 1.5 }}
+              ).map((option) => {
+                const isTrial = option.key === MARKETPLACE_SELLER_LINE_TRIAL_FEATURE_KEY;
+                return (
+                  <Box
+                    key={option.productId}
+                    sx={{
+                      p: 2,
+                      borderRadius: 1.5,
+                      bgcolor: 'primary.lighter',
+                      border: '1px solid',
+                      borderColor: 'primary.light',
+                    }}
                   >
-                    ซื้อเลย
-                  </Button>
-                </Box>
-              ))}
+                    <Typography variant="subtitle1">
+                      {isTrial
+                        ? 'ทดลองใช้งาน'
+                        : option.quota
+                          ? 'ใช้ LINE ของระบบ E-KRU'
+                          : 'ใช้ LINE OA ของตัวเอง'}
+                    </Typography>
+                    <Typography variant="h5" color="primary.darker" sx={{ mt: 0.5 }}>
+                      {formatPrice(option.price)}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {option.description}
+                      {isTrial
+                        ? ` · ${option.durationDays ?? 7} วัน${
+                            option.quota ? ` · ${option.quota} ข้อความ` : ''
+                          }`
+                        : option.quota
+                          ? ` · ${option.quota} ข้อความ`
+                          : ' · ซื้อขาด'}
+                    </Typography>
+                    <Button
+                      fullWidth
+                      variant="contained"
+                      loading={buying}
+                      disabled={!subscriptionAccepted}
+                      startIcon={isTrial ? <RiTimerLine /> : <RiShoppingCart2Line />}
+                      onClick={() => buyNow(option.productId)}
+                      sx={{ mt: 1.5 }}
+                    >
+                      {isTrial ? 'เริ่มทดลองใช้' : 'ซื้อเลย'}
+                    </Button>
+                  </Box>
+                );
+              })}
             </Stack>
             {!!error && (
               <Alert severity="error" sx={{ mt: 2 }}>
@@ -376,23 +514,22 @@ export function MarketplaceSellerLineSettingsView() {
         }}
       >
         <Stack spacing={3}>
-          <Card variant="outlined" sx={{ p: { xs: 2.5, md: 3 } }}>
-            <Typography variant="h6">ข้อมูลเชื่อมต่อของร้าน</Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 3 }}>
-              {usesManagedLine
-                ? 'แพ็กเกจนี้ใช้ LINE Official Account ของระบบ E-KRU ผู้ขายไม่ต้องกรอก Channel access token'
-                : 'ใช้ Credentials ของ LINE Official Account ที่ผู้ขายสร้างเอง Token จะถูกเข้ารหัสและไม่แสดงกลับบนหน้าจอ'}
-            </Typography>
-            <Stack spacing={2.5}>
-              <TextField
-                required
-                label="LINE User ID"
-                placeholder="Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                value={lineUserId}
-                onChange={(event) => setLineUserId(event.target.value.trim())}
-                helperText="Your user ID จากแท็บ Basic settings ไม่ใช่ LINE ID หรือ @Basic ID"
-              />
-              {!usesManagedLine && (
+          {!usesManagedLine && (
+            <Card variant="outlined" sx={{ p: { xs: 2.5, md: 3 } }}>
+              <Typography variant="h6">ข้อมูลเชื่อมต่อของร้าน</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 3 }}>
+                ใช้ Credentials ของ LINE Official Account ที่ผู้ขายสร้างเอง Token
+                จะถูกเข้ารหัสและไม่แสดงกลับบนหน้าจอ
+              </Typography>
+              <Stack spacing={2.5}>
+                <TextField
+                  required
+                  label="LINE User ID"
+                  placeholder="Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                  value={lineUserId}
+                  onChange={(event) => setLineUserId(event.target.value.trim())}
+                  helperText="Your user ID จากแท็บ Basic settings ไม่ใช่ LINE ID หรือ @Basic ID"
+                />
                 <TextField
                   required={!data?.settings.hasAccessToken}
                   type="password"
@@ -410,9 +547,9 @@ export function MarketplaceSellerLineSettingsView() {
                       : 'ออก Token จากแท็บ Messaging API ใน LINE Developers Console'
                   }
                 />
-              )}
-            </Stack>
-          </Card>
+              </Stack>
+            </Card>
+          )}
 
           <Card variant="outlined" sx={{ p: { xs: 2.5, md: 3 } }}>
             <Typography variant="h6">เปิด–ปิดการแจ้งเตือน</Typography>
@@ -458,65 +595,232 @@ export function MarketplaceSellerLineSettingsView() {
               <Button variant="contained" loading={saving} onClick={save}>
                 บันทึกการตั้งค่า
               </Button>
-              <Button
-                variant="outlined"
-                startIcon={<RiSendPlaneLine />}
-                loading={testing}
-                disabled={
-                  !data?.settings.lineUserId || (!usesManagedLine && !data.settings.hasAccessToken)
-                }
-                onClick={test}
-              >
-                ส่งข้อความทดสอบ
-              </Button>
+              {!usesManagedLine && (
+                <Button
+                  variant="outlined"
+                  startIcon={<RiSendPlaneLine />}
+                  loading={testing}
+                  disabled={!lineUserId || (!accessToken && !data?.settings.hasAccessToken)}
+                  onClick={test}
+                >
+                  ส่งข้อความทดสอบ
+                </Button>
+              )}
             </Stack>
             {accessToken && (
               <Alert severity="info" sx={{ mt: 2 }}>
-                กดบันทึกก่อน แล้วจึงส่งข้อความทดสอบด้วย Token ใหม่
+                เมื่อกดส่งข้อความทดสอบ ระบบจะบันทึก Token ใหม่นี้ให้อัตโนมัติ
               </Alert>
             )}
           </Card>
         </Stack>
 
-        <Card variant="outlined" sx={{ p: 3 }}>
-          <Typography variant="h6">ประวัติการส่งล่าสุด</Typography>
-          <Divider sx={{ my: 2 }} />
-          <Stack divider={<Divider flexItem />}>
-            {data?.recentDeliveries.length ? (
-              data.recentDeliveries.map((delivery) => (
-                <Box key={delivery.id} sx={{ py: 1.5 }}>
-                  <Stack direction="row" justifyContent="space-between" spacing={1}>
-                    <Typography variant="subtitle2">
-                      {delivery.event_type === 'test' ? 'ข้อความทดสอบ' : 'ผู้ซื้อชำระเงิน'}
-                    </Typography>
-                    <Chip
-                      size="small"
-                      color={delivery.status === 'sent' ? 'success' : 'error'}
-                      label={delivery.status === 'sent' ? 'ส่งสำเร็จ' : 'ส่งไม่สำเร็จ'}
-                    />
-                  </Stack>
-                  {delivery.amount !== null && (
-                    <Typography variant="body2">{formatPrice(Number(delivery.amount))}</Typography>
-                  )}
+        <Stack spacing={3}>
+          {usage && (
+            <Card variant="outlined" sx={{ p: 3 }}>
+              <Typography variant="h6">โควต้าข้อความเดือนนี้</Typography>
+              <Box
+                sx={{
+                  mt: 2,
+                  gap: 2,
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                }}
+              >
+                <Box>
                   <Typography variant="caption" color="text.secondary">
-                    {new Date(delivery.created_at).toLocaleString('th-TH', {
-                      timeZone: 'Asia/Bangkok',
-                    })}
+                    ส่งไปแล้ว
                   </Typography>
-                  {!!delivery.last_error && (
-                    <Typography variant="caption" color="error" display="block">
-                      {delivery.last_error}
-                    </Typography>
-                  )}
+                  <Typography variant="h3">{usage.quotaUsed.toLocaleString('th-TH')}</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    ข้อความ
+                  </Typography>
                 </Box>
-              ))
-            ) : (
-              <Typography variant="body2" color="text.secondary">
-                ยังไม่มีประวัติการส่ง
+                <Box>
+                  <Typography variant="caption" color="text.secondary">
+                    คงเหลือ
+                  </Typography>
+                  <Typography variant="h3" color="success.main">
+                    {quotaRemaining === null ? 'ไม่จำกัด' : quotaRemaining.toLocaleString('th-TH')}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    ข้อความ
+                  </Typography>
+                </Box>
+              </Box>
+
+              {usage.quotaTotal !== null && (
+                <>
+                  <LinearProgress
+                    variant="determinate"
+                    value={quotaPercent}
+                    color={
+                      quotaPercent >= 90 ? 'error' : quotaPercent >= 70 ? 'warning' : 'primary'
+                    }
+                    sx={{ mt: 2.5, height: 8, borderRadius: 1 }}
+                  />
+                  <Box sx={{ mt: 1, display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant="caption" color="text.secondary">
+                      ใช้แล้ว {quotaPercent}%
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      โควต้า {usage.quotaTotal.toLocaleString('th-TH')} ข้อความ
+                    </Typography>
+                  </Box>
+                </>
+              )}
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ mt: 1.5, display: 'block' }}
+              >
+                {usage.quotaSource === 'line'
+                  ? 'จำนวนจาก LINE Messaging API และรวมข้อความที่ส่งผ่าน LINE Official Account Manager'
+                  : 'นับเฉพาะข้อความแจ้งเตือนยอดขายที่ระบบส่งสำเร็จ'}
+                {' · '}แพ็กเกจ {usage.planLabel}
+                {usage.expiresAt
+                  ? ` · เหลือ ${remainingDays ?? 0} วัน (หมดอายุ ${new Date(
+                      usage.expiresAt
+                    ).toLocaleDateString('th-TH', {
+                      dateStyle: 'medium',
+                      timeZone: 'Asia/Bangkok',
+                    })})`
+                  : ' · ไม่มีวันหมดอายุ'}
               </Typography>
-            )}
-          </Stack>
-        </Card>
+              {!!usage.quotaError && (
+                <Alert severity="warning" sx={{ mt: 2 }}>
+                  โหลดโควต้าจาก LINE ไม่สำเร็จ: {usage.quotaError}
+                </Alert>
+              )}
+            </Card>
+          )}
+
+          {usesManagedLine && (
+            <Card variant="outlined" sx={{ p: 3 }}>
+              <Typography variant="h6">LINE ผู้รับแจ้งเตือน</Typography>
+              {data?.lineConnection.linkedAt ? (
+                <>
+                  <Alert severity="success" sx={{ my: 2 }}>
+                    ผูกกับ {data.lineConnection.displayName || 'บัญชี LINE'} แล้ว
+                  </Alert>
+                  <Stack direction="row" spacing={1} flexWrap="wrap">
+                    <Button
+                      variant="outlined"
+                      startIcon={<RiSendPlaneLine />}
+                      loading={testing}
+                      onClick={test}
+                    >
+                      ส่งข้อความทดสอบ
+                    </Button>
+                    <Button color="error" loading={unlinking} onClick={unlinkLine}>
+                      ยกเลิกการผูก
+                    </Button>
+                  </Stack>
+                </>
+              ) : (
+                <>
+                  <Alert
+                    severity={data?.lineConnection.systemAvailable ? 'info' : 'warning'}
+                    sx={{ mt: 2 }}
+                  >
+                    {data?.lineConnection.systemAvailable
+                      ? 'สแกน QR แล้วส่งข้อความที่เตรียมไว้ เพื่อผูกบัญชี LINE รับแจ้งเตือน'
+                      : 'ผู้ดูแลระบบยังตั้งค่า LINE OA ของระบบไม่ครบ'}
+                  </Alert>
+                  <Button
+                    fullWidth
+                    variant="contained"
+                    loading={linking}
+                    disabled={!data?.lineConnection.systemAvailable}
+                    onClick={createInvitation}
+                    sx={{ mt: 2 }}
+                  >
+                    สร้างรหัสผูก LINE
+                  </Button>
+                  {invitation && (
+                    <Card sx={{ mt: 2, p: 2 }}>
+                      <Typography variant="subtitle2" sx={{ textAlign: 'center' }}>
+                        ขั้นตอนที่ 1: สแกน QR และเพิ่ม LINE OA เป็นเพื่อน
+                      </Typography>
+                      {!!invitation.qrCodeUrl && (
+                        <Box
+                          component="img"
+                          src={invitation.qrCodeUrl}
+                          alt="QR สำหรับผูกบัญชี LINE ผู้ขาย"
+                          sx={{
+                            width: '100%',
+                            maxWidth: 240,
+                            mx: 'auto',
+                            my: 2,
+                            p: 1,
+                            display: 'block',
+                            bgcolor: 'common.white',
+                            borderRadius: 1.5,
+                          }}
+                        />
+                      )}
+                      <Typography variant="body2" sx={{ textAlign: 'center' }}>
+                        ขั้นตอนที่ 2: ส่งข้อความ <strong>SELLER {invitation.code}</strong>
+                      </Typography>
+                      <Button
+                        fullWidth
+                        variant="contained"
+                        href={invitation.lineChatUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        sx={{ mt: 1.5 }}
+                      >
+                        เปิดแชตและส่งรหัส
+                      </Button>
+                    </Card>
+                  )}
+                </>
+              )}
+            </Card>
+          )}
+
+          <Card variant="outlined" sx={{ p: 3 }}>
+            <Typography variant="h6">ประวัติการส่งล่าสุด</Typography>
+            <Divider sx={{ my: 2 }} />
+            <Stack divider={<Divider flexItem />}>
+              {data?.recentDeliveries.length ? (
+                data.recentDeliveries.map((delivery) => (
+                  <Box key={delivery.id} sx={{ py: 1.5 }}>
+                    <Stack direction="row" justifyContent="space-between" spacing={1}>
+                      <Typography variant="subtitle2">
+                        {delivery.event_type === 'test' ? 'ข้อความทดสอบ' : 'ผู้ซื้อชำระเงิน'}
+                      </Typography>
+                      <Chip
+                        size="small"
+                        color={delivery.status === 'sent' ? 'success' : 'error'}
+                        label={delivery.status === 'sent' ? 'ส่งสำเร็จ' : 'ส่งไม่สำเร็จ'}
+                      />
+                    </Stack>
+                    {delivery.amount !== null && (
+                      <Typography variant="body2">
+                        {formatPrice(Number(delivery.amount))}
+                      </Typography>
+                    )}
+                    <Typography variant="caption" color="text.secondary">
+                      {new Date(delivery.created_at).toLocaleString('th-TH', {
+                        timeZone: 'Asia/Bangkok',
+                      })}
+                    </Typography>
+                    {!!delivery.last_error && (
+                      <Typography variant="caption" color="error" display="block">
+                        {delivery.last_error}
+                      </Typography>
+                    )}
+                  </Box>
+                ))
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  ยังไม่มีประวัติการส่ง
+                </Typography>
+              )}
+            </Stack>
+          </Card>
+        </Stack>
       </Box>
     </Container>
   );

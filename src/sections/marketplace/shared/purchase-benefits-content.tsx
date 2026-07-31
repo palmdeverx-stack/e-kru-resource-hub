@@ -28,7 +28,13 @@ export function PurchaseBenefitsContent({ html, legacyItems = [] }: Props) {
         [`.${editorClasses.content.root}`]: {
           overflow: 'visible',
           bgcolor: 'transparent',
-          '& .tiptap.ProseMirror': { p: 0 },
+          '& .tiptap.ProseMirror': {
+            p: 0,
+            fontSize: '14px',
+            '& p, & li, & h1, & h2, & h3, & h4, & h5, & h6': {
+              fontSize: '14px',
+            },
+          },
           '& .tiptap > :first-child': { mt: 0 },
           '& .tiptap > :last-child': { mb: 0 },
         },

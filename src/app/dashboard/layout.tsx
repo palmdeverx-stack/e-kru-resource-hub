@@ -28,6 +28,7 @@ import {
   RiIdCardLine,
   RiSearchLine,
   RiStore2Line,
+  RiStore3Line,
   RiReceiptLine,
   RiWallet3Line,
   RiFeedbackLine,
@@ -37,6 +38,7 @@ import {
   RiFilePaper2Line,
   RiShieldStarLine,
   RiUserFollowLine,
+  RiBarChartBoxLine,
   RiShieldCheckLine,
   RiShareForwardLine,
   RiUserSettingsLine,
@@ -144,6 +146,11 @@ const adminNavData: NavSectionProps['data'] = [
     subheader: 'การดูแล Marketplace',
     items: [
       {
+        title: 'ภาพรวม',
+        path: '/dashboard/marketing-overview',
+        icon: <RiBarChartBoxLine />,
+      },
+      {
         title: 'ศูนย์ควบคุม',
         path: '/dashboard',
         icon: <RiShieldStarLine />,
@@ -152,6 +159,11 @@ const adminNavData: NavSectionProps['data'] = [
         title: 'อนุมัติร้านค้า',
         path: '/dashboard/seller-approvals',
         icon: <RiUserFollowLine />,
+      },
+      {
+        title: 'บัญชีร้านค้าในระบบ',
+        path: '/dashboard/seller-accounts',
+        icon: <RiStore3Line />,
       },
       {
         title: 'อนุมัติสินค้า',

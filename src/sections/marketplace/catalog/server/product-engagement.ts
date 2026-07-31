@@ -2,6 +2,8 @@ import 'server-only';
 
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 
+import { MARKETPLACE_SELLER_LINE_TRIAL_FEATURE_KEY } from '../../seller/line-feature';
+
 export type MarketplaceProductReview = {
   id: string;
   rating: number;
@@ -21,6 +23,7 @@ export type MarketplaceProductReview = {
 
 export type MarketplaceProductEngagement = {
   views: number;
+  likes: number;
   purchases: number;
   downloads: number;
   reviewCount: number;
@@ -98,6 +101,7 @@ export async function getProductPurchaseAccess({
   schoolIds,
   resourceType,
   licenseScope,
+  featureKeys,
 }: {
   productId: string;
   buyerId?: string;
@@ -105,6 +109,7 @@ export async function getProductPurchaseAccess({
   schoolIds?: string[];
   resourceType: string;
   licenseScope?: 'individual' | 'school' | 'teacher' | null;
+  featureKeys?: string[] | null;
 }): Promise<MarketplaceProductPurchaseAccess> {
   if (!buyerId) {
     return {
@@ -117,27 +122,36 @@ export async function getProductPurchaseAccess({
 
   if (resourceType === 'feature_unlock') {
     if (licenseScope === 'individual') {
-      const { data: licenses } = await supabaseAdmin
-        .from('marketplace_user_licenses')
-        .select('expires_at')
-        .eq('buyer_id', buyerId)
-        .eq('product_id', productId)
-        .eq('status', 'active')
-        .order('expires_at', { ascending: false })
-        .limit(1);
+      const [{ data: licenses }, hasPurchased] = await Promise.all([
+        supabaseAdmin
+          .from('marketplace_user_licenses')
+          .select('expires_at')
+          .eq('buyer_id', buyerId)
+          .eq('product_id', productId)
+          .eq('status', 'active')
+          .order('expires_at', { ascending: false })
+          .limit(1),
+        featureKeys?.includes(MARKETPLACE_SELLER_LINE_TRIAL_FEATURE_KEY)
+          ? hasPurchasedProduct(productId, buyerId)
+          : Promise.resolve(false),
+      ]);
       const expiresAt = licenses?.[0]?.expires_at ?? null;
       const isPerpetual = Boolean(licenses?.length && !expiresAt);
       const isActive =
         isPerpetual || Boolean(expiresAt && new Date(expiresAt).getTime() > Date.now());
+      const trialAlreadyUsed =
+        featureKeys?.includes(MARKETPLACE_SELLER_LINE_TRIAL_FEATURE_KEY) && hasPurchased;
       return {
-        canPurchase: !isActive,
-        hasPurchased: Boolean(licenses?.length),
+        canPurchase: !isActive && !trialAlreadyUsed,
+        hasPurchased: Boolean(licenses?.length) || hasPurchased,
         accessExpiresAt: expiresAt,
         message: isPerpetual
           ? 'บัญชีนี้ซื้อสิทธิ์ถาวรแล้ว'
           : isActive
             ? 'สิทธิ์ส่วนบุคคลนี้ยังใช้งานอยู่'
-            : null,
+            : trialAlreadyUsed
+              ? 'บัญชีนี้เคยใช้สิทธิ์ทดลองใช้งานแล้ว'
+              : null,
       };
     }
 
@@ -186,37 +200,49 @@ export async function getProductEngagement(
   productId: string,
   buyerId?: string
 ): Promise<MarketplaceProductEngagement> {
-  const [viewsResult, downloadsResult, purchasesResult, reviewsResult, canReview, sellerResult] =
-    await Promise.all([
-      supabaseAdmin
-        .from('marketplace_product_views')
-        .select('id', { count: 'exact', head: true })
-        .eq('product_id', productId),
-      supabaseAdmin
-        .from('marketplace_product_downloads')
-        .select('id', { count: 'exact', head: true })
-        .eq('product_id', productId),
-      supabaseAdmin
-        .from('marketplace_order_items')
-        .select('quantity, order:marketplace_orders!inner(status)')
-        .eq('product_id', productId)
-        .in('order.status', ['paid', 'completed']),
-      supabaseAdmin
-        .from('marketplace_product_reviews')
-        .select(
-          'id, buyer_id, rating, comment, reviewer_name, created_at, updated_at, images:marketplace_review_images(id, storage_bucket, storage_path, position), reply:marketplace_review_replies(id, responder_name, comment, created_at, updated_at)'
-        )
-        .eq('product_id', productId)
-        .order('updated_at', { ascending: false }),
-      buyerId ? hasPurchasedProduct(productId, buyerId) : Promise.resolve(false),
-      buyerId
-        ? supabaseAdmin
-            .from('marketplace_products')
-            .select('seller:marketplace_sellers!inner(owner_id)')
-            .eq('id', productId)
-            .maybeSingle()
-        : Promise.resolve({ data: null }),
-    ]);
+  const [
+    viewsResult,
+    likesResult,
+    downloadsResult,
+    purchasesResult,
+    reviewsResult,
+    canReview,
+    sellerResult,
+  ] = await Promise.all([
+    supabaseAdmin
+      .from('marketplace_product_views')
+      .select('id', { count: 'exact', head: true })
+      .eq('product_id', productId),
+    supabaseAdmin
+      .from('marketplace_product_collections')
+      .select('product_id', { count: 'exact', head: true })
+      .eq('product_id', productId)
+      .eq('collection_type', 'favorite'),
+    supabaseAdmin
+      .from('marketplace_product_downloads')
+      .select('id', { count: 'exact', head: true })
+      .eq('product_id', productId),
+    supabaseAdmin
+      .from('marketplace_order_items')
+      .select('quantity, order:marketplace_orders!inner(status)')
+      .eq('product_id', productId)
+      .in('order.status', ['paid', 'completed']),
+    supabaseAdmin
+      .from('marketplace_product_reviews')
+      .select(
+        'id, buyer_id, rating, comment, reviewer_name, created_at, updated_at, images:marketplace_review_images(id, storage_bucket, storage_path, position), reply:marketplace_review_replies(id, responder_name, comment, created_at, updated_at)'
+      )
+      .eq('product_id', productId)
+      .order('updated_at', { ascending: false }),
+    buyerId ? hasPurchasedProduct(productId, buyerId) : Promise.resolve(false),
+    buyerId
+      ? supabaseAdmin
+          .from('marketplace_products')
+          .select('seller:marketplace_sellers!inner(owner_id)')
+          .eq('id', productId)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
 
   const reviewRows = (reviewsResult.data ?? []) as unknown as ReviewRow[];
   const reviews = await Promise.all(reviewRows.map(toPublicReview));
@@ -228,6 +254,7 @@ export async function getProductEngagement(
 
   return {
     views: viewsResult.count ?? 0,
+    likes: likesResult.count ?? 0,
     purchases,
     downloads: downloadsResult.count ?? 0,
     reviewCount: reviews.length,

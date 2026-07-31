@@ -69,10 +69,55 @@ export async function POST(request: Request) {
       continue;
     }
 
-    const match = /^MARKETPLACE\s+([A-F0-9]{8})$/i.exec(event.message.text.trim());
-    if (!match) continue;
+    const sellerMatch = /^SELLER\s+([A-F0-9]{8})$/i.exec(event.message.text.trim());
+    const adminMatch = /^MARKETPLACE\s+([A-F0-9]{8})$/i.exec(event.message.text.trim());
+    if (!sellerMatch && !adminMatch) continue;
 
-    const tokenHash = createHash('sha256').update(match[1].toUpperCase()).digest('hex');
+    if (sellerMatch) {
+      const tokenHash = createHash('sha256').update(sellerMatch[1].toUpperCase()).digest('hex');
+      const { data: token } = await supabaseAdmin
+        .from('marketplace_seller_line_link_tokens')
+        .select('id, seller_id, expires_at, used_at')
+        .eq('token_hash', tokenHash)
+        .maybeSingle();
+      if (!token || token.used_at || token.expires_at < new Date().toISOString()) {
+        await reply(accessToken, event.replyToken, 'รหัสผูก LINE ไม่ถูกต้องหรือหมดอายุแล้ว');
+        continue;
+      }
+
+      let displayName: string | null = null;
+      const profileResponse = await fetch(
+        `https://api.line.me/v2/bot/profile/${encodeURIComponent(event.source.userId)}`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      if (profileResponse.ok) {
+        const profile = (await profileResponse.json()) as { displayName?: string };
+        displayName = profile.displayName ?? null;
+      }
+
+      await supabaseAdmin.from('marketplace_seller_line_settings').upsert(
+        {
+          seller_id: token.seller_id,
+          line_user_id: event.source.userId,
+          line_display_name: displayName,
+          line_linked_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'seller_id' }
+      );
+      await supabaseAdmin
+        .from('marketplace_seller_line_link_tokens')
+        .update({ used_at: new Date().toISOString() })
+        .eq('id', token.id);
+      await reply(
+        accessToken,
+        event.replyToken,
+        '✅ ผูก LINE กับร้านค้าของคุณสำเร็จ\nคุณจะได้รับแจ้งเตือนเมื่อระบบยืนยันยอดขาย'
+      );
+      continue;
+    }
+
+    const tokenHash = createHash('sha256').update(adminMatch![1].toUpperCase()).digest('hex');
     const { data: token } = await supabaseAdmin
       .from('marketplace_line_link_tokens')
       .select('id, expires_at, used_at')

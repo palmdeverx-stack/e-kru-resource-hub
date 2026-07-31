@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { createHash, randomBytes } from 'node:crypto';
 
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { requireAuthenticated } from 'src/lib/auth-token';
@@ -14,6 +15,41 @@ import {
 const LINE_USER_ID_PATTERN = /^U[0-9a-f]{32}$/i;
 
 type Caller = NonNullable<ReturnType<typeof requireAuthenticated>>;
+
+async function loadLineQuota(encryptedAccessToken: string) {
+  try {
+    const accessToken = decryptLineCredential(encryptedAccessToken);
+    const headers = { Authorization: `Bearer ${accessToken}` };
+    const [quotaResponse, consumptionResponse] = await Promise.all([
+      fetch('https://api.line.me/v2/bot/message/quota', { headers, cache: 'no-store' }),
+      fetch('https://api.line.me/v2/bot/message/quota/consumption', {
+        headers,
+        cache: 'no-store',
+      }),
+    ]);
+    if (!quotaResponse.ok || !consumptionResponse.ok) {
+      const result = await (quotaResponse.ok ? consumptionResponse : quotaResponse)
+        .json()
+        .catch(() => null);
+      throw new Error(result?.message ?? 'LINE ไม่สามารถส่งข้อมูลโควตาได้');
+    }
+
+    const quota = (await quotaResponse.json()) as { type: 'none' | 'limited'; value?: number };
+    const consumption = (await consumptionResponse.json()) as { totalUsage: number };
+    return {
+      used: Math.max(0, Number(consumption.totalUsage) || 0),
+      limit:
+        quota.type === 'limited' ? Math.max(0, Number(quota.value) || 0) : (null as number | null),
+      error: null,
+    };
+  } catch (error) {
+    return {
+      used: null,
+      limit: null,
+      error: error instanceof Error ? error.message : 'โหลดโควตา LINE ไม่สำเร็จ',
+    };
+  }
+}
 
 async function findSeller(caller: Caller) {
   const { data: seller, error } = await supabaseAdmin
@@ -62,32 +98,62 @@ export async function GET(request: Request) {
     const seller = await findSeller(caller);
     if (!seller) return NextResponse.json({ message: 'กรุณาสมัครเปิดร้านก่อน' }, { status: 404 });
 
-    const [{ data: settings, error }, { data: deliveries }] = await Promise.all([
-      supabaseAdmin
-        .from('marketplace_seller_line_settings')
-        .select(
-          'line_user_id, is_enabled, notify_payment_received, channel_access_token_encrypted, updated_at'
-        )
-        .eq('seller_id', seller.id)
-        .maybeSingle(),
-      supabaseAdmin
-        .from('marketplace_seller_line_deliveries')
-        .select('id, event_type, amount, status, last_error, created_at, sent_at')
-        .eq('seller_id', seller.id)
-        .order('created_at', { ascending: false })
-        .limit(10),
-    ]);
+    const [{ data: settings, error }, { data: deliveries }, { data: globalLineSettings }] =
+      await Promise.all([
+        supabaseAdmin
+          .from('marketplace_seller_line_settings')
+          .select(
+            'line_user_id, line_display_name, line_linked_at, is_enabled, notify_payment_received, channel_access_token_encrypted, updated_at'
+          )
+          .eq('seller_id', seller.id)
+          .maybeSingle(),
+        supabaseAdmin
+          .from('marketplace_seller_line_deliveries')
+          .select('id, event_type, amount, status, last_error, created_at, sent_at')
+          .eq('seller_id', seller.id)
+          .order('created_at', { ascending: false })
+          .limit(10),
+        supabaseAdmin
+          .from('marketplace_line_settings')
+          .select('oa_basic_id, channel_access_token_encrypted')
+          .eq('id', 'default')
+          .maybeSingle(),
+      ]);
     if (error) throw error;
+    const lineQuota =
+      access.mode === 'byoa' && settings?.channel_access_token_encrypted
+        ? await loadLineQuota(settings.channel_access_token_encrypted)
+        : null;
+    const usage = access.usage
+      ? {
+          ...access.usage,
+          ...(lineQuota?.used !== null &&
+            lineQuota?.used !== undefined && {
+              quotaUsed: lineQuota.used,
+              quotaTotal: lineQuota.limit,
+            }),
+          quotaSource: lineQuota ? ('line' as const) : ('package' as const),
+          quotaError: lineQuota?.error ?? null,
+        }
+      : null;
 
     return NextResponse.json({
       seller,
       mode: access.mode,
+      usage,
       settings: {
         lineUserId: settings?.line_user_id ?? '',
         isEnabled: settings?.is_enabled ?? false,
         notifyPaymentReceived: settings?.notify_payment_received ?? true,
         hasAccessToken: Boolean(settings?.channel_access_token_encrypted),
         updatedAt: settings?.updated_at ?? null,
+      },
+      lineConnection: {
+        displayName: settings?.line_display_name ?? null,
+        linkedAt: settings?.line_linked_at ?? null,
+        systemAvailable: Boolean(
+          globalLineSettings?.oa_basic_id && globalLineSettings.channel_access_token_encrypted
+        ),
       },
       recentDeliveries: deliveries ?? [],
     });
@@ -174,6 +240,72 @@ export async function POST(request: Request) {
   const caller = requireAuthenticated(request);
   if (!caller) return NextResponse.json({ message: 'กรุณาเข้าสู่ระบบ' }, { status: 401 });
   const body = await request.json().catch(() => null);
+  if (body?.action === 'invite') {
+    try {
+      const access = await getSellerLineFeatureAccess(caller.sub, caller.role);
+      const accessError = sellerLineAccessError(access);
+      if (accessError) return accessError;
+      if (access.mode !== 'managed') {
+        return NextResponse.json(
+          { message: 'การผูก LINE ผ่าน QR ใช้ได้กับแพ็กเกจ LINE ของระบบเท่านั้น' },
+          { status: 400 }
+        );
+      }
+      const seller = await findSeller(caller);
+      if (!seller) {
+        return NextResponse.json({ message: 'กรุณาสมัครเปิดร้านก่อน' }, { status: 404 });
+      }
+      const { data: globalSettings } = await supabaseAdmin
+        .from('marketplace_line_settings')
+        .select('oa_basic_id, channel_access_token_encrypted')
+        .eq('id', 'default')
+        .maybeSingle();
+      if (!globalSettings?.oa_basic_id || !globalSettings.channel_access_token_encrypted) {
+        return NextResponse.json(
+          { message: 'ผู้ดูแลระบบยังตั้งค่า LINE OA ของระบบไม่ครบ' },
+          { status: 409 }
+        );
+      }
+
+      const code = randomBytes(4).toString('hex').toUpperCase();
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+      await supabaseAdmin
+        .from('marketplace_seller_line_link_tokens')
+        .delete()
+        .eq('seller_id', seller.id);
+      const { error } = await supabaseAdmin.from('marketplace_seller_line_link_tokens').insert({
+        seller_id: seller.id,
+        token_hash: createHash('sha256').update(code).digest('hex'),
+        expires_at: expiresAt,
+        created_by: caller.sub,
+      });
+      if (error) throw error;
+
+      const command = `SELLER ${code}`;
+      const normalizedBasicId = `@${globalSettings.oa_basic_id.replace(/^@+/, '')}`;
+      const basicIdWithoutAt = normalizedBasicId.slice(1);
+      const addFriendUrl = `https://line.me/R/ti/p/${encodeURIComponent(normalizedBasicId)}`;
+      const lineChatUrl = `https://line.me/R/oaMessage/${encodeURIComponent(
+        normalizedBasicId
+      )}/?${encodeURIComponent(command)}`;
+      return NextResponse.json({
+        invitation: {
+          code,
+          expiresAt,
+          addFriendUrl,
+          lineChatUrl,
+          qrCodeUrl: `https://qr-official.line.me/gs/M_${encodeURIComponent(
+            basicIdWithoutAt
+          )}_GW.png`,
+        },
+      });
+    } catch (error) {
+      return NextResponse.json(
+        { message: error instanceof Error ? error.message : 'สร้างรหัสผูก LINE ไม่สำเร็จ' },
+        { status: 500 }
+      );
+    }
+  }
   if (body?.action !== 'test') {
     return NextResponse.json({ message: 'คำสั่งไม่ถูกต้อง' }, { status: 400 });
   }
@@ -197,7 +329,8 @@ export async function POST(request: Request) {
     const encryptedAccessToken =
       access.mode === 'managed'
         ? globalSettings?.channel_access_token_encrypted
-        : settings?.channel_access_token_encrypted ?? globalSettings?.channel_access_token_encrypted;
+        : (settings?.channel_access_token_encrypted ??
+          globalSettings?.channel_access_token_encrypted);
     if (!encryptedAccessToken || !settings?.line_user_id) {
       return NextResponse.json(
         {
@@ -240,6 +373,37 @@ export async function POST(request: Request) {
   } catch (error) {
     return NextResponse.json(
       { message: error instanceof Error ? error.message : 'ทดสอบ LINE ไม่สำเร็จ' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: Request) {
+  const caller = requireAuthenticated(request);
+  if (!caller) return NextResponse.json({ message: 'กรุณาเข้าสู่ระบบ' }, { status: 401 });
+
+  try {
+    const seller = await findSeller(caller);
+    if (!seller) return NextResponse.json({ message: 'กรุณาสมัครเปิดร้านก่อน' }, { status: 404 });
+    const { error } = await supabaseAdmin
+      .from('marketplace_seller_line_settings')
+      .update({
+        line_user_id: null,
+        line_display_name: null,
+        line_linked_at: null,
+        is_enabled: false,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('seller_id', seller.id);
+    if (error) throw error;
+    await supabaseAdmin
+      .from('marketplace_seller_line_link_tokens')
+      .delete()
+      .eq('seller_id', seller.id);
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    return NextResponse.json(
+      { message: error instanceof Error ? error.message : 'ยกเลิกการผูก LINE ไม่สำเร็จ' },
       { status: 500 }
     );
   }

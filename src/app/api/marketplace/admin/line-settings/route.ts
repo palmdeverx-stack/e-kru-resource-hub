@@ -98,6 +98,11 @@ export async function GET(request: Request) {
       sellerManagedPrice: Number(settings?.seller_managed_price ?? 99),
       sellerManagedDescription: settings?.seller_managed_description ?? '',
       sellerManagedQuota: Number(settings?.seller_managed_quota ?? 100),
+      sellerTrialDescription:
+        settings?.seller_trial_description ??
+        'ทดลองใช้ LINE แจ้งเตือนผ่าน OA ของระบบ E-KRU ฟรี 7 วัน',
+      sellerTrialDays: Number(settings?.seller_trial_days ?? 7),
+      sellerTrialQuota: Number(settings?.seller_trial_quota ?? 10),
       lineDisplayName: settings?.line_display_name ?? null,
       lineLinkedAt: settings?.line_linked_at ?? null,
     },
@@ -129,6 +134,9 @@ export async function PATCH(request: Request) {
   const sellerManagedPrice = Number(body?.sellerManagedPrice);
   const sellerManagedDescription = String(body?.sellerManagedDescription ?? '').trim();
   const sellerManagedQuota = Number(body?.sellerManagedQuota);
+  const sellerTrialDescription = String(body?.sellerTrialDescription ?? '').trim();
+  const sellerTrialDays = Number(body?.sellerTrialDays);
+  const sellerTrialQuota = Number(body?.sellerTrialQuota);
   const expectedPath = '/api/line/marketplace/webhook';
 
   let parsedWebhook: URL | null = null;
@@ -158,7 +166,12 @@ export async function PATCH(request: Request) {
     sellerManagedPrice < MARKETPLACE_MINIMUM_PAID_PRICE_THB ||
     !sellerManagedDescription ||
     !Number.isInteger(sellerManagedQuota) ||
-    sellerManagedQuota <= 0
+    sellerManagedQuota <= 0 ||
+    !sellerTrialDescription ||
+    !Number.isInteger(sellerTrialDays) ||
+    sellerTrialDays <= 0 ||
+    !Number.isInteger(sellerTrialQuota) ||
+    sellerTrialQuota <= 0
   ) {
     return NextResponse.json({ message: 'ข้อมูลการเชื่อมต่อ LINE ไม่ถูกต้อง' }, { status: 400 });
   }
@@ -194,6 +207,9 @@ export async function PATCH(request: Request) {
       seller_managed_price: sellerManagedPrice,
       seller_managed_description: sellerManagedDescription,
       seller_managed_quota: sellerManagedQuota,
+      seller_trial_description: sellerTrialDescription,
+      seller_trial_days: sellerTrialDays,
+      seller_trial_quota: sellerTrialQuota,
       ...(channelSecret && { channel_secret_encrypted: encryptLineCredential(channelSecret) }),
       ...(accessToken && { channel_access_token_encrypted: encryptLineCredential(accessToken) }),
       updated_at: new Date().toISOString(),
@@ -210,6 +226,11 @@ export async function PATCH(request: Request) {
         price: sellerManagedPrice,
         description: sellerManagedDescription,
         quota: sellerManagedQuota,
+      },
+      trial: {
+        description: sellerTrialDescription,
+        durationDays: sellerTrialDays,
+        quota: sellerTrialQuota,
       },
     });
   } catch (syncError) {

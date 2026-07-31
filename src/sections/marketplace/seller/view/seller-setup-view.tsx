@@ -50,6 +50,7 @@ import {
 import { useAuthContext } from 'src/auth/hooks';
 
 import { getSeller, saveSeller } from '../../shared/api';
+import { ThaiBankAutocomplete } from '../../shared/bank-autocomplete';
 
 const STEPS = [
   {
@@ -603,8 +604,8 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
               onFile={(file) => upload('receipt_signature', file)}
             />
             <Alert severity="warning">
-              ลายเซ็นนี้จะแสดงในช่องผู้รับเงินของใบเสร็จรับเงิน กรุณาอัปโหลดเฉพาะลายเซ็นของผู้มีอำนาจ
-              แนะนำไฟล์ PNG พื้นหลังโปร่งใส
+              ลายเซ็นนี้จะแสดงในช่องผู้รับเงินของใบเสร็จรับเงิน
+              กรุณาอัปโหลดเฉพาะลายเซ็นของผู้มีอำนาจ แนะนำไฟล์ PNG พื้นหลังโปร่งใส
             </Alert>
             <TextField
               multiline
@@ -631,7 +632,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
   const completedCount = STEPS.filter((_, index) => isStepComplete(index)).length;
 
   return (
-    <Container maxWidth={false} sx={{ py: { xs: 4, md: 6 } }}>
+    <Container maxWidth={false} sx={{ py: { xs: 3 } }}>
       <Stack
         direction={{ xs: 'column', md: 'row' }}
         justifyContent="space-between"
@@ -910,28 +911,45 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
         )}
         {activeStep === 2 && (
           <Stack spacing={2.5}>
+            <Box>
+              <Typography variant="h5">บัญชีรับเงินของผู้ขาย</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                ระบบจะใช้บัญชีนี้สำหรับโอนยอดขายหลังพ้นระยะพักยอด กรุณาตรวจชื่อและเลขบัญชีให้ถูกต้อง
+              </Typography>
+            </Box>
+            <Alert severity="info">
+              <Typography variant="subtitle2">แนะนำ: บัญชีกสิกรไทยที่ผูกกับ K PLUS</Typography>
+              <Typography variant="body2">
+                ช่วยให้ตรวจสอบเงินเข้าและรับการแจ้งเตือนได้สะดวก แต่ไม่บังคับ
+                ผู้ขายสามารถเลือกบัญชีธนาคารอื่นได้ตามปกติ
+              </Typography>
+            </Alert>
+            <Alert severity="warning">
+              <Typography variant="subtitle2">กรุณาตรวจสอบข้อมูลบัญชีให้ถูกต้อง</Typography>
+              <Typography variant="body2">
+                หากชื่อบัญชี เลขบัญชี หรือธนาคารไม่ตรงกัน
+                ระบบจะไม่ดำเนินการโอนจนกว่าข้อมูลจะได้รับการแก้ไข
+                และยอดดังกล่าวจะถูกนำไปรวมในรอบโอนถัดไป
+              </Typography>
+            </Alert>
             <TextField
               required
               label="ชื่อบัญชี"
               value={form.accountName}
               onChange={(e) => update('accountName', e.target.value)}
             />
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-              <TextField
-                fullWidth
-                required
-                label="รหัสธนาคาร เช่น KBANK"
-                value={form.bankCode}
-                onChange={(e) => update('bankCode', e.target.value)}
-              />
-              <TextField
-                fullWidth
-                required
-                label="ชื่อธนาคาร"
-                value={form.bankName}
-                onChange={(e) => update('bankName', e.target.value)}
-              />
-            </Stack>
+            <ThaiBankAutocomplete
+              required
+              value={form.bankCode || form.bankName}
+              helperText="เลือกจากรายการเพื่อให้ชื่อและรหัสธนาคารตรงกับไฟล์โอนเงิน"
+              onChange={(bank) =>
+                setForm((current) => ({
+                  ...current,
+                  bankCode: bank?.code ?? '',
+                  bankName: bank?.name ?? '',
+                }))
+              }
+            />
             <TextField
               required
               label="เลขบัญชี"

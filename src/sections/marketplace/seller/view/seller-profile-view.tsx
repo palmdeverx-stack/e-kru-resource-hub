@@ -38,6 +38,7 @@ import {
 } from 'src/components/remix-icon';
 
 import { getSeller } from '../../shared/api';
+import { ThaiBankLogo } from '../../shared/bank-logo';
 import {
   isSellerProfileVerified,
   isSystemMarketplaceSeller,
@@ -124,7 +125,7 @@ export function MarketplaceSellerProfileView() {
   const completion = getSellerProfileCompletion(seller);
 
   return (
-    <Container maxWidth={false} sx={{ py: { xs: 3 } }}>
+    <Container maxWidth={false} sx={{ py: { xs: 3, md: 4 }, pb: { xs: 8, md: 5 } }}>
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
         justifyContent="space-between"
@@ -133,14 +134,18 @@ export function MarketplaceSellerProfileView() {
         sx={{ mb: 3 }}
       >
         <Box>
-          <Typography component="h1" variant="h3">
+          <Typography component="h1" variant="h3" sx={{ fontSize: { xs: 28, md: 40 } }}>
             ข้อมูลร้านค้า
           </Typography>
           <Typography color="text.secondary" sx={{ mt: 0.5 }}>
             ตรวจสอบและจัดการข้อมูลที่ใช้แสดงหน้าร้านและรับเงิน
           </Typography>
         </Box>
-        <Stack direction="row" spacing={1}>
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{ width: { xs: 1, sm: 'auto' }, '& > *': { flex: { xs: 1, sm: 'initial' } } }}
+        >
           {seller.status === 'active' && (
             <Button
               component={RouterLink}
@@ -185,7 +190,7 @@ export function MarketplaceSellerProfileView() {
       >
         <Box
           sx={{
-            height: { xs: 180, md: 250 },
+            height: { xs: 150, sm: 190, md: 250 },
             position: 'relative',
             bgcolor: '#0A4D68',
             backgroundImage: seller.cover_url
@@ -199,8 +204,8 @@ export function MarketplaceSellerProfileView() {
             icon={<RiShieldCheckLine />}
             label="E-KRU Marketplace Seller"
             sx={{
-              top: 20,
-              right: 20,
+              top: { xs: 12, md: 20 },
+              right: { xs: 12, md: 20 },
               position: 'absolute',
               color: 'common.white',
               bgcolor: 'rgba(0,0,0,0.28)',
@@ -213,7 +218,7 @@ export function MarketplaceSellerProfileView() {
           direction={{ xs: 'column', sm: 'row' }}
           spacing={2.5}
           alignItems={{ xs: 'flex-start', sm: 'center' }}
-          sx={{ px: { xs: 2.5, md: 4 }, pb: 3.5 }}
+          sx={{ px: { xs: 2, sm: 2.5, md: 4 }, pb: { xs: 2.5, md: 3.5 } }}
         >
           <Avatar
             src={seller.logo_url ?? undefined}
@@ -234,7 +239,9 @@ export function MarketplaceSellerProfileView() {
           </Avatar>
           <Box sx={{ minWidth: 0, flexGrow: 1, pt: { sm: 2 } }}>
             <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-              <Typography variant="h3">{seller.display_name}</Typography>
+              <Typography variant="h3" sx={{ fontSize: { xs: 26, md: 40 } }}>
+                {seller.display_name}
+              </Typography>
               {isSellerProfileVerified(completion) && (
                 <RiVerifiedBadgeFill
                   size={26}
@@ -306,7 +313,7 @@ export function MarketplaceSellerProfileView() {
               description="ข้อมูลสำหรับการยืนยันตัวตนและติดต่อจากระบบ"
               icon={<RiUser3Line />}
             >
-              <Grid container spacing={2.5}>
+              <Grid container columnSpacing={4} rowSpacing={0}>
                 <Grid size={{ xs: 12, sm: 6 }}>
                   <ProfileField label="ชื่อ-นามสกุล" value={seller.seller_name} />
                 </Grid>
@@ -319,8 +326,15 @@ export function MarketplaceSellerProfileView() {
                 <Grid size={{ xs: 12, sm: 6 }}>
                   <ProfileField label="เลขบัตร/เลขผู้เสียภาษี" value={seller.national_tax_id} />
                 </Grid>
-                {seller.seller_type === 'company' && (
-                  <>
+              </Grid>
+
+              {seller.seller_type === 'company' && (
+                <Box sx={{ mt: 3 }}>
+                  <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
+                    <Box sx={{ width: 4, height: 18, borderRadius: 1, bgcolor: 'primary.main' }} />
+                    <Typography variant="subtitle2">ข้อมูลนิติบุคคล</Typography>
+                  </Stack>
+                  <Grid container columnSpacing={4} rowSpacing={0}>
                     <Grid size={{ xs: 12, sm: 6 }}>
                       <ProfileField label="ชื่อบริษัท" value={seller.company_name} />
                     </Grid>
@@ -333,9 +347,9 @@ export function MarketplaceSellerProfileView() {
                     <Grid size={{ xs: 12 }}>
                       <ProfileField label="ที่อยู่ผู้ออกใบเสร็จ" value={seller.business_address} />
                     </Grid>
-                  </>
-                )}
-              </Grid>
+                  </Grid>
+                </Box>
+              )}
             </SectionCard>
 
             <SectionCard
@@ -357,20 +371,87 @@ export function MarketplaceSellerProfileView() {
               }
             >
               {seller.payout_account ? (
-                <Grid container spacing={2.5}>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <ProfileField label="ชื่อบัญชี" value={seller.payout_account.account_name} />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <ProfileField label="ธนาคาร" value={seller.payout_account.bank_name} />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <ProfileField label="เลขบัญชี" value={seller.payout_account.account_number} />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <ProfileField label="PromptPay" value={seller.payout_account.promptpay_id} />
-                  </Grid>
-                </Grid>
+                <Stack spacing={2}>
+                  <Box
+                    sx={{
+                      p: { xs: 2, sm: 2.5 },
+                      borderRadius: 3,
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      background:
+                        'linear-gradient(135deg, rgba(21,101,245,0.08) 0%, rgba(255,255,255,0) 60%)',
+                    }}
+                  >
+                    <Stack
+                      direction={{ xs: 'column', sm: 'row' }}
+                      justifyContent="space-between"
+                      spacing={2}
+                    >
+                      <Stack direction="row" spacing={1.5} alignItems="center">
+                        <ThaiBankLogo
+                          bankCode={seller.payout_account.bank_code}
+                          bankName={seller.payout_account.bank_name}
+                          size={56}
+                          sx={{ boxShadow: 1 }}
+                        />
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography variant="caption" color="text.secondary">
+                            บัญชีหลักสำหรับรับยอดขาย
+                          </Typography>
+                          <Typography variant="h6" noWrap>
+                            {seller.payout_account.bank_name}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            รหัสธนาคาร {seller.payout_account.bank_code}
+                          </Typography>
+                        </Box>
+                      </Stack>
+                      {seller.payout_account.promptpay_id && (
+                        <Chip
+                          size="small"
+                          variant="soft"
+                          color="primary"
+                          label={`PromptPay ${seller.payout_account.promptpay_id}`}
+                          sx={{ alignSelf: { xs: 'flex-start', sm: 'center' } }}
+                        />
+                      )}
+                    </Stack>
+
+                    <Box
+                      sx={{
+                        gap: 2,
+                        mt: 2.5,
+                        pt: 2.5,
+                        display: 'grid',
+                        borderTop: '1px dashed',
+                        borderColor: 'divider',
+                        gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' },
+                      }}
+                    >
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">
+                          ชื่อบัญชี
+                        </Typography>
+                        <Typography variant="subtitle1">
+                          {seller.payout_account.account_name}
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">
+                          เลขบัญชี
+                        </Typography>
+                        <Typography variant="subtitle1" sx={{ letterSpacing: 0.6 }}>
+                          {seller.payout_account.account_number}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Box>
+
+                  <Alert severity="info" variant="outlined">
+                    โปรดตรวจสอบชื่อบัญชี เลขบัญชี และธนาคารให้ถูกต้อง
+                    หากข้อมูลไม่ตรงกันระบบจะเลื่อนยอดไปรอบโอนถัดไป
+                  </Alert>
+                </Stack>
               ) : (
                 <Alert severity="warning">ยังไม่มีข้อมูลบัญชีรับเงิน กรุณาแก้ไขข้อมูลร้านค้า</Alert>
               )}
@@ -389,40 +470,54 @@ export function MarketplaceSellerProfileView() {
               }
             >
               {seller.documents?.length ? (
-                <Grid container spacing={1.5}>
+                <Grid container columnSpacing={4} rowSpacing={0}>
                   {seller.documents.map((document) => (
                     <Grid key={document.id} size={{ xs: 12, sm: 6 }}>
-                      <Card variant="outlined" sx={{ p: 1.75, borderRadius: 2 }}>
-                        <Stack direction="row" spacing={1.5} alignItems="center">
-                          <Avatar
-                            variant="rounded"
-                            sx={{ color: 'primary.main', bgcolor: 'primary.lighter' }}
+                      <Stack
+                        direction="row"
+                        spacing={1.5}
+                        alignItems="center"
+                        sx={{
+                          py: 1.5,
+                          minHeight: 68,
+                          borderBottom: '1px solid',
+                          borderColor: 'divider',
+                        }}
+                      >
+                        <Avatar
+                          variant="rounded"
+                          sx={{
+                            width: 38,
+                            height: 38,
+                            color: 'primary.main',
+                            bgcolor: 'primary.lighter',
+                          }}
+                        >
+                          <RiFileTextLine size={20} />
+                        </Avatar>
+                        <Box sx={{ minWidth: 0, flexGrow: 1 }}>
+                          <Typography variant="subtitle2" noWrap>
+                            {documentLabel[document.document_type] || document.file_name}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {(document.file_size / 1024 / 1024).toFixed(2)} MB ·{' '}
+                            {document.file_name}
+                          </Typography>
+                        </Box>
+                        {document.url && (
+                          <Button
+                            href={document.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            color="inherit"
+                            size="small"
+                            aria-label={`เปิด ${document.file_name}`}
+                            sx={{ minWidth: 36, px: 1 }}
                           >
-                            <RiFileTextLine />
-                          </Avatar>
-                          <Box sx={{ minWidth: 0, flexGrow: 1 }}>
-                            <Typography variant="subtitle2" noWrap>
-                              {documentLabel[document.document_type] || document.file_name}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {(document.file_size / 1024 / 1024).toFixed(2)} MB
-                            </Typography>
-                          </Box>
-                          {document.url && (
-                            <Button
-                              href={document.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              color="inherit"
-                              size="small"
-                              aria-label={`เปิด ${document.file_name}`}
-                              sx={{ minWidth: 36, px: 1 }}
-                            >
-                              <RiExternalLinkLine />
-                            </Button>
-                          )}
-                        </Stack>
-                      </Card>
+                            <RiExternalLinkLine />
+                          </Button>
+                        )}
+                      </Stack>
                     </Grid>
                   ))}
                 </Grid>
@@ -436,7 +531,7 @@ export function MarketplaceSellerProfileView() {
               description="สถานะข้อตกลงที่ยืนยันตอนส่งคำขอเปิดร้าน"
               icon={<RiShieldCheckLine />}
             >
-              <Grid container spacing={1.5}>
+              <Grid container columnSpacing={4} rowSpacing={0}>
                 <ConsentItem
                   label="ข้อตกลงการเป็นผู้ขาย"
                   acceptedAt={seller.seller_agreement_accepted_at}
@@ -474,22 +569,27 @@ function SectionCard({
 }) {
   return (
     <Card variant="outlined" sx={{ p: { xs: 2.5, md: 3 }, borderRadius: 3 }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2}>
-        <Stack direction="row" spacing={1.5} alignItems="center">
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        justifyContent="space-between"
+        alignItems={{ xs: 'stretch', sm: 'flex-start' }}
+        spacing={2}
+      >
+        <Stack direction="row" spacing={1.5} alignItems="center" sx={{ minWidth: 0 }}>
           <Avatar
             variant="rounded"
             sx={{ width: 44, height: 44, color: 'primary.main', bgcolor: 'primary.lighter' }}
           >
             {icon}
           </Avatar>
-          <Box>
+          <Box sx={{ minWidth: 0 }}>
             <Typography variant="h6">{title}</Typography>
             <Typography variant="body2" color="text.secondary">
               {description}
             </Typography>
           </Box>
         </Stack>
-        {action}
+        {action && <Box sx={{ alignSelf: { xs: 'flex-start', sm: 'auto' } }}>{action}</Box>}
       </Stack>
       <Divider sx={{ my: 2.5 }} />
       {children}
@@ -517,19 +617,16 @@ function ProfileField({ label, value }: { label: string; value?: string | null }
   return (
     <Box
       sx={{
-        px: 2,
-        py: 1.5,
-        height: 1,
-        borderRadius: 2,
-        bgcolor: 'background.neutral',
-        border: '1px solid',
+        py: 1.75,
+        minHeight: 68,
+        borderBottom: '1px solid',
         borderColor: 'divider',
       }}
     >
       <Typography variant="caption" color="text.secondary">
         {label}
       </Typography>
-      <Typography sx={{ mt: 0.25, fontWeight: 600, wordBreak: 'break-word' }}>
+      <Typography variant="subtitle2" sx={{ mt: 0.25, wordBreak: 'break-word' }}>
         {value || '-'}
       </Typography>
     </Box>
@@ -545,12 +642,10 @@ function ConsentItem({ label, acceptedAt }: { label: string; acceptedAt?: string
         spacing={1.25}
         alignItems="center"
         sx={{
-          p: 1.75,
-          height: 1,
-          borderRadius: 2,
-          border: '1px solid',
-          borderColor: accepted ? 'success.light' : 'warning.light',
-          bgcolor: accepted ? 'success.lighter' : 'warning.lighter',
+          py: 1.75,
+          minHeight: 72,
+          borderBottom: '1px solid',
+          borderColor: 'divider',
         }}
       >
         {accepted ? (
@@ -558,7 +653,7 @@ function ConsentItem({ label, acceptedAt }: { label: string; acceptedAt?: string
         ) : (
           <RiInformationLine size={22} color="#B76E00" />
         )}
-        <Box>
+        <Box sx={{ minWidth: 0, flexGrow: 1 }}>
           <Typography variant="subtitle2">{label}</Typography>
           <Typography variant="caption" color="text.secondary">
             {acceptedAt
@@ -569,6 +664,12 @@ function ConsentItem({ label, acceptedAt }: { label: string; acceptedAt?: string
               : 'ยังไม่ยอมรับ'}
           </Typography>
         </Box>
+        <Chip
+          size="small"
+          variant="soft"
+          color={accepted ? 'success' : 'warning'}
+          label={accepted ? 'ยอมรับแล้ว' : 'ยังไม่ยอมรับ'}
+        />
       </Stack>
     </Grid>
   );

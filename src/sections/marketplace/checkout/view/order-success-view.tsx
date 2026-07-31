@@ -20,7 +20,7 @@ export function MarketplaceOrderSuccessView({
   dashboardMode?: boolean;
 }) {
   return (
-    <Container maxWidth="sm" sx={{ py: { xs: 8, md: 12 } }}>
+    <Container maxWidth={false} sx={{ py: { xs: 8, md: 12 } }}>
       <Card sx={{ p: { xs: 3, sm: 5 }, textAlign: 'center' }}>
         <Box
           sx={{
@@ -44,7 +44,12 @@ export function MarketplaceOrderSuccessView({
             ? 'นี่เป็นคำสั่งซื้อสาธิต เมื่อมีสินค้าจริงระบบจะบันทึกลงรายการซื้อของคุณ'
             : 'บันทึกคำสั่งซื้อแล้ว คุณสามารถดาวน์โหลดสื่อดิจิทัลได้จากรายการซื้อ'}
         </Typography>
-        <Stack spacing={1.5} sx={{ mt: 4 }}>
+        <Stack
+          spacing={1.5}
+          flex="row"
+          flexDirection="row"
+          sx={{ mt: 4, justifyContent: 'center' }}
+        >
           <Button
             component={RouterLink}
             href="/dashboard/purchases"

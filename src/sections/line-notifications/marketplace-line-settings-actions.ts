@@ -15,6 +15,9 @@ export type MarketplaceLineSettings = {
     sellerManagedPrice: number;
     sellerManagedDescription: string;
     sellerManagedQuota: number;
+    sellerTrialDescription: string;
+    sellerTrialDays: number;
+    sellerTrialQuota: number;
     lineDisplayName: string | null;
     lineLinkedAt: string | null;
   };
@@ -56,6 +59,9 @@ export type MarketplaceLineSettingsInput = {
   sellerManagedPrice: number;
   sellerManagedDescription: string;
   sellerManagedQuota: number;
+  sellerTrialDescription: string;
+  sellerTrialDays: number;
+  sellerTrialQuota: number;
 };
 
 async function parse<T>(response: Response, fallback: string): Promise<T> {

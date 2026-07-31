@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 
-import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { createNotifications } from 'src/lib/notifications';
 import { writeSecurityAudit } from 'src/lib/security-audit';
+import { requireRole, hasPayoutAccess } from 'src/lib/auth-token';
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -11,6 +11,9 @@ export async function PATCH(request: Request, { params }: Context) {
   const caller = requireRole(request, ['master_admin']);
   if (!caller) {
     return NextResponse.json({ message: 'ไม่มีสิทธิ์จัดการการโอนเงิน' }, { status: 403 });
+  }
+  if (!hasPayoutAccess(request, caller.sub)) {
+    return NextResponse.json({ message: 'กรุณายืนยันรหัสเข้าใช้งานอีกครั้ง' }, { status: 401 });
   }
   const { id } = await params;
   const body = await request.json().catch(() => null);

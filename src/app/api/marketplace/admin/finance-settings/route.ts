@@ -4,6 +4,7 @@ import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { writeSecurityAudit } from 'src/lib/security-audit';
 
+import { findThaiBank } from 'src/sections/marketplace/shared/thai-banks';
 import { getFinanceSettings } from 'src/sections/marketplace/admin/server/finance';
 import { isStripeConfigured } from 'src/sections/marketplace/checkout/server/stripe';
 import { normalizePromptPayId } from 'src/sections/marketplace/checkout/server/promptpay';
@@ -21,6 +22,10 @@ export async function GET(request: Request) {
     settings: {
       promptpayId: settings.promptpay_id ?? '',
       promptpayAccountName: settings.promptpay_account_name ?? '',
+      payoutBankCode: settings.payout_bank_code ?? '',
+      payoutBankName: settings.payout_bank_name ?? '',
+      payoutAccountNumber: settings.payout_account_number ?? '',
+      payoutAccountName: settings.payout_account_name ?? '',
       commissionRate: Number(settings.commission_rate),
       holdDays: Number(settings.hold_days),
       payoutDay: Number(settings.payout_day),
@@ -42,6 +47,13 @@ export async function PATCH(request: Request) {
   const body = await request.json().catch(() => null);
   const promptpayId = String(body?.promptpayId ?? '').replace(/\D/g, '');
   const accountName = String(body?.promptpayAccountName ?? '').trim();
+  const requestedPayoutBankCode = String(body?.payoutBankCode ?? '').trim();
+  const requestedPayoutBankName = String(body?.payoutBankName ?? '').trim();
+  const payoutBank = findThaiBank(requestedPayoutBankCode) ?? findThaiBank(requestedPayoutBankName);
+  const payoutBankCode = payoutBank?.code ?? '';
+  const payoutBankName = payoutBank?.name ?? '';
+  const payoutAccountNumber = String(body?.payoutAccountNumber ?? '').replace(/\D/g, '');
+  const payoutAccountName = String(body?.payoutAccountName ?? '').trim();
   const commissionRate = Number(body?.commissionRate);
   const holdDays = Number(body?.holdDays);
   const payoutDay = Number(body?.payoutDay);
@@ -62,6 +74,11 @@ export async function PATCH(request: Request) {
     (isActive && (!promptpayId || accountName.length < 2)) ||
     (stripeEnabled && !isStripeConfigured()) ||
     accountName.length > 150 ||
+    (Boolean(requestedPayoutBankCode || requestedPayoutBankName) && !payoutBank) ||
+    payoutAccountName.length > 150 ||
+    (payoutAccountNumber && (payoutAccountNumber.length < 6 || payoutAccountNumber.length > 20)) ||
+    ([payoutBankCode, payoutBankName, payoutAccountNumber, payoutAccountName].some(Boolean) &&
+      ![payoutBankCode, payoutBankName, payoutAccountNumber, payoutAccountName].every(Boolean)) ||
     !Number.isFinite(commissionRate) ||
     commissionRate < 0 ||
     commissionRate > 100 ||
@@ -81,6 +98,10 @@ export async function PATCH(request: Request) {
     id: 'default',
     promptpay_id: promptpayId || null,
     promptpay_account_name: accountName || null,
+    payout_bank_code: payoutBankCode || null,
+    payout_bank_name: payoutBankName || null,
+    payout_account_number: payoutAccountNumber || null,
+    payout_account_name: payoutAccountName || null,
     commission_rate: commissionRate,
     hold_days: holdDays,
     payout_day: payoutDay,

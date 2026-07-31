@@ -47,6 +47,7 @@ async function resolveProducts(productIds: string[], sellerToolsVisible: boolean
         ...safeProduct,
         engagement: {
           views: 0,
+          likes: 0,
           purchases: 0,
           downloads: 0,
           reviewCount: ratings.length,

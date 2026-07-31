@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { requireAuthenticated } from 'src/lib/auth-token';
 
+import { findThaiBank } from 'src/sections/marketplace/shared/thai-banks';
 import { provisionEkruSystemSeller } from 'src/sections/marketplace/seller/server/system-seller';
 import { notifyMarketplaceAdmins } from 'src/sections/marketplace/admin/server/line-notifications';
 
@@ -128,8 +129,11 @@ export async function POST(request: Request) {
   const contactEmail = String(body?.contactEmail ?? '').trim();
   const sellerName = String(body?.sellerName ?? '').trim();
   const phone = String(body?.phone ?? '').replace(/[^\d+]/g, '');
-  const bankCode = String(body?.bankCode ?? '').trim();
-  const bankName = String(body?.bankName ?? '').trim();
+  const requestedBankCode = String(body?.bankCode ?? '').trim();
+  const requestedBankName = String(body?.bankName ?? '').trim();
+  const selectedBank = findThaiBank(requestedBankCode) ?? findThaiBank(requestedBankName);
+  const bankCode = selectedBank?.code ?? requestedBankCode;
+  const bankName = selectedBank?.name ?? requestedBankName;
   const accountNumber = String(body?.accountNumber ?? '').replace(/\D/g, '');
   const accountName = String(body?.accountName ?? '').trim();
   const now = new Date().toISOString();
@@ -162,6 +166,7 @@ export async function POST(request: Request) {
       sellerName.length < 3 ||
       phone.length < 9 ||
       !contactEmail.includes('@') ||
+      !selectedBank ||
       !bankCode ||
       !bankName ||
       accountNumber.length < 6 ||

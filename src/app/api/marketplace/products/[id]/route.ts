@@ -62,6 +62,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       schoolIds: eligibleSchools.map((school) => school.id),
       resourceType: product.resource_type,
       licenseScope: product.license_scope,
+      featureKeys: product.grants_feature_keys,
     }),
   ]);
   publicProduct.engagement = engagement;

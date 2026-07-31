@@ -197,7 +197,7 @@ export function MarketplaceFeedbackView() {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ py: { xs: 3 } }}>
+    <Container maxWidth={false} sx={{ py: { xs: 3 } }}>
       <Stack direction="row" spacing={2} alignItems="center">
         <Box
           sx={{

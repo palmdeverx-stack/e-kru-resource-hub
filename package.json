@@ -67,6 +67,7 @@
     "@tiptap/pm": "^3.13.0",
     "@tiptap/react": "^3.13.0",
     "@tiptap/starter-kit": "^3.13.0",
+    "@vercel/analytics": "^2.0.1",
     "@zxing/browser": "^0.2.1",
     "@zxing/library": "^0.23.0",
     "accept-language": "^3.0.20",

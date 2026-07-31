@@ -2,7 +2,15 @@
 
 import type { MarketplaceProduct, MarketplaceProductReview } from '../../shared/types';
 
+import Script from 'next/script';
 import { useMemo, useState, useEffect } from 'react';
+import {
+  LineIcon,
+  EmailIcon,
+  FacebookIcon,
+  LineShareButton,
+  EmailShareButton,
+} from 'react-share';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -13,6 +21,7 @@ import Stack from '@mui/material/Stack';
 import Rating from '@mui/material/Rating';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
+import Popover from '@mui/material/Popover';
 import Container from '@mui/material/Container';
 import TextField from '@mui/material/TextField';
 import IconButton from '@mui/material/IconButton';
@@ -72,6 +81,28 @@ import {
 } from '../../shared/api';
 
 const VISITOR_STORAGE_KEY = 'ekru_marketplace_visitor_id';
+const FACEBOOK_APP_ID = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID?.trim();
+const FACEBOOK_API_VERSION = process.env.NEXT_PUBLIC_FACEBOOK_API_VERSION?.trim() || 'v23.0';
+
+declare global {
+  interface Window {
+    FB?: {
+      init: (options: {
+        appId: string;
+        cookie?: boolean;
+        xfbml?: boolean;
+        version: string;
+      }) => void;
+      ui: (options: {
+        method: 'share';
+        href: string;
+        hashtag?: string;
+        display?: 'popup';
+      }) => void;
+    };
+  }
+}
+
 const featureLabels = new Map<string, string>(
   [...SCHOOL_FEATURES, MARKETPLACE_SELLER_LINE_FEATURE].map((feature) => [
     feature.key,
@@ -122,6 +153,21 @@ export function MarketplaceProductDetailView({
   const [sellerProductsLoading, setSellerProductsLoading] = useState(false);
   const [relatedProducts, setRelatedProducts] = useState<MarketplaceProduct[]>([]);
   const [relatedProductsLoading, setRelatedProductsLoading] = useState(false);
+  const [shareUrl, setShareUrl] = useState('');
+  const [shareAnchorEl, setShareAnchorEl] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const configuredOrigin =
+      process.env.NEXT_PUBLIC_MARKETPLACE_URL?.trim() ||
+      process.env.NEXT_PUBLIC_SERVER_URL?.trim() ||
+      window.location.origin;
+    const publicOrigin = /^https?:\/\//i.test(configuredOrigin)
+      ? configuredOrigin
+      : `https://${configuredOrigin}`;
+
+    setShareUrl(new URL(paths.marketplace.product(productId), `${publicOrigin}/`).toString());
+    setShareAnchorEl(null);
+  }, [productId]);
 
   useEffect(() => {
     setActiveImageIndex(0);
@@ -269,6 +315,26 @@ export function MarketplaceProductDetailView({
     setAdded(true);
   };
 
+  const handleFacebookShare = () => {
+    setShareAnchorEl(null);
+
+    if (FACEBOOK_APP_ID && window.FB) {
+      window.FB.ui({
+        method: 'share',
+        href: shareUrl,
+        hashtag: '#EKRU',
+        display: 'popup',
+      });
+      return;
+    }
+
+    window.open(
+      `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}&hashtag=${encodeURIComponent('#EKRU')}`,
+      '_blank',
+      'noopener,noreferrer'
+    );
+  };
+
   const handleReviewSubmit = async () => {
     if (!reviewRating) {
       setReviewError('กรุณาเลือกคะแนนดาว');
@@ -381,6 +447,7 @@ export function MarketplaceProductDetailView({
     galleryImages[activeImageIndex]?.url ?? product.cover_url ?? galleryImages[0]?.url ?? undefined;
   const engagement = product.engagement ?? {
     views: 0,
+    likes: 0,
     purchases: 0,
     downloads: 0,
     reviewCount: 0,
@@ -459,6 +526,21 @@ export function MarketplaceProductDetailView({
   if (modalMode) {
     return (
       <Container maxWidth="lg" sx={{ py: { xs: 3, sm: 4, md: 7 } }}>
+        {FACEBOOK_APP_ID && (
+          <Script
+            id="facebook-jssdk"
+            src="https://connect.facebook.net/th_TH/sdk.js"
+            strategy="afterInteractive"
+            onReady={() => {
+              window.FB?.init({
+                appId: FACEBOOK_APP_ID,
+                cookie: false,
+                xfbml: false,
+                version: FACEBOOK_API_VERSION,
+              });
+            }}
+          />
+        )}
         <Stack spacing={{ xs: 3, md: 4 }}>
           <Typography
             component="h1"
@@ -547,19 +629,96 @@ export function MarketplaceProductDetailView({
               </IconButton>
               <IconButton
                 aria-label="แชร์สินค้า"
-                onClick={() => {
-                  if (navigator.share) {
-                    navigator
-                      .share({ title: content.title, url: window.location.href })
-                      .catch(() => undefined);
-                  } else {
-                    navigator.clipboard?.writeText(window.location.href).catch(() => undefined);
-                  }
-                }}
+                aria-haspopup="dialog"
+                aria-expanded={Boolean(shareAnchorEl)}
+                onClick={(event) => setShareAnchorEl(event.currentTarget)}
                 sx={{ border: '1px solid', borderColor: 'divider' }}
               >
                 <RiShareForwardLine />
               </IconButton>
+              <Popover
+                open={Boolean(shareAnchorEl)}
+                anchorEl={shareAnchorEl}
+                onClose={() => setShareAnchorEl(null)}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                slotProps={{
+                  paper: {
+                    sx: {
+                      p: 2,
+                      mt: 1,
+                      borderRadius: 2,
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      boxShadow: 8,
+                    },
+                  },
+                }}
+              >
+                <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
+                  แชร์สินค้า
+                </Typography>
+                <Stack direction="row" spacing={2}>
+                  {[
+                    {
+                      label: 'LINE',
+                      button: (
+                        <LineShareButton
+                          url={shareUrl}
+                          title={content.title}
+                          disabled={!shareUrl}
+                          aria-label="แชร์สินค้าผ่าน LINE"
+                        >
+                          <LineIcon size={40} round aria-hidden="true" />
+                        </LineShareButton>
+                      ),
+                    },
+                    {
+                      label: 'Facebook',
+                      button: (
+                        <IconButton
+                          type="button"
+                          disabled={!shareUrl}
+                          onClick={handleFacebookShare}
+                          aria-label="แชร์สินค้าผ่าน Facebook"
+                          sx={{ p: 0 }}
+                        >
+                          <FacebookIcon size={40} round aria-hidden="true" />
+                        </IconButton>
+                      ),
+                    },
+                    {
+                      label: 'อีเมล',
+                      button: (
+                        <EmailShareButton
+                          url={shareUrl}
+                          subject={content.title}
+                          body={`ดูสินค้า ${content.title} บน E-KRU Marketplace`}
+                          disabled={!shareUrl}
+                          aria-label="แชร์สินค้าทางอีเมล"
+                        >
+                          <EmailIcon size={40} round aria-hidden="true" />
+                        </EmailShareButton>
+                      ),
+                    },
+                  ].map((option) => (
+                    <Box
+                      key={option.label}
+                      onClick={() => setShareAnchorEl(null)}
+                      sx={{ minWidth: 52, textAlign: 'center' }}
+                    >
+                      {option.button}
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ mt: 0.25, display: 'block' }}
+                      >
+                        {option.label}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Stack>
+              </Popover>
               <Button
                 size="large"
                 variant="contained"
@@ -1524,6 +1683,47 @@ export function MarketplaceProductDetailView({
             <Typography variant="h3" color="primary.main">
               {formatPrice(pricing.salePrice, product.currency)}
             </Typography>
+
+            <Stack
+              direction="row"
+              spacing={{ xs: 2, sm: 2.5 }}
+              alignItems="center"
+              sx={{
+                px: 1.5,
+                py: 1.25,
+                width: 'fit-content',
+                maxWidth: 1,
+                borderRadius: 2,
+                color: 'text.secondary',
+                bgcolor: 'background.neutral',
+              }}
+            >
+              {[
+                { label: 'ยอดดู', value: engagement.views, icon: <RiEyeLine size={20} /> },
+                { label: 'ถูกใจ', value: engagement.likes, icon: <RiHeartLine size={19} /> },
+                {
+                  label: 'ยอดสั่งซื้อ',
+                  value: engagement.purchases,
+                  icon: <RiShoppingBag3Line size={19} />,
+                },
+              ].map((stat) => (
+                <Stack
+                  key={stat.label}
+                  direction="row"
+                  spacing={0.625}
+                  alignItems="center"
+                  aria-label={`${stat.label} ${stat.value.toLocaleString('th-TH')}`}
+                  title={stat.label}
+                >
+                  <Box component="span" sx={{ display: 'inline-flex', color: 'primary.main' }}>
+                    {stat.icon}
+                  </Box>
+                  <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 700 }}>
+                    {stat.value.toLocaleString('th-TH')}
+                  </Typography>
+                </Stack>
+              ))}
+            </Stack>
 
             <Stack spacing={1.25}>
               <Button

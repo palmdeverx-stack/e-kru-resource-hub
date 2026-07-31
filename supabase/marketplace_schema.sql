@@ -301,6 +301,12 @@ create table if not exists public.marketplace_line_settings (
     default 'ใช้ LINE OA ของระบบ E-KRU ไม่ต้องกรอก Channel token',
   seller_managed_quota integer not null default 100
     check (seller_managed_quota > 0),
+  seller_trial_description text not null
+    default 'ทดลองใช้ LINE แจ้งเตือนผ่าน OA ของระบบ E-KRU ฟรี 7 วัน',
+  seller_trial_days integer not null default 7
+    check (seller_trial_days > 0),
+  seller_trial_quota integer not null default 10
+    check (seller_trial_quota > 0),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -967,6 +973,8 @@ create table if not exists public.marketplace_product_collections (
 );
 create index if not exists marketplace_product_collections_user_idx
   on public.marketplace_product_collections (user_id, collection_type, created_at desc);
+create index if not exists marketplace_product_collections_product_type_idx
+  on public.marketplace_product_collections (product_id, collection_type);
 
 -- Marketplace purchases of "feature_unlock" products grant a school a
 -- time-limited entitlement here. This is separate from (additive to)
@@ -1089,10 +1097,22 @@ create table if not exists public.marketplace_seller_line_settings (
   seller_id uuid primary key references public.marketplace_sellers(id) on delete cascade,
   channel_access_token_encrypted text,
   line_user_id text,
+  line_display_name text,
+  line_linked_at timestamptz,
   is_enabled boolean not null default false,
   notify_payment_received boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
+);
+
+create table if not exists public.marketplace_seller_line_link_tokens (
+  id uuid primary key default gen_random_uuid(),
+  seller_id uuid not null unique references public.marketplace_sellers(id) on delete cascade,
+  token_hash text not null unique,
+  expires_at timestamptz not null,
+  used_at timestamptz,
+  created_by uuid not null,
+  created_at timestamptz not null default now()
 );
 
 create table if not exists public.marketplace_seller_line_deliveries (
@@ -1121,6 +1141,10 @@ create table if not exists public.marketplace_finance_settings (
   id text primary key default 'default' check (id = 'default'),
   promptpay_id text,
   promptpay_account_name text,
+  payout_bank_code text,
+  payout_bank_name text,
+  payout_account_number text,
+  payout_account_name text,
   commission_rate numeric(5, 2) not null default 10
     check (commission_rate >= 0 and commission_rate <= 100),
   hold_days integer not null default 7 check (hold_days >= 0 and hold_days <= 90),
@@ -1179,7 +1203,11 @@ values ('default')
 on conflict (id) do nothing;
 
 alter table public.marketplace_finance_settings
-  add column if not exists stripe_enabled boolean not null default false;
+  add column if not exists stripe_enabled boolean not null default false,
+  add column if not exists payout_bank_code text,
+  add column if not exists payout_bank_name text,
+  add column if not exists payout_account_number text,
+  add column if not exists payout_account_name text;
 
 -- Referral / affiliate rewards. The feature is opt-in at platform level and
 -- defaults to disabled. Attribution terms are snapshotted on the order so
@@ -1583,6 +1611,7 @@ alter table public.marketplace_products enable row level security;
 alter table public.marketplace_orders enable row level security;
 alter table public.marketplace_order_items enable row level security;
 alter table public.marketplace_seller_line_settings enable row level security;
+alter table public.marketplace_seller_line_link_tokens enable row level security;
 alter table public.marketplace_seller_line_deliveries enable row level security;
 alter table public.marketplace_finance_settings enable row level security;
 alter table public.marketplace_storage_settings enable row level security;
@@ -1813,3 +1842,127 @@ alter table public.marketplace_order_evidence enable row level security;
 alter table public.marketplace_customer_communications enable row level security;
 alter table public.marketplace_entitlement_usage_events enable row level security;
 alter table public.marketplace_payment_disputes enable row level security;
+
+create table if not exists public.marketplace_product_review_submissions (
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid not null references public.marketplace_products(id) on delete cascade,
+  submission_number integer not null check (submission_number > 0),
+  product_title_snapshot text not null,
+  status text not null default 'pending_review'
+    check (status in ('pending_review', 'published', 'rejected')),
+  submitted_at timestamptz not null,
+  reviewed_at timestamptz,
+  reviewed_by uuid,
+  rejection_reason text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (product_id, submission_number)
+);
+create index if not exists marketplace_product_review_submissions_product_idx
+  on public.marketplace_product_review_submissions (product_id, submission_number desc);
+
+alter table public.marketplace_product_review_submissions enable row level security;
+revoke all on table public.marketplace_product_review_submissions from anon, authenticated;
+
+create or replace function public.capture_marketplace_product_review_history()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  next_submission_number integer;
+begin
+  if new.submitted_at is distinct from old.submitted_at and new.submitted_at is not null then
+    perform pg_advisory_xact_lock(hashtextextended(new.id::text, 0));
+
+    select coalesce(max(submission_number), 0) + 1
+      into next_submission_number
+      from public.marketplace_product_review_submissions
+      where product_id = new.id;
+
+    insert into public.marketplace_product_review_submissions (
+      product_id,
+      submission_number,
+      product_title_snapshot,
+      status,
+      submitted_at,
+      reviewed_at,
+      reviewed_by,
+      rejection_reason,
+      updated_at
+    )
+    values (
+      new.id,
+      next_submission_number,
+      new.title,
+      case
+        when new.status in ('pending_review', 'published', 'rejected') then new.status
+        else 'pending_review'
+      end,
+      new.submitted_at,
+      new.reviewed_at,
+      new.reviewed_by,
+      new.rejection_reason,
+      now()
+    );
+  elsif (
+    new.status is distinct from old.status
+    or new.reviewed_at is distinct from old.reviewed_at
+    or new.rejection_reason is distinct from old.rejection_reason
+  ) and new.status in ('published', 'rejected') then
+    update public.marketplace_product_review_submissions
+    set
+      status = new.status,
+      reviewed_at = new.reviewed_at,
+      reviewed_by = new.reviewed_by,
+      rejection_reason = new.rejection_reason,
+      updated_at = now()
+    where id = (
+      select id
+      from public.marketplace_product_review_submissions
+      where product_id = new.id
+      order by submission_number desc
+      limit 1
+    );
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists marketplace_products_capture_review_history
+  on public.marketplace_products;
+create trigger marketplace_products_capture_review_history
+after update of submitted_at, status, reviewed_at, rejection_reason
+on public.marketplace_products
+for each row
+execute function public.capture_marketplace_product_review_history();
+
+insert into public.marketplace_product_review_submissions (
+  product_id,
+  submission_number,
+  product_title_snapshot,
+  status,
+  submitted_at,
+  reviewed_at,
+  reviewed_by,
+  rejection_reason,
+  created_at,
+  updated_at
+)
+select
+  id,
+  1,
+  title,
+  status,
+  submitted_at,
+  reviewed_at,
+  reviewed_by,
+  rejection_reason,
+  submitted_at,
+  coalesce(reviewed_at, submitted_at)
+from public.marketplace_products
+where submitted_at is not null
+  and status in ('pending_review', 'published', 'rejected')
+on conflict (product_id, submission_number) do nothing;

@@ -80,6 +80,7 @@ export async function GET(request: Request, { params }: Context) {
         seller: publicSeller,
         engagement: {
           views: 0,
+          likes: 0,
           purchases: 0,
           downloads: 0,
           reviewCount: ratings.length,

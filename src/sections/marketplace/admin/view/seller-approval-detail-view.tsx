@@ -36,6 +36,8 @@ import {
 
 import { useAuthContext } from 'src/auth/hooks';
 
+import { ThaiBankLogo } from '../../shared/bank-logo';
+
 const sellerTypeLabel = {
   individual: 'บุคคลทั่วไป',
   teacher: 'ครู',
@@ -70,9 +72,15 @@ const agreementFields: Array<{
 
 type Props = {
   sellerId: string;
+  backHref?: string;
+  backLabel?: string;
 };
 
-export function MarketplaceSellerApprovalDetailView({ sellerId }: Props) {
+export function MarketplaceSellerApprovalDetailView({
+  sellerId,
+  backHref = paths.marketplace.sellerApprovals,
+  backLabel = 'กลับไปคำขอเปิดร้าน',
+}: Props) {
   const { user } = useAuthContext();
   const [seller, setSeller] = useState<MarketplaceSeller | null>(null);
   const [loading, setLoading] = useState(true);
@@ -198,12 +206,12 @@ export function MarketplaceSellerApprovalDetailView({ sellerId }: Props) {
       <Container maxWidth="lg" sx={{ py: 5 }}>
         <Button
           component={RouterLink}
-          href={paths.marketplace.sellerApprovals}
+          href={backHref}
           color="inherit"
           startIcon={<RiArrowLeftLine />}
           sx={{ mb: 3 }}
         >
-          กลับไปคำขอเปิดร้าน
+          {backLabel}
         </Button>
         <Alert severity="error">{error || 'ไม่พบคำขอเปิดร้าน'}</Alert>
       </Container>
@@ -211,15 +219,15 @@ export function MarketplaceSellerApprovalDetailView({ sellerId }: Props) {
   }
 
   return (
-    <Container maxWidth="xl" sx={{ py: { xs: 3 } }}>
+    <Container maxWidth={false} sx={{ py: { xs: 3 } }}>
       <Button
         component={RouterLink}
-        href={paths.marketplace.sellerApprovals}
+        href={backHref}
         color="inherit"
         startIcon={<RiArrowLeftLine />}
         sx={{ mb: 3 }}
       >
-        กลับไปคำขอเปิดร้าน
+        {backLabel}
       </Button>
 
       {!!error && (
@@ -316,10 +324,21 @@ export function MarketplaceSellerApprovalDetailView({ sellerId }: Props) {
           <DetailCard title="ข้อมูลรับเงิน">
             {seller.payout_account ? (
               <>
+                <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2 }}>
+                  <ThaiBankLogo
+                    bankCode={seller.payout_account.bank_code}
+                    bankName={seller.payout_account.bank_name}
+                    size={42}
+                  />
+                  <Box>
+                    <Typography variant="subtitle2">{seller.payout_account.bank_name}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      รหัสธนาคาร {seller.payout_account.bank_code}
+                    </Typography>
+                  </Box>
+                </Stack>
                 <DetailGrid
                   items={[
-                    ['ธนาคาร', seller.payout_account.bank_name],
-                    ['รหัสธนาคาร', seller.payout_account.bank_code],
                     ['เลขบัญชี', seller.payout_account.account_number],
                     ['ชื่อบัญชี', seller.payout_account.account_name],
                     ['PromptPay', seller.payout_account.promptpay_id],
@@ -389,9 +408,7 @@ export function MarketplaceSellerApprovalDetailView({ sellerId }: Props) {
         <Stack spacing={3}>
           <DetailCard title="ค่าธรรมเนียมการขาย">
             <Stack spacing={2}>
-              <Alert
-                severity={seller.commission_rate_override == null ? 'info' : 'success'}
-              >
+              <Alert severity={seller.commission_rate_override == null ? 'info' : 'success'}>
                 {seller.commission_rate_override == null
                   ? `ใช้ค่า Default ของ Marketplace ${defaultCommissionRate}%`
                   : `ร้านนี้ใช้ค่าธรรมเนียมเฉพาะ ${Number(
@@ -414,11 +431,7 @@ export function MarketplaceSellerApprovalDetailView({ sellerId }: Props) {
                 }
               />
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-                <Button
-                  variant="contained"
-                  loading={commissionSaving}
-                  onClick={saveCommissionRate}
-                >
+                <Button variant="contained" loading={commissionSaving} onClick={saveCommissionRate}>
                   บันทึกค่าธรรมเนียมร้าน
                 </Button>
                 <Button

@@ -17,6 +17,7 @@ import {
 type ProductEngagementCount = {
   product_id: string;
   views: number | string;
+  likes?: number | string;
   purchases: number | string;
 };
 
@@ -36,6 +37,7 @@ function withCardRating(
     ...safeProduct,
     engagement: {
       views: Number(counts?.views ?? 0),
+      likes: Number(counts?.likes ?? 0),
       purchases: Number(counts?.purchases ?? 0),
       downloads: 0,
       reviewCount: ratings.length,
@@ -218,21 +220,38 @@ export async function GET(request: Request) {
   const pageRows = pagedRows.slice(0, limit);
   const engagementCounts = new Map<string, ProductEngagementCount>();
   if (pageRows.length) {
-    const { data: countRows, error: countError } = await supabaseAdmin.rpc(
-      'marketplace_product_engagement_counts',
-      { product_ids: pageRows.map((product) => product.id) }
-    );
-    if (countError) {
+    const productIds = pageRows.map((product) => product.id);
+    const [
+      { data: countRows, error: countError },
+      { data: favoriteRows, error: favoriteError },
+    ] = await Promise.all([
+      supabaseAdmin.rpc('marketplace_product_engagement_counts', {
+        product_ids: productIds,
+      }),
+      supabaseAdmin
+        .from('marketplace_product_collections')
+        .select('product_id')
+        .eq('collection_type', 'favorite')
+        .in('product_id', productIds),
+    ]);
+    if (countError || favoriteError) {
       return NextResponse.json(
         {
-          message: countError.message,
-          setupRequired: countError.code === '42883' || countError.code === 'PGRST202',
+          message: countError?.message ?? favoriteError?.message,
+          setupRequired:
+            countError?.code === '42883' ||
+            countError?.code === 'PGRST202' ||
+            favoriteError?.code === '42P01',
         },
         { status: 500 }
       );
     }
     ((countRows ?? []) as ProductEngagementCount[]).forEach((count) => {
       engagementCounts.set(count.product_id, count);
+    });
+    (favoriteRows ?? []).forEach(({ product_id: productId }) => {
+      const count = engagementCounts.get(productId);
+      if (count) count.likes = Number(count.likes ?? 0) + 1;
     });
   }
   const mineUsage = new Map<

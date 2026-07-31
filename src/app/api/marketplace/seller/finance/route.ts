@@ -42,6 +42,8 @@ export async function GET(request: Request) {
   if (!seller) return NextResponse.json({ message: 'ไม่พบร้านค้า' }, { status: 404 });
 
   const now = new Date().toISOString();
+  const canViewPaymentTransactions =
+    caller.role === 'super_admin' || caller.role === 'master_admin';
   const [
     { data: ledger, error: ledgerError },
     { data: payouts, error: payoutError },
@@ -64,7 +66,7 @@ export async function GET(request: Request) {
     supabaseAdmin
       .from('marketplace_orders')
       .select(
-        'id, payment_session_id, gross_amount, platform_fee, payment_fee, seller_net, status, currency, paid_at, available_at, created_at, items:marketplace_order_items(id, title, quantity, unit_price, product:marketplace_products(title, title_en)), payment_session:marketplace_payment_sessions(payment_method, status)'
+        'id, payment_session_id, gross_amount, platform_fee, payment_fee, seller_net, status, currency, paid_at, available_at, created_at, items:marketplace_order_items(id, title, quantity, unit_price, product:marketplace_products(title, title_en)), payment_session:marketplace_payment_sessions(id, payment_method, status, bank_transaction_reference, stripe_payment_intent_id)'
       )
       .eq('seller_id', seller.id)
       .order('created_at', { ascending: false }),
@@ -114,6 +116,7 @@ export async function GET(request: Request) {
 
   return NextResponse.json({
     seller,
+    canViewPaymentTransactions,
     balance: {
       grossSales,
       underReview,
@@ -137,7 +140,13 @@ export async function GET(request: Request) {
             : 'seller_override',
       nextPayoutAt: nextPayoutDate(Number(finance.payout_day)),
     },
-    orders: orderRows,
+    orders: canViewPaymentTransactions
+      ? orderRows
+      : orderRows.map((order) => ({
+          ...order,
+          payment_session_id: null,
+          payment_session: null,
+        })),
     ledger: rows,
     payouts: payouts ?? [],
   });

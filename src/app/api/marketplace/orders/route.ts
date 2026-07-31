@@ -233,6 +233,7 @@ export async function POST(request: Request) {
           schoolId: hasSchoolLicense ? requestedLicenseSchoolId : caller.schoolId,
           resourceType: product.resource_type,
           licenseScope: product.license_scope,
+          featureKeys: product.grants_feature_keys,
         }),
       };
     })

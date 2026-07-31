@@ -16,6 +16,8 @@ import Typography from '@mui/material/Typography';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import CircularProgress from '@mui/material/CircularProgress';
 
+import { ThaiBankAutocomplete } from '../../shared/bank-autocomplete';
+
 const DAYS = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
 
 function getLocalWebhookTarget(value: string) {
@@ -31,6 +33,10 @@ function getLocalWebhookTarget(value: string) {
 const initial: MarketplaceFinanceSettings = {
   promptpayId: '',
   promptpayAccountName: '',
+  payoutBankName: '',
+  payoutBankCode: '',
+  payoutAccountNumber: '',
+  payoutAccountName: '',
   commissionRate: 10,
   holdDays: 7,
   payoutDay: 5,
@@ -150,7 +156,7 @@ export function MarketplaceFinanceSettingsView() {
               <Typography
                 component="code"
                 variant="body2"
-                sx={{ display: 'block', mt: 1, fontFamily: 'monospace', wordBreak: 'break-all' }}
+                sx={{ display: 'block', mt: 1, wordBreak: 'break-all' }}
               >
                 stripe listen --forward-to {localWebhookTarget}
               </Typography>
@@ -170,6 +176,38 @@ export function MarketplaceFinanceSettingsView() {
             value={form.promptpayAccountName}
             onChange={(event) => setForm({ ...form, promptpayAccountName: event.target.value })}
           />
+          <Card variant="outlined" sx={{ p: { xs: 2, md: 2.5 } }}>
+            <Typography variant="h6">บัญชีต้นทางสำหรับโอนให้ผู้ขาย</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 2 }}>
+              ใช้แสดงให้เจ้าหน้าที่ตรวจสอบก่อนเปิด K BIZ ระบบไม่จัดเก็บรหัสผ่านหรือ OTP
+            </Typography>
+            <Stack spacing={2}>
+              <ThaiBankAutocomplete
+                value={form.payoutBankCode || form.payoutBankName}
+                label="ธนาคารต้นทาง"
+                onChange={(bank) =>
+                  setForm({
+                    ...form,
+                    payoutBankCode: bank?.code ?? '',
+                    payoutBankName: bank?.name ?? '',
+                  })
+                }
+              />
+              <TextField
+                label="เลขบัญชีต้นทาง"
+                value={form.payoutAccountNumber}
+                onChange={(event) =>
+                  setForm({ ...form, payoutAccountNumber: event.target.value.replace(/\D/g, '') })
+                }
+                slotProps={{ htmlInput: { inputMode: 'numeric', maxLength: 20 } }}
+              />
+              <TextField
+                label="ชื่อบัญชีต้นทาง"
+                value={form.payoutAccountName}
+                onChange={(event) => setForm({ ...form, payoutAccountName: event.target.value })}
+              />
+            </Stack>
+          </Card>
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
             <TextField
               fullWidth

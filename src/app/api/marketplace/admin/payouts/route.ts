@@ -1,28 +1,39 @@
 import { NextResponse } from 'next/server';
 
-import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
+import { requireRole, hasPayoutAccess } from 'src/lib/auth-token';
 
 import { money, getFinanceSettings } from 'src/sections/marketplace/admin/server/finance';
 
 export async function GET(request: Request) {
-  if (!requireRole(request, ['master_admin'])) {
+  const caller = requireRole(request, ['master_admin']);
+  if (!caller) {
     return NextResponse.json({ message: 'ไม่มีสิทธิ์จัดการการโอนเงิน' }, { status: 403 });
   }
+  if (!hasPayoutAccess(request, caller.sub)) {
+    return NextResponse.json({ message: 'กรุณายืนยันรหัสเข้าใช้งานอีกครั้ง' }, { status: 401 });
+  }
   const now = new Date().toISOString();
-  const [{ data: entries, error }, { data: payouts }] = await Promise.all([
-    supabaseAdmin
-      .from('marketplace_ledger_entries')
-      .select('id, seller_id, amount, available_at')
-      .eq('account_scope', 'seller')
-      .is('payout_id', null)
-      .lte('available_at', now),
-    supabaseAdmin
-      .from('marketplace_payouts')
-      .select('*, seller:marketplace_sellers(id, display_name)')
-      .order('created_at', { ascending: false })
-      .limit(50),
-  ]);
+  const [{ data: entries, error }, { data: payouts }, finance, { data: operator }] =
+    await Promise.all([
+      supabaseAdmin
+        .from('marketplace_ledger_entries')
+        .select('id, seller_id, amount, available_at')
+        .eq('account_scope', 'seller')
+        .is('payout_id', null)
+        .lte('available_at', now),
+      supabaseAdmin
+        .from('marketplace_payouts')
+        .select('*, seller:marketplace_sellers(id, display_name)')
+        .order('created_at', { ascending: false })
+        .limit(50),
+      getFinanceSettings(),
+      supabaseAdmin
+        .from('app_users')
+        .select('id, username, email, first_name, last_name, avatar_url, role')
+        .eq('id', caller.sub)
+        .maybeSingle(),
+    ]);
   if (error) return NextResponse.json({ message: error.message }, { status: 500 });
 
   const sellerIds = [...new Set((entries ?? []).map((entry) => entry.seller_id))];
@@ -55,6 +66,31 @@ export async function GET(request: Request) {
       ...value,
     })),
     payouts: payouts ?? [],
+    payoutPolicy: {
+      holdDays: Number(finance.hold_days),
+      minimumPayout: Number(finance.minimum_payout),
+    },
+    payoutSourceAccount:
+      finance.payout_bank_code &&
+      finance.payout_bank_name &&
+      finance.payout_account_number &&
+      finance.payout_account_name
+        ? {
+            bankCode: finance.payout_bank_code,
+            bankName: finance.payout_bank_name,
+            accountName: finance.payout_account_name,
+            accountNumberMasked: `•••• ${String(finance.payout_account_number).slice(-4)}`,
+          }
+        : null,
+    operator: operator ?? {
+      id: caller.sub,
+      username: caller.username,
+      email: null,
+      first_name: null,
+      last_name: null,
+      avatar_url: null,
+      role: caller.role,
+    },
   });
 }
 
@@ -62,6 +98,9 @@ export async function POST(request: Request) {
   const caller = requireRole(request, ['master_admin']);
   if (!caller) {
     return NextResponse.json({ message: 'ไม่มีสิทธิ์จัดการการโอนเงิน' }, { status: 403 });
+  }
+  if (!hasPayoutAccess(request, caller.sub)) {
+    return NextResponse.json({ message: 'กรุณายืนยันรหัสเข้าใช้งานอีกครั้ง' }, { status: 401 });
   }
   const body = await request.json().catch(() => null);
   const sellerId = String(body?.sellerId ?? '');
@@ -129,7 +168,10 @@ export async function POST(request: Request) {
       .from('marketplace_payouts')
       .update({ status: 'cancelled', failure_reason: 'ยอดถูกจองโดยรายการอื่น' })
       .eq('id', payout.id);
-    return NextResponse.json({ message: 'ยอดพร้อมโอนมีการเปลี่ยนแปลง กรุณาลองใหม่' }, { status: 409 });
+    return NextResponse.json(
+      { message: 'ยอดพร้อมโอนมีการเปลี่ยนแปลง กรุณาลองใหม่' },
+      { status: 409 }
+    );
   }
 
   return NextResponse.json({ payout }, { status: 201 });

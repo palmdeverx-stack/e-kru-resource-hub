@@ -100,6 +100,9 @@ const EMPTY_MARKETPLACE_FORM: MarketplaceLineSettingsInput = {
   sellerManagedPrice: 99,
   sellerManagedDescription: 'ใช้ LINE OA ของระบบ E-KRU ไม่ต้องกรอก Channel token',
   sellerManagedQuota: 100,
+  sellerTrialDescription: 'ทดลองใช้ LINE แจ้งเตือนผ่าน OA ของระบบ E-KRU ฟรี 7 วัน',
+  sellerTrialDays: 7,
+  sellerTrialQuota: 10,
 };
 
 function MarketplaceLineNotificationSettings() {
@@ -148,6 +151,9 @@ function MarketplaceLineNotificationSettings() {
       sellerManagedPrice: query.data.integration.sellerManagedPrice,
       sellerManagedDescription: query.data.integration.sellerManagedDescription,
       sellerManagedQuota: query.data.integration.sellerManagedQuota,
+      sellerTrialDescription: query.data.integration.sellerTrialDescription,
+      sellerTrialDays: query.data.integration.sellerTrialDays,
+      sellerTrialQuota: query.data.integration.sellerTrialQuota,
     });
   }, [query.data]);
 
@@ -467,6 +473,36 @@ function MarketplaceLineNotificationSettings() {
                 onChange={(event) => setField('sellerManagedDescription', event.target.value)}
                 sx={{ gridColumn: { sm: '1 / -1' } }}
               />
+              <Divider sx={{ gridColumn: { sm: '1 / -1' } }} />
+              <Box>
+                <Typography variant="subtitle2">แพ็กเกจทดลองใช้งาน</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  ทดลองใช้ LINE OA ของระบบ E-KRU ราคา 0 บาท
+                </Typography>
+              </Box>
+              <Stack spacing={1.5}>
+                <TextField disabled type="number" label="ราคาแพ็กเกจ (บาท)" value={0} />
+                <TextField
+                  type="number"
+                  label="ระยะเวลาทดลอง (วัน)"
+                  value={form.sellerTrialDays}
+                  slotProps={{ htmlInput: { min: 1, step: 1 } }}
+                  onChange={(event) => setField('sellerTrialDays', Number(event.target.value))}
+                />
+                <TextField
+                  type="number"
+                  label="จำนวนข้อความทดลอง"
+                  value={form.sellerTrialQuota}
+                  slotProps={{ htmlInput: { min: 1, step: 1 } }}
+                  onChange={(event) => setField('sellerTrialQuota', Number(event.target.value))}
+                />
+              </Stack>
+              <TextField
+                label="รายละเอียดแพ็กเกจทดลองใช้"
+                value={form.sellerTrialDescription}
+                onChange={(event) => setField('sellerTrialDescription', event.target.value)}
+                sx={{ gridColumn: { sm: '1 / -1' } }}
+              />
             </Box>
             <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
               <Button
@@ -478,7 +514,12 @@ function MarketplaceLineNotificationSettings() {
                   Number(form.sellerManagedPrice) < MARKETPLACE_MINIMUM_PAID_PRICE_THB ||
                   !form.sellerManagedDescription.trim() ||
                   !Number.isInteger(Number(form.sellerManagedQuota)) ||
-                  Number(form.sellerManagedQuota) <= 0
+                  Number(form.sellerManagedQuota) <= 0 ||
+                  !form.sellerTrialDescription.trim() ||
+                  !Number.isInteger(Number(form.sellerTrialDays)) ||
+                  Number(form.sellerTrialDays) <= 0 ||
+                  !Number.isInteger(Number(form.sellerTrialQuota)) ||
+                  Number(form.sellerTrialQuota) <= 0
                 }
                 onClick={() => saveMutation.mutate(form)}
               >

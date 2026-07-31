@@ -41,10 +41,14 @@ import {
   RiMoneyDollarCircleLine,
 } from 'src/components/remix-icon';
 
+import { useAuthContext } from 'src/auth/hooks';
+
 import { formatPrice } from '../../shared/api';
+import { ThaiBankLogo } from '../../shared/bank-logo';
 
 type FinanceOrder = {
   id: string;
+  payment_session_id?: string | null;
   currency: string;
   gross_amount: number;
   platform_fee: number;
@@ -55,8 +59,11 @@ type FinanceOrder = {
   paid_at: string | null;
   available_at: string | null;
   payment_session?: {
+    id: string;
     payment_method: 'promptpay' | 'stripe' | 'free';
     status: string;
+    bank_transaction_reference: string | null;
+    stripe_payment_intent_id: string | null;
   } | null;
   items?: Array<{
     id: string;
@@ -101,6 +108,7 @@ type Payout = {
 
 type FinanceResult = {
   seller: { id: string; display_name: string; status: string };
+  canViewPaymentTransactions: boolean;
   balance: {
     grossSales: number;
     underReview: number;
@@ -147,6 +155,32 @@ function currentItemTitle(item: NonNullable<FinanceOrder['items']>[number]) {
   return item.product?.title || item.title;
 }
 
+function paymentTransaction(order: FinanceOrder) {
+  const session = order.payment_session;
+  if (session?.bank_transaction_reference) {
+    return {
+      reference: session.bank_transaction_reference,
+      label: 'เลขอ้างอิงธนาคาร',
+    };
+  }
+  if (session?.stripe_payment_intent_id) {
+    return {
+      reference: session.stripe_payment_intent_id,
+      label: 'Stripe Payment Intent',
+    };
+  }
+  if (session?.payment_method === 'free') {
+    return { reference: '-', label: 'รายการฟรี ไม่มี Transaction' };
+  }
+  if (order.payment_session_id) {
+    return {
+      reference: order.payment_session_id,
+      label: 'Payment Session · รอยืนยัน Transaction',
+    };
+  }
+  return { reference: '-', label: 'ยังไม่มีเลข Transaction' };
+}
+
 function getMoneyStatus(
   order: FinanceOrder,
   ledger: LedgerEntry[],
@@ -178,6 +212,7 @@ function getMoneyStatus(
 }
 
 export function MarketplaceSellerFinanceView() {
+  const { user } = useAuthContext();
   const [data, setData] = useState<FinanceResult | null>(null);
   const [activeTab, setActiveTab] = useState<FinanceTab>('income');
   const [selectedOrder, setSelectedOrder] = useState<FinanceOrder | null>(null);
@@ -237,8 +272,16 @@ export function MarketplaceSellerFinanceView() {
   ];
   const exampleGross = 100;
   const exampleStripeFee = exampleGross * 0.0365 + 10;
+  const exampleStripePromptPayFee = exampleGross * 0.0165;
   const examplePlatformFee = exampleGross * ((data?.schedule.commissionRate ?? 0) / 100);
   const exampleSellerNet = Math.max(0, exampleGross - exampleStripeFee - examplePlatformFee);
+  const examplePromptPaySellerNet = Math.max(
+    0,
+    exampleGross - exampleStripePromptPayFee - examplePlatformFee
+  );
+  const canViewPaymentTransactions =
+    Boolean(data?.canViewPaymentTransactions) &&
+    (user?.role === 'super_admin' || user?.role === 'master_admin');
 
   const summaryCards = [
     {
@@ -497,11 +540,12 @@ export function MarketplaceSellerFinanceView() {
             </Stack>
 
             <TableContainer>
-              <Table sx={{ minWidth: 1120 }}>
+              <Table sx={{ minWidth: canViewPaymentTransactions ? 1320 : 1120 }}>
                 <TableHead>
                   <TableRow>
                     <TableCell>วันที่</TableCell>
                     <TableCell>คำสั่งซื้อ</TableCell>
+                    {canViewPaymentTransactions && <TableCell>Transaction การชำระเงิน</TableCell>}
                     <TableCell>สินค้า</TableCell>
                     <TableCell align="right">ยอดขาย</TableCell>
                     <TableCell align="right">Stripe ได้รับ</TableCell>
@@ -520,80 +564,102 @@ export function MarketplaceSellerFinanceView() {
                       )
                       .map((order) => {
                         const status = getMoneyStatus(order, data.ledger, data.payouts);
+                        const transaction = canViewPaymentTransactions
+                          ? paymentTransaction(order)
+                          : null;
                         return (
                           <TableRow key={order.id} hover>
-                          <TableCell>
-                            {new Date(order.created_at).toLocaleDateString('th-TH', {
-                              day: 'numeric',
-                              month: 'short',
-                              year: '2-digit',
-                              timeZone: 'Asia/Bangkok',
-                            })}
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                              ORD-{order.id.slice(0, 8).toUpperCase()}
-                            </Typography>
-                          </TableCell>
-                          <TableCell sx={{ maxWidth: 280 }}>
-                            <Typography variant="body2" noWrap>
-                              {order.items?.map(currentItemTitle).join(', ') || '-'}
-                            </Typography>
-                            {(order.items?.length ?? 0) > 1 && (
-                              <Typography variant="caption" color="text.secondary">
-                                {order.items?.length} รายการ
+                            <TableCell>
+                              {new Date(order.created_at).toLocaleDateString('th-TH', {
+                                day: 'numeric',
+                                month: 'short',
+                                year: '2-digit',
+                                timeZone: 'Asia/Bangkok',
+                              })}
+                            </TableCell>
+                            <TableCell>
+                              <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                                ORD-{order.id.slice(0, 8).toUpperCase()}
                               </Typography>
+                            </TableCell>
+                            {transaction && (
+                              <TableCell sx={{ maxWidth: 240 }}>
+                                <Typography
+                                  variant="body2"
+                                  noWrap
+                                  title={transaction.reference}
+                                  sx={{ fontWeight: 700 }}
+                                >
+                                  {transaction.reference}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary" noWrap>
+                                  {transaction.label}
+                                </Typography>
+                              </TableCell>
                             )}
-                          </TableCell>
-                          <TableCell align="right">
-                            {formatPrice(Number(order.gross_amount), order.currency)}
-                          </TableCell>
-                          <TableCell align="right">
-                            <Typography variant="subtitle2" color="error.main">
-                              {formatPrice(Number(order.payment_fee), order.currency)}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              ค่าชำระเงิน
-                            </Typography>
-                          </TableCell>
-                          <TableCell align="right">
-                            <Typography variant="subtitle2" color="warning.dark">
-                              {formatPrice(Number(order.platform_fee), order.currency)}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              ค่าคอมมิชชัน
-                            </Typography>
-                          </TableCell>
-                          <TableCell align="right">
-                            <Typography variant="subtitle2" color="success.main">
-                              {formatPrice(Number(order.seller_net), order.currency)}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              เข้ายอดรอรับของร้าน
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Chip
-                              size="small"
-                              variant="soft"
-                              color={status.color}
-                              label={status.label}
-                            />
-                          </TableCell>
-                          <TableCell align="right">
-                            <IconButton
-                              aria-label="ดูรายละเอียดการคำนวณ"
-                              onClick={() => setSelectedOrder(order)}
-                            >
-                              <RiEyeLine />
-                            </IconButton>
-                          </TableCell>
+                            <TableCell sx={{ maxWidth: 280 }}>
+                              <Typography variant="body2" noWrap>
+                                {order.items?.map(currentItemTitle).join(', ') || '-'}
+                              </Typography>
+                              {(order.items?.length ?? 0) > 1 && (
+                                <Typography variant="caption" color="text.secondary">
+                                  {order.items?.length} รายการ
+                                </Typography>
+                              )}
+                            </TableCell>
+                            <TableCell align="right">
+                              {formatPrice(Number(order.gross_amount), order.currency)}
+                            </TableCell>
+                            <TableCell align="right">
+                              <Typography variant="subtitle2" color="error.main">
+                                {formatPrice(Number(order.payment_fee), order.currency)}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                ค่าชำระเงิน
+                              </Typography>
+                            </TableCell>
+                            <TableCell align="right">
+                              <Typography variant="subtitle2" color="primary.main">
+                                {formatPrice(Number(order.platform_fee), order.currency)}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                ค่าคอมมิชชัน
+                              </Typography>
+                            </TableCell>
+                            <TableCell align="right">
+                              <Typography variant="subtitle2" color="success.main">
+                                {formatPrice(Number(order.seller_net), order.currency)}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                เข้ายอดรอรับของร้าน
+                              </Typography>
+                            </TableCell>
+                            <TableCell>
+                              <Chip
+                                size="small"
+                                variant="soft"
+                                color={status.color}
+                                label={status.label}
+                              />
+                            </TableCell>
+                            <TableCell align="right">
+                              <IconButton
+                                aria-label="ดูรายละเอียดการคำนวณ"
+                                onClick={() => setSelectedOrder(order)}
+                              >
+                                <RiEyeLine />
+                              </IconButton>
+                            </TableCell>
                           </TableRow>
                         );
                       })
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={9} align="center" sx={{ py: 8 }}>
+                      <TableCell
+                        colSpan={canViewPaymentTransactions ? 10 : 9}
+                        align="center"
+                        sx={{ py: 8 }}
+                      >
                         <RiShoppingBag3Line size={42} />
                         <Typography variant="h6" sx={{ mt: 1 }}>
                           ยังไม่มีรายการขาย
@@ -635,66 +701,158 @@ export function MarketplaceSellerFinanceView() {
                   bgcolor: 'warning.lighter',
                 }}
               >
-                <Stack
-                  direction={{ xs: 'column', md: 'row' }}
-                  justifyContent="space-between"
-                  spacing={2}
+                <Box
+                  sx={{
+                    gap: { xs: 1.5, md: 0 },
+                    display: 'grid',
+                    alignItems: 'start',
+                    gridTemplateColumns: {
+                      xs: '1fr',
+                      md: 'minmax(280px, 1.5fr) repeat(3, minmax(145px, 1fr))',
+                    },
+                  }}
                 >
                   <Box>
-                    <Typography variant="subtitle1">ตัวอย่างการได้รับเงินจริงผ่านบัตร</Typography>
+                    <Typography variant="subtitle1">ตัวอย่างที่ 1: บัตรผ่าน Stripe</Typography>
                     <Typography variant="body2" color="text.secondary">
                       สมมติขายสินค้า ฿100 ผ่านบัตรในประเทศ
                     </Typography>
                   </Box>
-                  <Stack
-                    direction={{ xs: 'column', sm: 'row' }}
-                    divider={<Divider orientation="vertical" flexItem />}
-                    spacing={{ xs: 1, sm: 2.5 }}
+                  <Box
+                    sx={{
+                      pl: { md: 2.5 },
+                      borderLeft: { md: '1px solid' },
+                      borderColor: { md: 'divider' },
+                    }}
                   >
-                    <Box>
-                      <Typography variant="caption" color="text.secondary">
-                        ระบบชำระเงินออนไลน์ได้รับ
-                      </Typography>
-                      <Typography variant="subtitle2" color="error.main">
-                        {formatPrice(exampleStripeFee)}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        3.65% + ฿10
-                      </Typography>
-                    </Box>
-                    <Box>
-                      <Typography variant="caption" color="text.secondary">
-                        ระบบ E-KRU ได้รับ
-                      </Typography>
-                      <Typography variant="subtitle2" color="warning.dark">
-                        {formatPrice(examplePlatformFee)}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        คอมมิชชัน {data?.schedule.commissionRate ?? 0}% ·{' '}
-                        {data?.schedule.commissionSource === 'system_store'
-                          ? 'ร้านทางการ'
-                          : data?.schedule.commissionSource === 'seller_override'
-                            ? 'อัตราเฉพาะร้าน'
-                            : 'อัตรามาตรฐาน'}
-                      </Typography>
-                    </Box>
-                    <Box>
-                      <Typography variant="caption" color="text.secondary">
-                        ผู้ขายได้รับประมาณ
-                      </Typography>
-                      <Typography variant="h6" color="success.main">
-                        {formatPrice(exampleSellerNet)}
-                      </Typography>
-                    </Box>
-                  </Stack>
-                </Stack>
+                    <Typography variant="caption" color="text.secondary">
+                      ระบบชำระเงินออนไลน์ได้รับ
+                    </Typography>
+                    <Typography variant="subtitle2" color="error.main">
+                      {formatPrice(exampleStripeFee)}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      3.65% + ฿10
+                    </Typography>
+                  </Box>
+                  <Box
+                    sx={{
+                      pl: { md: 2.5 },
+                      borderLeft: { md: '1px solid' },
+                      borderColor: { md: 'divider' },
+                    }}
+                  >
+                    <Typography variant="caption" color="text.secondary">
+                      ระบบ E-KRU ได้รับ
+                    </Typography>
+                    <Typography variant="subtitle2" color="warning.dark">
+                      {formatPrice(examplePlatformFee)}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      คอมมิชชัน {data?.schedule.commissionRate ?? 0}% ·{' '}
+                      {data?.schedule.commissionSource === 'system_store'
+                        ? 'ร้านทางการ'
+                        : data?.schedule.commissionSource === 'seller_override'
+                          ? 'อัตราเฉพาะร้าน'
+                          : 'อัตรามาตรฐาน'}
+                    </Typography>
+                  </Box>
+                  <Box
+                    sx={{
+                      pl: { md: 2.5 },
+                      borderLeft: { md: '1px solid' },
+                      borderColor: { md: 'divider' },
+                    }}
+                  >
+                    <Typography variant="caption" color="text.secondary">
+                      ผู้ขายได้รับประมาณ
+                    </Typography>
+                    <Typography variant="h6" color="success.main">
+                      {formatPrice(exampleSellerNet)}
+                    </Typography>
+                  </Box>
+                </Box>
+
+                <Divider sx={{ my: 2.5, borderStyle: 'dashed' }} />
+
+                <Box
+                  sx={{
+                    gap: { xs: 1.5, md: 0 },
+                    display: 'grid',
+                    alignItems: 'start',
+                    gridTemplateColumns: {
+                      xs: '1fr',
+                      md: 'minmax(280px, 1.5fr) repeat(3, minmax(145px, 1fr))',
+                    },
+                  }}
+                >
+                  <Box>
+                    <Typography variant="subtitle1">
+                      ตัวอย่างที่ 2: PromptPay ผ่าน Stripe
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      สมมติขายสินค้า ฿100 ผู้ซื้อเลือก PromptPay บนหน้า Stripe แล้วสแกน QR
+                      ด้วยแอปธนาคาร
+                    </Typography>
+                  </Box>
+                  <Box
+                    sx={{
+                      pl: { md: 2.5 },
+                      borderLeft: { md: '1px solid' },
+                      borderColor: { md: 'divider' },
+                    }}
+                  >
+                    <Typography variant="caption" color="text.secondary">
+                      Stripe ได้รับโดยประมาณ
+                    </Typography>
+                    <Typography variant="subtitle2" color="error.main">
+                      {formatPrice(exampleStripePromptPayFee)}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      1.65% ของยอดชำระ
+                    </Typography>
+                  </Box>
+                  <Box
+                    sx={{
+                      pl: { md: 2.5 },
+                      borderLeft: { md: '1px solid' },
+                      borderColor: { md: 'divider' },
+                    }}
+                  >
+                    <Typography variant="caption" color="text.secondary">
+                      ระบบ E-KRU ได้รับ
+                    </Typography>
+                    <Typography variant="subtitle2" color="warning.dark">
+                      {formatPrice(examplePlatformFee)}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      คอมมิชชัน {data?.schedule.commissionRate ?? 0}%
+                    </Typography>
+                  </Box>
+                  <Box
+                    sx={{
+                      pl: { md: 2.5 },
+                      borderLeft: { md: '1px solid' },
+                      borderColor: { md: 'divider' },
+                    }}
+                  >
+                    <Typography variant="caption" color="text.secondary">
+                      ผู้ขายได้รับประมาณ
+                    </Typography>
+                    <Typography variant="h6" color="success.main">
+                      {formatPrice(examplePromptPaySellerNet)}
+                    </Typography>
+                  </Box>
+                </Box>
+
                 <Typography
                   variant="caption"
                   color="text.secondary"
                   sx={{ display: 'block', mt: 2 }}
                 >
-                  ตัวเลขเป็นตัวอย่างก่อนทำรายการ ค่าธรรมเนียมจริงอาจต่างกันตามประเภทบัตร
-                  ประเทศของบัตร การแปลงสกุลเงิน และอัตราของผู้ให้บริการ ณ วันที่ชำระ
+                  ตัวเลขเป็นตัวอย่างก่อนทำรายการ ค่าธรรมเนียมจริงให้ยึดจาก Stripe Balance
+                  Transaction ของรายการนั้น และอาจต่างกันตามประเภทการชำระ ประเทศของบัตร
+                  การแปลงสกุลเงิน หรืออัตราเฉพาะของบัญชี
                 </Typography>
               </Card>
             </Stack>
@@ -819,6 +977,19 @@ export function MarketplaceSellerFinanceView() {
             <Divider />
             <DialogContent sx={{ py: 3 }}>
               <Stack spacing={3}>
+                {canViewPaymentTransactions && (
+                  <Card variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      Transaction การชำระเงิน
+                    </Typography>
+                    <Typography variant="subtitle2" sx={{ mt: 0.5, overflowWrap: 'anywhere' }}>
+                      {paymentTransaction(selectedOrder).reference}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {paymentTransaction(selectedOrder).label}
+                    </Typography>
+                  </Card>
+                )}
                 <Stack spacing={1}>
                   {selectedOrder.items?.map((item) => (
                     <Box key={item.id}>
@@ -949,7 +1120,21 @@ export function MarketplaceSellerFinanceView() {
                   <Grid size={{ xs: 12, md: 6 }}>
                     <Typography variant="h6">บัญชีที่รับเงิน</Typography>
                     <Stack spacing={1.5} sx={{ mt: 2 }}>
-                      <DetailRow label="ธนาคาร" value={selectedPayout.bank_name_snapshot} />
+                      <Stack direction="row" justifyContent="space-between" spacing={2}>
+                        <Typography variant="body2" color="text.secondary">
+                          ธนาคาร
+                        </Typography>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <ThaiBankLogo
+                            bankCode={selectedPayout.bank_code_snapshot}
+                            bankName={selectedPayout.bank_name_snapshot}
+                            size={28}
+                          />
+                          <Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>
+                            {selectedPayout.bank_name_snapshot}
+                          </Typography>
+                        </Stack>
+                      </Stack>
                       <DetailRow label="ชื่อบัญชี" value={selectedPayout.account_name_snapshot} />
                       <DetailRow label="เลขบัญชี" value={selectedPayout.account_number_snapshot} />
                       <DetailRow

@@ -13,18 +13,27 @@ export async function GET(request: Request) {
   }
 
   const requestedStatus = new URL(request.url).searchParams.get('status') ?? 'pending_review';
+  const searchParams = new URL(request.url).searchParams;
   const status = allowedStatuses.includes(requestedStatus as (typeof allowedStatuses)[number])
     ? requestedStatus
     : 'pending_review';
+  const requestedPage = Number(searchParams.get('page'));
+  const requestedPageSize = Number(searchParams.get('pageSize'));
+  const page = Number.isFinite(requestedPage) ? Math.max(1, Math.floor(requestedPage)) : 1;
+  const pageSize = Number.isFinite(requestedPageSize)
+    ? Math.min(50, Math.max(5, Math.floor(requestedPageSize)))
+    : 10;
+  const from = (page - 1) * pageSize;
 
   let query = supabaseAdmin
     .from('marketplace_products')
     .select(
-      '*, seller:marketplace_sellers(id, display_name, seller_type, contact_email), media_type:marketplace_media_types(id, name), sale_type:marketplace_sale_types(id, name, pricing_mode), images:marketplace_product_images(*)'
+      '*, seller:marketplace_sellers(id, display_name, seller_type, contact_email), media_type:marketplace_media_types(id, name), sale_type:marketplace_sale_types(id, name, pricing_mode), images:marketplace_product_images(*)',
+      { count: 'exact' }
     )
     .order('submitted_at', { ascending: false, nullsFirst: false })
     .order('created_at', { ascending: false })
-    .limit(100);
+    .range(from, from + pageSize - 1);
   if (status !== 'all') query = query.eq('status', status);
 
   const [productsResult, pendingResult, publishedResult, rejectedResult] = await Promise.all([
@@ -57,6 +66,12 @@ export async function GET(request: Request) {
       pending_review: pendingResult.count ?? 0,
       published: publishedResult.count ?? 0,
       rejected: rejectedResult.count ?? 0,
+    },
+    pagination: {
+      page,
+      pageSize,
+      total: productsResult.count ?? 0,
+      totalPages: Math.ceil((productsResult.count ?? 0) / pageSize),
     },
   });
 }

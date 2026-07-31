@@ -14,7 +14,13 @@ import { RouterLink } from 'src/routes/components';
 
 import { useTranslate } from 'src/locales';
 
-import { RiBookOpenLine, RiVipCrownFill } from 'src/components/remix-icon';
+import {
+  RiEyeLine,
+  RiHeartLine,
+  RiBookOpenLine,
+  RiVipCrownFill,
+  RiShoppingBag3Line,
+} from 'src/components/remix-icon';
 
 import { getMarketplacePricing } from './pricing';
 import { MarketplaceSellerLink } from './seller-link';
@@ -38,6 +44,9 @@ export function MarketplaceProductCard({
     undefined;
   const rating = product.engagement?.averageRating ?? 0;
   const reviewCount = product.engagement?.reviewCount ?? 0;
+  const views = product.engagement?.views ?? 0;
+  const likes = product.engagement?.likes ?? 0;
+  const purchases = product.engagement?.purchases ?? 0;
   const pricing = getMarketplacePricing(product);
 
   return (
@@ -93,6 +102,7 @@ export function MarketplaceProductCard({
         aria-label={`ดูรายละเอียดสินค้า ${content.title}`}
         sx={{
           width: 1,
+          flex: '0 0 auto',
           position: 'relative',
           overflow: 'hidden',
           aspectRatio: '16 / 11',
@@ -111,7 +121,9 @@ export function MarketplaceProductCard({
             sx={{
               width: 1,
               height: 1,
+              inset: 0,
               display: 'block',
+              position: 'absolute',
               objectFit: 'cover',
               objectPosition: 'center',
               transition: 'transform 260ms ease',
@@ -128,7 +140,8 @@ export function MarketplaceProductCard({
             inset: 0,
             position: 'absolute',
             pointerEvents: 'none',
-            background: 'linear-gradient(180deg, rgba(15,23,42,0.03), transparent 42%)',
+            background:
+              'linear-gradient(180deg, rgba(15,23,42,0.03), transparent 42%), linear-gradient(0deg, rgba(15,23,42,0.52), transparent 38%)',
           }}
         />
         {product.resource_type === 'feature_unlock' && (
@@ -145,6 +158,41 @@ export function MarketplaceProductCard({
             }}
           />
         )}
+        <Stack
+          direction="row"
+          spacing={1.5}
+          alignItems="center"
+          sx={{
+            left: 14,
+            bottom: 12,
+            zIndex: 1,
+            position: 'absolute',
+            color: 'common.white',
+            filter: 'drop-shadow(0 1px 2px rgba(15,23,42,0.45))',
+          }}
+        >
+          {[
+            { label: 'ยอดดู', value: views, icon: <RiEyeLine size={16} /> },
+            { label: 'ถูกใจ', value: likes, icon: <RiHeartLine size={16} /> },
+            { label: 'ยอดสั่งซื้อ', value: purchases, icon: <RiShoppingBag3Line size={16} /> },
+          ].map((stat) => (
+            <Stack
+              key={stat.label}
+              direction="row"
+              spacing={0.5}
+              alignItems="center"
+              aria-label={`${stat.label} ${stat.value.toLocaleString('th-TH')}`}
+              title={stat.label}
+            >
+              <Box component="span" sx={{ display: 'inline-flex' }}>
+                {stat.icon}
+              </Box>
+              <Typography variant="caption" sx={{ color: 'inherit', fontWeight: 700 }}>
+                {stat.value.toLocaleString('th-TH')}
+              </Typography>
+            </Stack>
+          ))}
+        </Stack>
       </Box>
 
       <Stack spacing={1.5} sx={{ pt: 1.75, flexGrow: 1 }}>

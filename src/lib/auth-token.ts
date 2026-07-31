@@ -12,9 +12,12 @@ if (!rawSecret) {
 
 const secret: string = rawSecret;
 const pinChallengeSecret = `${secret}:pin-challenge`;
+const payoutAccessSecret = `${secret}:marketplace-payout-access`;
 
 export const ACCESS_TOKEN_COOKIE = 'access_token';
+export const PAYOUT_ACCESS_COOKIE = 'marketplace_payout_access';
 const ACCESS_TOKEN_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
+const PAYOUT_ACCESS_MAX_AGE_SECONDS = 15 * 60;
 
 export const accessTokenCookieOptions = {
   httpOnly: true,
@@ -22,6 +25,14 @@ export const accessTokenCookieOptions = {
   sameSite: 'lax' as const,
   path: '/',
   maxAge: ACCESS_TOKEN_MAX_AGE_SECONDS,
+};
+
+export const payoutAccessCookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'lax' as const,
+  path: '/',
+  maxAge: PAYOUT_ACCESS_MAX_AGE_SECONDS,
 };
 
 export type AppRole =
@@ -42,6 +53,11 @@ export type AppTokenPayload = {
 type PinChallengePayload = {
   sub: string;
   purpose: 'pin_verification';
+};
+
+type PayoutAccessPayload = {
+  sub: string;
+  purpose: 'marketplace_payout_access';
 };
 
 export function signAppToken(payload: AppTokenPayload): string {
@@ -68,6 +84,21 @@ export function verifyPinChallenge(token: string): PinChallengePayload | null {
     return payload.purpose === 'pin_verification' && payload.sub ? payload : null;
   } catch {
     return null;
+  }
+}
+
+export function signPayoutAccess(userId: string): string {
+  return jwt.sign({ sub: userId, purpose: 'marketplace_payout_access' }, payoutAccessSecret, {
+    expiresIn: PAYOUT_ACCESS_MAX_AGE_SECONDS,
+  });
+}
+
+export function verifyPayoutAccess(token: string, userId: string): boolean {
+  try {
+    const payload = jwt.verify(token, payoutAccessSecret) as PayoutAccessPayload;
+    return payload.purpose === 'marketplace_payout_access' && payload.sub === userId;
+  } catch {
+    return false;
   }
 }
 
@@ -101,6 +132,11 @@ export function requireRole(request: Request, roles: AppRole[]): AppTokenPayload
 export function requireAuthenticated(request: Request): AppTokenPayload | null {
   const token = getRequestToken(request);
   return token ? verifyAppToken(token) : null;
+}
+
+export function hasPayoutAccess(request: Request, userId: string): boolean {
+  const token = getCookieValue(request, PAYOUT_ACCESS_COOKIE);
+  return token ? verifyPayoutAccess(token, userId) : false;
 }
 
 type AppUserRow = {

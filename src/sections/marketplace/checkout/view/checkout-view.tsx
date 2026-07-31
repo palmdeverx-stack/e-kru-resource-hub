@@ -80,8 +80,9 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
   const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [acceptedPurchaseTerms, setAcceptedPurchaseTerms] = useState(false);
-  const [selectedLegalDocument, setSelectedLegalDocument] =
-    useState<SelectedLegalDocument | null>(null);
+  const [selectedLegalDocument, setSelectedLegalDocument] = useState<SelectedLegalDocument | null>(
+    null
+  );
   const [error, setError] = useState('');
   const [schools, setSchools] = useState<Array<{ id: string; name: string }>>([]);
   const [schoolsLoading, setSchoolsLoading] = useState(true);
@@ -241,10 +242,12 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
   return (
     <Container maxWidth={false} sx={{ py: { xs: 4 } }}>
       <Typography component="h1" variant="h3">
-        ชำระเงิน
+        {isFree ? 'ยืนยันรายการ' : 'ชำระเงิน'}
       </Typography>
       <Typography color="text.secondary" sx={{ mt: 0.5, mb: 4 }}>
-        เลือกวิธีชำระเงินและยืนยันคำสั่งซื้อ
+        {isFree
+          ? 'ตรวจสอบรายการที่เลือกและยืนยันเพื่อเริ่มใช้งาน'
+          : 'เลือกวิธีชำระเงินและยืนยันคำสั่งซื้อ'}
       </Typography>
 
       {!!error && (
@@ -259,6 +262,74 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
             <Alert severity="success" icon={<RiShieldCheckLine />}>
               License แบบบุคคลจะผูกกับบัญชีนี้โดยตรง ไม่ต้องเลือกโรงเรียน
             </Alert>
+          )}
+
+          {isFree && (
+            <Card variant="outlined" sx={{ p: { xs: 2.5, sm: 3 } }}>
+              <Stack direction="row" spacing={1.5} alignItems="center">
+                <Box
+                  sx={{
+                    width: 48,
+                    height: 48,
+                    display: 'grid',
+                    flexShrink: 0,
+                    borderRadius: 1.5,
+                    placeItems: 'center',
+                    color: 'primary.main',
+                    bgcolor: 'primary.lighter',
+                  }}
+                >
+                  <RiShoppingBag3Line size={26} />
+                </Box>
+                <Box>
+                  <Typography variant="h5">รายการที่เลือก</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    รายการฟรี ไม่ต้องเลือกวิธีชำระเงิน
+                  </Typography>
+                </Box>
+              </Stack>
+
+              <Stack divider={<Divider flexItem />} sx={{ mt: 2 }}>
+                {items.map((item) => {
+                  const localizedProduct = getLocalizedProduct(item.product, currentLang.value);
+                  const durationDays = item.product.grant_duration_days;
+
+                  return (
+                    <Stack
+                      key={item.product.id}
+                      direction={{ xs: 'column', sm: 'row' }}
+                      spacing={2}
+                      justifyContent="space-between"
+                      alignItems={{ sm: 'center' }}
+                      sx={{ py: 2 }}
+                    >
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography variant="subtitle1">{localizedProduct.title}</Typography>
+                        {!!localizedProduct.shortDescription && (
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                            {localizedProduct.shortDescription}
+                          </Typography>
+                        )}
+                        <Stack direction="row" spacing={1} sx={{ mt: 1.25 }}>
+                          <Chip size="small" color="success" variant="soft" label="0 บาท" />
+                          {!!durationDays && (
+                            <Chip
+                              size="small"
+                              color="info"
+                              variant="soft"
+                              label={`ใช้งาน ${durationDays} วัน`}
+                            />
+                          )}
+                        </Stack>
+                      </Box>
+                      <Typography variant="h5" color="primary.main" sx={{ flexShrink: 0 }}>
+                        {formatPrice(getMarketplacePricing(item.product).salePrice)}
+                      </Typography>
+                    </Stack>
+                  );
+                })}
+              </Stack>
+            </Card>
           )}
 
           {hasSchoolLicense && salesDealToken && (

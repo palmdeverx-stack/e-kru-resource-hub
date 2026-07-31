@@ -32,8 +32,10 @@ import {
   RiEyeLine,
   RiBankLine,
   RiCloseLine,
+  RiCheckLine,
   RiDownloadLine,
   RiBankCardLine,
+  RiFileCopyLine,
   RiFileTextLine,
   RiArrowLeftLine,
   RiShieldCheckLine,
@@ -62,6 +64,7 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
   const [receiptFormOpen, setReceiptFormOpen] = useState(false);
   const [receiptIssuing, setReceiptIssuing] = useState(false);
   const [receiptIssueError, setReceiptIssueError] = useState('');
+  const [copiedPromptItemId, setCopiedPromptItemId] = useState<string | null>(null);
   const [receiptForm, setReceiptForm] = useState({
     buyerName: '',
     buyerEmail: '',
@@ -126,6 +129,30 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
   );
   const paidAt = order.paid_at ?? payment?.reviewed_at ?? null;
   const receiptPdfUrl = `/api/marketplace/orders/${order.id}/receipt`;
+  const copyPrompt = async (itemId: string, html?: string | null) => {
+    const documentContent = new DOMParser().parseFromString(html ?? '', 'text/html');
+
+    documentContent.body.querySelectorAll('br').forEach((element) => {
+      element.replaceWith('\n');
+    });
+    documentContent.body
+      .querySelectorAll('p, div, li, h1, h2, h3, h4, h5, h6, blockquote, pre')
+      .forEach((element) => {
+        element.append('\n');
+      });
+
+    const prompt = (documentContent.body.textContent ?? '')
+      .replaceAll('\u00a0', ' ')
+      .replace(/[ \t]+\n/g, '\n')
+      .replace(/\n{2,}/g, '\n')
+      .trim();
+
+    await navigator.clipboard.writeText(prompt);
+    setCopiedPromptItemId(itemId);
+    window.setTimeout(() => {
+      setCopiedPromptItemId((currentItemId) => (currentItemId === itemId ? null : currentItemId));
+    }, 2000);
+  };
   const openReceiptForm = () => {
     setReceiptIssueError('');
     setReceiptForm({
@@ -388,6 +415,10 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                   product?.images?.[0]?.url ??
                   product?.cover_url ??
                   null;
+                const showDownloads =
+                  product?.resource_type === 'digital' &&
+                  isPaid &&
+                  (!!product.files?.length || !!product.file_url);
                 return (
                   <Box
                     key={item.id}
@@ -474,21 +505,58 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                         {isPaid &&
                           product &&
                           hasPurchaseBenefitsContent(product.purchase_benefits_html, []) && (
-                            <Box
-                              sx={{
-                                p: 1.5,
-                                mt: 2,
-                                borderRadius: 2,
-                                bgcolor: 'primary.lighter',
-                                border: '1px solid',
-                                borderColor: 'primary.light',
-                              }}
-                            >
-                              <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                                ข้อความส่งมอบเพิ่มเติม
-                              </Typography>
-                              <PurchaseBenefitsContent html={product.purchase_benefits_html} />
-                            </Box>
+                            <Stack sx={{ position: 'relative', mt: 2 }}>
+                              <Typography variant="subtitle2">ข้อความส่งมอบเพิ่มเติม</Typography>
+                              <Box
+                                sx={{
+                                  p: 1.5,
+                                  mt: 2,
+                                  borderRadius: 2,
+                                  bgcolor: 'common.white',
+                                  border: '1px solid',
+                                  borderColor: 'primary.light',
+                                }}
+                              >
+                                <Stack
+                                  direction="row"
+                                  alignItems="center"
+                                  justifyContent="space-between"
+                                  spacing={1}
+                                  sx={{ mb: 1 }}
+                                >
+                                  <Stack
+                                    spacing={1}
+                                    sx={{
+                                      display: 'flex',
+                                      flexDirection: 'row',
+                                      alignItems: 'center',
+                                      right: 10,
+                                      top: 45,
+                                      position: 'absolute',
+                                    }}
+                                  >
+                                    <IconButton
+                                      size="small"
+                                      color={copiedPromptItemId === item.id ? 'success' : 'primary'}
+                                      onClick={() =>
+                                        copyPrompt(item.id, product.purchase_benefits_html)
+                                      }
+                                      sx={{ flexShrink: 0, fontSize: 14 }}
+                                    >
+                                      {copiedPromptItemId === item.id ? (
+                                        <RiCheckLine />
+                                      ) : (
+                                        <RiFileCopyLine />
+                                      )}
+                                    </IconButton>
+                                    {copiedPromptItemId === item.id && (
+                                      <Typography>Copied!</Typography>
+                                    )}
+                                  </Stack>
+                                </Stack>
+                                <PurchaseBenefitsContent html={product.purchase_benefits_html} />
+                              </Box>
+                            </Stack>
                           )}
                         {product?.resource_type === 'feature_unlock' &&
                           isPaid &&
@@ -560,7 +628,7 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                               กรุณารีเฟรชหรือติดต่อผู้ดูแลระบบ
                             </Alert>
                           ))}
-                        {product?.resource_type === 'digital' && isPaid && (
+                        {showDownloads && (
                           <Box
                             sx={{
                               p: 1.5,
@@ -644,9 +712,7 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                                 >
                                   ดาวน์โหลดสินค้า
                                 </Button>
-                              ) : (
-                                <Alert severity="warning">กำลังเตรียมไฟล์ดาวน์โหลด</Alert>
-                              )}
+                              ) : null}
                             </Stack>
                           </Box>
                         )}

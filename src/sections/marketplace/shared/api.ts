@@ -398,7 +398,7 @@ export function getLocalizedProduct(product: MarketplaceProduct, language: strin
 }
 
 export function formatPrice(value: number, currency = 'THB') {
-  if (value === 0) return '0 บาท';
+  if (value === 0) return '฿0';
   return new Intl.NumberFormat('th-TH', {
     style: 'currency',
     currency,

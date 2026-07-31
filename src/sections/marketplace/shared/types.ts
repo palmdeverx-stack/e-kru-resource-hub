@@ -128,6 +128,7 @@ export type MarketplaceProductReview = {
 
 export type MarketplaceProductEngagement = {
   views: number;
+  likes: number;
   purchases: number;
   downloads: number;
   reviewCount: number;
@@ -465,6 +466,10 @@ export type MarketplacePaymentSession = {
 export type MarketplaceFinanceSettings = {
   promptpayId: string;
   promptpayAccountName: string;
+  payoutBankCode: string;
+  payoutBankName: string;
+  payoutAccountNumber: string;
+  payoutAccountName: string;
   commissionRate: number;
   holdDays: number;
   payoutDay: number;
