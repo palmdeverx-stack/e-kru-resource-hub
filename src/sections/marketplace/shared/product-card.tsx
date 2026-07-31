@@ -29,12 +29,15 @@ import { formatPrice, getLocalizedProduct } from './api';
 export function MarketplaceProductCard({
   product,
   colorIndex = 0,
+  productHref,
 }: {
   product: MarketplaceProduct;
   colorIndex?: number;
+  productHref?: string;
 }) {
   const theme = useTheme();
-  const { currentLang } = useTranslate();
+  const { t, currentLang } = useTranslate('marketplace');
+  const numberLocale = currentLang.numberFormat.code;
   const content = getLocalizedProduct(product, currentLang.value);
   const fallbackColors = ['#E8F8EF', '#FFF4DE', '#E9F2FF', '#F4ECFF'];
   const coverUrl =
@@ -48,6 +51,7 @@ export function MarketplaceProductCard({
   const likes = product.engagement?.likes ?? 0;
   const purchases = product.engagement?.purchases ?? 0;
   const pricing = getMarketplacePricing(product);
+  const href = productHref ?? `/product/${product.id}`;
 
   return (
     <Card
@@ -76,8 +80,8 @@ export function MarketplaceProductCard({
       {pricing.salePrice > 0 && (
         <Box
           role="img"
-          aria-label="สินค้าพรีเมียม"
-          title="สินค้าพรีเมียม"
+          aria-label={t('productCard.premium')}
+          title={t('productCard.premium')}
           sx={{
             top: 16,
             right: 16,
@@ -98,8 +102,8 @@ export function MarketplaceProductCard({
       )}
       <Box
         component={RouterLink}
-        href={`/product/${product.id}`}
-        aria-label={`ดูรายละเอียดสินค้า ${content.title}`}
+        href={href}
+        aria-label={t('productCard.viewProduct', { title: content.title })}
         sx={{
           width: 1,
           flex: '0 0 auto',
@@ -172,23 +176,23 @@ export function MarketplaceProductCard({
           }}
         >
           {[
-            { label: 'ยอดดู', value: views, icon: <RiEyeLine size={16} /> },
-            { label: 'ถูกใจ', value: likes, icon: <RiHeartLine size={16} /> },
-            { label: 'ยอดสั่งซื้อ', value: purchases, icon: <RiShoppingBag3Line size={16} /> },
+            { label: t('productCard.views'), value: views, icon: <RiEyeLine size={16} /> },
+            { label: t('productCard.likes'), value: likes, icon: <RiHeartLine size={16} /> },
+            { label: t('productCard.orders'), value: purchases, icon: <RiShoppingBag3Line size={16} /> },
           ].map((stat) => (
             <Stack
               key={stat.label}
               direction="row"
               spacing={0.5}
               alignItems="center"
-              aria-label={`${stat.label} ${stat.value.toLocaleString('th-TH')}`}
+              aria-label={`${stat.label} ${stat.value.toLocaleString(numberLocale)}`}
               title={stat.label}
             >
               <Box component="span" sx={{ display: 'inline-flex' }}>
                 {stat.icon}
               </Box>
               <Typography variant="caption" sx={{ color: 'inherit', fontWeight: 700 }}>
-                {stat.value.toLocaleString('th-TH')}
+                {stat.value.toLocaleString(numberLocale)}
               </Typography>
             </Stack>
           ))}
@@ -225,7 +229,7 @@ export function MarketplaceProductCard({
 
         <Typography
           component={RouterLink}
-          href={`/product/${product.id}`}
+          href={href}
           variant="h6"
           sx={{
             color: 'text.primary',
@@ -253,11 +257,11 @@ export function MarketplaceProductCard({
           <Stack direction="row" justifyContent="space-between" alignItems="flex-end" spacing={1}>
             <Box sx={{ minWidth: 0 }}>
               <Typography variant="caption" color="text.secondary">
-                ราคา
+                {t('productCard.price')}
               </Typography>
               <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" useFlexGap>
                 <Typography variant="h6" color="primary.main" sx={{ fontWeight: 800 }}>
-                  {formatPrice(pricing.salePrice, product.currency)}
+                  {formatPrice(pricing.salePrice, product.currency, numberLocale)}
                 </Typography>
                 {pricing.hasDiscount && (
                   <>
@@ -266,7 +270,7 @@ export function MarketplaceProductCard({
                       color="text.disabled"
                       sx={{ textDecoration: 'line-through' }}
                     >
-                      {formatPrice(pricing.listPrice, product.currency)}
+                      {formatPrice(pricing.listPrice, product.currency, numberLocale)}
                     </Typography>
                     <Chip size="small" color="error" label={`-${pricing.discountPercent}%`} />
                   </>
@@ -286,11 +290,13 @@ export function MarketplaceProductCard({
                     <Typography variant="subtitle2">{rating.toFixed(1)}</Typography>
                   </Stack>
                   <Typography variant="caption" color="text.secondary">
-                    {reviewCount.toLocaleString('th-TH')} รีวิว
+                    {t('productCard.reviews', {
+                      formattedCount: reviewCount.toLocaleString(numberLocale),
+                    })}
                   </Typography>
                 </>
               ) : (
-                <Chip size="small" variant="soft" color="primary" label="สินค้าใหม่" />
+                <Chip size="small" variant="soft" color="primary" label={t('productCard.new')} />
               )}
             </Box>
           </Stack>

@@ -13,6 +13,8 @@ import Typography from '@mui/material/Typography';
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
+import { useTranslate } from 'src/locales';
+
 import { MarketplaceBrand } from 'src/components/marketplace-brand';
 import {
   RiLineFill,
@@ -24,7 +26,7 @@ import {
 import { OPEN_COOKIE_SETTINGS_EVENT } from '../legal/cookie-consent';
 
 type FooterLink = {
-  label: string;
+  labelKey: string;
   href: string;
 };
 
@@ -46,32 +48,33 @@ type MarketplaceContact = {
 };
 
 const marketplaceLinks: FooterLink[] = [
-  { label: 'หน้าแรก Marketplace', href: paths.marketplace.root },
-  { label: 'สื่อการสอนทั้งหมด', href: paths.marketplace.products },
-  { label: 'ร้านค้าใน Marketplace', href: paths.marketplace.stores },
-  { label: 'ตะกร้าสินค้า', href: paths.marketplace.cart },
-  { label: 'รายการซื้อของฉัน', href: paths.marketplace.purchases },
+  { labelKey: 'home', href: paths.marketplace.root },
+  { labelKey: 'products', href: paths.marketplace.products },
+  { labelKey: 'stores', href: paths.marketplace.stores },
+  { labelKey: 'cart', href: paths.marketplace.cart },
+  { labelKey: 'purchases', href: paths.marketplace.purchases },
 ];
 
 const sellerLinks: FooterLink[] = [
-  { label: 'เปิดร้านขายสื่อ', href: paths.marketplace.sellerSetup },
-  { label: 'ร้านค้าของฉัน', href: paths.marketplace.seller },
-  { label: 'ลงสินค้าใหม่', href: paths.marketplace.productNew },
-  { label: 'รายได้ของร้าน', href: paths.marketplace.sellerFinance },
+  { labelKey: 'openStore', href: paths.marketplace.sellerSetup },
+  { labelKey: 'myStore', href: paths.marketplace.seller },
+  { labelKey: 'newProduct', href: paths.marketplace.productNew },
+  { labelKey: 'finance', href: paths.marketplace.sellerFinance },
 ];
 
 const supportLinks: FooterLink[] = [
-  { label: 'เข้าสู่ระบบ', href: paths.auth.jwt.signIn },
-  { label: 'เอกสารกฎหมายทั้งหมด', href: paths.legal.center },
-  { label: 'Terms of Service', href: paths.legal.termsOfService },
-  { label: 'Seller Agreement', href: paths.legal.sellerAgreement },
-  { label: 'Privacy Policy (PDPA)', href: paths.legal.privacyPolicy },
-  { label: 'Copyright & Takedown Policy', href: paths.legal.copyrightTakedown },
-  { label: 'Refund Policy', href: paths.legal.refundPolicy },
-  { label: 'Cookie Policy', href: paths.legal.cookiePolicy },
+  { labelKey: 'signIn', href: paths.auth.jwt.signIn },
+  { labelKey: 'legal', href: paths.legal.center },
+  { labelKey: 'terms', href: paths.legal.termsOfService },
+  { labelKey: 'sellerAgreement', href: paths.legal.sellerAgreement },
+  { labelKey: 'privacy', href: paths.legal.privacyPolicy },
+  { labelKey: 'copyright', href: paths.legal.copyrightTakedown },
+  { labelKey: 'refund', href: paths.legal.refundPolicy },
+  { labelKey: 'cookie', href: paths.legal.cookiePolicy },
 ];
 
 export function MarketplaceFooter() {
+  const { t, currentLang } = useTranslate('marketplace');
   const year = new Date().getFullYear();
   const [contact, setContact] = useState<MarketplaceContact | null>(null);
 
@@ -80,14 +83,14 @@ export function MarketplaceFooter() {
 
     fetch('/api/marketplace/contact', { signal: controller.signal })
       .then(async (response) => {
-        if (!response.ok) throw new Error('โหลดช่องทางติดต่อไม่สำเร็จ');
+        if (!response.ok) throw new Error(t('errors.contact'));
         return response.json() as Promise<MarketplaceContact>;
       })
       .then(setContact)
       .catch(() => setContact(null));
 
     return () => controller.abort();
-  }, []);
+  }, [t]);
 
   return (
     <Box
@@ -121,7 +124,7 @@ export function MarketplaceFooter() {
                 <Box>
                   <Typography variant="h5">{contact?.platformName ?? 'E-KRU Marketplace'}</Typography>
                   <Typography variant="caption" sx={{ color: '#82B1FF', fontWeight: 700 }}>
-                    จากครู เพื่อการเรียนรู้ที่ดีขึ้น
+                    {t('footer.tagline')}
                   </Typography>
                 </Box>
               </Stack>
@@ -130,13 +133,14 @@ export function MarketplaceFooter() {
                 variant="body2"
                 sx={{ mt: 2.5, maxWidth: 420, color: 'rgba(255,255,255,0.68)', lineHeight: 1.9 }}
               >
-                {contact?.footerText ??
-                  'พื้นที่ค้นหา ซื้อ และแบ่งปันสื่อการสอนคุณภาพจากครูและนักสร้างสรรค์ทั่วประเทศ เชื่อมต่อกับระบบ E-KRU ด้วยบัญชีเดียว'}
+                {currentLang.value === 'th' && contact?.footerText
+                  ? contact.footerText
+                  : t('footer.description')}
               </Typography>
 
               <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 2.5 }}>
-                <FooterBadge label="บัญชีเดียวกับ E-KRU" />
-                <FooterBadge label="สินค้าผ่านการตรวจสอบ" />
+                <FooterBadge label={t('footer.badges.singleAccount')} />
+                <FooterBadge label={t('footer.badges.reviewed')} />
               </Stack>
 
               <Stack spacing={1.25} sx={{ mt: 3 }}>
@@ -144,7 +148,7 @@ export function MarketplaceFooter() {
                   <ContactLink
                     icon={<RiLineFill size={19} color="#06C755" />}
                     href={contact.line.url}
-                    label="ติดต่อผ่าน LINE OA"
+                    label={t('footer.contactLine')}
                   />
                 )}
                 <ContactLink
@@ -155,7 +159,7 @@ export function MarketplaceFooter() {
                 <ContactLink
                   icon={<RiCustomerService2Line size={18} />}
                   href={`mailto:${contact?.email ?? 'ekru.team@gmail.com'}?subject=Marketplace Support`}
-                  label="ติดต่อฝ่ายช่วยเหลือ Marketplace"
+                  label={t('footer.support')}
                 />
                 {!!contact?.supportPhone && (
                   <ContactLink
@@ -166,7 +170,7 @@ export function MarketplaceFooter() {
                 )}
                 {!!contact?.businessHours && (
                   <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.56)' }}>
-                    เวลาทำการ: {contact.businessHours}
+                    {t('footer.businessHours', { hours: contact.businessHours })}
                   </Typography>
                 )}
               </Stack>
@@ -174,13 +178,13 @@ export function MarketplaceFooter() {
           </Grid>
 
           <Grid size={{ xs: 12, sm: 4, md: 2.5 }}>
-            <FooterLinkGroup title="Marketplace" links={marketplaceLinks} />
+            <FooterLinkGroup title={t('footer.groups.marketplace')} links={marketplaceLinks} />
           </Grid>
           <Grid size={{ xs: 12, sm: 4, md: 2.25 }}>
-            <FooterLinkGroup title="สำหรับผู้ขาย" links={sellerLinks} />
+            <FooterLinkGroup title={t('footer.groups.seller')} links={sellerLinks} />
           </Grid>
           <Grid size={{ xs: 12, sm: 4, md: 2.25 }}>
-            <FooterLinkGroup title="ช่วยเหลือและกฎหมาย" links={supportLinks} />
+            <FooterLinkGroup title={t('footer.groups.support')} links={supportLinks} />
           </Grid>
         </Grid>
 
@@ -217,7 +221,7 @@ export function MarketplaceFooter() {
                 color: 'rgba(255,255,255,0.5)',
               }}
             >
-              ตั้งค่าคุกกี้
+              {t('footer.links.cookieSettings')}
             </Link>
             <Link
               component={RouterLink}
@@ -297,6 +301,7 @@ function ContactLink({
 }
 
 function FooterLinkGroup({ title, links }: { title: string; links: FooterLink[] }) {
+  const { t } = useTranslate('marketplace');
   return (
     <Box component="nav" aria-label={title}>
       <Typography variant="subtitle2" sx={{ color: 'common.white' }}>
@@ -305,7 +310,7 @@ function FooterLinkGroup({ title, links }: { title: string; links: FooterLink[] 
       <Stack spacing={1.5} sx={{ mt: 2 }}>
         {links.map((item) => (
           <Link
-            key={`${item.href}-${item.label}`}
+            key={`${item.href}-${item.labelKey}`}
             component={RouterLink}
             href={item.href}
             underline="none"
@@ -317,7 +322,7 @@ function FooterLinkGroup({ title, links }: { title: string; links: FooterLink[] 
               '&:hover': { color: 'common.white', transform: 'translateX(3px)' },
             }}
           >
-            {item.label}
+            {t(`footer.links.${item.labelKey}`)}
           </Link>
         ))}
       </Stack>

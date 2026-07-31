@@ -290,6 +290,7 @@ export type MarketplaceProduct = {
   has_deal_references?: boolean;
   can_delete?: boolean;
   can_hide?: boolean;
+  has_preview_file?: boolean;
   created_at: string;
   seller?:
     | (Pick<MarketplaceSeller, 'id' | 'display_name' | 'seller_type' | 'slug' | 'logo_url'> &

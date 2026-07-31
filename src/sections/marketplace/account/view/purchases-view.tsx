@@ -116,11 +116,12 @@ export function MarketplacePurchasesView() {
   ];
 
   return (
-    <Container maxWidth={false} sx={{ py: { xs: 3 } }}>
+    <Container maxWidth={false} sx={{ px: { xs: 1.5, sm: 2.5, lg: 4 }, py: { xs: 2, md: 3 } }}>
       <Card
         sx={{
-          p: { xs: 2.5, md: 4 },
-          mb: 3,
+          p: { xs: 2, sm: 2.5, md: 4 },
+          mb: { xs: 2, md: 3 },
+          borderRadius: { xs: 2.5, md: 3 },
           overflow: 'hidden',
           position: 'relative',
           color: 'common.white',
@@ -142,26 +143,33 @@ export function MarketplacePurchasesView() {
           direction={{ xs: 'column', sm: 'row' }}
           justifyContent="space-between"
           alignItems={{ sm: 'center' }}
-          spacing={3}
+          spacing={{ xs: 2, sm: 3 }}
           sx={{ position: 'relative', zIndex: 1 }}
         >
-          <Stack direction="row" spacing={2} alignItems="center">
+          <Stack direction="row" spacing={{ xs: 1.25, sm: 2 }} alignItems="center">
             <Avatar
               variant="rounded"
               sx={{
-                width: 56,
-                height: 56,
+                width: { xs: 44, sm: 56 },
+                height: { xs: 44, sm: 56 },
                 color: 'common.white',
                 bgcolor: 'rgba(255,255,255,0.16)',
               }}
             >
-              <RiShoppingBag3Line size={28} />
+              <RiShoppingBag3Line size={24} />
             </Avatar>
             <Box>
-              <Typography component="h1" variant="h3">
+              <Typography
+                component="h1"
+                variant="h3"
+                sx={{ fontSize: { xs: '1.55rem', sm: '2rem', md: '2.5rem' } }}
+              >
                 รายการซื้อของฉัน
               </Typography>
-              <Typography sx={{ mt: 0.5, color: 'rgba(255,255,255,0.78)' }}>
+              <Typography
+                variant="body2"
+                sx={{ mt: 0.5, color: 'rgba(255,255,255,0.78)', lineHeight: 1.55 }}
+              >
                 ติดตามการชำระเงินและเข้าถึงสื่อที่ซื้อไว้ได้จากที่เดียว
               </Typography>
             </Box>
@@ -172,6 +180,7 @@ export function MarketplacePurchasesView() {
             variant="contained"
             color="inherit"
             sx={{
+              width: { xs: 1, sm: 'auto' },
               color: 'primary.darker',
               bgcolor: 'common.white',
               '&:hover': { bgcolor: 'grey.100' },
@@ -189,7 +198,7 @@ export function MarketplacePurchasesView() {
       )}
 
       {!loading && orders.length > 0 && (
-        <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid container spacing={{ xs: 1.25, sm: 2 }} sx={{ mb: { xs: 2, md: 3 } }}>
           {[
             {
               label: 'คำสั่งซื้อทั้งหมด',
@@ -222,27 +231,43 @@ export function MarketplacePurchasesView() {
           ].map((metric) => {
             const Icon = metric.icon;
             return (
-              <Grid key={metric.label} size={{ xs: 12, sm: 6, lg: 3 }}>
+              <Grid key={metric.label} size={{ xs: 6, lg: 3 }}>
                 <Card
                   variant="outlined"
                   sx={{
-                    p: 2.5,
+                    p: { xs: 1.5, sm: 2.5 },
+                    height: 1,
+                    minHeight: { xs: 104, sm: 0 },
                     borderColor: 'divider',
                     boxShadow: '0 8px 24px rgba(15, 23, 42, 0.04)',
                   }}
                 >
-                  <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Stack
+                    direction="row"
+                    justifyContent="space-between"
+                    alignItems="center"
+                    spacing={1}
+                  >
                     <Box>
                       <Typography variant="body2" color="text.secondary">
                         {metric.label}
                       </Typography>
-                      <Typography variant="h4" sx={{ mt: 0.5 }}>
+                      <Typography
+                        variant="h4"
+                        sx={{ mt: 0.5, fontSize: { xs: '1.35rem', sm: '1.75rem' } }}
+                      >
                         {metric.value}
                       </Typography>
                     </Box>
                     <Avatar
                       variant="rounded"
-                      sx={{ color: metric.color, bgcolor: metric.background }}
+                      sx={{
+                        width: { xs: 34, sm: 40 },
+                        height: { xs: 34, sm: 40 },
+                        color: metric.color,
+                        flexShrink: 0,
+                        bgcolor: metric.background,
+                      }}
                     >
                       <Icon size={21} />
                     </Avatar>
@@ -255,7 +280,10 @@ export function MarketplacePurchasesView() {
       )}
 
       {!loading && orders.length > 0 && (
-        <Card variant="outlined" sx={{ p: { xs: 1.5, md: 2 }, mb: 3 }}>
+        <Card
+          variant="outlined"
+          sx={{ p: { xs: 1.25, md: 2 }, mb: { xs: 2, md: 3 }, borderRadius: 2.5 }}
+        >
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ md: 'center' }}>
             <TextField
               fullWidth
@@ -312,7 +340,7 @@ export function MarketplacePurchasesView() {
           <CircularProgress />
         </Box>
       ) : filteredOrders.length ? (
-        <Grid container spacing={3}>
+        <Grid container spacing={{ xs: 1.5, sm: 2.5, lg: 3 }}>
           {filteredOrders.map((order) => {
             const firstItem = order.items?.[0];
             const product = firstItem?.product;
@@ -337,6 +365,7 @@ export function MarketplacePurchasesView() {
                     height: 1,
                     display: 'flex',
                     overflow: 'hidden',
+                    borderRadius: { xs: 2.5, md: 3 },
                     flexDirection: 'column',
                     transition: 'transform 160ms ease, box-shadow 160ms ease',
                     '&:hover': { transform: 'translateY(-3px)', boxShadow: 5 },
@@ -365,7 +394,7 @@ export function MarketplacePurchasesView() {
                   >
                     <Box
                       sx={{
-                        aspectRatio: '16 / 10',
+                        aspectRatio: { xs: '16 / 8', sm: '16 / 10' },
                         bgcolor: 'background.neutral',
                         backgroundImage: cover ? `url("${cover}")` : undefined,
                         backgroundSize: 'cover',
@@ -393,11 +422,11 @@ export function MarketplacePurchasesView() {
                         />
                       )}
                     </Box>
-                    <Box sx={{ p: 2.5 }}>
+                    <Box sx={{ p: { xs: 2, sm: 2.5 } }}>
                       <Typography
                         variant="h6"
                         sx={{
-                          minHeight: 56,
+                          minHeight: { xs: 0, sm: 56 },
                           display: '-webkit-box',
                           overflow: 'hidden',
                           WebkitLineClamp: 2,
@@ -414,7 +443,7 @@ export function MarketplacePurchasesView() {
                         color="text.secondary"
                         sx={{
                           mt: 0.5,
-                          minHeight: 40,
+                          minHeight: { xs: 0, sm: 40 },
                           display: '-webkit-box',
                           overflow: 'hidden',
                           WebkitLineClamp: 2,
@@ -437,7 +466,12 @@ export function MarketplacePurchasesView() {
                         />
                       </Box>
                       <Divider sx={{ my: 2 }} />
-                      <Stack direction="row" justifyContent="space-between" alignItems="flex-end">
+                      <Stack
+                        direction="row"
+                        justifyContent="space-between"
+                        alignItems="flex-end"
+                        spacing={1.5}
+                      >
                         <Box>
                           <Typography variant="caption" color="text.secondary">
                             เลขที่ #{order.id.slice(0, 8).toUpperCase()}
@@ -449,7 +483,11 @@ export function MarketplacePurchasesView() {
                             })}
                           </Typography>
                         </Box>
-                        <Typography variant="h5" color="primary.main">
+                        <Typography
+                          variant="h5"
+                          color="primary.main"
+                          sx={{ flexShrink: 0, fontSize: { xs: '1.15rem', sm: '1.5rem' } }}
+                        >
                           {formatPrice(Number(order.total), order.currency)}
                         </Typography>
                       </Stack>
@@ -457,7 +495,11 @@ export function MarketplacePurchasesView() {
                   </Box>
 
                   <Divider />
-                  <Stack direction="row" spacing={1} sx={{ p: 1.5 }}>
+                  <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={1}
+                    sx={{ p: { xs: 1.25, sm: 1.5 } }}
+                  >
                     <Button
                       component={RouterLink}
                       href={detailHref}
@@ -500,7 +542,10 @@ export function MarketplacePurchasesView() {
           })}
         </Grid>
       ) : orders.length ? (
-        <Card variant="outlined" sx={{ py: 8, textAlign: 'center', borderStyle: 'dashed' }}>
+        <Card
+          variant="outlined"
+          sx={{ px: 2, py: { xs: 6, md: 8 }, textAlign: 'center', borderStyle: 'dashed' }}
+        >
           <RiSearchLine size={44} />
           <Typography variant="h5" sx={{ mt: 2 }}>
             ไม่พบรายการที่ค้นหา
@@ -519,7 +564,10 @@ export function MarketplacePurchasesView() {
           </Button>
         </Card>
       ) : (
-        <Card variant="outlined" sx={{ py: 9, textAlign: 'center', borderStyle: 'dashed' }}>
+        <Card
+          variant="outlined"
+          sx={{ px: 2, py: { xs: 6, md: 9 }, textAlign: 'center', borderStyle: 'dashed' }}
+        >
           <RiShoppingBag3Line size={48} />
           <Typography variant="h5" sx={{ mt: 2 }}>
             ยังไม่มีรายการซื้อ

@@ -58,7 +58,7 @@ export async function POST(request: Request, { params }: Context) {
     .from('marketplace_products')
     .select('id')
     .eq('id', productId)
-    .eq('status', 'published')
+    .in('status', ['published', 'archived'])
     .maybeSingle();
   if (!product) {
     return NextResponse.json({ message: 'ไม่พบสินค้า' }, { status: 404 });

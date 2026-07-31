@@ -22,6 +22,8 @@ import AccordionDetails from '@mui/material/AccordionDetails';
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
+import { useTranslate } from 'src/locales';
+
 import {
   RiStarLine,
   RiFireFill,
@@ -51,10 +53,10 @@ import { getProducts } from '../../shared/api';
 import { MarketplaceProductCard } from '../../shared/product-card';
 
 const categories = [
-  { label: 'แผนการสอน', icon: RiFileList3Line },
-  { label: 'ใบงาน', icon: RiBookOpenLine },
-  { label: 'สื่อประกอบ', icon: RiGraduationCapLine },
-  { label: 'แบบทดสอบ', icon: RiShieldCheckLine },
+  { key: 'lessonPlans', value: 'แผนการสอน', icon: RiFileList3Line },
+  { key: 'worksheets', value: 'ใบงาน', icon: RiBookOpenLine },
+  { key: 'supplementary', value: 'สื่อประกอบ', icon: RiGraduationCapLine },
+  { key: 'quizzes', value: 'แบบทดสอบ', icon: RiShieldCheckLine },
 ];
 
 type PublicStats = {
@@ -66,40 +68,34 @@ type PublicStats = {
   completedOrders: number;
 };
 
-const trustMetrics: Array<{ key: keyof PublicStats; label: string }> = [
-  { key: 'teachers', label: 'คุณครู' },
-  { key: 'externalMembers', label: 'สมาชิกทั่วไป' },
-  { key: 'products', label: 'สื่อการสอน' },
-  { key: 'schools', label: 'โรงเรียน' },
+const trustMetrics: Array<{ key: keyof PublicStats; labelKey: string }> = [
+  { key: 'teachers', labelKey: 'teachers' },
+  { key: 'externalMembers', labelKey: 'members' },
+  { key: 'products', labelKey: 'products' },
+  { key: 'schools', labelKey: 'schools' },
 ];
-
-const formatCount = (value: number) => new Intl.NumberFormat('th-TH').format(value);
 
 const benefits = [
   {
-    title: 'ค้นหาสื่อได้เร็ว',
-    description: 'ค้นหาตามวิชา ระดับชั้น และประเภทสื่อได้ในไม่กี่ขั้นตอน',
+    key: 'fastSearch',
     icon: RiSearchLine,
     color: '#1565F5',
     background: '#E9F2FF',
   },
   {
-    title: 'สร้างรายได้จากสื่อ',
-    description: 'เปลี่ยนผลงานการสอนของคุณให้เป็นรายได้อย่างเป็นระบบ',
+    key: 'earnIncome',
     icon: RiMoneyDollarCircleLine,
     color: '#16A36A',
     background: '#E8F8EF',
   },
   {
-    title: 'คุณภาพผ่านการตรวจสอบ',
-    description: 'สินค้าทุกชิ้นผ่านขั้นตอนตรวจสอบก่อนเผยแพร่สู่ Marketplace',
+    key: 'reviewedQuality',
     icon: RiStarLine,
     color: '#F59E0B',
     background: '#FFF5D9',
   },
   {
-    title: 'ปลอดภัย',
-    description: 'ชำระเงิน ดาวน์โหลด และจัดการสิทธิ์ผ่านบัญชี E-KRU ของคุณ',
+    key: 'secure',
     icon: RiLockLine,
     color: '#8B5CF6',
     background: '#F2EDFF',
@@ -108,103 +104,68 @@ const benefits = [
 
 const buyerSteps = [
   {
-    label: 'สมัครสมาชิก',
-    description: 'ใช้บัญชีเดียวกับระบบ E-KRU',
+    key: 'signUp',
     icon: RiUserAddLine,
   },
   {
-    label: 'ค้นหาสื่อ',
-    description: 'เลือกตามวิชา ระดับชั้น และประเภทสื่อ',
+    key: 'findResources',
     icon: RiSearchLine,
   },
   {
-    label: 'ซื้อและดาวน์โหลด',
-    description: 'ชำระเงินปลอดภัยและรับไฟล์ในบัญชี',
+    key: 'buyDownload',
     icon: RiDownloadLine,
   },
   {
-    label: 'นำไปใช้',
-    description: 'เปิดดูสิทธิ์และใช้กับห้องเรียนได้ทันที',
+    key: 'useResource',
     icon: RiBookReadLine,
   },
 ];
 
 const sellerSteps = [
   {
-    label: 'สมัครเปิดร้าน',
-    description: 'ส่งข้อมูลร้านและยืนยันตัวตนผู้ขาย',
+    key: 'openStore',
     icon: RiStore2Line,
   },
   {
-    label: 'อัปโหลดสื่อ',
-    description: 'ใส่รายละเอียด ราคา และไฟล์สินค้า',
+    key: 'uploadResource',
     icon: RiUploadCloudLine,
   },
   {
-    label: 'ส่งตรวจสอบ',
-    description: 'ทีมงานตรวจคุณภาพก่อนเผยแพร่',
+    key: 'submitReview',
     icon: RiTimeLine,
   },
   {
-    label: 'เริ่มรับรายได้',
-    description: 'ติดตามยอดขายและรอบโอนได้โปร่งใส',
+    key: 'startEarning',
     icon: RiWallet3Line,
   },
 ];
 
 const audiences = [
   {
-    title: 'ครู',
-    description: 'ค้นหาสื่อพร้อมใช้และแบ่งปันผลงานของคุณ',
+    key: 'teachers',
     icon: RiUserStarLine,
   },
   {
-    title: 'โรงเรียน',
-    description: 'จัดซื้อ License และมอบสิทธิ์ให้ครูในโรงเรียน',
+    key: 'schools',
     icon: RiSchoolLine,
   },
   {
-    title: 'นักศึกษา',
-    description: 'เตรียมสอนและพัฒนาทักษะด้วยสื่อคุณภาพ',
+    key: 'students',
     icon: RiGraduationCapLine,
   },
   {
-    title: 'ติวเตอร์',
-    description: 'เลือกสื่อให้เหมาะกับผู้เรียนและรูปแบบการสอน',
+    key: 'tutors',
     icon: RiBookOpenLine,
   },
 ];
 
-const faqs = [
-  {
-    question: 'สมัครใช้งานและเปิดร้านฟรีไหม',
-    answer:
-      'สมัครสมาชิกและส่งคำขอเปิดร้านได้ฟรี ไม่มีค่าเปิดร้าน เมื่อร้านผ่านการตรวจสอบแล้วจึงเริ่มลงสินค้าและส่งอนุมัติได้',
-  },
-  {
-    question: 'ค่าธรรมเนียมการขายเท่าไร',
-    answer:
-      'ระบบหักค่าธรรมเนียมจากยอดขายตามอัตราที่ E-KRU Marketplace กำหนด โดยผู้ขายจะเห็นอัตราค่าธรรมเนียมและยอดสุทธิก่อนยอมรับข้อตกลงและในหน้าการเงินของร้าน',
-  },
-  {
-    question: 'ผู้ขายจะได้รับเงินเมื่อไร',
-    answer:
-      'ยอดขายที่ชำระสำเร็จจะเข้าสู่ยอดรอตรวจสอบก่อน เมื่อพ้นระยะพักยอดและถึงรอบโอน ระบบจะแสดงยอดพร้อมจ่ายให้ผู้ขายติดตามได้จากหน้า “รายได้ของร้าน”',
-  },
-  {
-    question: 'ใครสามารถขายสื่อได้บ้าง',
-    answer:
-      'ครู บุคคลทั่วไป โรงเรียน บริษัท สำนักพิมพ์ และมหาวิทยาลัยสามารถสมัครเป็นผู้ขายได้ โดยต้องยืนยันตัวตน บัญชีรับเงิน และยอมรับข้อตกลงของ Marketplace',
-  },
-  {
-    question: 'รองรับไฟล์ประเภทใด',
-    answer:
-      'รองรับ PDF, DOC/DOCX, PPT/PPTX, XLS/XLSX, ZIP และไฟล์รูปภาพ JPG, PNG, WebP โดยไฟล์สินค้าแต่ละไฟล์มีขนาดไม่เกิน 50 MB และภาพปกไม่เกิน 5 MB',
-  },
-];
+const faqKeys = ['freeStore', 'fees', 'payout', 'eligibleSellers', 'fileTypes'] as const;
 
 export function MarketplaceLandingView() {
   const theme = useTheme();
+  const { t, currentLang } = useTranslate('marketplace');
+  const formatCount = (value: number) =>
+    new Intl.NumberFormat(currentLang.numberFormat.code).format(value);
   const [publicStats, setPublicStats] = useState<PublicStats | null>(null);
   const [officialProducts, setOfficialProducts] = useState<MarketplaceProduct[]>([]);
   const [officialProductsLoading, setOfficialProductsLoading] = useState(true);
@@ -216,7 +177,7 @@ export function MarketplaceLandingView() {
 
     fetch('/api/marketplace/public-stats', { signal: controller.signal })
       .then(async (response) => {
-        if (!response.ok) throw new Error('โหลดสถิติไม่สำเร็จ');
+        if (!response.ok) throw new Error(t('errors.stats'));
         return response.json() as Promise<PublicStats>;
       })
       .then(setPublicStats)
@@ -226,7 +187,7 @@ export function MarketplaceLandingView() {
       });
 
     return () => controller.abort();
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     getProducts({ official: true, page: 1, limit: 4 })
@@ -272,9 +233,9 @@ export function MarketplaceLandingView() {
                     textAlign: { xs: 'center', md: 'left' },
                   }}
                 >
-                  พื้นที่รวมสื่อการสอน
+                  {t('hero.title')}
                   <Box component="span" sx={{ display: 'block', color: 'primary.main', mt: 2 }}>
-                    จากครู เพื่อครู
+                    {t('hero.highlight')}
                   </Box>
                 </Typography>
                 <Typography
@@ -287,8 +248,7 @@ export function MarketplaceLandingView() {
                     textAlign: { xs: 'center', md: 'left' },
                   }}
                 >
-                  ค้นหา ซื้อ และแบ่งปันแผนการสอน ใบงาน แบบทดสอบ
-                  และสื่อคุณภาพจากครูและนักสร้างสรรค์ทั่วประเทศ
+                  {t('hero.description')}
                 </Typography>
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
                   <Button
@@ -298,7 +258,7 @@ export function MarketplaceLandingView() {
                     href={paths.marketplace.products}
                     startIcon={<RiShoppingBag3Line />}
                   >
-                    เลือกซื้อสื่อการสอน
+                    {t('actions.browse')}
                   </Button>
                   <Button
                     size="large"
@@ -307,7 +267,7 @@ export function MarketplaceLandingView() {
                     href={paths.marketplace.seller}
                     startIcon={<RiStore2Line />}
                   >
-                    เริ่มต้นขายผลงาน
+                    {t('actions.startSelling')}
                   </Button>
                 </Stack>
               </Stack>
@@ -325,10 +285,9 @@ export function MarketplaceLandingView() {
               >
                 <Stack spacing={3}>
                   <RiShieldCheckLine size={52} />
-                  <Typography variant="h3">Marketplace ที่เข้าใจการศึกษา</Typography>
+                  <Typography variant="h3">{t('hero.trustTitle')}</Typography>
                   <Typography sx={{ color: 'rgba(255,255,255,0.78)', lineHeight: 1.8 }}>
-                    สินค้าผ่านการตรวจสอบก่อนเผยแพร่ ชำระเงินอย่างปลอดภัย
-                    และดาวน์โหลดไฟล์จากบัญชีของคุณได้ทุกเวลา
+                    {t('hero.trustDescription')}
                   </Typography>
                   <Grid container spacing={2}>
                     <Grid size={{ xs: 6 }}>
@@ -343,7 +302,7 @@ export function MarketplaceLandingView() {
                           sx={{ bgcolor: 'rgba(255,255,255,0.14)' }}
                         />
                       )}
-                      <Typography variant="caption">ร้านค้าที่ผ่านอนุมัติ</Typography>
+                      <Typography variant="caption">{t('stats.approvedStores')}</Typography>
                     </Grid>
                     <Grid size={{ xs: 6 }}>
                       {publicStats ? (
@@ -357,7 +316,7 @@ export function MarketplaceLandingView() {
                           sx={{ bgcolor: 'rgba(255,255,255,0.14)' }}
                         />
                       )}
-                      <Typography variant="caption">คำสั่งซื้อสำเร็จ</Typography>
+                      <Typography variant="caption">{t('stats.completedOrders')}</Typography>
                     </Grid>
                   </Grid>
                 </Stack>
@@ -379,11 +338,11 @@ export function MarketplaceLandingView() {
             variant="overline"
             sx={{ display: 'block', mb: 2.5, textAlign: 'center', color: 'primary.lighter' }}
           >
-            Trusted By
+            {t('stats.eyebrow')}
           </Typography>
           <Grid container>
             {trustMetrics.map((metric, index) => (
-              <Grid key={metric.label} size={{ xs: 6, md: 3 }}>
+              <Grid key={metric.key} size={{ xs: 6, md: 3 }}>
                 <Box
                   sx={{
                     py: { xs: 2, sm: 1 },
@@ -412,7 +371,7 @@ export function MarketplaceLandingView() {
                     />
                   )}
                   <Typography sx={{ mt: 0.5, color: 'rgba(255,255,255,0.72)' }}>
-                    {metric.label}
+                    {t(`stats.${metric.labelKey}`)}
                   </Typography>
                 </Box>
               </Grid>
@@ -439,10 +398,10 @@ export function MarketplaceLandingView() {
                     </Typography>
                   </Stack>
                   <Typography variant="h3" sx={{ mt: 0.75 }}>
-                    สินค้าทางการจาก E-KRU
+                    {t('official.title')}
                   </Typography>
                   <Typography color="text.secondary" sx={{ mt: 1.25 }}>
-                    สื่อและ License ที่จัดทำและจำหน่ายโดยระบบ E-KRU โดยตรง
+                    {t('official.description')}
                   </Typography>
                 </Box>
                 <Button
@@ -451,7 +410,7 @@ export function MarketplaceLandingView() {
                   endIcon={<RiArrowRightLine />}
                   sx={{ flexShrink: 0 }}
                 >
-                  ดูสินค้าทั้งหมด
+                  {t('actions.viewAll')}
                 </Button>
               </Stack>
 
@@ -497,10 +456,10 @@ export function MarketplaceLandingView() {
                     </Typography>
                   </Stack>
                   <Typography variant="h3" sx={{ mt: 0.75 }}>
-                    รายการสินค้าขายดี
+                    {t('bestSellers.title')}
                   </Typography>
                   <Typography color="text.secondary" sx={{ mt: 1.25 }}>
-                    สื่อยอดนิยมจากผู้ขายใน Marketplace เรียงตามยอดซื้อจริง
+                    {t('bestSellers.description')}
                   </Typography>
                 </Box>
                 <Button
@@ -509,7 +468,7 @@ export function MarketplaceLandingView() {
                   endIcon={<RiArrowRightLine />}
                   sx={{ flexShrink: 0 }}
                 >
-                  เลือกดูสินค้าเพิ่มเติม
+                  {t('actions.viewMore')}
                 </Button>
               </Stack>
 
@@ -529,7 +488,7 @@ export function MarketplaceLandingView() {
                   : bestSellingProducts.map((product, index) => (
                       <Grid key={product.id} size={{ xs: 12, sm: 6, md: 3 }}>
                         <Box sx={{ height: 1, position: 'relative' }}>
-                          <Chip
+                          {/* <Chip
                             size="small"
                             color="warning"
                             icon={<RiFireFill />}
@@ -543,7 +502,7 @@ export function MarketplaceLandingView() {
                               position: 'absolute',
                               fontWeight: 700,
                             }}
-                          />
+                          /> */}
                           <MarketplaceProductCard product={product} colorIndex={index + 1} />
                         </Box>
                       </Grid>
@@ -558,14 +517,14 @@ export function MarketplaceLandingView() {
         <Stack spacing={4.5}>
           <SectionHeading
             eyebrow="E-KRU MARKETPLACE"
-            title="ทำไมต้อง E-KRU"
-            description="ทุกสิ่งที่ครูต้องการ ตั้งแต่ค้นหาสื่อไปจนถึงสร้างรายได้จากผลงาน"
+            title={t('benefits.heading')}
+            description={t('benefits.description')}
           />
           <Grid container spacing={2.5}>
             {benefits.map((benefit) => {
               const Icon = benefit.icon;
               return (
-                <Grid key={benefit.title} size={{ xs: 12, sm: 6, md: 3 }}>
+                <Grid key={benefit.key} size={{ xs: 12, sm: 6, md: 3 }}>
                   <Card
                     variant="outlined"
                     sx={{
@@ -590,14 +549,14 @@ export function MarketplaceLandingView() {
                       <Icon size={30} />
                     </Box>
                     <Typography variant="h6" sx={{ mt: 2.5 }}>
-                      {benefit.title}
+                      {t(`benefits.items.${benefit.key}.title`)}
                     </Typography>
                     <Typography
                       variant="body2"
                       color="text.secondary"
                       sx={{ mt: 1, lineHeight: 1.75 }}
                     >
-                      {benefit.description}
+                      {t(`benefits.items.${benefit.key}.description`)}
                     </Typography>
                   </Card>
                 </Grid>
@@ -610,19 +569,19 @@ export function MarketplaceLandingView() {
       <Container maxWidth="lg" sx={{ py: { xs: 7, md: 10 } }}>
         <Stack spacing={4}>
           <Box sx={{ textAlign: 'center' }}>
-            <Typography variant="h3">เลือกสื่อตามรูปแบบที่ต้องการ</Typography>
+            <Typography variant="h3">{t('categories.heading')}</Typography>
             <Typography color="text.secondary" sx={{ mt: 1 }}>
-              เข้าสู่หน้าสื่อการสอนเพื่อค้นหาและเปรียบเทียบผลงานจากผู้ขาย
+              {t('categories.description')}
             </Typography>
           </Box>
           <Grid container spacing={2.5}>
             {categories.map((category) => {
               const Icon = category.icon;
               return (
-                <Grid key={category.label} size={{ xs: 12, sm: 6, md: 3 }}>
+                <Grid key={category.key} size={{ xs: 12, sm: 6, md: 3 }}>
                   <Card
                     component={RouterLink}
-                    href={`${paths.marketplace.products}?category=${encodeURIComponent(category.label)}`}
+                    href={`${paths.marketplace.products}?category=${encodeURIComponent(category.value)}`}
                     sx={{
                       p: 3,
                       height: 1,
@@ -640,7 +599,7 @@ export function MarketplaceLandingView() {
                       <Icon size={38} />
                     </Box>
                     <Typography variant="h6" sx={{ mt: 1.5 }}>
-                      {category.label}
+                      {t(`categories.items.${category.key}`)}
                     </Typography>
                   </Card>
                 </Grid>
@@ -688,18 +647,22 @@ export function MarketplaceLandingView() {
           <Stack spacing={{ xs: 4, md: 6 }}>
             <SectionHeading
               eyebrow="HOW IT WORKS"
-              title="วิธีใช้งาน"
-              description="เลือกเส้นทางของคุณ แล้วเริ่มต้นกับ E-KRU Marketplace ได้ใน 4 ขั้นตอน"
+              title={t('process.heading')}
+              description={t('process.description')}
             />
             <Grid container spacing={{ xs: 2.5, md: 3.5 }}>
               <Grid size={{ xs: 12, md: 6 }}>
                 <ProcessCard
                   eyebrow="I WANT TO LEARN"
-                  title="สำหรับผู้ซื้อ"
-                  description="ค้นหาสื่อที่ต้องการและนำไปใช้ได้ทันที"
-                  steps={buyerSteps}
+                  title={t('process.buyer.title')}
+                  description={t('process.buyer.description')}
+                  steps={buyerSteps.map((step) => ({
+                    ...step,
+                    label: t(`process.buyer.steps.${step.key}.label`),
+                    description: t(`process.buyer.steps.${step.key}.description`),
+                  }))}
                   color="primary"
-                  actionLabel="เลือกดูสื่อการสอน"
+                  actionLabel={t('actions.browse')}
                   actionHref={paths.marketplace.products}
                   headerIcon={RiShoppingBag3Line}
                 />
@@ -707,11 +670,15 @@ export function MarketplaceLandingView() {
               <Grid size={{ xs: 12, md: 6 }}>
                 <ProcessCard
                   eyebrow="I WANT TO SELL"
-                  title="สำหรับผู้ขาย"
-                  description="เปิดร้าน ส่งผลงานตรวจสอบ และเริ่มสร้างรายได้"
-                  steps={sellerSteps}
+                  title={t('process.seller.title')}
+                  description={t('process.seller.description')}
+                  steps={sellerSteps.map((step) => ({
+                    ...step,
+                    label: t(`process.seller.steps.${step.key}.label`),
+                    description: t(`process.seller.steps.${step.key}.description`),
+                  }))}
                   color="success"
-                  actionLabel="เริ่มสมัครเป็นผู้ขาย"
+                  actionLabel={t('actions.applySeller')}
                   actionHref={paths.marketplace.sellerSetup}
                   headerIcon={RiStore2Line}
                 />
@@ -725,14 +692,14 @@ export function MarketplaceLandingView() {
         <Stack spacing={4.5}>
           <SectionHeading
             eyebrow="FOR EVERY LEARNER"
-            title="สำหรับใคร"
-            description="พื้นที่เดียวสำหรับผู้สอน ผู้เรียน และสถานศึกษาทุกรูปแบบ"
+            title={t('audiences.heading')}
+            description={t('audiences.description')}
           />
           <Grid container spacing={2.5}>
             {audiences.map((audience) => {
               const Icon = audience.icon;
               return (
-                <Grid key={audience.title} size={{ xs: 12, sm: 6, md: 3 }}>
+                <Grid key={audience.key} size={{ xs: 12, sm: 6, md: 3 }}>
                   <Card
                     variant="outlined"
                     sx={{
@@ -758,14 +725,14 @@ export function MarketplaceLandingView() {
                       <Icon size={32} />
                     </Box>
                     <Typography variant="h5" sx={{ mt: 2.5 }}>
-                      {audience.title}
+                      {t(`audiences.items.${audience.key}.title`)}
                     </Typography>
                     <Typography
                       variant="body2"
                       color="text.secondary"
                       sx={{ mt: 1, lineHeight: 1.7 }}
                     >
-                      {audience.description}
+                      {t(`audiences.items.${audience.key}.description`)}
                     </Typography>
                   </Card>
                 </Grid>
@@ -776,13 +743,13 @@ export function MarketplaceLandingView() {
           <Box sx={{ pt: { xs: 4, md: 6 }, pb: 2 }}>
             <SectionHeading
               eyebrow="FREQUENTLY ASKED QUESTIONS"
-              title="คำถามที่พบบ่อย"
-              description="ข้อมูลสำคัญก่อนเริ่มซื้อหรือเปิดร้านบน E-KRU Marketplace"
+              title={t('faq.heading')}
+              description={t('faq.description')}
             />
             <Stack spacing={1.5} sx={{ maxWidth: '100%', mx: 'auto', mt: 4, pb: 2 }}>
-              {faqs.map((faq, index) => (
+              {faqKeys.map((faqKey, index) => (
                 <Accordion
-                  key={faq.question}
+                  key={faqKey}
                   disableGutters
                   defaultExpanded={index === 0}
                   elevation={0}
@@ -819,12 +786,14 @@ export function MarketplaceLandingView() {
                       >
                         {index + 1}
                       </Box>
-                      <Typography variant="subtitle1">{faq.question}</Typography>
+                      <Typography variant="subtitle1">
+                        {t(`faq.items.${faqKey}.question`)}
+                      </Typography>
                     </Stack>
                   </AccordionSummary>
                   <AccordionDetails sx={{ px: 0, pt: 0, pb: 2.5 }}>
                     <Typography color="text.secondary" sx={{ pl: { sm: 6 }, lineHeight: 1.85 }}>
-                      {faq.answer}
+                      {t(`faq.items.${faqKey}.answer`)}
                     </Typography>
                   </AccordionDetails>
                 </Accordion>
@@ -842,9 +811,9 @@ export function MarketplaceLandingView() {
               background: 'linear-gradient(135deg, #0B3B91 0%, #1565F5 100%)',
             }}
           >
-            <Typography variant="h3">เริ่มต้นกับ E-KRU Marketplace วันนี้</Typography>
+            <Typography variant="h3">{t('cta.title')}</Typography>
             <Typography sx={{ mt: 1.5, color: 'rgba(255,255,255,0.75)' }}>
-              ค้นหาสื่อที่เหมาะกับห้องเรียน หรือเปิดร้านเพื่อแบ่งปันผลงานของคุณ
+              {t('cta.description')}
             </Typography>
             <Stack
               direction={{ xs: 'column', sm: 'row' }}
@@ -859,7 +828,7 @@ export function MarketplaceLandingView() {
                 component={RouterLink}
                 href={paths.marketplace.products}
               >
-                เลือกดูสื่อการสอน
+                {t('actions.browse')}
               </Button>
               <Button
                 size="large"
@@ -868,7 +837,7 @@ export function MarketplaceLandingView() {
                 href={paths.marketplace.seller}
                 sx={{ color: 'common.white', borderColor: 'rgba(255,255,255,0.45)' }}
               >
-                สมัครเป็นผู้ขาย
+                {t('actions.applySeller')}
               </Button>
             </Stack>
           </Card>

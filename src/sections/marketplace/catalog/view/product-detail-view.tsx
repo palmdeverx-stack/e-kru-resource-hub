@@ -4,13 +4,7 @@ import type { MarketplaceProduct, MarketplaceProductReview } from '../../shared/
 
 import Script from 'next/script';
 import { useMemo, useState, useEffect } from 'react';
-import {
-  LineIcon,
-  EmailIcon,
-  FacebookIcon,
-  LineShareButton,
-  EmailShareButton,
-} from 'react-share';
+import { LineIcon, EmailIcon, FacebookIcon, LineShareButton, EmailShareButton } from 'react-share';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -73,6 +67,7 @@ import {
   formatPrice,
   recordProductView,
   saveProductReview,
+  getRelatedProducts,
   replyProductReview,
   getLocalizedProduct,
   getProductPreference,
@@ -81,6 +76,7 @@ import {
 } from '../../shared/api';
 
 const VISITOR_STORAGE_KEY = 'ekru_marketplace_visitor_id';
+const RECOMMENDATION_SESSION_KEY = 'ekru_marketplace_recommendation_session';
 const FACEBOOK_APP_ID = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID?.trim();
 const FACEBOOK_API_VERSION = process.env.NEXT_PUBLIC_FACEBOOK_API_VERSION?.trim() || 'v23.0';
 
@@ -93,12 +89,7 @@ declare global {
         xfbml?: boolean;
         version: string;
       }) => void;
-      ui: (options: {
-        method: 'share';
-        href: string;
-        hashtag?: string;
-        display?: 'popup';
-      }) => void;
+      ui: (options: { method: 'share'; href: string; hashtag?: string; display?: 'popup' }) => void;
     };
   }
 }
@@ -253,11 +244,17 @@ export function MarketplaceProductDetailView({
   }, [modalMode, product?.id, product?.seller_id]);
 
   useEffect(() => {
-    if (!modalMode || !product?.id || !product.category) return undefined;
+    if (!modalMode || !product?.id) return undefined;
     let active = true;
     setRelatedProductsLoading(true);
 
-    getProducts({ category: product.category, page: 1, limit: 12 })
+    let viewerKey = window.sessionStorage.getItem(RECOMMENDATION_SESSION_KEY);
+    if (!viewerKey) {
+      viewerKey = window.crypto.randomUUID();
+      window.sessionStorage.setItem(RECOMMENDATION_SESSION_KEY, viewerKey);
+    }
+
+    getRelatedProducts(product.id, viewerKey)
       .then(({ products }) => {
         if (active) {
           setRelatedProducts(products.filter((item) => item.id !== product.id));
@@ -273,7 +270,7 @@ export function MarketplaceProductDetailView({
     return () => {
       active = false;
     };
-  }, [modalMode, product?.category, product?.id]);
+  }, [modalMode, product?.id]);
 
   useEffect(
     () => () => reviewImagePreviews.forEach((preview) => URL.revokeObjectURL(preview)),
@@ -309,6 +306,60 @@ export function MarketplaceProductDetailView({
   const purchaseBenefits = (product.purchase_benefits ?? [])
     .map((item) => item.trim())
     .filter(Boolean);
+  const gradeLevelHighlight =
+    product.grade_levels
+      ?.map((item) => item.grade_level.name?.trim())
+      .filter(Boolean)
+      .join(', ') ?? '';
+  const tagHighlight =
+    product.tags
+      ?.map((item) => item.tag.name?.trim())
+      .filter(Boolean)
+      .join(', ') ?? '';
+  const productHighlights = [
+    {
+      icon: <RiDownloadCloud2Line />,
+      label: 'รูปแบบ',
+      value: product.media_type?.name?.trim() ?? '',
+    },
+    {
+      icon: <RiGraduationCapLine />,
+      label: 'ระดับชั้น',
+      value: gradeLevelHighlight,
+    },
+    {
+      icon: <RiBook2Line />,
+      label: 'รายวิชา',
+      value: product.subject_label?.trim() ?? '',
+    },
+    {
+      icon: <RiFileLine />,
+      label: 'หลักสูตร',
+      value: product.curriculum?.name?.trim() ?? '',
+    },
+    {
+      icon: <RiPriceTag3Line />,
+      label: 'แท็ก',
+      value: tagHighlight,
+    },
+  ].filter((item) => Boolean(item.value));
+  const licenseHighlight =
+    product.resource_type === 'feature_unlock' && product.license_scope
+      ? {
+          icon: <RiShieldCheckLine />,
+          label: 'สิทธิ์การใช้งาน',
+          value: `${
+            product.license_scope === 'individual'
+              ? 'License บุคคล'
+              : product.license_scope === 'teacher'
+                ? 'License รายครู'
+                : 'License โรงเรียน'
+          }${product.grant_duration_days ? ` · ${product.grant_duration_days} วัน` : ''}`,
+        }
+      : null;
+  const modalProductHighlights = licenseHighlight
+    ? [...productHighlights, licenseHighlight]
+    : productHighlights;
 
   const handleAdd = () => {
     addItem(product);
@@ -542,6 +593,11 @@ export function MarketplaceProductDetailView({
           />
         )}
         <Stack spacing={{ xs: 3, md: 4 }}>
+          {product.status === 'archived' && (
+            <Alert severity="info">
+              สินค้านี้หยุดเปิดขายแล้ว แต่คุณยังเปิดดูและดาวน์โหลดสินค้าที่ซื้อไว้ได้ตามเดิม
+            </Alert>
+          )}
           <Typography
             component="h1"
             variant="h3"
@@ -577,12 +633,7 @@ export function MarketplaceProductDetailView({
                 <Stack direction="row" spacing={0.75} alignItems="center">
                   {sellerName()}
                 </Stack>
-                <Stack
-                  direction="row"
-                  spacing={1}
-                  alignItems="center"
-                  sx={{ minWidth: 0 }}
-                >
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
                   <Rating size="small" value={engagement.averageRating} precision={0.1} readOnly />
                   <Typography
                     variant="caption"
@@ -931,91 +982,49 @@ export function MarketplaceProductDetailView({
 
           <Divider />
 
-          <Box component="section" aria-labelledby="product-highlights-title">
-            <Typography id="product-highlights-title" variant="h4" sx={{ mb: 2.5 }}>
-              Highlights สินค้า
-            </Typography>
-            <Grid container spacing={2}>
-              {[
-                {
-                  icon: <RiDownloadCloud2Line />,
-                  label: 'รูปแบบ',
-                  value:
-                    product.media_type?.name ??
-                    (product.resource_type === 'digital' ? 'ดาวน์โหลดดิจิทัล' : 'สินค้า'),
-                },
-                {
-                  icon: <RiGraduationCapLine />,
-                  label: 'ระดับชั้น',
-                  value:
-                    product.grade_levels
-                      ?.map((item) => item.grade_level.name)
-                      .filter(Boolean)
-                      .join(', ') || 'ใช้ได้หลายระดับชั้น',
-                },
-                {
-                  icon: <RiBook2Line />,
-                  label: 'รายวิชา',
-                  value: product.subject_label || 'สื่อการเรียนรู้ทั่วไป',
-                },
-                {
-                  icon: <RiFileLine />,
-                  label: 'หลักสูตร',
-                  value: product.curriculum?.name || 'ไม่ระบุหลักสูตร',
-                },
-                {
-                  icon: <RiPriceTag3Line />,
-                  label: 'แท็ก',
-                  value:
-                    product.tags
-                      ?.map((item) => item.tag.name)
-                      .filter(Boolean)
-                      .join(', ') || 'สื่อการสอน',
-                },
-                {
-                  icon: <RiShieldCheckLine />,
-                  label: 'สิทธิ์การใช้งาน',
-                  value:
-                    product.resource_type === 'feature_unlock'
-                      ? `${product.license_scope === 'individual' ? 'License บุคคล' : product.license_scope === 'teacher' ? 'License รายครู' : 'License โรงเรียน'} · ${
-                          product.grant_duration_days ?? 30
-                        } วัน`
-                      : 'สิทธิ์ใช้งานต่อรายการสั่งซื้อ',
-                },
-              ].map((highlight) => (
-                <Grid key={highlight.label} size={{ xs: 12, sm: 6, md: 4 }}>
-                  <Card variant="outlined" sx={{ p: 2.5, height: 1, borderRadius: 2.5 }}>
-                    <Stack direction="row" spacing={1.75} alignItems="flex-start">
-                      <Box
-                        sx={{
-                          width: 42,
-                          height: 42,
-                          flexShrink: 0,
-                          display: 'grid',
-                          borderRadius: 1.5,
-                          placeItems: 'center',
-                          color: 'primary.main',
-                          bgcolor: 'primary.lighter',
-                        }}
-                      >
-                        {highlight.icon}
-                      </Box>
-                      <Box sx={{ minWidth: 0 }}>
-                        <Typography variant="caption" color="text.secondary">
-                          {highlight.label}
-                        </Typography>
-                        <Typography variant="subtitle2" sx={{ mt: 0.25 }}>
-                          {highlight.value}
-                        </Typography>
-                      </Box>
-                    </Stack>
-                  </Card>
+          {!!modalProductHighlights.length && (
+            <>
+              <Box component="section" aria-labelledby="product-highlights-title">
+                <Typography id="product-highlights-title" variant="h4" sx={{ mb: 2.5 }}>
+                  Highlights สินค้า
+                </Typography>
+                <Grid container spacing={2}>
+                  {modalProductHighlights.map((highlight) => (
+                    <Grid key={highlight.label} size={{ xs: 12, sm: 6, md: 4 }}>
+                      <Card variant="outlined" sx={{ p: 2.5, height: 1, borderRadius: 2.5 }}>
+                        <Stack direction="row" spacing={1.75} alignItems="flex-start">
+                          <Box
+                            sx={{
+                              width: 42,
+                              height: 42,
+                              flexShrink: 0,
+                              display: 'grid',
+                              borderRadius: 1.5,
+                              placeItems: 'center',
+                              color: 'primary.main',
+                              bgcolor: 'primary.lighter',
+                            }}
+                          >
+                            {highlight.icon}
+                          </Box>
+                          <Box sx={{ minWidth: 0 }}>
+                            <Typography variant="caption" color="text.secondary">
+                              {highlight.label}
+                            </Typography>
+                            <Typography variant="subtitle2" sx={{ mt: 0.25 }}>
+                              {highlight.value}
+                            </Typography>
+                          </Box>
+                        </Stack>
+                      </Card>
+                    </Grid>
+                  ))}
                 </Grid>
-              ))}
-            </Grid>
-          </Box>
+              </Box>
 
-          <Divider />
+              <Divider />
+            </>
+          )}
 
           <Box component="section" aria-labelledby="product-reviews-title">
             <Typography id="product-reviews-title" variant="h4" sx={{ mb: 2.5 }}>
@@ -1246,7 +1255,7 @@ export function MarketplaceProductDetailView({
               spacing={2}
               sx={{ mt: { xs: 5, md: 7 }, mb: 2.5 }}
             >
-              <Stack direction="row" spacing={0.75} alignItems="center">
+              <Stack direction="column">
                 <Typography variant="h5">สินค้าอื่นจาก</Typography>
                 <MarketplaceSellerLink
                   seller={product.seller}
@@ -1369,7 +1378,7 @@ export function MarketplaceProductDetailView({
               สินค้าใกล้เคียงใน E-KRU Marketplace
             </Typography>
             <Typography color="text.secondary" sx={{ mt: 0.75, mb: 3 }}>
-              สื่อการสอนในหมวดหมู่เดียวกันที่คุณอาจสนใจ
+              คัดจากหมวดหมู่ แท็ก วิชา ระดับชั้น หลักสูตร ประเภทสื่อ ราคา และความสนใจของคุณ
             </Typography>
 
             {relatedProductsLoading ? (
@@ -1484,7 +1493,9 @@ export function MarketplaceProductDetailView({
                   bgcolor: 'background.neutral',
                 }}
               >
-                <Typography color="text.secondary">ยังไม่มีสินค้าใกล้เคียงในหมวดหมู่นี้</Typography>
+                <Typography color="text.secondary">
+                  ยังไม่มีสินค้าใกล้เคียงที่พร้อมจำหน่าย
+                </Typography>
               </Box>
             )}
           </Box>
@@ -1503,6 +1514,12 @@ export function MarketplaceProductDetailView({
       >
         กลับไป Marketplace
       </Button>
+
+      {product.status === 'archived' && (
+        <Alert severity="info" sx={{ mt: 2 }}>
+          สินค้านี้หยุดเปิดขายแล้ว แต่คุณยังเปิดดูและดาวน์โหลดสินค้าที่ซื้อไว้ได้ตามเดิม
+        </Alert>
+      )}
 
       <Grid container spacing={{ xs: 4, md: 5 }} sx={{ mt: 1 }}>
         <Grid size={{ xs: 12, md: 7 }}>
@@ -1567,7 +1584,7 @@ export function MarketplaceProductDetailView({
                   <RiBookOpenLine size={120} color="#1565F5" />
                 )}
               </Box>
-              {product.resource_type === 'digital' && (
+              {product.resource_type === 'digital' && product.has_preview_file && (
                 <Button
                   fullWidth
                   variant="outlined"
@@ -1757,11 +1774,11 @@ export function MarketplaceProductDetailView({
               <Alert severity="info">{purchaseAccess.message}</Alert>
             )}
 
-            {product.resource_type === 'digital' && (
+            {/* {product.resource_type === 'digital' && (
               <Alert severity="success" icon={<RiDownloadCloud2Line />}>
                 ดาวน์โหลดไฟล์ได้จากหน้ารายการซื้อทันทีหลังชำระเงิน
               </Alert>
-            )}
+            )} */}
             {product.resource_type === 'feature_unlock' && (
               <Alert severity="info" icon={<RiShieldCheckLine />}>
                 <Typography variant="subtitle2">
@@ -1785,64 +1802,30 @@ export function MarketplaceProductDetailView({
               </Alert>
             )}
 
-            <Card variant="outlined" sx={{ p: 2.5, borderRadius: 2.5 }}>
-              <Typography variant="h5" sx={{ mb: 2.25 }}>
-                ไฮไลต์สินค้า
-              </Typography>
-              <Stack spacing={2}>
-                {[
-                  {
-                    icon: <RiDownloadCloud2Line />,
-                    label: 'รูปแบบ',
-                    value:
-                      product.media_type?.name ??
-                      (product.resource_type === 'digital' ? 'ดาวน์โหลดดิจิทัล' : 'สินค้า'),
-                  },
-                  {
-                    icon: <RiGraduationCapLine />,
-                    label: 'ระดับชั้น',
-                    value:
-                      product.grade_levels
-                        ?.map((item) => item.grade_level.name)
-                        .filter(Boolean)
-                        .join(', ') || 'ใช้ได้หลายระดับชั้น',
-                  },
-                  {
-                    icon: <RiBook2Line />,
-                    label: 'รายวิชา',
-                    value: product.subject_label || 'สื่อการเรียนรู้ทั่วไป',
-                  },
-                  {
-                    icon: <RiFileLine />,
-                    label: 'หลักสูตร',
-                    value: product.curriculum?.name || 'ไม่ระบุหลักสูตร',
-                  },
-                  {
-                    icon: <RiPriceTag3Line />,
-                    label: 'แท็ก',
-                    value:
-                      product.tags
-                        ?.map((item) => item.tag.name)
-                        .filter(Boolean)
-                        .join(', ') || 'สื่อการสอน',
-                  },
-                ].map((item) => (
-                  <Stack key={item.label} direction="row" spacing={1.5} alignItems="flex-start">
-                    <Box sx={{ color: 'text.secondary', display: 'flex', mt: 0.25 }}>
-                      {item.icon}
-                    </Box>
-                    <Typography variant="body2">
-                      <Box component="span" sx={{ mr: 1, fontWeight: 700 }}>
-                        {item.label}
+            {!!productHighlights.length && (
+              <Card variant="outlined" sx={{ p: 2.5, borderRadius: 2.5 }}>
+                <Typography variant="h5" sx={{ mb: 2.25 }}>
+                  ไฮไลต์สินค้า
+                </Typography>
+                <Stack spacing={2}>
+                  {productHighlights.map((item) => (
+                    <Stack key={item.label} direction="row" spacing={1.5} alignItems="flex-start">
+                      <Box sx={{ color: 'text.secondary', display: 'flex', mt: 0.25 }}>
+                        {item.icon}
                       </Box>
-                      <Box component="span" sx={{ color: 'text.secondary' }}>
-                        {item.value}
-                      </Box>
-                    </Typography>
-                  </Stack>
-                ))}
-              </Stack>
-            </Card>
+                      <Typography variant="body2">
+                        <Box component="span" sx={{ mr: 1, fontWeight: 700 }}>
+                          {item.label}
+                        </Box>
+                        <Box component="span" sx={{ color: 'text.secondary' }}>
+                          {item.value}
+                        </Box>
+                      </Typography>
+                    </Stack>
+                  ))}
+                </Stack>
+              </Card>
+            )}
 
             <Grid container spacing={1}>
               {[

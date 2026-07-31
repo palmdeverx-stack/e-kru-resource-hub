@@ -130,6 +130,16 @@ export async function getProducts(params?: {
   }>(response);
 }
 
+export async function getRelatedProducts(productId: string, viewerKey?: string) {
+  const searchParams = new URLSearchParams();
+  if (viewerKey) searchParams.set('viewer', viewerKey);
+  const suffix = searchParams.size ? `?${searchParams}` : '';
+  const response = await fetch(`/api/marketplace/products/${productId}/related${suffix}`, {
+    cache: 'no-store',
+  });
+  return parseResponse<{ products: MarketplaceProduct[] }>(response);
+}
+
 export async function getProduct(id: string) {
   const response = await fetch(`/api/marketplace/products/${id}`, { cache: 'no-store' });
   return parseResponse<{ product: MarketplaceProduct }>(response);
@@ -429,9 +439,8 @@ export function getLocalizedProduct(product: MarketplaceProduct, language: strin
   };
 }
 
-export function formatPrice(value: number, currency = 'THB') {
-  if (value === 0) return '฿0';
-  return new Intl.NumberFormat('th-TH', {
+export function formatPrice(value: number, currency = 'THB', locale = 'th-TH') {
+  return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency,
     maximumFractionDigits: 0,

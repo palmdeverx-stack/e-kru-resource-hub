@@ -1,0 +1,155 @@
+{
+  "seo": {
+    "title": "E-KRU Marketplace | Teaching resources by teachers, for teachers",
+    "description": "Discover, buy, and sell quality teaching resources from educators and creators nationwide."
+  },
+  "actions": {
+    "browse": "Browse teaching resources",
+    "startSelling": "Start selling your work",
+    "viewAll": "View all products",
+    "viewMore": "Explore more products",
+    "applySeller": "Become a seller"
+  },
+  "errors": {
+    "stats": "Unable to load statistics",
+    "contact": "Unable to load contact information"
+  },
+  "hero": {
+    "title": "A marketplace for teaching resources",
+    "highlight": "Created by teachers, for teachers",
+    "description": "Discover, buy, and share lesson plans, worksheets, quizzes, and quality resources from teachers and creators nationwide.",
+    "trustTitle": "A marketplace built for education",
+    "trustDescription": "Every product is reviewed before publication, payments are secure, and your files are available from your account at any time."
+  },
+  "stats": {
+    "eyebrow": "Trusted by our community",
+    "approvedStores": "Approved stores",
+    "completedOrders": "Completed orders",
+    "teachers": "Teachers",
+    "members": "Community members",
+    "products": "Teaching resources",
+    "schools": "Schools"
+  },
+  "official": {
+    "title": "Official resources from E-KRU",
+    "description": "Resources and licenses created and sold directly by E-KRU."
+  },
+  "bestSellers": {
+    "title": "Best-selling products",
+    "description": "Popular resources from Marketplace sellers, ranked by completed purchases."
+  },
+  "benefits": {
+    "heading": "Why choose E-KRU",
+    "description": "Everything educators need, from finding classroom resources to earning from their work.",
+    "items": {
+      "fastSearch": { "title": "Find resources faster", "description": "Search by subject, grade level, and resource type in just a few steps." },
+      "earnIncome": { "title": "Earn from your resources", "description": "Turn your teaching materials into a structured source of income." },
+      "reviewedQuality": { "title": "Quality reviewed", "description": "Every product goes through a review process before it is published." },
+      "secure": { "title": "Safe and secure", "description": "Pay, download, and manage licenses through your E-KRU account." }
+    }
+  },
+  "categories": {
+    "heading": "Choose the resource format you need",
+    "description": "Browse teaching resources to discover and compare work from Marketplace sellers.",
+    "items": {
+      "lessonPlans": "Lesson plans",
+      "worksheets": "Worksheets",
+      "supplementary": "Supplementary materials",
+      "quizzes": "Quizzes and assessments"
+    }
+  },
+  "process": {
+    "heading": "How it works",
+    "description": "Choose your path and get started with E-KRU Marketplace in four steps.",
+    "buyer": {
+      "title": "For buyers",
+      "description": "Find the resources you need and put them to use right away.",
+      "steps": {
+        "signUp": { "label": "Create an account", "description": "Use the same account as the E-KRU platform." },
+        "findResources": { "label": "Find resources", "description": "Filter by subject, grade level, and resource type." },
+        "buyDownload": { "label": "Buy and download", "description": "Pay securely and receive files in your account." },
+        "useResource": { "label": "Use in class", "description": "View your license and use the resource right away." }
+      }
+    },
+    "seller": {
+      "title": "For sellers",
+      "description": "Open a store, submit your work for review, and start earning.",
+      "steps": {
+        "openStore": { "label": "Open your store", "description": "Submit store details and verify your seller identity." },
+        "uploadResource": { "label": "Upload resources", "description": "Add product details, pricing, and downloadable files." },
+        "submitReview": { "label": "Submit for review", "description": "Our team reviews quality before publication." },
+        "startEarning": { "label": "Start earning", "description": "Track sales and payout cycles transparently." }
+      }
+    }
+  },
+  "audiences": {
+    "heading": "Who it is for",
+    "description": "One marketplace for educators, learners, and educational institutions.",
+    "items": {
+      "teachers": { "title": "Teachers", "description": "Find classroom-ready resources and share your own work." },
+      "schools": { "title": "Schools", "description": "Purchase licenses and assign access to teachers at your school." },
+      "students": { "title": "Education students", "description": "Prepare for teaching and build your skills with quality resources." },
+      "tutors": { "title": "Tutors", "description": "Choose resources that fit your learners and teaching style." }
+    }
+  },
+  "faq": {
+    "heading": "Frequently asked questions",
+    "description": "Important information before buying resources or opening a store on E-KRU Marketplace.",
+    "items": {
+      "freeStore": { "question": "Is registration and opening a store free?", "answer": "Creating an account and submitting a store application are free. Once your store is approved, you can add products and submit them for publication review." },
+      "fees": { "question": "What are the selling fees?", "answer": "E-KRU Marketplace deducts fees from sales at the applicable rate. Sellers can review the fee rate and estimated net amount before accepting the agreement and from their store finance page." },
+      "payout": { "question": "When will sellers receive their money?", "answer": "Completed sales first enter a review period. Once the holding period has passed and a payout cycle is available, the amount ready for payout appears on the store finance page." },
+      "eligibleSellers": { "question": "Who can sell teaching resources?", "answer": "Teachers, individuals, schools, companies, publishers, and universities can apply. Sellers must verify their identity and payout account and accept the Marketplace agreements." },
+      "fileTypes": { "question": "Which file types are supported?", "answer": "Supported formats include PDF, DOC/DOCX, PPT/PPTX, XLS/XLSX, ZIP, and JPG, PNG, or WebP images. Each product file may be up to 50 MB and cover images up to 5 MB." }
+    }
+  },
+  "cta": {
+    "title": "Get started with E-KRU Marketplace today",
+    "description": "Find the right resources for your classroom or open a store to share your work."
+  },
+  "header": {
+    "cart": "Cart, {{count}} items",
+    "signIn": "Sign in",
+    "signUp": "Sign up",
+    "dashboard": "Dashboard"
+  },
+  "footer": {
+    "tagline": "From teachers, for better learning",
+    "description": "Discover, buy, and share quality teaching resources from educators and creators nationwide with one E-KRU account.",
+    "badges": { "singleAccount": "One E-KRU account", "reviewed": "Reviewed products" },
+    "contactLine": "Contact us on LINE OA",
+    "support": "Marketplace support",
+    "businessHours": "Business hours: {{hours}}",
+    "groups": { "marketplace": "Marketplace", "seller": "For sellers", "support": "Support and legal" },
+    "links": {
+      "home": "Marketplace home",
+      "products": "All teaching resources",
+      "stores": "Marketplace stores",
+      "cart": "Shopping cart",
+      "purchases": "My purchases",
+      "openStore": "Open a resource store",
+      "myStore": "My store",
+      "newProduct": "Add a new product",
+      "finance": "Store earnings",
+      "signIn": "Sign in",
+      "legal": "All legal documents",
+      "terms": "Terms of Service",
+      "sellerAgreement": "Seller Agreement",
+      "privacy": "Privacy Policy (PDPA)",
+      "copyright": "Copyright and Takedown Policy",
+      "refund": "Refund Policy",
+      "cookie": "Cookie Policy",
+      "cookieSettings": "Cookie settings"
+    }
+  },
+  "productCard": {
+    "premium": "Premium product",
+    "viewProduct": "View product details: {{title}}",
+    "views": "Views",
+    "likes": "Likes",
+    "orders": "Orders",
+    "price": "Price",
+    "reviews": "{{formattedCount}} reviews",
+    "new": "New product"
+  }
+}

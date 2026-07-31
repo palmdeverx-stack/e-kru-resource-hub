@@ -10,7 +10,7 @@ import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 import { usePathname, useSearchParams } from 'src/routes/hooks';
 
-import { languageOptions } from 'src/locales';
+import { useTranslate, languageOptions } from 'src/locales';
 import { LanguagePopover } from 'src/layouts/components/language-popover';
 
 import {
@@ -26,6 +26,7 @@ import { useMarketplaceCart } from '../cart/cart-context';
 import { MarketplaceAccountMenu } from '../account/components/account-menu';
 
 export function MarketplaceHeaderActions() {
+  const { t } = useTranslate('marketplace');
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { itemCount } = useMarketplaceCart();
@@ -40,8 +41,12 @@ export function MarketplaceHeaderActions() {
       <IconButton
         component={RouterLink}
         href={cartHref}
-        aria-label={`ตะกร้า ${itemCount} รายการ`}
-        sx={{ width: { xs: 36, sm: 40 }, height: { xs: 36, sm: 40 } }}
+        aria-label={t('header.cart', { count: itemCount })}
+        sx={{
+          width: { xs: 36, sm: 40 },
+          height: { xs: 36, sm: 40 },
+          display: { xs: itemCount > 0 ? 'inline-flex' : 'none', sm: 'inline-flex' },
+        }}
       >
         <Badge badgeContent={itemCount} color="primary">
           <RiShoppingBag3Line color="text.primary" />
@@ -56,17 +61,17 @@ export function MarketplaceHeaderActions() {
           startIcon={<RiLoginBoxLine />}
           sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
         >
-          เข้าสู่ระบบ
+          {t('header.signIn')}
         </Button>
       )}
 
       {!authenticated && (
         <>
-          <Tooltip title="สมัครใช้งาน">
+          <Tooltip title={t('header.signUp')}>
             <IconButton
               component={RouterLink}
               href={paths.auth.jwt.signUp}
-              aria-label="สมัครใช้งาน"
+              aria-label={t('header.signUp')}
               sx={{ display: { xs: 'inline-flex', sm: 'none' }, width: 36, height: 36 }}
             >
               <RiUserAddLine color="text.primary" />
@@ -78,7 +83,7 @@ export function MarketplaceHeaderActions() {
             variant="contained"
             sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
           >
-            สมัครใช้งาน
+            {t('header.signUp')}
           </Button>
         </>
       )}
@@ -86,11 +91,11 @@ export function MarketplaceHeaderActions() {
       <MarketplaceAccountMenu />
 
       {authenticated && (
-        <Tooltip title="Dashboard">
+        <Tooltip title={t('header.dashboard')}>
           <IconButton
             component={RouterLink}
             href={paths.marketplace.dashboard}
-            aria-label="Dashboard"
+            aria-label={t('header.dashboard')}
             sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
           >
             <RiDashboardLine color="text.primary" />

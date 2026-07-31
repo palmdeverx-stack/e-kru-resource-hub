@@ -11,6 +11,7 @@ import {
   SELLER_TOOLS_CATEGORY,
 } from 'src/sections/marketplace/seller/server/seller-tools-access';
 import {
+  hasPurchasedProduct,
   getProductEngagement,
   getProductPurchaseAccess,
 } from 'src/sections/marketplace/catalog/server/product-engagement';
@@ -24,7 +25,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       '*, seller:marketplace_sellers(id, display_name, display_name_en, seller_type, slug, logo_url, bio, owner_role), media_type:marketplace_media_types(id, name, delivery_mode), sale_type:marketplace_sale_types(id, name, pricing_mode), curriculum:marketplace_curricula(id, name), grade_levels:marketplace_product_grade_levels(grade_level:marketplace_grade_levels(id, name)), tags:marketplace_product_tags(tag:marketplace_tags(id, name)), images:marketplace_product_images(*)'
     )
     .eq('id', id)
-    .eq('status', 'published')
     .maybeSingle();
 
   if (error) {
@@ -33,7 +33,18 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   if (!product) {
     return NextResponse.json({ message: 'ไม่พบสินค้า' }, { status: 404 });
   }
-  if (product.category === SELLER_TOOLS_CATEGORY && !(await canViewSellerTools(caller?.sub))) {
+  const hasArchivedPurchase =
+    product.status === 'archived' && caller
+      ? await hasPurchasedProduct(product.id, caller.sub)
+      : false;
+  if (product.status !== 'published' && !hasArchivedPurchase) {
+    return NextResponse.json({ message: 'ไม่พบสินค้า' }, { status: 404 });
+  }
+  if (
+    product.category === SELLER_TOOLS_CATEGORY &&
+    !hasArchivedPurchase &&
+    !(await canViewSellerTools(caller?.sub))
+  ) {
     return NextResponse.json({ message: 'ไม่พบสินค้า' }, { status: 404 });
   }
 
@@ -53,7 +64,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     caller && product.resource_type === 'feature_unlock' && product.license_scope !== 'individual'
       ? await getEligibleLicenseSchools(caller)
       : [];
-  const [engagement, purchaseAccess] = await Promise.all([
+  const [engagement, resolvedPurchaseAccess, previewFileResult] = await Promise.all([
     getProductEngagement(id, caller?.sub),
     getProductPurchaseAccess({
       productId: id,
@@ -64,8 +75,22 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       licenseScope: product.license_scope,
       featureKeys: product.grants_feature_keys,
     }),
+    supabaseAdmin
+      .from('marketplace_product_files')
+      .select('id', { count: 'exact', head: true })
+      .eq('product_id', id)
+      .eq('is_preview', true),
   ]);
+  const purchaseAccess = hasArchivedPurchase
+    ? {
+        ...resolvedPurchaseAccess,
+        canPurchase: false,
+        hasPurchased: true,
+        message: 'สินค้านี้หยุดเปิดขายแล้ว แต่คุณยังเข้าถึงสินค้าที่ซื้อไว้ได้ตามเดิม',
+      }
+    : resolvedPurchaseAccess;
   publicProduct.engagement = engagement;
   publicProduct.purchase_access = purchaseAccess;
+  publicProduct.has_preview_file = (previewFileResult.count ?? 0) > 0;
   return NextResponse.json({ product: publicProduct });
 }

@@ -3,14 +3,10 @@
 import { useState, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
 import IconButton from '@mui/material/IconButton';
-import Typography from '@mui/material/Typography';
-import DialogActions from '@mui/material/DialogActions';
-import DialogContent from '@mui/material/DialogContent';
 
-import { RiCloseLine, RiExternalLinkLine } from 'src/components/remix-icon';
+import { RiCloseLine } from 'src/components/remix-icon';
 
 import { useAuthContext } from 'src/auth/hooks';
 
@@ -94,15 +90,15 @@ export function MarketplacePopupAnnouncement() {
               sx={{ width: 1, maxHeight: 340, display: 'block', objectFit: 'cover' }}
             />
           )}
-          <DialogContent sx={{ px: { xs: 2.5, sm: 4 }, pt: 3.5, pb: 2 }}>
+          {/* <DialogContent sx={{ px: { xs: 2.5, sm: 4 }, pt: 3.5, pb: 2 }}>
             <Typography component="h2" variant="h4">
               {item.title}
             </Typography>
             <Typography color="text.secondary" sx={{ mt: 1.5, whiteSpace: 'pre-line' }}>
               {item.message}
             </Typography>
-          </DialogContent>
-          <DialogActions sx={{ px: { xs: 2.5, sm: 4 }, pb: 3, pt: 1 }}>
+          </DialogContent> */}
+          {/* <DialogActions sx={{ px: { xs: 2.5, sm: 4 }, pb: 3, pt: 1 }}>
             <Button color="inherit" onClick={close}>
               ปิด
             </Button>
@@ -119,7 +115,7 @@ export function MarketplacePopupAnnouncement() {
                 {item.button_label || 'ดูรายละเอียด'}
               </Button>
             )}
-          </DialogActions>
+          </DialogActions> */}
         </>
       )}
     </Dialog>

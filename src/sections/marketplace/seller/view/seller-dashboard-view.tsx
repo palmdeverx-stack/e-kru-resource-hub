@@ -6,6 +6,7 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Tab from '@mui/material/Tab';
+import Menu from '@mui/material/Menu';
 import Grid from '@mui/material/Grid';
 import Tabs from '@mui/material/Tabs';
 import Chip from '@mui/material/Chip';
@@ -15,16 +16,20 @@ import Stack from '@mui/material/Stack';
 import Dialog from '@mui/material/Dialog';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
+import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import Container from '@mui/material/Container';
 import { useTheme } from '@mui/material/styles';
 import Pagination from '@mui/material/Pagination';
 import Typography from '@mui/material/Typography';
+import IconButton from '@mui/material/IconButton';
 import DialogTitle from '@mui/material/DialogTitle';
+import ToggleButton from '@mui/material/ToggleButton';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import InputAdornment from '@mui/material/InputAdornment';
 import CircularProgress from '@mui/material/CircularProgress';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
@@ -34,12 +39,15 @@ import {
   RiEyeLine,
   RiEditLine,
   RiTimeLine,
+  RiMore2Line,
+  RiListCheck,
   RiEyeOffLine,
   RiSearchLine,
   RiStore2Line,
   RiBookOpenLine,
   RiDeleteBinLine,
   RiFileList3Line,
+  RiLayoutGridLine,
   RiShieldStarLine,
   RiShieldStarFill,
   RiErrorWarningLine,
@@ -49,6 +57,7 @@ import {
 
 import { useAuthContext } from 'src/auth/hooks';
 
+import { MarketplaceProductCard } from '../../shared/product-card';
 import {
   getSeller,
   getProducts,
@@ -63,6 +72,7 @@ import {
 } from '../../shared/seller-completion';
 
 type ProductFilter = 'all' | MarketplaceProduct['status'];
+type ProductView = 'list' | 'grid';
 type ProductCounts = Record<ProductFilter, number>;
 
 const PAGE_SIZE = 8;
@@ -89,6 +99,7 @@ export function MarketplaceSellerDashboardView() {
   const [hiding, setHiding] = useState<MarketplaceProduct | null>(null);
   const [visibilityBusyId, setVisibilityBusyId] = useState('');
   const [productFilter, setProductFilter] = useState<ProductFilter>('all');
+  const [productView, setProductView] = useState<ProductView>('list');
   const [productSearch, setProductSearch] = useState('');
   const [debouncedProductSearch, setDebouncedProductSearch] = useState('');
   const [productPage, setProductPage] = useState(1);
@@ -281,7 +292,7 @@ export function MarketplaceSellerDashboardView() {
                     label="ร้านทางการ"
                   />
                 )}
-                <Chip color="success" size="medium" label="เปิดขายแล้ว" />
+                {/* <Chip color="success" size="medium" label="เปิดขายแล้ว" /> */}
               </Stack>
               <Typography color="text.secondary" sx={{ mt: 0.5 }}>
                 {seller.bio || 'ร้านค้าบน E-KRU Marketplace'}
@@ -355,25 +366,51 @@ export function MarketplaceSellerDashboardView() {
                   ค้นหา แก้ไข และติดตามสถานะสินค้าที่ส่งเข้า Marketplace
                 </Typography>
               </Box>
-              <TextField
-                size="small"
-                value={productSearch}
-                placeholder="ค้นหาชื่อหรือหมวดหมู่สินค้า"
-                onChange={(event) => {
-                  setProductSearch(event.target.value);
-                  setProductPage(1);
-                }}
-                sx={{ width: { xs: 1, md: 320 } }}
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <RiSearchLine size={18} />
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-              />
+              <Stack
+                direction={{ xs: 'column', sm: 'row' }}
+                spacing={1}
+                sx={{ width: { xs: 1, md: 'auto' } }}
+              >
+                <TextField
+                  size="small"
+                  value={productSearch}
+                  placeholder="ค้นหาชื่อหรือหมวดหมู่สินค้า"
+                  onChange={(event) => {
+                    setProductSearch(event.target.value);
+                    setProductPage(1);
+                  }}
+                  sx={{ width: { xs: 1, md: 320 } }}
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <RiSearchLine size={18} />
+                        </InputAdornment>
+                      ),
+                    },
+                  }}
+                />
+                <ToggleButtonGroup
+                  exclusive
+                  size="small"
+                  value={productView}
+                  aria-label="รูปแบบการแสดงสินค้า"
+                  onChange={(_event, value: ProductView | null) => value && setProductView(value)}
+                  sx={{
+                    flexShrink: 0,
+                    '& .MuiToggleButton-root': { gap: 0.75, px: 1.5 },
+                  }}
+                >
+                  <ToggleButton value="list" aria-label="แสดงแบบรายการ">
+                    <RiListCheck size={18} />
+                    รายการ
+                  </ToggleButton>
+                  <ToggleButton value="grid" aria-label="แสดงแบบกริดที่ลูกค้าเห็น">
+                    <RiLayoutGridLine size={18} />
+                    กริดลูกค้า
+                  </ToggleButton>
+                </ToggleButtonGroup>
+              </Stack>
             </Stack>
 
             <Tabs
@@ -397,169 +434,222 @@ export function MarketplaceSellerDashboardView() {
               <Box sx={{ py: 8, display: 'grid', placeItems: 'center' }}>
                 <CircularProgress size={32} />
               </Box>
+            ) : products.length && productView === 'grid' ? (
+              <Box sx={{ p: { xs: 2, md: 3 }, bgcolor: 'background.neutral' }}>
+                <Alert
+                  severity="info"
+                  variant="outlined"
+                  sx={{ mb: 2.5, bgcolor: 'background.paper' }}
+                >
+                  การ์ดสินค้าแสดงในรูปแบบเดียวกับที่ลูกค้าเห็นบน Marketplace
+                  ส่วนสถานะและปุ่มจัดการจะแสดงเฉพาะในหน้าผู้ขายนี้
+                </Alert>
+                <Grid container spacing={2.5}>
+                  {products.map((product, index) => (
+                    <Grid key={product.id} size={{ xs: 12, sm: 6, lg: 4, xl: 3 }}>
+                      <Stack sx={{ height: 1 }}>
+                        <MarketplaceProductCard
+                          product={product}
+                          colorIndex={index}
+                          productHref={
+                            product.status === 'published'
+                              ? `/product/${product.id}`
+                              : `/dashboard/seller/products/${product.id}/edit`
+                          }
+                        />
+                        <Stack
+                          spacing={1.25}
+                          sx={{
+                            p: 1.5,
+                            mt: 1,
+                            border: '1px solid',
+                            borderRadius: 2,
+                            borderColor: 'divider',
+                            bgcolor: 'background.paper',
+                          }}
+                        >
+                          <Stack
+                            direction="row"
+                            spacing={1}
+                            alignItems="center"
+                            justifyContent="space-between"
+                          >
+                            <ProductStatusChip product={product} />
+                            <Typography variant="caption" color="text.secondary">
+                              ขายแล้ว {product.purchase_count ?? 0} สิทธิ์
+                            </Typography>
+                          </Stack>
+                          <SellerProductActions
+                            compact
+                            product={product}
+                            visibilityBusy={visibilityBusyId === product.id}
+                            onHide={() => setHiding(product)}
+                            onRestore={() => void changeProductVisibility(product, false)}
+                            onDelete={() => setDeleting(product)}
+                          />
+                          {product.rejection_reason && (
+                            <Alert severity="error" variant="outlined">
+                              ไม่ผ่านการอนุมัติ: {product.rejection_reason}
+                            </Alert>
+                          )}
+                        </Stack>
+                      </Stack>
+                    </Grid>
+                  ))}
+                </Grid>
+              </Box>
             ) : products.length ? (
-              <Stack divider={<Divider flexItem />}>
+              <Stack spacing={1.5} sx={{ p: { xs: 1.5, md: 2 }, bgcolor: 'background.neutral' }}>
                 {products.map((product) => {
                   const coverUrl =
                     product.images?.find((image) => image.is_cover)?.url ??
                     product.images?.[0]?.url ??
                     product.cover_url ??
                     undefined;
-                  const canDelete = product.can_delete === true;
-                  const canHide = product.can_hide === true;
-                  const canRestore = product.status === 'archived';
                   return (
                     <Box
                       key={product.id}
                       sx={{
-                        p: { xs: 2, md: 2.5 },
-                        transition: 'background-color 160ms ease',
-                        '&:hover': { bgcolor: 'background.neutral' },
+                        p: { xs: 1.5, sm: 2 },
+                        display: 'grid',
+                        columnGap: { xs: 1.5, sm: 2 },
+                        rowGap: { xs: 1.5, md: 1 },
+                        border: '1px solid',
+                        borderRadius: 2.5,
+                        borderColor: 'divider',
+                        bgcolor: 'background.paper',
+                        gridTemplateColumns: {
+                          xs: '80px minmax(0, 1fr)',
+                          sm: '104px minmax(0, 1fr)',
+                          md: '112px minmax(0, 1fr) auto',
+                        },
+                        gridTemplateAreas: {
+                          xs: '"image content" "actions actions" "notice notice"',
+                          md: '"image content actions" "image notice notice"',
+                        },
+                        transition: 'border-color 160ms ease, box-shadow 160ms ease',
+                        '&:hover': { borderColor: 'primary.light', boxShadow: 2 },
                       }}
                     >
-                      <Stack
-                        direction={{ xs: 'column', sm: 'row' }}
-                        spacing={2}
-                        alignItems={{ sm: 'center' }}
+                      <Box
+                        sx={{
+                          width: 1,
+                          gridArea: 'image',
+                          overflow: 'hidden',
+                          aspectRatio: '1 / 1',
+                          alignSelf: 'start',
+                          display: 'grid',
+                          borderRadius: 2,
+                          placeItems: 'center',
+                          color: 'primary.main',
+                          bgcolor: 'primary.lighter',
+                        }}
                       >
-                        <Box
-                          sx={{
-                            width: { xs: 1, sm: 124 },
-                            height: { xs: 180, sm: 92 },
-                            flexShrink: 0,
-                            display: 'grid',
-                            borderRadius: 2,
-                            placeItems: 'center',
-                            bgcolor: 'primary.lighter',
-                            backgroundImage: coverUrl ? `url(${coverUrl})` : undefined,
-                            backgroundSize: 'cover',
-                            backgroundPosition: 'center',
-                          }}
-                        >
-                          {!coverUrl && <RiBookOpenLine size={32} />}
-                        </Box>
-                        <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                          <Stack
-                            direction="row"
-                            spacing={1}
-                            alignItems="center"
-                            flexWrap="wrap"
-                            useFlexGap
-                          >
-                            <Typography variant="subtitle1">{product.title}</Typography>
-                            <ProductStatusChip product={product} />
-                          </Stack>
-                          {!!product.title_en && (
-                            <Typography variant="caption" color="text.secondary" noWrap>
-                              {product.title_en}
-                            </Typography>
-                          )}
-                          <Stack
-                            direction="row"
-                            spacing={0.75}
-                            alignItems="center"
-                            flexWrap="wrap"
-                            useFlexGap
-                            sx={{ mt: 1 }}
-                          >
-                            {product.category && <Chip size="small" label={product.category} />}
-                            {product.media_type?.name && (
-                              <Chip
-                                size="small"
-                                variant="outlined"
-                                label={product.media_type.name}
-                              />
-                            )}
-                            <Typography variant="subtitle2" color="primary.main">
-                              {formatPrice(Number(product.price))}
-                            </Typography>
-                            {(product.purchase_count ?? 0) > 0 && (
-                              <Chip
-                                size="small"
-                                color="info"
-                                variant="soft"
-                                label={`ขายแล้ว ${product.purchase_count} สิทธิ์`}
-                              />
-                            )}
-                          </Stack>
-                          <Typography
-                            variant="caption"
-                            color="text.secondary"
-                            display="block"
-                            sx={{ mt: 1 }}
-                          >
-                            สร้างเมื่อ{' '}
-                            {new Intl.DateTimeFormat('th-TH', {
-                              dateStyle: 'medium',
-                              timeZone: 'Asia/Bangkok',
-                            }).format(new Date(product.created_at))}
-                          </Typography>
-                        </Box>
+                        {coverUrl ? (
+                          <Box
+                            component="img"
+                            src={coverUrl}
+                            alt={product.title}
+                            sx={{ width: 1, height: 1, display: 'block', objectFit: 'cover' }}
+                          />
+                        ) : (
+                          <RiBookOpenLine size={32} />
+                        )}
+                      </Box>
+
+                      <Box sx={{ gridArea: 'content', minWidth: 0, alignSelf: 'center' }}>
                         <Stack
                           direction="row"
                           spacing={1}
-                          sx={{ flexShrink: 0, alignSelf: { sm: 'center' } }}
+                          alignItems="center"
+                          flexWrap="wrap"
+                          useFlexGap
                         >
-                          {product.status === 'published' && (
-                            <Button
-                              component="a"
-                              href={`/product/${product.id}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              size="small"
-                              color="inherit"
-                              startIcon={<RiEyeLine />}
-                            >
-                              ดูสินค้า
-                            </Button>
-                          )}
-                          <Button
-                            component={RouterLink}
-                            href={`/dashboard/seller/products/${product.id}/edit`}
-                            size="small"
-                            variant="outlined"
-                            startIcon={<RiEditLine />}
+                          <Typography
+                            variant="subtitle1"
+                            sx={{
+                              minWidth: 0,
+                              fontWeight: 700,
+                              overflow: 'hidden',
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical',
+                            }}
                           >
-                            {product.status === 'draft' ? 'ทำต่อ' : 'แก้ไข'}
-                          </Button>
-                          {canHide && (
-                            <Button
-                              size="small"
-                              color="warning"
-                              variant="text"
-                              startIcon={<RiEyeOffLine />}
-                              onClick={() => setHiding(product)}
-                            >
-                              ซ่อน
-                            </Button>
-                          )}
-                          {canRestore && (
-                            <Button
-                              size="small"
-                              color="success"
-                              variant="text"
-                              loading={visibilityBusyId === product.id}
-                              startIcon={<RiEyeLine />}
-                              onClick={() => void changeProductVisibility(product, false)}
-                            >
-                              ขอเผยแพร่อีกครั้ง
-                            </Button>
-                          )}
-                          {canDelete && (
-                            <Button
-                              size="small"
-                              color="error"
-                              variant="text"
-                              startIcon={<RiDeleteBinLine />}
-                              onClick={() => setDeleting(product)}
-                            >
-                              ลบ
-                            </Button>
-                          )}
+                            {product.title}
+                          </Typography>
+                          <ProductStatusChip product={product} />
                         </Stack>
-                      </Stack>
+                        {!![product.category, product.media_type?.name].filter(Boolean).length && (
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            noWrap
+                            sx={{ mt: 0.5 }}
+                          >
+                            {[product.category, product.media_type?.name]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </Typography>
+                        )}
+                        <Stack direction="row" spacing={2.5} alignItems="center" sx={{ mt: 1.25 }}>
+                          <Box>
+                            <Typography variant="caption" color="text.secondary">
+                              ราคาขาย
+                            </Typography>
+                            <Typography
+                              variant="subtitle2"
+                              color="primary.main"
+                              sx={{ fontWeight: 800 }}
+                            >
+                              {formatPrice(Number(product.price))}
+                            </Typography>
+                          </Box>
+                          <Box>
+                            <Typography variant="caption" color="text.secondary">
+                              ยอดขาย
+                            </Typography>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                              {(product.purchase_count ?? 0).toLocaleString('th-TH')} สิทธิ์
+                            </Typography>
+                          </Box>
+                        </Stack>
+                        {/* <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          display="block"
+                          sx={{ mt: 1 }}
+                        >
+                          สร้างเมื่อ{' '}
+                          {new Intl.DateTimeFormat('th-TH', {
+                            dateStyle: 'medium',
+                            timeZone: 'Asia/Bangkok',
+                          }).format(new Date(product.created_at))}
+                        </Typography> */}
+                      </Box>
+
+                      <Box
+                        sx={{
+                          gridArea: 'actions',
+                          alignSelf: { xs: 'start', md: 'center' },
+                          justifySelf: { xs: 'stretch', md: 'end' },
+                        }}
+                      >
+                        <SellerProductActions
+                          product={product}
+                          visibilityBusy={visibilityBusyId === product.id}
+                          onHide={() => setHiding(product)}
+                          onRestore={() => void changeProductVisibility(product, false)}
+                          onDelete={() => setDeleting(product)}
+                        />
+                      </Box>
+
                       {product.rejection_reason && (
-                        <Alert severity="error" variant="outlined" sx={{ mt: 2 }}>
+                        <Alert
+                          severity="error"
+                          variant="outlined"
+                          sx={{ gridArea: 'notice', mt: { xs: 0, md: 0.5 } }}
+                        >
                           ไม่ผ่านการอนุมัติ: {product.rejection_reason}
                         </Alert>
                       )}
@@ -662,8 +752,8 @@ export function MarketplaceSellerDashboardView() {
         <DialogTitle>ยืนยันการซ่อนสินค้า</DialogTitle>
         <DialogContent>
           <Typography>
-            ต้องการซ่อน “{hiding?.title}” หรือไม่? สินค้าจะหายจาก Marketplace
-            แต่ข้อมูลและไฟล์ยังคงอยู่
+            ต้องการซ่อน “{hiding?.title}” หรือไม่? ลูกค้าใหม่จะค้นหาและซื้อสินค้านี้ไม่ได้
+            แต่ลูกค้าที่ชำระเงินแล้วจะยังเปิดดูและดาวน์โหลดได้จากรายการซื้อของฉันตามเดิม
           </Typography>
         </DialogContent>
         <DialogActions>
@@ -681,6 +771,108 @@ export function MarketplaceSellerDashboardView() {
         </DialogActions>
       </Dialog>
     </Container>
+  );
+}
+
+function SellerProductActions({
+  product,
+  compact = false,
+  visibilityBusy,
+  onHide,
+  onRestore,
+  onDelete,
+}: {
+  product: MarketplaceProduct;
+  compact?: boolean;
+  visibilityBusy: boolean;
+  onHide: () => void;
+  onRestore: () => void;
+  onDelete: () => void;
+}) {
+  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
+  const closeMenu = () => setMenuAnchor(null);
+  const runMenuAction = (action: () => void) => {
+    closeMenu();
+    action();
+  };
+  const hasSecondaryActions = product.can_hide === true || product.can_delete === true;
+
+  return (
+    <>
+      <Stack
+        direction="row"
+        spacing={0.75}
+        alignItems="center"
+        sx={{
+          flexShrink: 0,
+          alignSelf: { sm: 'center' },
+          width: compact ? 1 : { xs: 1, md: 'auto' },
+          justifyContent: { xs: 'flex-start', md: 'flex-end' },
+        }}
+      >
+        {product.status === 'published' && (
+          <Button
+            component="a"
+            href={`/product/${product.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            size="small"
+            color="inherit"
+            startIcon={<RiEyeLine />}
+          >
+            ดูสินค้า
+          </Button>
+        )}
+        <Button
+          component={RouterLink}
+          href={`/dashboard/seller/products/${product.id}/edit`}
+          size="small"
+          variant={product.status === 'archived' ? 'outlined' : 'contained'}
+          startIcon={<RiEditLine />}
+        >
+          {product.status === 'draft' ? 'ทำต่อ' : 'แก้ไข'}
+        </Button>
+        {product.status === 'archived' && (
+          <Button
+            size="small"
+            color="success"
+            variant="contained"
+            loading={visibilityBusy}
+            startIcon={<RiEyeLine />}
+            onClick={onRestore}
+          >
+            ขายต่อ
+          </Button>
+        )}
+        {hasSecondaryActions && (
+          <IconButton
+            size="small"
+            aria-label={`คำสั่งเพิ่มเติมสำหรับ ${product.title}`}
+            aria-haspopup="menu"
+            aria-expanded={Boolean(menuAnchor)}
+            onClick={(event) => setMenuAnchor(event.currentTarget)}
+            sx={{ border: '1px solid', borderColor: 'divider' }}
+          >
+            <RiMore2Line size={18} />
+          </IconButton>
+        )}
+      </Stack>
+
+      <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={closeMenu}>
+        {product.can_hide === true && (
+          <MenuItem onClick={() => runMenuAction(onHide)} sx={{ gap: 1.25, color: 'warning.dark' }}>
+            <RiEyeOffLine size={18} />
+            ซ่อนสินค้า
+          </MenuItem>
+        )}
+        {product.can_delete === true && (
+          <MenuItem onClick={() => runMenuAction(onDelete)} sx={{ gap: 1.25, color: 'error.main' }}>
+            <RiDeleteBinLine size={18} />
+            ลบสินค้า
+          </MenuItem>
+        )}
+      </Menu>
+    </>
   );
 }
 

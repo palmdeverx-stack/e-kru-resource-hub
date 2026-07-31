@@ -1,19 +1,28 @@
 import { NextResponse } from 'next/server';
 
 import { supabaseAdmin } from 'src/lib/supabase-admin';
+import { requireAuthenticated } from 'src/lib/auth-token';
+
+import { hasPurchasedProduct } from 'src/sections/marketplace/catalog/server/product-engagement';
 
 type Context = { params: Promise<{ id: string }> };
 
-export async function GET(_request: Request, { params }: Context) {
+export async function GET(request: Request, { params }: Context) {
+  const caller = requireAuthenticated(request);
   const { id } = await params;
 
   const { data: product } = await supabaseAdmin
     .from('marketplace_products')
-    .select('id')
+    .select('id, status')
     .eq('id', id)
-    .eq('status', 'published')
     .maybeSingle();
   if (!product) return NextResponse.json({ message: 'ไม่พบสินค้า' }, { status: 404 });
+  if (
+    product.status !== 'published' &&
+    !(product.status === 'archived' && caller && (await hasPurchasedProduct(id, caller.sub)))
+  ) {
+    return NextResponse.json({ message: 'ไม่พบสินค้า' }, { status: 404 });
+  }
 
   const { data: previewFiles, error } = await supabaseAdmin
     .from('marketplace_product_files')

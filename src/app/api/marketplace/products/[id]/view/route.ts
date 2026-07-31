@@ -4,6 +4,7 @@ import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { requireAuthenticated } from 'src/lib/auth-token';
 
 import { recordEntitlementUsage } from 'src/sections/marketplace/checkout/server/order-evidence';
+import { hasPurchasedProduct } from 'src/sections/marketplace/catalog/server/product-engagement';
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -21,11 +22,16 @@ export async function POST(request: Request, { params }: Context) {
 
   const { data: product } = await supabaseAdmin
     .from('marketplace_products')
-    .select('id')
+    .select('id, status')
     .eq('id', productId)
-    .eq('status', 'published')
     .maybeSingle();
   if (!product) {
+    return NextResponse.json({ message: 'ไม่พบสินค้า' }, { status: 404 });
+  }
+  if (
+    product.status !== 'published' &&
+    !(product.status === 'archived' && caller && (await hasPurchasedProduct(productId, caller.sub)))
+  ) {
     return NextResponse.json({ message: 'ไม่พบสินค้า' }, { status: 404 });
   }
 

@@ -390,7 +390,7 @@ export async function GET(request: Request) {
         has_order_references: usage.hasOrderReferences,
         has_deal_references: usage.hasDealReferences,
         can_delete: usage.purchases === 0 && !usage.hasOrderReferences && !usage.hasDealReferences,
-        can_hide: usage.purchases === 0 && product.status === 'published',
+        can_hide: product.status === 'published',
       };
     }
     const publicProduct = { ...product };

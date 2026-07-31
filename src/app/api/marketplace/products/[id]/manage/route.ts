@@ -130,37 +130,16 @@ export async function PATCH(request: Request, { params }: Context) {
       if (currentProduct.status !== 'published') {
         return NextResponse.json({ message: 'ซ่อนได้เฉพาะสินค้าที่กำลังเผยแพร่' }, { status: 409 });
       }
-      const usage = await getProductUsage(id).catch(() => null);
-      if (!usage) {
-        return NextResponse.json({ message: 'ตรวจสอบประวัติการซื้อไม่สำเร็จ' }, { status: 500 });
-      }
-      if (usage.purchases > 0) {
-        return NextResponse.json(
-          { message: 'ไม่สามารถซ่อนสินค้าที่มีผู้ซื้อแล้ว' },
-          { status: 409 }
-        );
-      }
     } else if (currentProduct.status !== 'archived') {
       return NextResponse.json({ message: 'สินค้านี้ไม่ได้ถูกซ่อนอยู่' }, { status: 409 });
     }
 
     const now = new Date().toISOString();
-    const nextStatus =
-      visibilityAction === 'hide'
-        ? 'archived'
-        : caller.role === 'master_admin'
-          ? 'published'
-          : 'pending_review';
+    const nextStatus = visibilityAction === 'hide' ? 'archived' : 'published';
     const { data: visibilityProduct, error: visibilityError } = await supabaseAdmin
       .from('marketplace_products')
       .update({
         status: nextStatus,
-        ...(visibilityAction === 'restore' && {
-          submitted_at: now,
-          reviewed_at: caller.role === 'master_admin' ? now : null,
-          reviewed_by: caller.role === 'master_admin' ? caller.sub : null,
-          submission_acceptance_snapshot: {},
-        }),
         updated_at: now,
       })
       .eq('id', id)
@@ -172,16 +151,6 @@ export async function PATCH(request: Request, { params }: Context) {
         { message: visibilityError?.message ?? 'เปลี่ยนการแสดงสินค้าไม่สำเร็จ' },
         { status: 500 }
       );
-    }
-    if (visibilityAction === 'restore' && visibilityProduct.status === 'pending_review') {
-      await notifyMarketplaceAdmins({
-        event: 'product_approval',
-        sourceId: visibilityProduct.id,
-        message: ['📚 มีสินค้าขอเผยแพร่อีกครั้ง', `ชื่อสินค้า: ${visibilityProduct.title}`].join(
-          '\n'
-        ),
-        actionUrl: `${new URL(request.url).origin}/dashboard/product-approvals`,
-      });
     }
     return NextResponse.json({ product: await withMediaUrls(visibilityProduct) });
   }
