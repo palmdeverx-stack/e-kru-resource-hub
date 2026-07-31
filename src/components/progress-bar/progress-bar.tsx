@@ -34,6 +34,7 @@ function useProgressBar() {
   const currentUrlRef = useRef<string>('');
   const previousPathnameRef = useRef(pathname);
   const navigationTimeoutRef = useRef<number | null>(null);
+  const navigationStateTimeoutRef = useRef<number | null>(null);
   const [isNavigating, setIsNavigating] = useState(false);
 
   // Initialize currentUrlRef in the browser
@@ -44,13 +45,25 @@ function useProgressBar() {
   }, []);
 
   useEffect(() => {
+    // Next.js can call history methods from React's insertion phase. Defer state
+    // updates intercepted there until React has finished committing the tree.
+    const scheduleNavigationState = (value: boolean) => {
+      if (navigationStateTimeoutRef.current) {
+        window.clearTimeout(navigationStateTimeoutRef.current);
+      }
+      navigationStateTimeoutRef.current = window.setTimeout(() => {
+        navigationStateTimeoutRef.current = null;
+        setIsNavigating(value);
+      }, 0);
+    };
+
     // Starts the progress bar if navigating to a different URL.
     const handleNavigation = (newUrl: string) => {
       try {
         if (newUrl && !isEqualPath(newUrl, currentUrlRef.current, { deep: false })) {
           currentUrlRef.current = newUrl;
           NProgress.start();
-          setIsNavigating(true);
+          scheduleNavigationState(true);
 
           if (navigationTimeoutRef.current) {
             window.clearTimeout(navigationTimeoutRef.current);
@@ -65,7 +78,7 @@ function useProgressBar() {
           console.error('Navigation progress error:', error);
         }
         NProgress.done();
-        setIsNavigating(false);
+        scheduleNavigationState(false);
       }
     };
 
@@ -124,6 +137,9 @@ function useProgressBar() {
       window.history.replaceState = originalReplaceState;
       if (navigationTimeoutRef.current) {
         window.clearTimeout(navigationTimeoutRef.current);
+      }
+      if (navigationStateTimeoutRef.current) {
+        window.clearTimeout(navigationStateTimeoutRef.current);
       }
     };
   }, []);

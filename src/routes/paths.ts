@@ -46,6 +46,7 @@ export const paths = {
   marketplace: {
     root: '/',
     products: '/products',
+    officialProducts: '/official-products',
     stores: '/stores',
     store: (slug: string) => `/store/${slug}`,
     cart: '/cart',

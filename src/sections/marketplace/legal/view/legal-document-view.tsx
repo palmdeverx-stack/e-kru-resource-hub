@@ -140,7 +140,10 @@ export function MarketplaceLegalDocumentView({ documentType }: Props) {
                 </Typography>
               )}
               <Typography variant="body2" color="text.secondary">
-                มีผลตั้งแต่ {document.effective_at ? fDateTime(document.effective_at) : '-'}
+                มีผลตั้งแต่{' '}
+                {document.effective_at
+                  ? fDateTime(document.effective_at, 'DD MMM YYYY HH:mm')
+                  : '-'}
               </Typography>
             </Stack>
           </Card>
@@ -204,10 +207,10 @@ function CookiePolicyFallback() {
           </Typography>
         </Box>
       </Stack>
-      <Alert severity="info" sx={{ mt: 4 }}>
+      {/* <Alert severity="info" sx={{ mt: 4 }}>
         ผู้ดูแลระบบสามารถจัดทำและเผยแพร่ Cookie Policy
         ฉบับเต็มแทนข้อความสรุปนี้ได้จากเมนูเอกสารข้อกำหนด Marketplace
-      </Alert>
+      </Alert> */}
     </Card>
   );
 }

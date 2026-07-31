@@ -308,7 +308,7 @@ export function MarketplaceLegalDocumentManagementView() {
                   <TableCell sx={{ minWidth: 150 }}>ผู้ให้บริการ</TableCell>
                   <TableCell sx={{ minWidth: 150 }}>เวอร์ชัน / วันที่มีผล</TableCell>
                   <TableCell align="center">สถานะ</TableCell>
-                  <TableCell align="right" sx={{ minWidth: 140 }}>
+                  <TableCell align="right" sx={{ minWidth: 160 }}>
                     จัดการ
                   </TableCell>
                 </TableRow>
@@ -338,7 +338,9 @@ export function MarketplaceLegalDocumentManagementView() {
                     <TableCell>
                       <Typography variant="body2">เวอร์ชัน {item.version}</Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {item.effective_at ? fDateTime(item.effective_at) : 'ยังไม่กำหนด'}
+                        {item.effective_at
+                          ? fDateTime(item.effective_at, 'DD MMM YYYY HH:mm')
+                          : 'ยังไม่กำหนด'}
                       </Typography>
                     </TableCell>
                     <TableCell align="center">

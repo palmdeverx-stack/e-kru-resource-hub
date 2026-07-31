@@ -50,6 +50,7 @@ import { SCHOOL_FEATURES } from 'src/lib/school-subscription-config';
 
 import { Upload } from 'src/components/upload';
 import { Editor } from 'src/components/editor';
+import { editorClasses } from 'src/components/editor/classes';
 import {
   RemixIcon,
   RiAddLine,
@@ -2486,10 +2487,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
               {error}
             </Alert>
           )}
-          <Alert severity="info" sx={{ mb: 2.5 }}>
-            กรุณาตรวจสอบข้อมูลให้ครบถ้วน หากมีข้อมูลที่ต้องยืนยันเพิ่มเติม
-            ผู้ดูแลจะติดต่อกลับก่อนเผยแพร่สินค้า
-          </Alert>
+
           {submissionTermsLoading ? (
             <Box sx={{ py: 4, display: 'grid', placeItems: 'center' }}>
               <CircularProgress size={28} />
@@ -2502,25 +2500,34 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
             </Alert>
           ) : (
             <Stack spacing={2}>
-              <Box
+              <Stack
                 sx={{
-                  p: 2,
+                  p: { xs: 2, md: 2.5 },
+                  borderRadius: 2,
                   border: '1px solid',
                   borderColor: 'divider',
-                  borderRadius: 2,
-                  bgcolor: 'background.neutral',
+                  bgcolor: 'background.paper',
                 }}
               >
-                <Stack direction="row" justifyContent="space-between" alignItems="center" gap={1}>
-                  <Typography variant="subtitle2">{submissionTerms.title}</Typography>
-                  <Chip size="small" label={`เวอร์ชัน ${submissionTerms.version}`} />
-                </Stack>
                 <Editor
                   editable={false}
                   value={submissionTerms.content_html}
-                  sx={{ mt: 1, minHeight: 0, bgcolor: 'transparent' }}
+                  sx={{
+                    minHeight: 0,
+                    border: 0,
+                    opacity: '1 !important',
+                    bgcolor: 'transparent',
+                    [`.${editorClasses.toolbar.root}`]: { display: 'none' },
+                    [`.${editorClasses.content.root}`]: {
+                      overflow: 'visible',
+                      bgcolor: 'transparent',
+                      '& .tiptap.ProseMirror': { p: 0 },
+                      '& .tiptap > :first-child': { mt: 0 },
+                      '& .tiptap > :last-child': { mb: 0 },
+                    },
+                  }}
                 />
-              </Box>
+              </Stack>
               <FormControlLabel
                 control={
                   <Checkbox
@@ -2535,7 +2542,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                     ฉันได้อ่านและยอมรับเงื่อนไขการเผยแพร่สินค้าพร้อมรายละเอียดข้างต้น
                   </Typography>
                 }
-                sx={{ m: 0, alignItems: 'flex-start', '& .MuiCheckbox-root': { pt: 0.25 } }}
+                sx={{ m: 0, alignItems: 'center' }}
               />
             </Stack>
           )}

@@ -1,6 +1,11 @@
 import type { NavMainProps } from './main/nav/types';
 
-import { RiHome5Line, RiStore2Line, RiBookOpenLine } from 'src/components/remix-icon';
+import {
+  RiHome5Line,
+  RiStore2Line,
+  RiBookOpenLine,
+  RiShieldStarLine,
+} from 'src/components/remix-icon';
 
 // ----------------------------------------------------------------------
 
@@ -9,6 +14,11 @@ export const navData: NavMainProps['data'] = [
     title: 'หน้าแรก',
     path: '/',
     icon: <RiHome5Line size={22} />,
+  },
+  {
+    title: 'สินค้าทางการ',
+    path: '/official-products',
+    icon: <RiShieldStarLine size={22} />,
   },
   {
     title: 'สื่อการสอน',

@@ -406,7 +406,7 @@ export function MarketplaceLandingView() {
                 </Box>
                 <Button
                   component={RouterLink}
-                  href={paths.marketplace.products}
+                  href={paths.marketplace.officialProducts}
                   endIcon={<RiArrowRightLine />}
                   sx={{ flexShrink: 0 }}
                 >

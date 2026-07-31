@@ -14,7 +14,6 @@ import CodeBlockLowlightExtension from '@tiptap/extension-code-block-lowlight';
 import { useEditor, EditorContent, ReactNodeViewRenderer } from '@tiptap/react';
 
 import Box from '@mui/material/Box';
-import Portal from '@mui/material/Portal';
 import Backdrop from '@mui/material/Backdrop';
 import FormHelperText from '@mui/material/FormHelperText';
 
@@ -45,7 +44,6 @@ export function Editor({
   ...other
 }: EditorProps) {
   const [fullscreen, setFullscreen] = useState(false);
-  const [rerenderKey, setRerenderKey] = useState(0);
 
   const lowlight = useMemo(() => createLowlight(common), []);
 
@@ -61,7 +59,7 @@ export function Editor({
     editable,
     immediatelyRender,
     content: initialContent,
-    shouldRerenderOnTransaction: !!rerenderKey,
+    shouldRerenderOnTransaction: false,
     onUpdate: (ctx) => {
       const html = ctx.editor.getHTML();
       debouncedOnChange(html);
@@ -98,20 +96,16 @@ export function Editor({
   });
 
   const handleToggleFullscreen = useCallback(() => {
-    editor?.unmount();
     setFullscreen((prev) => !prev);
-    setRerenderKey((prev) => prev + 1);
-  }, [editor]);
+  }, []);
 
   const handleExitFullscreen = useCallback(
     (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        editor?.unmount();
         setFullscreen(false);
-        setRerenderKey((prev) => prev + 1);
       }
     },
-    [editor]
+    []
   );
 
   useEffect(() => {
@@ -142,7 +136,7 @@ export function Editor({
   }, [fullscreen, handleExitFullscreen]);
 
   return (
-    <Portal disablePortal={!fullscreen}>
+    <>
       {fullscreen && <Backdrop open sx={[(theme) => ({ zIndex: theme.zIndex.modal - 1 })]} />}
 
       <Box
@@ -185,6 +179,6 @@ export function Editor({
 
         {helperText && <FormHelperText error={!!error}>{helperText}</FormHelperText>}
       </Box>
-    </Portal>
+    </>
   );
 }
