@@ -3,10 +3,12 @@
 import './styles.css';
 
 import NProgress from 'nprogress';
-import { useRef, useEffect } from 'react';
 import { isEqualPath } from 'minimal-shared/utils';
+import { useRef, useState, useEffect } from 'react';
 
 import { usePathname } from 'src/routes/hooks';
+
+import { SplashScreen } from 'src/components/loading-screen';
 
 // ----------------------------------------------------------------------
 
@@ -30,6 +32,9 @@ function isValidAnchor(element: HTMLAnchorElement): boolean {
 function useProgressBar() {
   const pathname = usePathname();
   const currentUrlRef = useRef<string>('');
+  const previousPathnameRef = useRef(pathname);
+  const navigationTimeoutRef = useRef<number | null>(null);
+  const [isNavigating, setIsNavigating] = useState(false);
 
   // Initialize currentUrlRef in the browser
   useEffect(() => {
@@ -45,21 +50,41 @@ function useProgressBar() {
         if (newUrl && !isEqualPath(newUrl, currentUrlRef.current, { deep: false })) {
           currentUrlRef.current = newUrl;
           NProgress.start();
+          setIsNavigating(true);
+
+          if (navigationTimeoutRef.current) {
+            window.clearTimeout(navigationTimeoutRef.current);
+          }
+          navigationTimeoutRef.current = window.setTimeout(() => {
+            NProgress.done();
+            setIsNavigating(false);
+          }, 15000);
         }
       } catch (error) {
         if (process.env.NODE_ENV === 'development') {
           console.error('Navigation progress error:', error);
         }
         NProgress.done();
+        setIsNavigating(false);
       }
     };
 
     // Handles anchor tag clicks via event delegation.
     const handleClickAnchor = (event: MouseEvent) => {
+      if (
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      ) {
+        return;
+      }
+
       const target = event.target as HTMLElement;
       const anchor = target.closest('a[href]') as HTMLAnchorElement | null;
 
-      if (anchor && isValidAnchor(anchor)) {
+      if (anchor && !anchor.hasAttribute('download') && isValidAnchor(anchor)) {
         handleNavigation(anchor.href);
       }
     };
@@ -82,10 +107,12 @@ function useProgressBar() {
           return target.apply(thisArg, args);
         },
       });
+
+      return originalMethod;
     };
 
-    patchHistoryMethod('pushState');
-    patchHistoryMethod('replaceState');
+    const originalPushState = patchHistoryMethod('pushState');
+    const originalReplaceState = patchHistoryMethod('replaceState');
 
     document.addEventListener('click', handleClickAnchor);
     window.addEventListener('popstate', handlePopState);
@@ -93,14 +120,32 @@ function useProgressBar() {
     return () => {
       document.removeEventListener('click', handleClickAnchor);
       window.removeEventListener('popstate', handlePopState);
+      window.history.pushState = originalPushState;
+      window.history.replaceState = originalReplaceState;
+      if (navigationTimeoutRef.current) {
+        window.clearTimeout(navigationTimeoutRef.current);
+      }
     };
   }, []);
 
   // Completes the progress bar when pathname changes
   useEffect(() => {
-    const timeout = setTimeout(() => NProgress.done(), 100);
+    if (previousPathnameRef.current === pathname) return undefined;
+
+    previousPathnameRef.current = pathname;
+    const timeout = window.setTimeout(() => {
+      NProgress.done();
+      setIsNavigating(false);
+      if (navigationTimeoutRef.current) {
+        window.clearTimeout(navigationTimeoutRef.current);
+        navigationTimeoutRef.current = null;
+      }
+    }, 100);
+
     return () => clearTimeout(timeout);
   }, [pathname]);
+
+  return isNavigating;
 }
 
 // ----------------------------------------------------------------------
@@ -113,7 +158,7 @@ export function ProgressBar() {
     };
   }, []);
 
-  useProgressBar();
+  const isNavigating = useProgressBar();
 
-  return null;
+  return isNavigating ? <SplashScreen /> : null;
 }

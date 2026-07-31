@@ -32,6 +32,14 @@ const fallbackGradients = [
   'linear-gradient(135deg, #F0E5FF 0%, #FAF6FF 50%, #E2CEFF 100%)',
 ];
 
+const categoryTranslationKeys: Record<string, string> = {
+  'แผนการสอน': 'lessonPlans',
+  'ใบงาน': 'worksheets',
+  'สื่อประกอบ': 'supplementary',
+  'แบบทดสอบ': 'quizzes',
+  'คอร์สเรียน': 'courses',
+};
+
 export function MarketplaceNewProductCard({
   product,
   colorIndex = 0,
@@ -39,7 +47,7 @@ export function MarketplaceNewProductCard({
   product: MarketplaceProduct;
   colorIndex?: number;
 }) {
-  const { currentLang } = useTranslate();
+  const { t, currentLang } = useTranslate('marketplace');
   const content = getLocalizedProduct(product, currentLang.value);
   const coverUrl =
     product.images?.find((image) => image.is_cover)?.url ??
@@ -78,7 +86,7 @@ export function MarketplaceNewProductCard({
       <Box
         component={RouterLink}
         href={paths.marketplace.product(product.id)}
-        aria-label={`ดูรายละเอียดสินค้า ${content.title}`}
+        aria-label={t('productCard.viewProduct', { title: content.title })}
         sx={{
           width: 1,
           minHeight: 230,
@@ -163,7 +171,11 @@ export function MarketplaceNewProductCard({
           {product.category && (
             <Chip
               size="small"
-              label={product.category}
+              label={
+                categoryTranslationKeys[product.category]
+                  ? t(`catalog.categoryLabels.${categoryTranslationKeys[product.category]}`)
+                  : product.category
+              }
               sx={{
                 maxWidth: 150,
                 fontWeight: 700,
@@ -184,13 +196,13 @@ export function MarketplaceNewProductCard({
           <Stack direction="row" spacing={0.5} alignItems="center">
             <RiEyeLine size={16} />
             <Typography variant="caption" sx={{ color: 'inherit', fontWeight: 600 }}>
-              {views.toLocaleString('th-TH')}
+              {views.toLocaleString(currentLang.numberFormat.code)}
             </Typography>
           </Stack>
           <Stack direction="row" spacing={0.5} alignItems="center">
             <RiShoppingBag3Line size={16} />
             <Typography variant="caption" sx={{ color: 'inherit', fontWeight: 600 }}>
-              {purchases.toLocaleString('th-TH')}
+              {purchases.toLocaleString(currentLang.numberFormat.code)}
             </Typography>
           </Stack>
         </Stack>
@@ -225,7 +237,9 @@ export function MarketplaceNewProductCard({
         <Stack direction="row" spacing={1} alignItems="center">
           <Rating value={rating} precision={0.1} readOnly size="small" />
           <Typography variant="caption" color="text.secondary">
-            {reviewCount ? `${rating.toFixed(1)} (${reviewCount})` : 'ยังไม่มีรีวิว'}
+            {reviewCount
+              ? `${rating.toFixed(1)} (${reviewCount.toLocaleString(currentLang.numberFormat.code)})`
+              : t('productCard.noReviews')}
           </Typography>
         </Stack>
 
@@ -237,7 +251,7 @@ export function MarketplaceNewProductCard({
         >
           <Box>
             <Typography variant="caption" color="text.secondary">
-              ราคา
+              {t('productCard.price')}
             </Typography>
             <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" useFlexGap>
               <Typography variant="h6" color="primary.main" sx={{ fontWeight: 800 }}>

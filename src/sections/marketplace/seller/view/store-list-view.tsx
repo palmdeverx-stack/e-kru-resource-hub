@@ -22,6 +22,8 @@ import InputAdornment from '@mui/material/InputAdornment';
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
+import { useTranslate } from 'src/locales';
+
 import {
   RiSearchLine,
   RiStore2Line,
@@ -58,16 +60,8 @@ type StoreResponse = {
   totalPages: number;
 };
 
-const sellerTypeLabels: Record<string, string> = {
-  teacher: 'ครูผู้สอน',
-  individual: 'บุคคลทั่วไป',
-  school: 'โรงเรียน',
-  company: 'บริษัท',
-  publisher: 'สำนักพิมพ์',
-  university: 'มหาวิทยาลัย',
-};
-
 export function MarketplaceStoreListView() {
+  const { t, currentLang } = useTranslate('marketplace');
   const [stores, setStores] = useState<PublicStore[]>([]);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -91,7 +85,7 @@ export function MarketplaceStoreListView() {
       })
         .then(async (response) => {
           const result = (await response.json()) as StoreResponse & { message?: string };
-          if (!response.ok) throw new Error(result.message ?? 'ไม่สามารถโหลดร้านค้าได้');
+          if (!response.ok) throw new Error(result.message ?? t('stores.errors.load'));
           return result;
         })
         .then((result) => {
@@ -114,7 +108,7 @@ export function MarketplaceStoreListView() {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [page, search]);
+  }, [page, search, t]);
 
   const handleSearch = (value: string) => {
     setSearch(value);
@@ -126,11 +120,10 @@ export function MarketplaceStoreListView() {
       <Stack spacing={4}>
         <Box>
           <Typography component="h1" variant="h2">
-            ร้านค้าใน Marketplace
+            {t('stores.heading')}
           </Typography>
           <Typography color="text.secondary" sx={{ mt: 1, maxWidth: 720 }}>
-            ค้นหาครู ผู้สร้างสื่อ โรงเรียน และสำนักพิมพ์ที่คุณเชื่อถือ
-            แล้วเลือกดูผลงานทั้งหมดจากหน้าร้านได้โดยตรง
+            {t('stores.description')}
           </Typography>
         </Box>
 
@@ -143,7 +136,7 @@ export function MarketplaceStoreListView() {
           <TextField
             value={search}
             onChange={(event) => handleSearch(event.target.value)}
-            placeholder="ค้นหาชื่อครูหรือชื่อร้านค้า"
+            placeholder={t('stores.searchPlaceholder')}
             sx={{ width: { xs: 1, sm: 420 } }}
             slotProps={{
               input: {
@@ -157,7 +150,10 @@ export function MarketplaceStoreListView() {
           />
           {!loading && (
             <Typography variant="body2" color="text.secondary">
-              ร้านค้าที่ผ่านอนุมัติ {total.toLocaleString('th-TH')} ร้าน
+              {t('stores.approvedCount', {
+                count: total,
+                formattedCount: total.toLocaleString(currentLang.numberFormat.code),
+              })}
             </Typography>
           )}
         </Stack>
@@ -183,10 +179,10 @@ export function MarketplaceStoreListView() {
           >
             <RiStore2Line size={52} color="#919EAB" aria-hidden />
             <Typography variant="h5" sx={{ mt: 2 }}>
-              ไม่พบร้านค้าที่ค้นหา
+              {t('stores.empty.title')}
             </Typography>
             <Typography color="text.secondary" sx={{ mt: 1 }}>
-              ลองค้นหาด้วยชื่อครูหรือชื่อร้านค้าอื่น
+              {t('stores.empty.description')}
             </Typography>
           </Card>
         )}
@@ -196,6 +192,11 @@ export function MarketplaceStoreListView() {
             page={page}
             count={totalPages}
             color="primary"
+            getItemAriaLabel={(type, itemPage) =>
+              type === 'page'
+                ? t('stores.pagination.page', { page: itemPage })
+                : t(`stores.pagination.${type}`)
+            }
             onChange={(_, nextPage) => {
               setPage(nextPage);
               window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -209,7 +210,12 @@ export function MarketplaceStoreListView() {
 }
 
 function StoreCard({ store }: { store: PublicStore }) {
+  const { t, currentLang } = useTranslate('marketplace');
   const storeIdentifier = store.slug || store.id;
+  const storeName =
+    currentLang.value === 'en' && store.display_name_en?.trim()
+      ? store.display_name_en
+      : store.display_name;
 
   return (
     <Card
@@ -244,7 +250,7 @@ function StoreCard({ store }: { store: PublicStore }) {
       >
         <Avatar
           src={store.logo_url ?? undefined}
-          alt={store.display_name}
+          alt={storeName}
           sx={{
             left: 22,
             bottom: -34,
@@ -271,23 +277,29 @@ function StoreCard({ store }: { store: PublicStore }) {
               noWrap
               sx={{ color: 'text.primary', textDecoration: 'none' }}
             >
-              {store.display_name}
+              {storeName}
             </Typography>
             {isSellerProfileVerified(store.profile_completion) && (
               <RiVerifiedBadgeFill
                 size={20}
                 color="#1565F5"
-                aria-label="ร้านค้าที่มีข้อมูลครบถ้วน"
+                aria-label={t('stores.card.verifiedProfile')}
               />
             )}
             {store.is_system_store && (
-              <RiShieldStarFill size={20} color="#1565F5" aria-label="ร้านค้าระบบ E-KRU" />
+              <RiShieldStarFill
+                size={20}
+                color="#1565F5"
+                aria-label={t('stores.card.systemStore')}
+              />
             )}
           </Stack>
           <Chip
             size="small"
             variant="soft"
-            label={sellerTypeLabels[store.seller_type] ?? 'ผู้ขาย E-KRU'}
+            label={t(`stores.sellerTypes.${store.seller_type}`, {
+              defaultValue: t('stores.sellerTypes.seller'),
+            })}
             sx={{ mt: 1 }}
           />
         </Box>
@@ -303,21 +315,24 @@ function StoreCard({ store }: { store: PublicStore }) {
             WebkitBoxOrient: 'vertical',
           }}
         >
-          {store.bio || 'ร้านค้าสื่อการสอนที่ผ่านการอนุมัติจาก E-KRU Marketplace'}
+          {store.bio || t('stores.card.defaultBio')}
         </Typography>
 
         <Stack direction="row" spacing={2.5} alignItems="center">
           <Stack direction="row" spacing={0.75} alignItems="center">
             <RiShoppingBag3Line size={18} />
             <Typography variant="body2">
-              {store.product_count.toLocaleString('th-TH')} สินค้า
+              {t('stores.card.products', {
+                count: store.product_count,
+                formattedCount: store.product_count.toLocaleString(currentLang.numberFormat.code),
+              })}
             </Typography>
           </Stack>
           {store.review_count > 0 && (
             <Stack direction="row" spacing={0.5} alignItems="center">
               <Rating value={store.average_rating} precision={0.1} readOnly size="small" />
               <Typography variant="caption" color="text.secondary">
-                ({store.review_count.toLocaleString('th-TH')})
+                ({store.review_count.toLocaleString(currentLang.numberFormat.code)})
               </Typography>
             </Stack>
           )}
@@ -330,7 +345,7 @@ function StoreCard({ store }: { store: PublicStore }) {
           href={paths.marketplace.store(storeIdentifier)}
           endIcon={<RiArrowRightLine />}
         >
-          ดูหน้าร้าน
+          {t('stores.card.viewStore')}
         </Button>
       </Stack>
     </Card>

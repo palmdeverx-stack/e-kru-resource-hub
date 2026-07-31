@@ -53,7 +53,11 @@ type ReferralData = {
 };
 
 const money = (value: number) =>
-  new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB' }).format(value);
+  new Intl.NumberFormat('th-TH', {
+    style: 'currency',
+    currency: 'THB',
+    currencyDisplay: 'narrowSymbol',
+  }).format(value);
 
 export function MarketplaceReferralView() {
   const [data, setData] = useState<ReferralData | null>(null);

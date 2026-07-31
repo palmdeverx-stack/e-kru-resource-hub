@@ -14,6 +14,8 @@ import IconButton from '@mui/material/IconButton';
 
 import { RouterLink } from 'src/routes/components';
 
+import { useTranslate } from 'src/locales';
+
 import {
   RiKey2Line,
   RiStore2Line,
@@ -34,12 +36,13 @@ const memberMenuItems = [
 ] as const;
 
 export function MarketplaceAccountMenu() {
+  const { t } = useTranslate('navbar');
   const { user, authenticated, checkUserSession } = useAuthContext();
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
 
   if (!authenticated || !user) return null;
 
-  const displayName = user.displayName || user.username || 'สมาชิก Marketplace';
+  const displayName = user.displayName || user.username || t('สมาชิก Marketplace');
   const initials = String(displayName).trim().charAt(0).toUpperCase();
   const isSuperAdmin = isSuperAdminRole(user.role);
   let menuItems: { label: string; href: string; icon: typeof RiSearchLine }[] = isSuperAdmin
@@ -68,12 +71,12 @@ export function MarketplaceAccountMenu() {
             {displayName}
           </Typography>
           <Typography variant="caption" color="success.main">
-            เข้าสู่ระบบแล้ว
+            {t('เข้าสู่ระบบแล้ว')}
           </Typography>
         </Box>
         <IconButton
           onClick={(event) => setAnchorEl(event.currentTarget)}
-          aria-label="เมนูโปรไฟล์"
+          aria-label={t('เมนูโปรไฟล์')}
           sx={{ p: { xs: 0.5, sm: 1 } }}
         >
           <Badge
@@ -122,7 +125,7 @@ export function MarketplaceAccountMenu() {
             size="small"
             color={isSuperAdmin ? 'primary' : 'default'}
             variant="soft"
-            label={roleLabel(user.role)}
+            label={t(roleLabel(user.role))}
             sx={{ mt: 1 }}
           />
         </Box>
@@ -138,14 +141,14 @@ export function MarketplaceAccountMenu() {
               sx={{ gap: 1.5 }}
             >
               <Icon size={20} />
-              {item.label}
+              {t(item.label)}
             </MenuItem>
           );
         })}
         {!!menuItems.length && <Divider />}
         <MenuItem onClick={handleSignOut} sx={{ gap: 1.5, color: 'error.main' }}>
           <RiLogoutBoxLine size={20} />
-          ออกจากระบบ
+          {t('ออกจากระบบ')}
         </MenuItem>
       </Menu>
     </>

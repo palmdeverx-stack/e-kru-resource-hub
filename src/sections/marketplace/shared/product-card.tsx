@@ -26,6 +26,14 @@ import { getMarketplacePricing } from './pricing';
 import { MarketplaceSellerLink } from './seller-link';
 import { formatPrice, getLocalizedProduct } from './api';
 
+const categoryTranslationKeys: Record<string, string> = {
+  'แผนการสอน': 'lessonPlans',
+  'ใบงาน': 'worksheets',
+  'สื่อประกอบ': 'supplementary',
+  'แบบทดสอบ': 'quizzes',
+  'คอร์สเรียน': 'courses',
+};
+
 export function MarketplaceProductCard({
   product,
   colorIndex = 0,
@@ -213,7 +221,11 @@ export function MarketplaceProductCard({
               size="small"
               variant="soft"
               color="primary"
-              label={product.category}
+              label={
+                categoryTranslationKeys[product.category]
+                  ? t(`catalog.categoryLabels.${categoryTranslationKeys[product.category]}`)
+                  : product.category
+              }
               sx={{
                 maxWidth: '46%',
                 flexShrink: 1,

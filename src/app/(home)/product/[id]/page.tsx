@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 
+import { detectLanguage, getServerTranslations } from 'src/locales/server';
+
 import { getPublicProductSeo } from 'src/sections/marketplace/seo/server';
 import { getPublicPlatformSettings } from 'src/sections/marketplace/admin/server/platform-settings';
 import { MarketplaceProductDetailView } from 'src/sections/marketplace/catalog/view/product-detail-view';
@@ -12,39 +14,47 @@ type Props = { params: Promise<{ id: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
+  const lang = await detectLanguage();
+  const { t } = await getServerTranslations('marketplace');
   const [product, settings] = await Promise.all([
     getPublicProductSeo(id),
     getPublicPlatformSettings(),
   ]);
-  const platformName = settings?.platform_name_th || 'E-KRU Marketplace';
+  const platformName =
+    (lang === 'en' ? settings?.platform_name_en : settings?.platform_name_th) ||
+    settings?.platform_name_th ||
+    settings?.platform_name_en ||
+    'E-KRU Marketplace';
 
   if (!product) {
     return {
-      title: `ไม่พบสินค้า | ${platformName}`,
+      title: t('productDetail.seo.notFound', { platformName }),
       robots: { index: false, follow: false },
     };
   }
 
   const path = `/product/${encodeURIComponent(product.id)}`;
+  const productTitle = lang === 'en' && product.titleEn?.trim() ? product.titleEn : product.title;
+  const productDescription = lang === 'en' ? product.descriptionEn : product.description;
   const shareImage = product.image || settings?.og_image_url || MARKETPLACE_OG_IMAGE_URL;
-  const images = [{ url: shareImage, alt: product.title }];
+  const images = [{ url: shareImage, alt: productTitle }];
 
   return {
-    title: `${product.title} | ${platformName}`,
-    description: product.description,
+    title: `${productTitle} | ${platformName}`,
+    description: productDescription,
     alternates: { canonical: path },
     openGraph: {
       type: 'website',
-      locale: 'th_TH',
-      title: product.title,
-      description: product.description,
+      locale: lang === 'en' ? 'en_US' : 'th_TH',
+      title: productTitle,
+      description: productDescription,
       url: path,
       images,
     },
     twitter: {
       card: 'summary_large_image',
-      title: product.title,
-      description: product.description,
+      title: productTitle,
+      description: productDescription,
       images: [shareImage],
     },
   };
@@ -52,19 +62,20 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function Page({ params }: Props) {
   const { id } = await params;
+  const lang = await detectLanguage();
   const product = await getPublicProductSeo(id);
   const productUrl = absoluteMarketplaceUrl(`/product/${encodeURIComponent(id)}`);
   const structuredData = product
     ? {
         '@context': 'https://schema.org',
         '@type': 'Product',
-        name: product.title,
-        description: product.description,
+        name: lang === 'en' && product.titleEn?.trim() ? product.titleEn : product.title,
+        description: lang === 'en' ? product.descriptionEn : product.description,
         sku: product.id,
         image: product.image ? [product.image] : undefined,
         brand: {
           '@type': 'Brand',
-          name: product.sellerName,
+          name: lang === 'en' ? product.sellerNameEn : product.sellerName,
         },
         aggregateRating: product.reviewCount
           ? {
@@ -82,7 +93,7 @@ export default async function Page({ params }: Props) {
           itemCondition: 'https://schema.org/NewCondition',
           seller: {
             '@type': 'Organization',
-            name: product.sellerName,
+            name: lang === 'en' ? product.sellerNameEn : product.sellerName,
           },
         },
       }

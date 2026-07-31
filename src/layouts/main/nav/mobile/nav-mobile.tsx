@@ -8,6 +8,8 @@ import IconButton from '@mui/material/IconButton';
 
 import { usePathname } from 'src/routes/hooks';
 
+import { useTranslate } from 'src/locales';
+
 import { Logo } from 'src/components/logo';
 import { Scrollbar } from 'src/components/scrollbar';
 import { RiCloseLine } from 'src/components/remix-icon';
@@ -28,6 +30,7 @@ export type NavMobileProps = NavMainProps & {
 };
 
 export function NavMobile({ data, open, onClose, slots, sx }: NavMobileProps) {
+  const { t } = useTranslate('navbar');
   const pathname = usePathname();
 
   useEffect(() => {
@@ -69,7 +72,7 @@ export function NavMobile({ data, open, onClose, slots, sx }: NavMobileProps) {
           }}
         >
           <Logo />
-          <IconButton onClick={onClose} aria-label="ปิดเมนู">
+          <IconButton onClick={onClose} aria-label={t('ปิดเมนู')}>
             <RiCloseLine size={24} />
           </IconButton>
         </Box>

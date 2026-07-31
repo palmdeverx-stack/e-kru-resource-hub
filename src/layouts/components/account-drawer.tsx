@@ -71,7 +71,7 @@ export function AccountDrawer({ data = [], sx, ...other }: AccountDrawerProps) {
 
   const isAdmin = user?.role === 'school_admin' || user?.role === 'master_admin';
   const avatarUrl = user?.avatar_url ?? user?.photoURL;
-  const displayName = user?.displayName || user?.username || 'ผู้ใช้งาน';
+  const displayName = user?.displayName || user?.username || t('ผู้ใช้งาน');
   const rawRoleLabel = ROLE_LABEL[user?.role] ?? 'ผู้ใช้งาน';
   const roleLabel = t(rawRoleLabel, { defaultValue: rawRoleLabel });
 

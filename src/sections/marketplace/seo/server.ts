@@ -27,7 +27,7 @@ export const getPublicProductSeo = cache(async (id: string) => {
   const { data: product, error } = await supabaseAdmin
     .from('marketplace_products')
     .select(
-      'id, title, short_description, description, price, currency, cover_url, updated_at, seller:marketplace_sellers!inner(display_name, status), images:marketplace_product_images(storage_bucket, storage_path, is_cover, position), reviews:marketplace_product_reviews(rating)'
+      'id, title, title_en, short_description, short_description_en, description, description_en, price, currency, cover_url, updated_at, seller:marketplace_sellers!inner(display_name, display_name_en, status), images:marketplace_product_images(storage_bucket, storage_path, is_cover, position), reviews:marketplace_product_reviews(rating)'
     )
     .eq('id', id)
     .eq('status', 'published')
@@ -54,13 +54,19 @@ export const getPublicProductSeo = cache(async (id: string) => {
   return {
     id: product.id,
     title: product.title,
+    titleEn: product.title_en,
     description:
       plainText(product.short_description || product.description) ||
       `สื่อการสอนจาก ${seller?.display_name ?? 'E-KRU Marketplace'}`,
+    descriptionEn:
+      plainText(product.short_description_en || product.description_en) ||
+      plainText(product.short_description || product.description) ||
+      `Teaching resource from ${seller?.display_name_en || seller?.display_name || 'E-KRU Marketplace'}`,
     price: Number(product.price),
     currency: product.currency,
     image: images[0]?.url || product.cover_url || null,
     sellerName: seller?.display_name ?? 'E-KRU Marketplace',
+    sellerNameEn: seller?.display_name_en || seller?.display_name || 'E-KRU Marketplace',
     reviewCount: ratings.length,
     averageRating: ratings.length
       ? ratings.reduce((total, rating) => total + rating, 0) / ratings.length

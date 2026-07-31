@@ -12,6 +12,8 @@ import { usePathname } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 import { isNavDataActive } from 'src/components/nav-section';
 
+import { useTranslate } from 'src/locales';
+
 // ----------------------------------------------------------------------
 
 type Props = {
@@ -20,6 +22,7 @@ type Props = {
 };
 
 export function DashboardBottomNav({ data, layoutQuery = 'sm' }: Props) {
+  const { t } = useTranslate('navbar');
   const pathname = usePathname();
   const items = data
     .flatMap((group) => group.items)
@@ -35,7 +38,7 @@ export function DashboardBottomNav({ data, layoutQuery = 'sm' }: Props) {
     <Portal>
       <Paper
         component="nav"
-        aria-label="เมนูหลักสำหรับครู"
+        aria-label={t('เมนูหลักสำหรับครู')}
         elevation={12}
         sx={{
           insetInline: 0,

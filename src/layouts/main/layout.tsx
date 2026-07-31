@@ -12,7 +12,7 @@ import Alert from '@mui/material/Alert';
 
 import { usePathname } from 'src/routes/hooks';
 
-import { languageOptions, useTranslatedMainNav } from 'src/locales';
+import { languageOptions, useTranslate, useTranslatedMainNav } from 'src/locales';
 
 import { NavMobile } from './nav/mobile';
 import { NavDesktop } from './nav/desktop';
@@ -51,6 +51,7 @@ export function MainLayout({
   slotProps,
   layoutQuery = 'md',
 }: MainLayoutProps) {
+  const { t } = useTranslate('navbar');
   const pathname = usePathname();
 
   const { value: open, onFalse: onClose, onTrue: onOpen } = useBoolean();
@@ -76,7 +77,7 @@ export function MainLayout({
               {/** @slot Nav mobile */}
               <MenuButton
                 onClick={onOpen}
-                aria-label="เปิดเมนู"
+                aria-label={t('เปิดเมนู')}
                 sx={(theme) => ({
                   mr: 1,
                   ml: -1,

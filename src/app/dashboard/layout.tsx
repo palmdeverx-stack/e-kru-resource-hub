@@ -13,8 +13,8 @@ import Typography from '@mui/material/Typography';
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
-import { languageOptions } from 'src/locales';
 import { DashboardLayout } from 'src/layouts/dashboard';
+import { useTranslate, languageOptions } from 'src/locales';
 import { LanguagePopover } from 'src/layouts/components/language-popover';
 import { NotificationsMenu } from 'src/layouts/components/notifications-menu';
 
@@ -325,6 +325,7 @@ function isMarketplaceAdmin(role?: string | null) {
 }
 
 export default function Layout({ children }: Props) {
+  const { t } = useTranslate('navbar');
   const { user } = useAuthContext();
   const { itemCount } = useMarketplaceCart();
   const [canViewSchoolEntitlements, setCanViewSchoolEntitlements] = useState(false);
@@ -528,7 +529,7 @@ export default function Layout({ children }: Props) {
                 startIcon={<RiHome5Line />}
                 sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
               >
-                ดูหน้าเว็บไซต์
+                {t('ดูหน้าเว็บไซต์')}
               </Button>
             ),
             rightArea: (
@@ -605,11 +606,11 @@ export default function Layout({ children }: Props) {
                 <RiShoppingCart2Line size={22} />
               </Badge>
               <Typography component="span" variant="subtitle1" color="inherit">
-                ตะกร้าสินค้า
+                {t('ตะกร้าสินค้า')}
               </Typography>
             </Stack>
             <Typography component="span" variant="body2" color="inherit">
-              {itemCount} รายการ
+              {t('จำนวนรายการ', { count: itemCount })}
             </Typography>
           </Button>
         </Box>

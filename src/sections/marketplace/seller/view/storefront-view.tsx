@@ -19,6 +19,8 @@ import { useTheme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
 
+import { useTranslate } from 'src/locales';
+
 import {
   RiStore2Line,
   RiShieldStarFill,
@@ -30,27 +32,19 @@ import { MarketplaceProductCard } from '../../shared/product-card';
 import { MarketplaceProductDetailDialog } from '../../catalog/components/product-detail-dialog';
 import { isSellerProfileVerified, isSystemMarketplaceSeller } from '../../shared/seller-completion';
 
-const sellerTypeLabels: Record<string, string> = {
-  teacher: 'ครูผู้สอน',
-  individual: 'บุคคลทั่วไป',
-  school: 'โรงเรียน',
-  company: 'บริษัท',
-  publisher: 'สำนักพิมพ์',
-  university: 'มหาวิทยาลัย',
-};
-
 type Props = {
   slug: string;
   dashboardMode?: boolean;
 };
 
 export function MarketplaceStorefrontView({ slug, dashboardMode = false }: Props) {
+  const { t, currentLang } = useTranslate('marketplace');
   const theme = useTheme();
   const [seller, setSeller] = useState<MarketplaceSeller | null>(null);
   const [products, setProducts] = useState<MarketplaceProduct[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<MarketplaceProduct | null>(null);
   const [category, setCategory] = useState('all');
-  const [error, setError] = useState('');
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     fetch(`/api/marketplace/stores/${encodeURIComponent(slug)}`, { cache: 'no-store' })
@@ -60,7 +54,7 @@ export function MarketplaceStorefrontView({ slug, dashboardMode = false }: Props
         setSeller(result.seller);
         setProducts(result.products);
       })
-      .catch((loadError) => setError(loadError.message));
+      .catch(() => setError(true));
   }, [slug]);
 
   const categories = useMemo(
@@ -87,7 +81,7 @@ export function MarketplaceStorefrontView({ slug, dashboardMode = false }: Props
   if (error) {
     return (
       <Container maxWidth="md" sx={{ py: 10 }}>
-        <Alert severity="error">{error}</Alert>
+        <Alert severity="error">{t('storefront.errors.load')}</Alert>
       </Container>
     );
   }
@@ -99,6 +93,14 @@ export function MarketplaceStorefrontView({ slug, dashboardMode = false }: Props
       </Box>
     );
   }
+
+  const numberLocale = currentLang.numberFormat.code;
+  const storeName =
+    currentLang.value === 'en' && seller.display_name_en?.trim()
+      ? seller.display_name_en
+      : seller.display_name;
+  const alternateStoreName =
+    currentLang.value === 'en' ? seller.display_name : seller.display_name_en;
 
   return (
     <Container
@@ -119,7 +121,7 @@ export function MarketplaceStorefrontView({ slug, dashboardMode = false }: Props
             <Stack sx={{ height: 1 }} justifyContent="center" alignItems="flex-start">
               <Avatar
                 src={seller.logo_url ?? undefined}
-                alt={seller.display_name}
+                alt={storeName}
                 sx={{
                   width: { xs: 72, md: 88 },
                   height: { xs: 72, md: 88 },
@@ -135,27 +137,27 @@ export function MarketplaceStorefrontView({ slug, dashboardMode = false }: Props
 
               <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
                 <Typography component="h1" variant="h3">
-                  {seller.display_name}
+                  {storeName}
                 </Typography>
                 {isSellerProfileVerified(seller.profile_completion) && (
                   <RiVerifiedBadgeFill
                     size={26}
                     color={theme.palette.primary.main}
-                    aria-label="ร้านค้าที่มีข้อมูลครบถ้วน"
+                    aria-label={t('storefront.verifiedProfile')}
                   />
                 )}
                 {isSystemMarketplaceSeller(seller) && (
                   <RiShieldStarFill
                     size={26}
                     color={theme.palette.primary.main}
-                    aria-label="ร้านค้าระบบ E-KRU"
+                    aria-label={t('storefront.systemStore')}
                   />
                 )}
               </Stack>
 
-              {seller.display_name_en && (
+              {alternateStoreName && alternateStoreName !== storeName && (
                 <Typography variant="h6" color="text.secondary" sx={{ mt: 0.5 }}>
-                  {seller.display_name_en}
+                  {alternateStoreName}
                 </Typography>
               )}
 
@@ -163,7 +165,7 @@ export function MarketplaceStorefrontView({ slug, dashboardMode = false }: Props
                 variant="h5"
                 sx={{ mt: 2.5, maxWidth: 620, lineHeight: 1.35, whiteSpace: 'pre-line' }}
               >
-                {seller.bio || 'ร้านค้าสื่อการสอนคุณภาพสำหรับครูและโรงเรียน'}
+                {seller.bio || t('storefront.defaultBio')}
               </Typography>
 
               <Stack
@@ -173,24 +175,24 @@ export function MarketplaceStorefrontView({ slug, dashboardMode = false }: Props
               >
                 <Box>
                   <Typography variant="h6" color="text.primary">
-                    {products.length.toLocaleString('th-TH')}
+                    {products.length.toLocaleString(numberLocale)}
                   </Typography>
-                  <Typography variant="body2">สินค้า</Typography>
+                  <Typography variant="body2">{t('storefront.stats.products')}</Typography>
                 </Box>
                 <Box>
                   <Typography variant="h6" color="text.primary">
-                    {totalReviews.toLocaleString('th-TH')}
+                    {totalReviews.toLocaleString(numberLocale)}
                   </Typography>
-                  <Typography variant="body2">รีวิว</Typography>
+                  <Typography variant="body2">{t('storefront.stats.reviews')}</Typography>
                 </Box>
                 <Box>
                   <Stack direction="row" spacing={0.75} alignItems="center">
                     <Typography variant="h6" color="text.primary">
-                      {averageRating ? averageRating.toFixed(1) : 'ใหม่'}
+                      {averageRating ? averageRating.toFixed(1) : t('storefront.stats.new')}
                     </Typography>
                     {!!averageRating && <Rating size="small" value={averageRating} readOnly />}
                   </Stack>
-                  <Typography variant="body2">คะแนนร้าน</Typography>
+                  <Typography variant="body2">{t('storefront.stats.rating')}</Typography>
                 </Box>
               </Stack>
 
@@ -200,11 +202,13 @@ export function MarketplaceStorefrontView({ slug, dashboardMode = false }: Props
                   color="primary"
                   variant="soft"
                   size="medium"
-                  label="ร้านค้าที่ผ่านการตรวจสอบ"
+                  label={t('storefront.verifiedStore')}
                 />
                 <Chip
                   variant="outlined"
-                  label={sellerTypeLabels[seller.seller_type] ?? 'ผู้ขาย E-KRU'}
+                  label={t(`stores.sellerTypes.${seller.seller_type}`, {
+                    defaultValue: t('stores.sellerTypes.seller'),
+                  })}
                 />
               </Stack>
             </Stack>
@@ -245,9 +249,11 @@ export function MarketplaceStorefrontView({ slug, dashboardMode = false }: Props
                   color: 'common.white',
                 }}
               >
-                <Typography variant="h4">สื่อคุณภาพจาก {seller.display_name}</Typography>
+                <Typography variant="h4">
+                  {t('storefront.banner.title', { storeName })}
+                </Typography>
                 <Typography sx={{ color: 'rgba(255,255,255,0.76)' }}>
-                  เลือกซื้อ ดาวน์โหลด และนำไปใช้กับการเรียนการสอนได้ทันที
+                  {t('storefront.banner.description')}
                 </Typography>
               </Stack>
             </Box>
@@ -263,19 +269,29 @@ export function MarketplaceStorefrontView({ slug, dashboardMode = false }: Props
           spacing={2}
         >
           <Box>
-            <Typography variant="h4">สินค้าทั้งหมดจากร้านนี้</Typography>
+            <Typography variant="h4">{t('storefront.products.heading')}</Typography>
             <Typography color="text.secondary" sx={{ mt: 0.75 }}>
-              พบ {visibleProducts.length.toLocaleString('th-TH')} รายการ
+              {t('storefront.products.found', {
+                count: visibleProducts.length,
+                formattedCount: visibleProducts.length.toLocaleString(numberLocale),
+              })}
             </Typography>
           </Box>
           <Chip
             icon={<RiShoppingBag3Line />}
-            label={`${products.length.toLocaleString('th-TH')} สินค้า`}
+            label={t('storefront.products.count', {
+              count: products.length,
+              formattedCount: products.length.toLocaleString(numberLocale),
+            })}
             variant="outlined"
           />
         </Stack>
 
-        <Box component="nav" aria-label="หมวดหมู่สินค้าของร้าน" sx={{ mt: 3, overflowX: 'auto' }}>
+        <Box
+          component="nav"
+          aria-label={t('storefront.categories.label')}
+          sx={{ mt: 3, overflowX: 'auto' }}
+        >
           <Stack direction="row" spacing={1} sx={{ width: 'max-content' }}>
             {categories.map((item) => {
               const active = item === category;
@@ -287,7 +303,7 @@ export function MarketplaceStorefrontView({ slug, dashboardMode = false }: Props
                   onClick={() => setCategory(item)}
                   sx={{ px: 2.25, borderRadius: 8 }}
                 >
-                  {item === 'all' ? 'ทั้งหมด' : item}
+                  {item === 'all' ? t('storefront.categories.all') : item}
                 </Button>
               );
             })}
@@ -325,9 +341,9 @@ export function MarketplaceStorefrontView({ slug, dashboardMode = false }: Props
           <Card variant="outlined" sx={{ py: 9, textAlign: 'center', borderRadius: 3 }}>
             <RiStore2Line size={42} />
             <Typography variant="h6" sx={{ mt: 1.5 }}>
-              ไม่พบสินค้าในหมวดหมู่นี้
+              {t('storefront.empty.title')}
             </Typography>
-            <Typography color="text.secondary">เลือกหมวดหมู่อื่นเพื่อดูสินค้าของร้าน</Typography>
+            <Typography color="text.secondary">{t('storefront.empty.description')}</Typography>
           </Card>
         )}
       </Box>

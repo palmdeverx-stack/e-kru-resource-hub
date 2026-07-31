@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 
+import { detectLanguage, getServerTranslations } from 'src/locales/server';
+
 import { getPublicStoreSeo } from 'src/sections/marketplace/seo/server';
 import { MarketplaceStorefrontView } from 'src/sections/marketplace/seller/view/storefront-view';
 import { getPublicPlatformSettings } from 'src/sections/marketplace/admin/server/platform-settings';
@@ -12,40 +14,51 @@ type Props = { params: Promise<{ slug: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const [store, settings] = await Promise.all([
+  const [lang, translations, store, settings] = await Promise.all([
+    detectLanguage(),
+    getServerTranslations('marketplace'),
     getPublicStoreSeo(slug),
     getPublicPlatformSettings(),
   ]);
-  const platformName = settings?.platform_name_th || 'E-KRU Marketplace';
+  const { t } = translations;
+  const platformName =
+    (lang === 'en' ? settings?.platform_name_en : settings?.platform_name_th) ||
+    settings?.platform_name_th ||
+    settings?.platform_name_en ||
+    'E-KRU Marketplace';
 
   if (!store) {
     return {
-      title: `ไม่พบร้านค้า | ${platformName}`,
+      title: t('storefront.seo.notFoundTitle', { platformName }),
       robots: { index: false, follow: false },
     };
   }
 
+  const storeName =
+    lang === 'en' && store.display_name_en?.trim() ? store.display_name_en : store.display_name;
+  const description =
+    store.bio || t('storefront.seo.description', { storeName });
   const identifier = store.slug || store.id;
   const path = `/store/${encodeURIComponent(identifier)}`;
   const image =
     store.cover_url || store.logo_url || settings?.og_image_url || MARKETPLACE_OG_IMAGE_URL;
 
   return {
-    title: `${store.display_name} | ${platformName}`,
-    description: store.description,
+    title: t('storefront.seo.title', { storeName, platformName }),
+    description,
     alternates: { canonical: path },
     openGraph: {
       type: 'profile',
-      locale: 'th_TH',
-      title: store.display_name,
-      description: store.description,
+      locale: lang === 'en' ? 'en_US' : 'th_TH',
+      title: storeName,
+      description,
       url: path,
-      images: [{ url: image, alt: store.display_name }],
+      images: [{ url: image, alt: storeName }],
     },
     twitter: {
       card: 'summary_large_image',
-      title: store.display_name,
-      description: store.description,
+      title: storeName,
+      description,
       images: [image],
     },
   };

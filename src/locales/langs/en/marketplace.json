@@ -142,6 +142,329 @@
       "cookieSettings": "Cookie settings"
     }
   },
+  "cart": {
+    "seo": { "title": "Cart | E-KRU Marketplace" },
+    "heading": "My cart",
+    "description": "Review your items before proceeding to payment.",
+    "empty": {
+      "title": "Your cart is empty",
+      "description": "Find the right classroom resources and come back here when you're ready."
+    },
+    "actions": {
+      "browse": "Browse products",
+      "viewDetails": "View details",
+      "remove": "Remove",
+      "checkout": "Proceed to checkout",
+      "continueShopping": "Continue shopping"
+    },
+    "product": {
+      "allGrades": "All grades",
+      "license": "E-KRU access",
+      "digitalFile": "Digital file"
+    },
+    "summary": {
+      "title": "Order summary",
+      "listPrice": "List price, {{count}} item",
+      "listPrice_other": "List price, {{count}} items",
+      "discount": "Product discount",
+      "total": "Total payment",
+      "feeNote": "Platform and payment processing fees are paid by the seller."
+    }
+  },
+  "stores": {
+    "seo": {
+      "title": "Stores | {{platformName}}",
+      "description": "Discover approved stores, educators, and resource creators on {{platformName}}.",
+      "imageAlt": "Stores on {{platformName}}"
+    },
+    "heading": "Marketplace stores",
+    "description": "Discover trusted educators, creators, schools, and publishers, then browse all of their work from one storefront.",
+    "searchPlaceholder": "Search by educator or store name",
+    "approvedCount": "{{formattedCount}} approved store",
+    "approvedCount_other": "{{formattedCount}} approved stores",
+    "errors": { "load": "Unable to load stores" },
+    "empty": {
+      "title": "No matching stores found",
+      "description": "Try searching with another educator or store name."
+    },
+    "sellerTypes": {
+      "teacher": "Teacher",
+      "individual": "Individual",
+      "school": "School",
+      "company": "Company",
+      "publisher": "Publisher",
+      "university": "University",
+      "seller": "E-KRU seller"
+    },
+    "card": {
+      "verifiedProfile": "Store profile is complete",
+      "systemStore": "Official E-KRU store",
+      "defaultBio": "An approved teaching resource store on E-KRU Marketplace.",
+      "products": "{{formattedCount}} product",
+      "products_other": "{{formattedCount}} products",
+      "viewStore": "View store"
+    },
+    "pagination": {
+      "page": "Go to page {{page}}",
+      "first": "Go to first page",
+      "last": "Go to last page",
+      "next": "Go to next page",
+      "previous": "Go to previous page"
+    }
+  },
+  "storefront": {
+    "seo": {
+      "notFoundTitle": "Store not found | {{platformName}}",
+      "title": "{{storeName}} | {{platformName}}",
+      "description": "Browse all teaching resources and products from {{storeName}} on E-KRU Marketplace.",
+      "dashboardTitle": "Store profile | E-KRU Marketplace"
+    },
+    "errors": { "load": "Unable to load this store" },
+    "verifiedProfile": "Store profile is complete",
+    "systemStore": "Official E-KRU store",
+    "defaultBio": "Quality teaching resources for educators and schools.",
+    "stats": {
+      "products": "Products",
+      "reviews": "Reviews",
+      "new": "New",
+      "rating": "Store rating"
+    },
+    "verifiedStore": "Verified store",
+    "banner": {
+      "title": "Quality resources from {{storeName}}",
+      "description": "Purchase, download, and use them in teaching and learning right away."
+    },
+    "products": {
+      "heading": "All products from this store",
+      "found": "{{formattedCount}} product found",
+      "found_other": "{{formattedCount}} products found",
+      "count": "{{formattedCount}} product",
+      "count_other": "{{formattedCount}} products"
+    },
+    "categories": { "label": "Store product categories", "all": "All" },
+    "empty": {
+      "title": "No products found in this category",
+      "description": "Choose another category to browse this store's products."
+    }
+  },
+  "catalog": {
+    "seo": {
+      "title": "All teaching resources | {{platformName}}",
+      "description": "Browse lesson plans, worksheets, quizzes, and learning resources from the E-KRU community.",
+      "imageAlt": "Teaching resources from {{platformName}}"
+    },
+    "hero": {
+      "eyebrow": "From educators, for better learning",
+      "title": "Great teaching resources",
+      "highlight": "are right here",
+      "description": "Discover, buy, and sell lesson plans, worksheets, quizzes, and quality resources from the E-KRU education community."
+    },
+    "actions": {
+      "browse": "Browse resources",
+      "openStore": "Open a resource store",
+      "allGrades": "View resources for all grades"
+    },
+    "categoryLabels": {
+      "lessonPlans": "Lesson plans",
+      "worksheets": "Worksheets",
+      "supplementary": "Supplementary materials",
+      "quizzes": "Quizzes",
+      "courses": "Courses"
+    },
+    "account": {
+      "title": "One account for E-KRU",
+      "description": "Teachers can use their existing account, new members can sign up, and everyone can open a store to share their work.",
+      "members": "Teachers and members",
+      "schools": "Schools on E-KRU"
+    },
+    "goals": {
+      "heading": "What are you preparing to teach today?",
+      "description": "Start with your lesson goal and we will help you find resources that fit the task.",
+      "items": {
+        "lessonPlans": { "title": "Prepare a lesson plan", "description": "Plan classes faster with ready-to-adapt lesson plans." },
+        "worksheets": { "title": "Practise with worksheets", "description": "Choose ready-to-use exercises for class or homework." },
+        "supplementary": { "title": "Make class more engaging", "description": "Add games, slides, and activities that encourage participation." },
+        "quizzes": { "title": "Check understanding", "description": "Find quizzes and assessment tools for your learners." },
+        "courses": { "title": "Learn step by step", "description": "Build knowledge with structured courses and lessons." },
+        "explore": { "title": "Discover new ideas", "description": "Explore every resource type and choose what fits your class." }
+      }
+    },
+    "products": {
+      "heading": "Browse our resources",
+      "description": "Find the right classroom resource across Marketplace categories."
+    },
+    "filters": {
+      "activeGrade": "Grade level: {{grade}}",
+      "searchPlaceholder": "Search by resource, subject, or grade...",
+      "gradeLabel": "Grade level",
+      "gradeAria": "Filter by grade level",
+      "categoryAria": "Teaching resource categories",
+      "allCategories": "All",
+      "priceAria": "Filter by price",
+      "sortAria": "Sort products",
+      "grades": { "all": "All grades", "kindergarten": "Kindergarten", "primary": "Primary", "secondary": "Secondary" },
+      "prices": { "all": "All prices", "free": "Free", "paid": "Paid" },
+      "sort": { "popular": "Most popular", "latest": "Newest", "rating": "Top rated", "priceLow": "Lowest price" }
+    },
+    "states": {
+      "loadingMore": "Loading more products...",
+      "noResults": "No matching resources found",
+      "noGradeResults": "No resources are available for {{grade}} yet",
+      "noResultsHint": "Try another search term or category.",
+      "noGradeResultsHint": "Select all grades or clear another filter to see more resources."
+    },
+    "newProducts": {
+      "heading": "What's new in E-KRU Marketplace",
+      "description": "The latest teaching resources and products from community sellers.",
+      "previous": "View previous products",
+      "next": "View next products",
+      "emptyTitle": "No new products right now",
+      "emptyDescription": "New products will appear here when sellers add them."
+    },
+    "gradeCollections": {
+      "heading": "Collections by grade level",
+      "description": "Choose a learner group to find resources suited to their age and level."
+    },
+    "productDialog": {
+      "title": "Product details",
+      "titleWithProduct": "Product details: {{title}}",
+      "close": "Close product details"
+    },
+    "grades": {
+      "kindergarten": { "label": "Kindergarten", "levels": "K1 – K3", "title": "Learn through play", "description": "Creative activities, skill practice, and colourful resources for young learners." },
+      "primary": { "label": "Primary school", "levels": "P1 – P6", "title": "Build strong foundations", "description": "Worksheets, lesson plans, and activities that explain each concept step by step." },
+      "secondary": { "label": "Secondary school", "levels": "M1 – M6", "title": "Extend knowledge and critical thinking", "description": "In-depth resources, assessments, and future-ready activities." }
+    }
+  },
+  "productDetail": {
+    "seo": { "notFound": "Product not found | {{platformName}}" },
+    "notFound": "This product could not be found or has been removed from Marketplace.",
+    "archivedNotice": "This product is no longer for sale, but previous buyers can still view and download it.",
+    "about": "About this product",
+    "details": "Product details",
+    "purchaseBenefits": "What you will receive after successful payment",
+    "actions": {
+      "backToProducts": "Back to products",
+      "backToMarketplace": "Back to Marketplace",
+      "goToCart": "Go to cart",
+      "favorite": "Like product",
+      "unfavorite": "Unlike product",
+      "save": "Save product",
+      "unsave": "Remove from saved products",
+      "cancel": "Cancel"
+    },
+    "purchase": {
+      "activeUntil": "Active until {{date}}",
+      "purchased": "Already purchased",
+      "unavailable": "This account cannot purchase this product",
+      "inCart": "Already in cart",
+      "addToCart": "Add to cart"
+    },
+    "preview": {
+      "placeholder": "Teaching resource preview",
+      "noFile": "This product does not have a sample file yet.",
+      "openError": "Unable to open the sample.",
+      "opening": "Opening sample...",
+      "viewFile": "View sample file"
+    },
+    "resource": {
+      "teachingResource": "Teaching resource",
+      "digital": "Digital file",
+      "service": "Service",
+      "physical": "Shipped product"
+    },
+    "pricing": { "discount": "{{percent}}% off", "listPrice": "List price {{price}}" },
+    "stats": { "visitors": "Visitors", "purchases": "Purchases", "downloads": "Downloads" },
+    "highlights": {
+      "title": "Product highlights",
+      "format": "Format",
+      "grade": "Grade level",
+      "subject": "Subject",
+      "curriculum": "Curriculum",
+      "tags": "Tags",
+      "license": "License"
+    },
+    "license": {
+      "individualShort": "Individual license",
+      "teacherShort": "Teacher license",
+      "schoolShort": "School license",
+      "individual": "Individual license — no school affiliation required",
+      "teacher": "Teacher license, {{count}} seat",
+      "teacher_other": "Teacher license, {{count}} seats",
+      "school": "License for all users at the school",
+      "days": "Active for {{count}} days"
+    },
+    "share": {
+      "title": "Share product",
+      "line": "Share product via LINE",
+      "facebook": "Share product via Facebook",
+      "email": "Share product by email",
+      "emailLabel": "Email",
+      "emailBody": "View {{title}} on E-KRU Marketplace"
+    },
+    "seller": {
+      "defaultBio": "A quality teaching resource store reviewed by E-KRU Marketplace.",
+      "viewProfile": "View store profile",
+      "moreFrom": "More products from",
+      "thisStore": "this store",
+      "viewAll": "View all products",
+      "noMoreProducts": "This store has no other products yet.",
+      "fallback": "E-KRU store",
+      "verified": "Store reviewed by E-KRU Marketplace",
+      "official": "Official store"
+    },
+    "related": {
+      "title": "Similar products on E-KRU Marketplace",
+      "description": "Selected using category, tags, subject, grade, curriculum, resource type, price, and your interests.",
+      "empty": "No similar products are currently available."
+    },
+    "review": {
+      "title": "Ratings and reviews",
+      "ratingSummary": "{{rating}} · {{count}} review",
+      "ratingSummary_other": "{{rating}} · {{count}} reviews",
+      "ratingParentheses": "{{rating}} ({{count}} review)",
+      "ratingParentheses_other": "{{rating}} ({{count}} reviews)",
+      "fromReviews": "From {{formattedCount}} review",
+      "fromReviews_other": "From {{formattedCount}} reviews",
+      "yourReview": "Your review",
+      "edit": "Edit review",
+      "noComment": "No written review",
+      "lastEdited": "Last edited {{date}}",
+      "editYours": "Edit your review",
+      "rateProduct": "Rate this product",
+      "formDescription": "Choose a rating, update your comment, then save your changes.",
+      "commentLabel": "Review comment",
+      "commentPlaceholder": "Share your experience after using this resource...",
+      "characterCount": "{{count}}/1,000 characters",
+      "saving": "Saving...",
+      "saveChanges": "Save changes",
+      "publish": "Publish review",
+      "save": "Save review",
+      "buyersOnly": "Only buyers with a successful payment can rate and review this product.",
+      "beFirst": "Be the first to review this product after purchasing it.",
+      "shareExperience": "Rate the product and share your experience after using it.",
+      "optionalLabel": "Write a review (optional)",
+      "fromBuyers": "Reviews from buyers",
+      "emptyCombined": "No reviews yet. Be the first to review this product after purchasing it.",
+      "imageAlt": "Review image",
+      "addImages": "Add review images",
+      "imageLimit": "{{total}}/3 images · up to 5 MB each",
+      "imagePreviewAlt": "Review image preview",
+      "removeImage": "Remove image",
+      "replyFrom": "Reply from {{name}}",
+      "editReply": "Edit store reply",
+      "reply": "Reply to review",
+      "saveReply": "Save reply",
+      "replyAction": "Reply",
+      "errors": {
+        "ratingRequired": "Please select a star rating.",
+        "save": "Unable to save the review.",
+        "image": "Only JPG, PNG, or WEBP images up to 5 MB each are supported.",
+        "replyRequired": "Please enter a reply.",
+        "reply": "Unable to reply to the review."
+      }
+    }
+  },
   "productCard": {
     "premium": "Premium product",
     "viewProduct": "View product details: {{title}}",
@@ -150,6 +473,7 @@
     "orders": "Orders",
     "price": "Price",
     "reviews": "{{formattedCount}} reviews",
+    "noReviews": "No reviews yet",
     "new": "New product"
   }
 }

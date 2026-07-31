@@ -169,6 +169,323 @@
       "cookieSettings": "ตั้งค่าคุกกี้"
     }
   },
+  "cart": {
+    "seo": { "title": "ตะกร้า | E-KRU Marketplace" },
+    "heading": "ตะกร้าของฉัน",
+    "description": "ตรวจสอบรายการก่อนดำเนินการชำระเงิน",
+    "empty": {
+      "title": "ตะกร้ายังว่าง",
+      "description": "เลือกสื่อที่เหมาะกับห้องเรียนแล้วกลับมาที่นี่"
+    },
+    "actions": {
+      "browse": "เลือกดูสินค้า",
+      "viewDetails": "ดูรายละเอียด",
+      "remove": "นำออก",
+      "checkout": "ดำเนินการชำระเงิน",
+      "continueShopping": "เลือกสินค้าต่อ"
+    },
+    "product": {
+      "allGrades": "ทุกระดับชั้น",
+      "license": "สิทธิ์ใช้งาน E-KRU",
+      "digitalFile": "ไฟล์ดิจิทัล"
+    },
+    "summary": {
+      "title": "สรุปคำสั่งซื้อ",
+      "listPrice": "ราคาเต็ม {{count}} รายการ",
+      "discount": "ส่วนลดสินค้า",
+      "total": "ยอดชำระทั้งหมด",
+      "feeNote": "ค่าธรรมเนียมแพลตฟอร์มและค่ารับชำระเป็นค่าใช้จ่ายฝั่งผู้ขาย"
+    }
+  },
+  "stores": {
+    "seo": {
+      "title": "ร้านค้า | {{platformName}}",
+      "description": "ค้นหาร้านค้า ครูผู้สอน และผู้สร้างสื่อที่ผ่านการอนุมัติจาก {{platformName}}",
+      "imageAlt": "ร้านค้าบน {{platformName}}"
+    },
+    "heading": "ร้านค้าใน Marketplace",
+    "description": "ค้นหาครู ผู้สร้างสื่อ โรงเรียน และสำนักพิมพ์ที่คุณเชื่อถือ แล้วเลือกดูผลงานทั้งหมดจากหน้าร้านได้โดยตรง",
+    "searchPlaceholder": "ค้นหาชื่อครูหรือชื่อร้านค้า",
+    "approvedCount": "ร้านค้าที่ผ่านอนุมัติ {{formattedCount}} ร้าน",
+    "errors": { "load": "ไม่สามารถโหลดร้านค้าได้" },
+    "empty": {
+      "title": "ไม่พบร้านค้าที่ค้นหา",
+      "description": "ลองค้นหาด้วยชื่อครูหรือชื่อร้านค้าอื่น"
+    },
+    "sellerTypes": {
+      "teacher": "ครูผู้สอน",
+      "individual": "บุคคลทั่วไป",
+      "school": "โรงเรียน",
+      "company": "บริษัท",
+      "publisher": "สำนักพิมพ์",
+      "university": "มหาวิทยาลัย",
+      "seller": "ผู้ขาย E-KRU"
+    },
+    "card": {
+      "verifiedProfile": "ร้านค้าที่มีข้อมูลครบถ้วน",
+      "systemStore": "ร้านค้าระบบ E-KRU",
+      "defaultBio": "ร้านค้าสื่อการสอนที่ผ่านการอนุมัติจาก E-KRU Marketplace",
+      "products": "{{formattedCount}} สินค้า",
+      "viewStore": "ดูหน้าร้าน"
+    },
+    "pagination": {
+      "page": "ไปหน้า {{page}}",
+      "first": "ไปหน้าแรก",
+      "last": "ไปหน้าสุดท้าย",
+      "next": "ไปหน้าถัดไป",
+      "previous": "ไปหน้าก่อนหน้า"
+    }
+  },
+  "storefront": {
+    "seo": {
+      "notFoundTitle": "ไม่พบร้านค้า | {{platformName}}",
+      "title": "{{storeName}} | {{platformName}}",
+      "description": "เลือกดูสื่อการสอนและผลงานทั้งหมดจาก {{storeName}} บน E-KRU Marketplace",
+      "dashboardTitle": "โปรไฟล์ร้านค้า | E-KRU Marketplace"
+    },
+    "errors": { "load": "ไม่สามารถโหลดข้อมูลร้านค้านี้ได้" },
+    "verifiedProfile": "ร้านค้าที่มีข้อมูลครบถ้วน",
+    "systemStore": "ร้านค้าระบบ E-KRU",
+    "defaultBio": "ร้านค้าสื่อการสอนคุณภาพสำหรับครูและโรงเรียน",
+    "stats": {
+      "products": "สินค้า",
+      "reviews": "รีวิว",
+      "new": "ใหม่",
+      "rating": "คะแนนร้าน"
+    },
+    "verifiedStore": "ร้านค้าที่ผ่านการตรวจสอบ",
+    "banner": {
+      "title": "สื่อคุณภาพจาก {{storeName}}",
+      "description": "เลือกซื้อ ดาวน์โหลด และนำไปใช้กับการเรียนการสอนได้ทันที"
+    },
+    "products": {
+      "heading": "สินค้าทั้งหมดจากร้านนี้",
+      "found": "พบ {{formattedCount}} รายการ",
+      "count": "{{formattedCount}} สินค้า"
+    },
+    "categories": { "label": "หมวดหมู่สินค้าของร้าน", "all": "ทั้งหมด" },
+    "empty": {
+      "title": "ไม่พบสินค้าในหมวดหมู่นี้",
+      "description": "เลือกหมวดหมู่อื่นเพื่อดูสินค้าของร้าน"
+    }
+  },
+  "catalog": {
+    "seo": {
+      "title": "สื่อการสอนทั้งหมด | {{platformName}}",
+      "description": "เลือกซื้อแผนการสอน ใบงาน แบบทดสอบ และสื่อการเรียนรู้จากชุมชน E-KRU",
+      "imageAlt": "สื่อการสอน {{platformName}}"
+    },
+    "hero": {
+      "eyebrow": "จากครู เพื่อการเรียนรู้ที่ดีขึ้น",
+      "title": "สื่อการสอนดี ๆ",
+      "highlight": "อยู่ที่นี่",
+      "description": "ค้นหา ซื้อ และขายแผนการสอน ใบงาน แบบทดสอบ และสื่อคุณภาพจากชุมชนการศึกษา E-KRU"
+    },
+    "actions": {
+      "browse": "เลือกดูสื่อ",
+      "openStore": "เปิดร้านขายสื่อ",
+      "allGrades": "ดูสื่อทุกระดับชั้น"
+    },
+    "categoryLabels": {
+      "lessonPlans": "แผนการสอน",
+      "worksheets": "ใบงาน",
+      "supplementary": "สื่อประกอบ",
+      "quizzes": "แบบทดสอบ",
+      "courses": "คอร์สเรียน"
+    },
+    "account": {
+      "title": "บัญชีเดียวกับ E-KRU",
+      "description": "ครูใช้บัญชีเดิมได้ทันที บุคคลทั่วไปสมัครใหม่ได้ และทุกคนสามารถเปิดร้านขายผลงานของตนเอง",
+      "members": "ครูและสมาชิก",
+      "schools": "โรงเรียนในระบบ"
+    },
+    "goals": {
+      "heading": "วันนี้คุณกำลังเตรียมสอนอะไร?",
+      "description": "เริ่มจากเป้าหมายของคาบเรียน แล้วให้เราช่วยพาไปยังสื่อที่ตรงกับงานของคุณ",
+      "items": {
+        "lessonPlans": { "title": "เตรียมแผนการสอน", "description": "วางคาบเรียนได้เร็วขึ้นด้วยแผนพร้อมปรับใช้" },
+        "worksheets": { "title": "ฝึกทักษะด้วยใบงาน", "description": "เลือกแบบฝึกหัดพร้อมใช้สำหรับในห้องและการบ้าน" },
+        "supplementary": { "title": "ทำห้องเรียนให้สนุก", "description": "เติมเกม สไลด์ และกิจกรรมให้ผู้เรียนมีส่วนร่วม" },
+        "quizzes": { "title": "วัดผลความเข้าใจ", "description": "ค้นหาแบบทดสอบและเครื่องมือประเมินผล" },
+        "courses": { "title": "เรียนรู้แบบเป็นขั้นตอน", "description": "ต่อยอดความรู้ด้วยคอร์สและบทเรียนที่จัดไว้แล้ว" },
+        "explore": { "title": "ค้นหาไอเดียใหม่", "description": "เปิดดูสื่อทุกประเภทและเลือกสิ่งที่เหมาะกับชั้นเรียน" }
+      }
+    },
+    "products": {
+      "heading": "เลือกดูผลิตภัณฑ์ของเรา",
+      "description": "ค้นหาสื่อที่เหมาะกับห้องเรียนจากหมวดหมู่ Marketplace"
+    },
+    "filters": {
+      "activeGrade": "ระดับชั้น: {{grade}}",
+      "searchPlaceholder": "ค้นหาสื่อ วิชา หรือระดับชั้น...",
+      "gradeLabel": "ระดับชั้น",
+      "gradeAria": "กรองตามระดับชั้น",
+      "categoryAria": "หมวดหมู่สื่อการสอน",
+      "allCategories": "ทั้งหมด",
+      "priceAria": "กรองตามราคา",
+      "sortAria": "เรียงลำดับสินค้า",
+      "grades": { "all": "ทุกระดับ", "kindergarten": "อนุบาล", "primary": "ประถม", "secondary": "มัธยม" },
+      "prices": { "all": "ทุกราคา", "free": "ฟรี 0 บาท", "paid": "มีค่าใช้จ่าย" },
+      "sort": { "popular": "ความนิยม", "latest": "ใหม่ล่าสุด", "rating": "คะแนนรีวิว", "priceLow": "ราคาต่ำสุด" }
+    },
+    "states": {
+      "loadingMore": "กำลังโหลดสินค้าเพิ่ม...",
+      "noResults": "ไม่พบสื่อที่ค้นหา",
+      "noGradeResults": "ยังไม่มีสื่อสำหรับระดับ{{grade}}",
+      "noResultsHint": "ลองเปลี่ยนคำค้นหรือเลือกหมวดหมู่อื่น",
+      "noGradeResultsHint": "ลองเลือกทุกระดับชั้น หรือล้างตัวกรองอื่นเพื่อดูสื่อเพิ่มเติม"
+    },
+    "newProducts": {
+      "heading": "มีอะไรใหม่ใน E-KRU Marketplace",
+      "description": "สื่อการสอนและผลิตภัณฑ์ล่าสุดจากผู้ขายในชุมชน",
+      "previous": "ดูสินค้าก่อนหน้า",
+      "next": "ดูสินค้าถัดไป",
+      "emptyTitle": "ยังไม่มีสินค้าใหม่ในขณะนี้",
+      "emptyDescription": "เมื่อผู้ขายเพิ่มสินค้าใหม่ รายการจะแสดงที่ส่วนนี้"
+    },
+    "gradeCollections": {
+      "heading": "คอลเลกชันตามระดับชั้น",
+      "description": "เลือกช่วงชั้นของผู้เรียน เพื่อค้นหาสื่อที่เหมาะกับวัยและระดับความรู้"
+    },
+    "productDialog": {
+      "title": "รายละเอียดสินค้า",
+      "titleWithProduct": "รายละเอียดสินค้า {{title}}",
+      "close": "ปิดรายละเอียดสินค้า"
+    },
+    "grades": {
+      "kindergarten": { "label": "อนุบาล", "levels": "อ.1 – อ.3", "title": "เรียนรู้ผ่านการเล่น", "description": "กิจกรรมสร้างสรรค์ แบบฝึกทักษะ และสื่อสีสันสดใสสำหรับเด็กเล็ก" },
+      "primary": { "label": "ประถมศึกษา", "levels": "ป.1 – ป.6", "title": "สร้างพื้นฐานให้แข็งแรง", "description": "ใบงาน แผนการสอน และกิจกรรมที่ช่วยให้เข้าใจบทเรียนอย่างเป็นขั้นตอน" },
+      "secondary": { "label": "มัธยมศึกษา", "levels": "ม.1 – ม.6", "title": "ต่อยอดความรู้และการคิดวิเคราะห์", "description": "สื่อเนื้อหาเข้มข้น แบบทดสอบ และกิจกรรมเตรียมพร้อมสู่อนาคต" }
+    }
+  },
+  "productDetail": {
+    "seo": { "notFound": "ไม่พบสินค้า | {{platformName}}" },
+    "notFound": "ไม่พบสินค้านี้ หรือสินค้าถูกนำออกจาก Marketplace",
+    "archivedNotice": "สินค้านี้หยุดเปิดขายแล้ว แต่คุณยังเปิดดูและดาวน์โหลดสินค้าที่ซื้อไว้ได้ตามเดิม",
+    "about": "เกี่ยวกับสินค้านี้",
+    "details": "รายละเอียดสินค้า",
+    "purchaseBenefits": "สิ่งที่คุณจะได้รับหลังชำระเงินสำเร็จ",
+    "actions": {
+      "backToProducts": "กลับไปเลือกสินค้า",
+      "backToMarketplace": "กลับไป Marketplace",
+      "goToCart": "ไปที่ตะกร้า",
+      "favorite": "ถูกใจสินค้า",
+      "unfavorite": "เลิกถูกใจสินค้า",
+      "save": "บันทึกสินค้า",
+      "unsave": "นำออกจากรายการที่บันทึก",
+      "cancel": "ยกเลิก"
+    },
+    "purchase": {
+      "activeUntil": "ใช้งานถึง {{date}}",
+      "purchased": "ซื้อสินค้านี้แล้ว",
+      "unavailable": "ไม่สามารถซื้อด้วยบัญชีนี้",
+      "inCart": "อยู่ในตะกร้าแล้ว",
+      "addToCart": "เพิ่มลงตะกร้า"
+    },
+    "preview": {
+      "placeholder": "ตัวอย่างสื่อการสอน",
+      "noFile": "สินค้านี้ยังไม่มีไฟล์ตัวอย่าง",
+      "openError": "ไม่สามารถเปิดตัวอย่างได้",
+      "opening": "กำลังเปิดตัวอย่าง...",
+      "viewFile": "ดูไฟล์ตัวอย่าง"
+    },
+    "resource": {
+      "teachingResource": "สื่อการสอน",
+      "digital": "ไฟล์ดิจิทัล",
+      "service": "บริการ",
+      "physical": "สินค้าจัดส่ง"
+    },
+    "pricing": {
+      "discount": "ลด {{percent}}%",
+      "listPrice": "ราคาเต็ม {{price}}"
+    },
+    "stats": { "visitors": "ผู้เข้าชม", "purchases": "ยอดซื้อ", "downloads": "ดาวน์โหลด" },
+    "highlights": {
+      "title": "ไฮไลต์สินค้า",
+      "format": "รูปแบบ",
+      "grade": "ระดับชั้น",
+      "subject": "รายวิชา",
+      "curriculum": "หลักสูตร",
+      "tags": "แท็ก",
+      "license": "สิทธิ์การใช้งาน"
+    },
+    "license": {
+      "individualShort": "License บุคคล",
+      "teacherShort": "License รายครู",
+      "schoolShort": "License โรงเรียน",
+      "individual": "License ส่วนบุคคล — ไม่ต้องสังกัดโรงเรียน",
+      "teacher": "License สำหรับครู {{count}} Seat",
+      "school": "License สำหรับผู้ใช้ทั้งโรงเรียน",
+      "days": "ใช้งาน {{count}} วัน"
+    },
+    "share": {
+      "title": "แชร์สินค้า",
+      "line": "แชร์สินค้าผ่าน LINE",
+      "facebook": "แชร์สินค้าผ่าน Facebook",
+      "email": "แชร์สินค้าทางอีเมล",
+      "emailLabel": "อีเมล",
+      "emailBody": "ดูสินค้า {{title}} บน E-KRU Marketplace"
+    },
+    "seller": {
+      "defaultBio": "ร้านค้าสื่อการสอนคุณภาพที่ผ่านการตรวจสอบโดย E-KRU Marketplace",
+      "viewProfile": "ดูโปรไฟล์ร้าน",
+      "moreFrom": "สินค้าอื่นจาก",
+      "thisStore": "ร้านนี้",
+      "viewAll": "ดูสินค้าทั้งหมด",
+      "noMoreProducts": "ยังไม่มีสินค้าอื่นจากร้านนี้",
+      "fallback": "ร้านค้า E-KRU",
+      "verified": "ร้านค้าที่ผ่านการตรวจสอบโดย E-KRU Marketplace",
+      "official": "ร้านค้าทางการ"
+    },
+    "related": {
+      "title": "สินค้าใกล้เคียงใน E-KRU Marketplace",
+      "description": "คัดจากหมวดหมู่ แท็ก วิชา ระดับชั้น หลักสูตร ประเภทสื่อ ราคา และความสนใจของคุณ",
+      "empty": "ยังไม่มีสินค้าใกล้เคียงที่พร้อมจำหน่าย"
+    },
+    "review": {
+      "title": "คะแนนและรีวิว",
+      "ratingSummary": "{{rating}} · {{count}} รีวิว",
+      "ratingParentheses": "{{rating}} ({{count}} รีวิว)",
+      "fromReviews": "จาก {{formattedCount}} รีวิว",
+      "yourReview": "รีวิวของคุณ",
+      "edit": "แก้ไขรีวิว",
+      "noComment": "ไม่ได้เขียนข้อความรีวิว",
+      "lastEdited": "แก้ไขล่าสุด {{date}}",
+      "editYours": "แก้ไขรีวิวของคุณ",
+      "rateProduct": "ให้คะแนนสินค้านี้",
+      "formDescription": "เลือกคะแนนและแก้ไขข้อความด้านล่าง แล้วกดบันทึกการเปลี่ยนแปลง",
+      "commentLabel": "ข้อความรีวิว",
+      "commentPlaceholder": "เล่าประสบการณ์หลังนำสื่อนี้ไปใช้งาน...",
+      "characterCount": "{{count}}/1,000 ตัวอักษร",
+      "saving": "กำลังบันทึก...",
+      "saveChanges": "บันทึกการแก้ไข",
+      "publish": "เผยแพร่รีวิว",
+      "save": "บันทึกรีวิว",
+      "buyersOnly": "ผู้ซื้อที่ชำระเงินสำเร็จแล้วเท่านั้นจึงจะให้ดาวและเขียนรีวิวได้",
+      "beFirst": "เป็นคนแรกที่รีวิวสินค้านี้ได้หลังการซื้อ",
+      "shareExperience": "ให้คะแนนและแชร์ประสบการณ์หลังใช้งานสินค้า",
+      "optionalLabel": "เขียนรีวิว (ไม่บังคับ)",
+      "fromBuyers": "รีวิวจากผู้ซื้อ",
+      "emptyCombined": "ยังไม่มีรีวิว เป็นคนแรกที่รีวิวสินค้านี้ได้หลังการซื้อ",
+      "imageAlt": "รูปประกอบรีวิว",
+      "addImages": "เพิ่มรูปรีวิว",
+      "imageLimit": "{{total}}/3 รูป · ไม่เกิน 5 MB ต่อรูป",
+      "imagePreviewAlt": "ตัวอย่างรูปรีวิว",
+      "removeImage": "นำรูปออก",
+      "replyFrom": "คำตอบจาก {{name}}",
+      "editReply": "แก้ไขคำตอบจากร้านค้า",
+      "reply": "ตอบกลับรีวิว",
+      "saveReply": "บันทึกคำตอบ",
+      "replyAction": "ตอบกลับ",
+      "errors": {
+        "ratingRequired": "กรุณาเลือกคะแนนดาว",
+        "save": "ไม่สามารถบันทึกรีวิวได้",
+        "image": "รองรับเฉพาะ JPG, PNG, WEBP ขนาดไม่เกิน 5 MB ต่อรูป",
+        "replyRequired": "กรุณากรอกข้อความตอบกลับ",
+        "reply": "ตอบกลับรีวิวไม่สำเร็จ"
+      }
+    }
+  },
   "productCard": {
     "premium": "สินค้าพรีเมียม",
     "viewProduct": "ดูรายละเอียดสินค้า {{title}}",
@@ -177,6 +494,7 @@
     "orders": "ยอดสั่งซื้อ",
     "price": "ราคา",
     "reviews": "{{formattedCount}} รีวิว",
+    "noReviews": "ยังไม่มีรีวิว",
     "new": "สินค้าใหม่"
   }
 }

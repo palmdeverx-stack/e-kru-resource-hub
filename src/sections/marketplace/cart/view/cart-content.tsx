@@ -41,7 +41,7 @@ export function MarketplaceCartContent({
   productsHref,
   checkoutHref,
 }: MarketplaceCartContentProps) {
-  const { currentLang } = useTranslate();
+  const { t, currentLang } = useTranslate('marketplace');
   const { items, subtotal, listSubtotal, discountTotal, removeItem } = useMarketplaceCart();
   const [selectedProduct, setSelectedProduct] = useState<MarketplaceProduct | null>(null);
 
@@ -63,10 +63,10 @@ export function MarketplaceCartContent({
           <RiShoppingBag3Line size={42} />
         </Box>
         <Typography variant="h3" sx={{ mt: 3 }}>
-          ตะกร้ายังว่าง
+          {t('cart.empty.title')}
         </Typography>
         <Typography color="text.secondary" sx={{ mt: 1, mb: 3 }}>
-          เลือกสื่อที่เหมาะกับห้องเรียนแล้วกลับมาที่นี่
+          {t('cart.empty.description')}
         </Typography>
         <Button
           component={RouterLink}
@@ -74,7 +74,7 @@ export function MarketplaceCartContent({
           variant="contained"
           startIcon={<RiArrowLeftLine />}
         >
-          เลือกดูสินค้า
+          {t('cart.actions.browse')}
         </Button>
       </Container>
     );
@@ -83,10 +83,10 @@ export function MarketplaceCartContent({
   return (
     <>
       <Typography component="h1" variant="h3">
-        ตะกร้าของฉัน
+        {t('cart.heading')}
       </Typography>
       <Typography color="text.secondary" sx={{ mt: 0.5, mb: { xs: 2.5, sm: 4 } }}>
-        ตรวจสอบรายการก่อนดำเนินการชำระเงิน
+        {t('cart.description')}
       </Typography>
 
       <Stack
@@ -107,10 +107,12 @@ export function MarketplaceCartContent({
                 ?.map((item) => item.grade_level.name)
                 .filter(Boolean)
                 .slice(0, 2)
-                .join(', ') || 'ทุกระดับชั้น';
+                .join(', ') || t('cart.product.allGrades');
             const mediaLabel =
               product.media_type?.name ??
-              (product.resource_type === 'feature_unlock' ? 'สิทธิ์ใช้งาน E-KRU' : 'ไฟล์ดิจิทัล');
+              (product.resource_type === 'feature_unlock'
+                ? t('cart.product.license')
+                : t('cart.product.digitalFile'));
 
             return (
               <Card
@@ -130,7 +132,7 @@ export function MarketplaceCartContent({
                   <Box
                     component="button"
                     type="button"
-                    aria-label={`ดูรายละเอียดสินค้า ${content.title}`}
+                    aria-label={t('productCard.viewProduct', { title: content.title })}
                     onClick={() => setSelectedProduct(product)}
                     sx={{
                       p: 0,
@@ -270,7 +272,7 @@ export function MarketplaceCartContent({
                           sx={{ minWidth: 140 }}
                           onClick={() => setSelectedProduct(product)}
                         >
-                          ดูรายละเอียด
+                          {t('cart.actions.viewDetails')}
                         </Button>
                         <Button
                           size="small"
@@ -279,7 +281,7 @@ export function MarketplaceCartContent({
                           startIcon={<RiDeleteBinLine />}
                           onClick={() => removeItem(product.id)}
                         >
-                          นำออก
+                          {t('cart.actions.remove')}
                         </Button>
                       </Stack>
                     </Stack>
@@ -298,27 +300,29 @@ export function MarketplaceCartContent({
             top: { md: 96 },
           }}
         >
-          <Typography variant="h5">สรุปคำสั่งซื้อ</Typography>
+          <Typography variant="h5">{t('cart.summary.title')}</Typography>
           <Stack spacing={2} sx={{ mt: 3 }}>
             <Stack direction="row" justifyContent="space-between">
-              <Typography color="text.secondary">ราคาเต็ม {items.length} รายการ</Typography>
+              <Typography color="text.secondary">
+                {t('cart.summary.listPrice', { count: items.length })}
+              </Typography>
               <Typography>{formatPrice(listSubtotal)}</Typography>
             </Stack>
             {discountTotal > 0 && (
               <Stack direction="row" justifyContent="space-between">
-                <Typography color="success.main">ส่วนลดสินค้า</Typography>
+                <Typography color="success.main">{t('cart.summary.discount')}</Typography>
                 <Typography color="success.main">-{formatPrice(discountTotal)}</Typography>
               </Stack>
             )}
             <Divider />
             <Stack direction="row" justifyContent="space-between">
-              <Typography variant="h6">ยอดชำระทั้งหมด</Typography>
+              <Typography variant="h6">{t('cart.summary.total')}</Typography>
               <Typography variant="h5" color="primary.main">
                 {formatPrice(subtotal)}
               </Typography>
             </Stack>
             <Typography variant="caption" color="text.secondary">
-              ค่าธรรมเนียมแพลตฟอร์มและค่ารับชำระเป็นค่าใช้จ่ายฝั่งผู้ขาย
+              {t('cart.summary.feeNote')}
             </Typography>
             <Button
               size="large"
@@ -327,10 +331,10 @@ export function MarketplaceCartContent({
               href={checkoutHref}
               fullWidth
             >
-              ดำเนินการชำระเงิน
+              {t('cart.actions.checkout')}
             </Button>
             <Button component={RouterLink} href={productsHref} color="inherit" fullWidth>
-              เลือกสินค้าต่อ
+              {t('cart.actions.continueShopping')}
             </Button>
           </Stack>
         </Card>

@@ -240,6 +240,7 @@ function formatPrice(value: number, currency: string) {
   return new Intl.NumberFormat('th-TH', {
     style: 'currency',
     currency: currency || 'THB',
+    currencyDisplay: 'narrowSymbol',
   }).format(value);
 }
 

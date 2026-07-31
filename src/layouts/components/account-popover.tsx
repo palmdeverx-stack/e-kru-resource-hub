@@ -59,7 +59,8 @@ export function AccountPopover({ data = [], sx, ...other }: AccountPopoverProps)
   const { open, anchorEl, onClose, onOpen } = usePopover();
 
   const { user } = useAuthContext();
-  const positionTitle = user?.position_title || POSITION_FALLBACK[user?.role] || '-';
+  const rawPositionTitle = user?.position_title || POSITION_FALLBACK[user?.role] || '-';
+  const positionTitle = t(rawPositionTitle, { defaultValue: rawPositionTitle });
 
   const studentMenu = [
     {

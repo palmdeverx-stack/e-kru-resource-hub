@@ -62,8 +62,6 @@ type PublicStats = {
 type PriceFilter = 'all' | 'free' | 'paid';
 type GradeGroup = 'all' | 'kindergarten' | 'primary' | 'secondary';
 
-const formatCount = (value: number) => new Intl.NumberFormat('th-TH').format(value);
-
 const normalizeGradeGroup = (value: string | null): GradeGroup => {
   if (value === 'kindergarten' || value === 'primary' || value === 'secondary') return value;
   return 'all';
@@ -85,30 +83,21 @@ const matchesGradeGroup = (product: MarketplaceProduct, gradeGroup: GradeGroup) 
 const gradeCollections = [
   {
     gradeGroup: 'kindergarten',
-    label: 'อนุบาล',
-    levels: 'อ.1 – อ.3',
-    title: 'เรียนรู้ผ่านการเล่น',
-    description: 'กิจกรรมสร้างสรรค์ แบบฝึกทักษะ และสื่อสีสันสดใสสำหรับเด็กเล็ก',
+    translationKey: 'kindergarten',
     icon: RiBearSmileLine,
     color: '#C2417A',
     background: 'linear-gradient(145deg, #FFF1F5 0%, #FDE7F0 100%)',
   },
   {
     gradeGroup: 'primary',
-    label: 'ประถมศึกษา',
-    levels: 'ป.1 – ป.6',
-    title: 'สร้างพื้นฐานให้แข็งแรง',
-    description: 'ใบงาน แผนการสอน และกิจกรรมที่ช่วยให้เข้าใจบทเรียนอย่างเป็นขั้นตอน',
+    translationKey: 'primary',
     icon: RiBookOpenLine,
     color: '#1565F5',
     background: 'linear-gradient(145deg, #EDF5FF 0%, #E2EEFF 100%)',
   },
   {
     gradeGroup: 'secondary',
-    label: 'มัธยมศึกษา',
-    levels: 'ม.1 – ม.6',
-    title: 'ต่อยอดความรู้และการคิดวิเคราะห์',
-    description: 'สื่อเนื้อหาเข้มข้น แบบทดสอบ และกิจกรรมเตรียมพร้อมสู่อนาคต',
+    translationKey: 'secondary',
     icon: RiSchoolLine,
     color: '#087F5B',
     background: 'linear-gradient(145deg, #EAFBF3 0%, #DDF6EA 100%)',
@@ -117,48 +106,42 @@ const gradeCollections = [
 
 const teachingGoals = [
   {
-    title: 'เตรียมแผนการสอน',
-    description: 'วางคาบเรียนได้เร็วขึ้นด้วยแผนพร้อมปรับใช้',
+    translationKey: 'lessonPlans',
     category: 'แผนการสอน',
     icon: RiFileList3Line,
     color: '#1565F5',
     background: '#EAF2FF',
   },
   {
-    title: 'ฝึกทักษะด้วยใบงาน',
-    description: 'เลือกแบบฝึกหัดพร้อมใช้สำหรับในห้องและการบ้าน',
+    translationKey: 'worksheets',
     category: 'ใบงาน',
     icon: RiTodoLine,
     color: '#16A36A',
     background: '#E9F8F0',
   },
   {
-    title: 'ทำห้องเรียนให้สนุก',
-    description: 'เติมเกม สไลด์ และกิจกรรมให้ผู้เรียนมีส่วนร่วม',
+    translationKey: 'supplementary',
     category: 'สื่อประกอบ',
     icon: RiGamepadLine,
     color: '#8B5CF6',
     background: '#F2EDFF',
   },
   {
-    title: 'วัดผลความเข้าใจ',
-    description: 'ค้นหาแบบทดสอบและเครื่องมือประเมินผล',
+    translationKey: 'quizzes',
     category: 'แบบทดสอบ',
     icon: RiQuestionLine,
     color: '#F59E0B',
     background: '#FFF5D9',
   },
   {
-    title: 'เรียนรู้แบบเป็นขั้นตอน',
-    description: 'ต่อยอดความรู้ด้วยคอร์สและบทเรียนที่จัดไว้แล้ว',
+    translationKey: 'courses',
     category: 'คอร์สเรียน',
     icon: RiPresentationLine,
     color: '#E64A78',
     background: '#FDECF2',
   },
   {
-    title: 'ค้นหาไอเดียใหม่',
-    description: 'เปิดดูสื่อทุกประเภทและเลือกสิ่งที่เหมาะกับชั้นเรียน',
+    translationKey: 'explore',
     category: 'all',
     icon: RiBookReadLine,
     color: '#0788A8',
@@ -166,8 +149,18 @@ const teachingGoals = [
   },
 ] as const;
 
+const categoryTranslationKeys: Record<string, string> = {
+  'แผนการสอน': 'lessonPlans',
+  'ใบงาน': 'worksheets',
+  'สื่อประกอบ': 'supplementary',
+  'แบบทดสอบ': 'quizzes',
+  'คอร์สเรียน': 'courses',
+};
+
 export function MarketplaceCatalogView() {
-  const { currentLang } = useTranslate();
+  const { t, currentLang } = useTranslate('marketplace');
+  const formatCount = (value: number) =>
+    new Intl.NumberFormat(currentLang.numberFormat.code).format(value);
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestedCategory = searchParams.get('category') || 'all';
@@ -217,7 +210,7 @@ export function MarketplaceCatalogView() {
 
     fetch('/api/marketplace/public-stats', { signal: controller.signal })
       .then(async (response) => {
-        if (!response.ok) throw new Error('โหลดสถิติไม่สำเร็จ');
+        if (!response.ok) throw new Error(t('errors.stats'));
         return response.json() as Promise<PublicStats>;
       })
       .then(setPublicStats)
@@ -230,7 +223,7 @@ export function MarketplaceCatalogView() {
       });
 
     return () => controller.abort();
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     getProducts({ page: 1, limit: 12 })
@@ -419,16 +412,16 @@ export function MarketplaceCatalogView() {
           <Grid container spacing={6} alignItems="center">
             <Grid size={{ xs: 12, md: 7 }}>
               <Stack spacing={3} alignItems={{ xs: 'center', md: 'flex-start' }}>
-                <Chip icon={<RiGraduationCapLine />} label="จากครู เพื่อการเรียนรู้ที่ดีขึ้น" />
+                <Chip icon={<RiGraduationCapLine />} label={t('catalog.hero.eyebrow')} />
                 <Typography
                   component="h1"
                   variant="h1"
                   sx={{ fontSize: { xs: 42, md: 68 }, textAlign: { xs: 'center', md: 'left' } }}
                 >
-                  สื่อการสอนดี ๆ
+                  {t('catalog.hero.title')}
                   <Box component="span" sx={{ color: 'primary.main' }}>
                     {' '}
-                    อยู่ที่นี่
+                    {t('catalog.hero.highlight')}
                   </Box>
                 </Typography>
                 <Typography
@@ -440,7 +433,7 @@ export function MarketplaceCatalogView() {
                     textAlign: { xs: 'center', md: 'left' },
                   }}
                 >
-                  ค้นหา ซื้อ และขายแผนการสอน ใบงาน แบบทดสอบ และสื่อคุณภาพจากชุมชนการศึกษา eKru
+                  {t('catalog.hero.description')}
                 </Typography>
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
                   <Button
@@ -449,7 +442,7 @@ export function MarketplaceCatalogView() {
                     href="#products"
                     startIcon={<RiBookOpenLine />}
                   >
-                    เลือกดูสื่อ
+                    {t('catalog.actions.browse')}
                   </Button>
                   <Button
                     size="large"
@@ -458,7 +451,7 @@ export function MarketplaceCatalogView() {
                     href={paths.marketplace.seller}
                     startIcon={<RiStore2Line />}
                   >
-                    เปิดร้านขายสื่อ
+                    {t('catalog.actions.openStore')}
                   </Button>
                 </Stack>
               </Stack>
@@ -475,10 +468,9 @@ export function MarketplaceCatalogView() {
               >
                 <Stack spacing={3}>
                   <RiShieldCheckLine size={48} />
-                  <Typography variant="h3">บัญชีเดียวกับ E-KRU</Typography>
+                  <Typography variant="h3">{t('catalog.account.title')}</Typography>
                   <Typography sx={{ color: 'rgba(255,255,255,0.76)' }}>
-                    ครูใช้บัญชีเดิมได้ทันที บุคคลทั่วไปสมัครใหม่ได้
-                    และทุกคนสามารถเปิดร้านขายผลงานของตัวเอง
+                    {t('catalog.account.description')}
                   </Typography>
                   <Stack direction="row" spacing={4}>
                     <Box>
@@ -495,7 +487,7 @@ export function MarketplaceCatalogView() {
                             : '—'}
                         </Typography>
                       )}
-                      <Typography variant="caption">ครูและสมาชิก</Typography>
+                      <Typography variant="caption">{t('catalog.account.members')}</Typography>
                     </Box>
                     <Box>
                       {publicStatsLoading ? (
@@ -509,7 +501,7 @@ export function MarketplaceCatalogView() {
                           {publicStats ? formatCount(publicStats.schools) : '—'}
                         </Typography>
                       )}
-                      <Typography variant="caption">โรงเรียนในระบบ</Typography>
+                      <Typography variant="caption">{t('catalog.account.schools')}</Typography>
                     </Box>
                   </Stack>
                 </Stack>
@@ -528,10 +520,10 @@ export function MarketplaceCatalogView() {
           <Stack spacing={{ xs: 3, md: 4 }}>
             <Box sx={{ maxWidth: 680 }}>
               <Typography id="teaching-goals-title" variant="h3">
-                วันนี้คุณกำลังเตรียมสอนอะไร?
+                {t('catalog.goals.heading')}
               </Typography>
               <Typography sx={{ mt: 1, color: 'text.secondary' }}>
-                เริ่มจากเป้าหมายของคาบเรียน แล้วให้เราช่วยพาไปยังสื่อที่ตรงกับงานของคุณ
+                {t('catalog.goals.description')}
               </Typography>
             </Box>
 
@@ -541,7 +533,7 @@ export function MarketplaceCatalogView() {
                 const active = category === goal.category;
 
                 return (
-                  <Grid key={goal.title} size={{ xs: 12, sm: 6, md: 4 }}>
+                  <Grid key={goal.translationKey} size={{ xs: 12, sm: 6, md: 4 }}>
                     <ButtonBase
                       aria-pressed={active}
                       onClick={() => {
@@ -600,13 +592,13 @@ export function MarketplaceCatalogView() {
                       </Box>
                       <Box>
                         <Typography variant="h6" sx={{ lineHeight: 1.35 }}>
-                          {goal.title}
+                          {t(`catalog.goals.items.${goal.translationKey}.title`)}
                         </Typography>
                         <Typography
                           variant="body2"
                           sx={{ mt: 0.75, color: 'text.secondary', lineHeight: 1.6 }}
                         >
-                          {goal.description}
+                          {t(`catalog.goals.items.${goal.translationKey}.description`)}
                         </Typography>
                       </Box>
                     </ButtonBase>
@@ -626,18 +618,23 @@ export function MarketplaceCatalogView() {
             spacing={1.5}
           >
             <Box sx={{ flexGrow: 1 }}>
-              <Typography variant="h3">เลือกดูผลิตภัณฑ์ของเรา</Typography>
+              <Typography variant="h3">{t('catalog.products.heading')}</Typography>
               <Typography sx={{ mt: 1, color: 'text.secondary' }}>
-                ค้นหาสื่อที่เหมาะกับห้องเรียนจากหมวดหมู่ Marketplace
+                {t('catalog.products.description')}
               </Typography>
             </Box>
             {gradeGroup !== 'all' && (
               <Chip
                 color="primary"
                 variant="soft"
-                label={`ระดับชั้น: ${
-                  gradeCollections.find((item) => item.gradeGroup === gradeGroup)?.label
-                }`}
+                label={t('catalog.filters.activeGrade', {
+                  grade: t(
+                    `catalog.grades.${
+                      gradeCollections.find((item) => item.gradeGroup === gradeGroup)
+                        ?.translationKey
+                    }.label`
+                  ),
+                })}
                 onDelete={() => handleGradeGroupChange('all')}
               />
             )}
@@ -647,7 +644,7 @@ export function MarketplaceCatalogView() {
             <TextField
               fullWidth
               value={search}
-              placeholder="ค้นหาสื่อ วิชา หรือระดับชั้น..."
+              placeholder={t('catalog.filters.searchPlaceholder')}
               onChange={(event) => {
                 requestVersionRef.current += 1;
                 setLoading(true);
@@ -677,7 +674,7 @@ export function MarketplaceCatalogView() {
               alignItems={{ xs: 'stretch', sm: 'center' }}
             >
               <Typography variant="subtitle2" sx={{ flexShrink: 0 }}>
-                ระดับชั้น
+                {t('catalog.filters.gradeLabel')}
               </Typography>
               <Box
                 sx={{
@@ -689,7 +686,7 @@ export function MarketplaceCatalogView() {
                 <Stack
                   direction="row"
                   spacing={0.5}
-                  aria-label="กรองตามระดับชั้น"
+                  aria-label={t('catalog.filters.gradeAria')}
                   sx={{
                     p: 0.5,
                     width: 'max-content',
@@ -699,10 +696,10 @@ export function MarketplaceCatalogView() {
                 >
                   {(
                     [
-                      ['all', 'ทุกระดับ'],
-                      ['kindergarten', 'อนุบาล'],
-                      ['primary', 'ประถม'],
-                      ['secondary', 'มัธยม'],
+                      ['all', 'all'],
+                      ['kindergarten', 'kindergarten'],
+                      ['primary', 'primary'],
+                      ['secondary', 'secondary'],
                     ] as const
                   ).map(([value, label]) => (
                     <Button
@@ -721,7 +718,7 @@ export function MarketplaceCatalogView() {
                         boxShadow: gradeGroup === value ? '0 5px 14px rgba(21,101,245,0.20)' : 0,
                       }}
                     >
-                      {label}
+                      {t(`catalog.filters.grades.${label}`)}
                     </Button>
                   ))}
                 </Stack>
@@ -736,7 +733,7 @@ export function MarketplaceCatalogView() {
             >
               <Box
                 component="nav"
-                aria-label="หมวดหมู่สื่อการสอน"
+                aria-label={t('catalog.filters.categoryAria')}
                 sx={{
                   width: 1,
                   overflowX: 'auto',
@@ -776,7 +773,11 @@ export function MarketplaceCatalogView() {
                           },
                         }}
                       >
-                        {item === 'all' ? 'ทั้งหมด' : item}
+                        {item === 'all'
+                          ? t('catalog.filters.allCategories')
+                          : categoryTranslationKeys[item]
+                            ? t(`catalog.categoryLabels.${categoryTranslationKeys[item]}`)
+                            : item}
                       </Button>
                     );
                   })}
@@ -788,7 +789,7 @@ export function MarketplaceCatalogView() {
                   direction="row"
                   spacing={0.5}
                   alignItems="center"
-                  aria-label="กรองตามราคา"
+                  aria-label={t('catalog.filters.priceAria')}
                   sx={{
                     p: 0.5,
                     borderRadius: 2.5,
@@ -797,9 +798,9 @@ export function MarketplaceCatalogView() {
                 >
                   {(
                     [
-                      ['all', 'ทุกราคา'],
-                      ['free', 'ฟรี 0 บาท'],
-                      ['paid', 'มีค่าใช้จ่าย'],
+                      ['all', 'all'],
+                      ['free', 'free'],
+                      ['paid', 'paid'],
                     ] as const
                   ).map(([value, label]) => (
                     <Button
@@ -823,7 +824,7 @@ export function MarketplaceCatalogView() {
                         boxShadow: priceFilter === value ? '0 5px 14px rgba(21,101,245,0.20)' : 0,
                       }}
                     >
-                      {label}
+                      {t(`catalog.filters.prices.${label}`)}
                     </Button>
                   ))}
                 </Stack>
@@ -831,7 +832,7 @@ export function MarketplaceCatalogView() {
                 <Select
                   size="small"
                   value={sort}
-                  aria-label="เรียงลำดับสินค้า"
+                  aria-label={t('catalog.filters.sortAria')}
                   onChange={(event) => setSort(String(event.target.value))}
                   sx={{
                     minWidth: { xs: 1, sm: 160 },
@@ -840,10 +841,10 @@ export function MarketplaceCatalogView() {
                     bgcolor: 'background.paper',
                   }}
                 >
-                  <MenuItem value="popular">ความนิยม</MenuItem>
-                  <MenuItem value="latest">ใหม่ล่าสุด</MenuItem>
-                  <MenuItem value="rating">คะแนนรีวิว</MenuItem>
-                  <MenuItem value="price-low">ราคาต่ำสุด</MenuItem>
+                  <MenuItem value="popular">{t('catalog.filters.sort.popular')}</MenuItem>
+                  <MenuItem value="latest">{t('catalog.filters.sort.latest')}</MenuItem>
+                  <MenuItem value="rating">{t('catalog.filters.sort.rating')}</MenuItem>
+                  <MenuItem value="price-low">{t('catalog.filters.sort.priceLow')}</MenuItem>
                 </Select>
               </Stack>
             </Stack>
@@ -900,7 +901,7 @@ export function MarketplaceCatalogView() {
                 <Stack direction="row" spacing={1.25} justifyContent="center" sx={{ py: 4 }}>
                   <CircularProgress size={22} />
                   <Typography variant="body2" color="text.secondary">
-                    กำลังโหลดสินค้าเพิ่ม...
+                    {t('catalog.states.loadingMore')}
                   </Typography>
                 </Stack>
               )}
@@ -909,19 +910,24 @@ export function MarketplaceCatalogView() {
             <Box sx={{ py: 10, textAlign: 'center' }}>
               <Typography variant="h5">
                 {gradeGroup === 'all'
-                  ? 'ไม่พบสื่อที่ค้นหา'
-                  : `ยังไม่มีสื่อสำหรับระดับ${
-                      gradeCollections.find((item) => item.gradeGroup === gradeGroup)?.label
-                    }`}
+                  ? t('catalog.states.noResults')
+                  : t('catalog.states.noGradeResults', {
+                      grade: t(
+                        `catalog.grades.${
+                          gradeCollections.find((item) => item.gradeGroup === gradeGroup)
+                            ?.translationKey
+                        }.label`
+                      ),
+                    })}
               </Typography>
               <Typography color="text.secondary" sx={{ mt: 0.75 }}>
                 {gradeGroup === 'all'
-                  ? 'ลองเปลี่ยนคำค้นหรือเลือกหมวดหมู่อื่น'
-                  : 'ลองเลือกทุกระดับชั้น หรือล้างตัวกรองอื่นเพื่อดูสื่อเพิ่มเติม'}
+                  ? t('catalog.states.noResultsHint')
+                  : t('catalog.states.noGradeResultsHint')}
               </Typography>
               {gradeGroup !== 'all' && (
                 <Button sx={{ mt: 2 }} onClick={() => handleGradeGroupChange('all')}>
-                  ดูสื่อทุกระดับชั้น
+                  {t('catalog.actions.allGrades')}
                 </Button>
               )}
             </Box>
@@ -980,11 +986,11 @@ export function MarketplaceCatalogView() {
               <Box>
                 <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
                   <Typography id="new-products-title" variant="h3">
-                    มีอะไรใหม่ใน E-KRU Marketplace
+                    {t('catalog.newProducts.heading')}
                   </Typography>
                 </Stack>
                 <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-                  สื่อการสอนและผลิตภัณฑ์ล่าสุดจากผู้ขายในชุมชน
+                  {t('catalog.newProducts.description')}
                 </Typography>
               </Box>
             </Stack>
@@ -992,7 +998,7 @@ export function MarketplaceCatalogView() {
             {newProducts.length > 1 && (
               <Stack direction="row" spacing={1}>
                 <IconButton
-                  aria-label="ดูสินค้าก่อนหน้า"
+                  aria-label={t('catalog.newProducts.previous')}
                   onClick={() => scrollNewProducts(-1)}
                   sx={{
                     bgcolor: 'common.white',
@@ -1004,7 +1010,7 @@ export function MarketplaceCatalogView() {
                   <RiArrowLeftSLine />
                 </IconButton>
                 <IconButton
-                  aria-label="ดูสินค้าถัดไป"
+                  aria-label={t('catalog.newProducts.next')}
                   onClick={() => scrollNewProducts(1)}
                   sx={{
                     color: 'common.white',
@@ -1087,10 +1093,10 @@ export function MarketplaceCatalogView() {
                 <RiBookOpenLine size={30} />
               </Box>
               <Typography variant="h6" sx={{ mt: 2 }}>
-                ยังไม่มีสินค้าใหม่ในขณะนี้
+                {t('catalog.newProducts.emptyTitle')}
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                เมื่อผู้ขายเพิ่มสินค้าใหม่ รายการจะแสดงที่ส่วนนี้
+                {t('catalog.newProducts.emptyDescription')}
               </Typography>
             </Box>
           )}
@@ -1113,10 +1119,10 @@ export function MarketplaceCatalogView() {
             >
               <Box sx={{ maxWidth: 680 }}>
                 <Typography id="grade-collections-title" variant="h3">
-                  คอลเลกชันตามระดับชั้น
+                  {t('catalog.gradeCollections.heading')}
                 </Typography>
                 <Typography sx={{ mt: 1, color: 'text.secondary' }}>
-                  เลือกช่วงชั้นของผู้เรียน เพื่อค้นหาสื่อที่เหมาะกับวัยและระดับความรู้
+                  {t('catalog.gradeCollections.description')}
                 </Typography>
               </Box>
               {gradeGroup !== 'all' && (
@@ -1125,7 +1131,7 @@ export function MarketplaceCatalogView() {
                   endIcon={<RiArrowRightLine />}
                   onClick={() => handleGradeGroupChange('all')}
                 >
-                  ดูทุกระดับชั้น
+                  {t('catalog.actions.allGrades')}
                 </Button>
               )}
             </Stack>
@@ -1211,7 +1217,7 @@ export function MarketplaceCatalogView() {
                         </Box>
                         <Chip
                           size="small"
-                          label={collection.levels}
+                          label={t(`catalog.grades.${collection.translationKey}.levels`)}
                           sx={{
                             color: collection.color,
                             fontWeight: 700,
@@ -1222,16 +1228,16 @@ export function MarketplaceCatalogView() {
 
                       <Box sx={{ mt: 3, position: 'relative', zIndex: 1 }}>
                         <Typography variant="overline" sx={{ color: collection.color }}>
-                          {collection.label}
+                          {t(`catalog.grades.${collection.translationKey}.label`)}
                         </Typography>
                         <Typography variant="h5" sx={{ mt: 0.5 }}>
-                          {collection.title}
+                          {t(`catalog.grades.${collection.translationKey}.title`)}
                         </Typography>
                         <Typography
                           variant="body2"
                           sx={{ mt: 1.25, maxWidth: 330, color: 'text.secondary', lineHeight: 1.7 }}
                         >
-                          {collection.description}
+                          {t(`catalog.grades.${collection.translationKey}.description`)}
                         </Typography>
                       </Box>
 
@@ -1247,7 +1253,7 @@ export function MarketplaceCatalogView() {
                           zIndex: 1,
                         }}
                       >
-                        <Typography variant="subtitle2">เลือกดูสื่อ</Typography>
+                        <Typography variant="subtitle2">{t('catalog.actions.browse')}</Typography>
                         <RiArrowRightLine size={18} />
                       </Stack>
                     </ButtonBase>

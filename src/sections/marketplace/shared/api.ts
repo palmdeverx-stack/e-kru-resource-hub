@@ -443,6 +443,7 @@ export function formatPrice(value: number, currency = 'THB', locale = 'th-TH') {
   return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency,
+    currencyDisplay: 'narrowSymbol',
     maximumFractionDigits: 0,
   }).format(value);
 }

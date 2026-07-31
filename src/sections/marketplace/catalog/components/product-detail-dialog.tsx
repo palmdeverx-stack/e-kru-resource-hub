@@ -10,6 +10,8 @@ import { useTheme } from '@mui/material/styles';
 import IconButton from '@mui/material/IconButton';
 import useMediaQuery from '@mui/material/useMediaQuery';
 
+import { useTranslate } from 'src/locales';
+
 import { RiCloseLine } from 'src/components/remix-icon';
 
 import { MarketplaceProductDetailView } from '../view/product-detail-view';
@@ -22,6 +24,7 @@ export function MarketplaceProductDetailDialog({
   onClose: () => void;
 }) {
   const theme = useTheme();
+  const { t } = useTranslate('marketplace');
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [activeProduct, setActiveProduct] = useState<MarketplaceProduct | null>(product);
@@ -44,7 +47,11 @@ export function MarketplaceProductDetailDialog({
       fullScreen={isMobile}
       fullWidth
       maxWidth={false}
-      aria-label={activeProduct ? `รายละเอียดสินค้า ${activeProduct.title}` : 'รายละเอียดสินค้า'}
+      aria-label={
+        activeProduct
+          ? t('catalog.productDialog.titleWithProduct', { title: activeProduct.title })
+          : t('catalog.productDialog.title')
+      }
       sx={{
         overscrollBehavior: 'none',
         '& .MuiDialog-container': { overflow: 'hidden' },
@@ -73,7 +80,7 @@ export function MarketplaceProductDetailDialog({
       }}
     >
       <IconButton
-        aria-label="ปิดรายละเอียดสินค้า"
+        aria-label={t('catalog.productDialog.close')}
         onClick={onClose}
         sx={{
           top: { xs: 'max(12px, env(safe-area-inset-top))', sm: 40 },

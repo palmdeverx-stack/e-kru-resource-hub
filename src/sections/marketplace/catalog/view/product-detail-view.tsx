@@ -110,7 +110,7 @@ export function MarketplaceProductDetailView({
   modalMode?: boolean;
   onSelectProduct?: (product: MarketplaceProduct) => void;
 }) {
-  const { currentLang } = useTranslate();
+  const { t, currentLang } = useTranslate('marketplace');
   const router = useRouter();
   const pathname = usePathname();
   const { authenticated } = useAuthContext();
@@ -288,14 +288,14 @@ export function MarketplaceProductDetailView({
   if (!product) {
     return (
       <Container maxWidth="md" sx={{ py: 10 }}>
-        <Alert severity="warning">ไม่พบสินค้านี้ หรือสินค้าถูกนำออกจาก Marketplace</Alert>
+        <Alert severity="warning">{t('productDetail.notFound')}</Alert>
         <Button
           component={RouterLink}
           href="/products"
           startIcon={<RiArrowLeftLine />}
           sx={{ mt: 3 }}
         >
-          กลับไปเลือกสินค้า
+          {t('productDetail.actions.backToProducts')}
         </Button>
       </Container>
     );
@@ -319,27 +319,27 @@ export function MarketplaceProductDetailView({
   const productHighlights = [
     {
       icon: <RiDownloadCloud2Line />,
-      label: 'รูปแบบ',
+      label: t('productDetail.highlights.format'),
       value: product.media_type?.name?.trim() ?? '',
     },
     {
       icon: <RiGraduationCapLine />,
-      label: 'ระดับชั้น',
+      label: t('productDetail.highlights.grade'),
       value: gradeLevelHighlight,
     },
     {
       icon: <RiBook2Line />,
-      label: 'รายวิชา',
+      label: t('productDetail.highlights.subject'),
       value: product.subject_label?.trim() ?? '',
     },
     {
       icon: <RiFileLine />,
-      label: 'หลักสูตร',
+      label: t('productDetail.highlights.curriculum'),
       value: product.curriculum?.name?.trim() ?? '',
     },
     {
       icon: <RiPriceTag3Line />,
-      label: 'แท็ก',
+      label: t('productDetail.highlights.tags'),
       value: tagHighlight,
     },
   ].filter((item) => Boolean(item.value));
@@ -347,14 +347,18 @@ export function MarketplaceProductDetailView({
     product.resource_type === 'feature_unlock' && product.license_scope
       ? {
           icon: <RiShieldCheckLine />,
-          label: 'สิทธิ์การใช้งาน',
+          label: t('productDetail.highlights.license'),
           value: `${
             product.license_scope === 'individual'
-              ? 'License บุคคล'
+              ? t('productDetail.license.individualShort')
               : product.license_scope === 'teacher'
-                ? 'License รายครู'
-                : 'License โรงเรียน'
-          }${product.grant_duration_days ? ` · ${product.grant_duration_days} วัน` : ''}`,
+                ? t('productDetail.license.teacherShort')
+                : t('productDetail.license.schoolShort')
+          }${
+            product.grant_duration_days
+              ? ` · ${t('productDetail.license.days', { count: product.grant_duration_days })}`
+              : ''
+          }`,
         }
       : null;
   const modalProductHighlights = licenseHighlight
@@ -388,7 +392,7 @@ export function MarketplaceProductDetailView({
 
   const handleReviewSubmit = async () => {
     if (!reviewRating) {
-      setReviewError('กรุณาเลือกคะแนนดาว');
+      setReviewError(t('productDetail.review.errors.ratingRequired'));
       return;
     }
     setReviewSaving(true);
@@ -410,7 +414,9 @@ export function MarketplaceProductDetailView({
       setReviewEditing(false);
       setReviewSaved(result.message);
     } catch (error) {
-      setReviewError(error instanceof Error ? error.message : 'ไม่สามารถบันทึกรีวิวได้');
+      setReviewError(
+        error instanceof Error ? error.message : t('productDetail.review.errors.save')
+      );
     } finally {
       setReviewSaving(false);
     }
@@ -444,7 +450,7 @@ export function MarketplaceProductDetailView({
         file.size <= 5 * 1024 * 1024
     );
     if (next.length !== selected.length) {
-      setReviewError('รองรับเฉพาะ JPG, PNG, WEBP ขนาดไม่เกิน 5 MB ต่อรูป');
+      setReviewError(t('productDetail.review.errors.image'));
     }
     const remaining = Math.max(0, 3 - keptReviewImageIds.length - reviewImages.length);
     setReviewImages((current) => [...current, ...next.slice(0, remaining)]);
@@ -453,7 +459,7 @@ export function MarketplaceProductDetailView({
   const handleReplySubmit = async (review: MarketplaceProductReview) => {
     const comment = (replyDrafts[review.id] ?? review.reply?.comment ?? '').trim();
     if (!comment) {
-      setReplyError('กรุณากรอกข้อความตอบกลับ');
+      setReplyError(t('productDetail.review.errors.replyRequired'));
       setReplyErrorId(review.id);
       return;
     }
@@ -465,7 +471,9 @@ export function MarketplaceProductDetailView({
       setProduct((current) => (current ? { ...current, engagement: result.engagement } : current));
       setReplyDrafts((current) => ({ ...current, [review.id]: comment }));
     } catch (error) {
-      setReplyError(error instanceof Error ? error.message : 'ตอบกลับรีวิวไม่สำเร็จ');
+      setReplyError(
+        error instanceof Error ? error.message : t('productDetail.review.errors.reply')
+      );
       setReplyErrorId(review.id);
     } finally {
       setReplySavingId('');
@@ -479,12 +487,14 @@ export function MarketplaceProductDetailView({
       const { files } = await getProductPreviewFiles(product.id);
       const preview = files.find((file) => file.url);
       if (!preview?.url) {
-        setPreviewError('สินค้านี้ยังไม่มีไฟล์ตัวอย่าง');
+        setPreviewError(t('productDetail.preview.noFile'));
         return;
       }
       window.open(preview.url, '_blank', 'noopener,noreferrer');
     } catch (error) {
-      setPreviewError(error instanceof Error ? error.message : 'ไม่สามารถเปิดตัวอย่างได้');
+      setPreviewError(
+        error instanceof Error ? error.message : t('productDetail.preview.openError')
+      );
     } finally {
       setPreviewLoading(false);
     }
@@ -516,17 +526,19 @@ export function MarketplaceProductDetailView({
     purchaseUnavailable &&
     purchaseAccess?.accessExpiresAt;
   const addButtonLabel = activeSubscription
-    ? `ใช้งานถึง ${new Intl.DateTimeFormat('th-TH', {
+    ? t('productDetail.purchase.activeUntil', {
+        date: new Intl.DateTimeFormat(currentLang.numberFormat.code, {
         dateStyle: 'medium',
         timeZone: 'Asia/Bangkok',
-      }).format(new Date(activeSubscription))}`
+        }).format(new Date(activeSubscription)),
+      })
     : purchaseUnavailable
       ? purchaseAccess?.hasPurchased
-        ? 'ซื้อสินค้านี้แล้ว'
-        : 'ไม่สามารถซื้อด้วยบัญชีนี้'
+        ? t('productDetail.purchase.purchased')
+        : t('productDetail.purchase.unavailable')
       : isInCart
-        ? 'อยู่ในตะกร้าแล้ว'
-        : 'เพิ่มลงตะกร้า';
+        ? t('productDetail.purchase.inCart')
+        : t('productDetail.purchase.addToCart');
   const sellerProductIds = new Set(sellerProducts.map((item) => item.id));
   const visibleRelatedProducts = relatedProducts
     .filter((item) => !sellerProductIds.has(item.id))
@@ -595,7 +607,7 @@ export function MarketplaceProductDetailView({
         <Stack spacing={{ xs: 3, md: 4 }}>
           {product.status === 'archived' && (
             <Alert severity="info">
-              สินค้านี้หยุดเปิดขายแล้ว แต่คุณยังเปิดดูและดาวน์โหลดสินค้าที่ซื้อไว้ได้ตามเดิม
+              {t('productDetail.archivedNotice')}
             </Alert>
           )}
           <Typography
@@ -641,8 +653,11 @@ export function MarketplaceProductDetailView({
                     sx={{ whiteSpace: 'nowrap' }}
                   >
                     {engagement.reviewCount
-                      ? `${engagement.averageRating.toFixed(1)} · ${engagement.reviewCount} รีวิว`
-                      : 'สินค้าใหม่'}
+                      ? t('productDetail.review.ratingSummary', {
+                          rating: engagement.averageRating.toFixed(1),
+                          count: engagement.reviewCount,
+                        })
+                      : t('productCard.new')}
                   </Typography>
                 </Stack>
               </Box>
@@ -655,7 +670,11 @@ export function MarketplaceProductDetailView({
               sx={{ width: { xs: 1, md: 'auto' }, minWidth: 0 }}
             >
               <IconButton
-                aria-label={favorite ? 'เลิกถูกใจสินค้า' : 'ถูกใจสินค้า'}
+                aria-label={
+                  favorite
+                    ? t('productDetail.actions.unfavorite')
+                    : t('productDetail.actions.favorite')
+                }
                 disabled={collectionSaving}
                 onClick={() => handleCollectionChange('favorite', favorite)}
                 sx={{
@@ -667,7 +686,9 @@ export function MarketplaceProductDetailView({
                 {favorite ? <RiHeartFill /> : <RiHeartLine />}
               </IconButton>
               <IconButton
-                aria-label={saved ? 'นำออกจากรายการที่บันทึก' : 'บันทึกสินค้า'}
+                aria-label={
+                  saved ? t('productDetail.actions.unsave') : t('productDetail.actions.save')
+                }
                 disabled={collectionSaving}
                 onClick={() => handleCollectionChange('bookmark', saved)}
                 sx={{
@@ -679,7 +700,7 @@ export function MarketplaceProductDetailView({
                 {saved ? <RiBookmarkFill /> : <RiBookmarkLine />}
               </IconButton>
               <IconButton
-                aria-label="แชร์สินค้า"
+                aria-label={t('productDetail.share.title')}
                 aria-haspopup="dialog"
                 aria-expanded={Boolean(shareAnchorEl)}
                 onClick={(event) => setShareAnchorEl(event.currentTarget)}
@@ -707,7 +728,7 @@ export function MarketplaceProductDetailView({
                 }}
               >
                 <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
-                  แชร์สินค้า
+                  {t('productDetail.share.title')}
                 </Typography>
                 <Stack direction="row" spacing={2}>
                   {[
@@ -718,7 +739,7 @@ export function MarketplaceProductDetailView({
                           url={shareUrl}
                           title={content.title}
                           disabled={!shareUrl}
-                          aria-label="แชร์สินค้าผ่าน LINE"
+                          aria-label={t('productDetail.share.line')}
                         >
                           <LineIcon size={40} round aria-hidden="true" />
                         </LineShareButton>
@@ -731,7 +752,7 @@ export function MarketplaceProductDetailView({
                           type="button"
                           disabled={!shareUrl}
                           onClick={handleFacebookShare}
-                          aria-label="แชร์สินค้าผ่าน Facebook"
+                          aria-label={t('productDetail.share.facebook')}
                           sx={{ p: 0 }}
                         >
                           <FacebookIcon size={40} round aria-hidden="true" />
@@ -739,14 +760,14 @@ export function MarketplaceProductDetailView({
                       ),
                     },
                     {
-                      label: 'อีเมล',
+                      label: t('productDetail.share.emailLabel'),
                       button: (
                         <EmailShareButton
                           url={shareUrl}
                           subject={content.title}
-                          body={`ดูสินค้า ${content.title} บน E-KRU Marketplace`}
+                          body={t('productDetail.share.emailBody', { title: content.title })}
                           disabled={!shareUrl}
-                          aria-label="แชร์สินค้าทางอีเมล"
+                          aria-label={t('productDetail.share.email')}
                         >
                           <EmailIcon size={40} round aria-hidden="true" />
                         </EmailShareButton>
@@ -823,7 +844,7 @@ export function MarketplaceProductDetailView({
             ) : (
               <Stack spacing={2} alignItems="center" color="primary.main">
                 <RiBookOpenLine size={110} />
-                <Typography variant="h4">ตัวอย่างสื่อการสอน</Typography>
+                <Typography variant="h4">{t('productDetail.preview.placeholder')}</Typography>
               </Stack>
             )}
           </Box>
@@ -865,13 +886,16 @@ export function MarketplaceProductDetailView({
               <Stack spacing={2.5}>
                 <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                   <Chip label={product.category} color="primary" variant="soft" />
-                  <Chip label={product.media_type?.name ?? 'สื่อการสอน'} variant="outlined" />
+                  <Chip
+                    label={product.media_type?.name ?? t('productDetail.resource.teachingResource')}
+                    variant="outlined"
+                  />
                   {product.subject_label && (
                     <Chip label={product.subject_label} variant="outlined" />
                   )}
                 </Stack>
                 <Box>
-                  <Typography variant="h4">เกี่ยวกับสินค้านี้</Typography>
+                  <Typography variant="h4">{t('productDetail.about')}</Typography>
                   <Typography
                     color="text.secondary"
                     sx={{
@@ -895,7 +919,7 @@ export function MarketplaceProductDetailView({
                     }}
                   >
                     <Typography variant="h5" sx={{ mb: 1.5 }}>
-                      สิ่งที่คุณจะได้รับหลังชำระเงินสำเร็จ
+                      {t('productDetail.purchaseBenefits')}
                     </Typography>
                     <Stack spacing={1.25}>
                       {purchaseBenefits.map((benefit, index) => (
@@ -922,14 +946,19 @@ export function MarketplaceProductDetailView({
             <Grid size={{ xs: 12, md: 4 }}>
               <Card variant="outlined" sx={{ p: 3, borderRadius: 3 }}>
                 <Typography variant="caption" color="text.secondary">
-                  ราคา
+                  {t('productCard.price')}
                 </Typography>
                 <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
                   <Typography variant="h3" color="primary.main" sx={{ mt: 0.5 }}>
                     {formatPrice(pricing.salePrice, product.currency)}
                   </Typography>
                   {pricing.hasDiscount && (
-                    <Chip color="error" label={`ลด ${pricing.discountPercent}%`} />
+                    <Chip
+                      color="error"
+                      label={t('productDetail.pricing.discount', {
+                        percent: pricing.discountPercent,
+                      })}
+                    />
                   )}
                 </Stack>
                 {pricing.hasDiscount && (
@@ -937,24 +966,26 @@ export function MarketplaceProductDetailView({
                     color="text.disabled"
                     sx={{ mt: 0.25, textDecoration: 'line-through' }}
                   >
-                    ราคาเต็ม {formatPrice(pricing.listPrice, product.currency)}
+                    {t('productDetail.pricing.listPrice', {
+                      price: formatPrice(pricing.listPrice, product.currency),
+                    })}
                   </Typography>
                 )}
                 <Stack direction="row" spacing={2.5} sx={{ my: 2.5 }}>
                   <Box>
                     <Typography variant="subtitle1">
-                      {engagement.views.toLocaleString('th-TH')}
+                      {engagement.views.toLocaleString(currentLang.numberFormat.code)}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      ผู้เข้าชม
+                      {t('productDetail.stats.visitors')}
                     </Typography>
                   </Box>
                   <Box>
                     <Typography variant="subtitle1">
-                      {engagement.purchases.toLocaleString('th-TH')}
+                      {engagement.purchases.toLocaleString(currentLang.numberFormat.code)}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      ยอดซื้อ
+                      {t('productDetail.stats.purchases')}
                     </Typography>
                   </Box>
                 </Stack>
@@ -974,7 +1005,7 @@ export function MarketplaceProductDetailView({
                   color="inherit"
                   sx={{ mt: 1 }}
                 >
-                  ไปที่ตะกร้า
+                  {t('productDetail.actions.goToCart')}
                 </Button>
               </Card>
             </Grid>
@@ -986,7 +1017,7 @@ export function MarketplaceProductDetailView({
             <>
               <Box component="section" aria-labelledby="product-highlights-title">
                 <Typography id="product-highlights-title" variant="h4" sx={{ mb: 2.5 }}>
-                  Highlights สินค้า
+                  {t('productDetail.highlights.title')}
                 </Typography>
                 <Grid container spacing={2}>
                   {modalProductHighlights.map((highlight) => (
@@ -1028,7 +1059,7 @@ export function MarketplaceProductDetailView({
 
           <Box component="section" aria-labelledby="product-reviews-title">
             <Typography id="product-reviews-title" variant="h4" sx={{ mb: 2.5 }}>
-              คะแนนและรีวิว
+              {t('productDetail.review.title')}
             </Typography>
 
             <Grid container spacing={{ xs: 3, md: 4 }}>
@@ -1046,7 +1077,12 @@ export function MarketplaceProductDetailView({
                         readOnly
                       />
                       <Typography color="text.secondary">
-                        จาก {engagement.reviewCount.toLocaleString('th-TH')} รีวิว
+                        {t('productDetail.review.fromReviews', {
+                          count: engagement.reviewCount,
+                          formattedCount: engagement.reviewCount.toLocaleString(
+                            currentLang.numberFormat.code
+                          ),
+                        })}
                       </Typography>
                     </Stack>
 
@@ -1070,9 +1106,11 @@ export function MarketplaceProductDetailView({
                               alignItems="center"
                               spacing={1}
                             >
-                              <Typography variant="h6">รีวิวของคุณ</Typography>
+                              <Typography variant="h6">
+                                {t('productDetail.review.yourReview')}
+                              </Typography>
                               <Button size="small" variant="outlined" onClick={handleEditReview}>
-                                แก้ไขรีวิว
+                                {t('productDetail.review.edit')}
                               </Button>
                             </Stack>
                             <Rating value={engagement.myReview.rating} readOnly />
@@ -1082,16 +1120,17 @@ export function MarketplaceProductDetailView({
                               }
                               sx={{ whiteSpace: 'pre-line' }}
                             >
-                              {engagement.myReview.comment || 'ไม่ได้เขียนข้อความรีวิว'}
+                              {engagement.myReview.comment || t('productDetail.review.noComment')}
                             </Typography>
                             <ReviewImages images={engagement.myReview.images} />
                             <Typography variant="caption" color="text.secondary">
-                              แก้ไขล่าสุด{' '}
-                              {new Intl.DateTimeFormat('th-TH', {
+                              {t('productDetail.review.lastEdited', {
+                                date: new Intl.DateTimeFormat(currentLang.numberFormat.code, {
                                 dateStyle: 'medium',
                                 timeStyle: 'short',
                                 timeZone: 'Asia/Bangkok',
-                              }).format(new Date(engagement.myReview.updated_at))}
+                                }).format(new Date(engagement.myReview.updated_at)),
+                              })}
                             </Typography>
                             {reviewSaved && <Alert severity="success">{reviewSaved}</Alert>}
                           </Stack>
@@ -1099,10 +1138,12 @@ export function MarketplaceProductDetailView({
                       ) : (
                         <>
                           <Typography variant="h6">
-                            {engagement.myReview ? 'แก้ไขรีวิวของคุณ' : 'ให้คะแนนสินค้านี้'}
+                            {engagement.myReview
+                              ? t('productDetail.review.editYours')
+                              : t('productDetail.review.rateProduct')}
                           </Typography>
                           <Typography variant="body2" color="text.secondary">
-                            เลือกคะแนนและแก้ไขข้อความด้านล่าง แล้วกดบันทึกการเปลี่ยนแปลง
+                            {t('productDetail.review.formDescription')}
                           </Typography>
                           <Rating
                             size="large"
@@ -1114,10 +1155,12 @@ export function MarketplaceProductDetailView({
                             multiline
                             minRows={5}
                             value={reviewComment}
-                            label="ข้อความรีวิว"
-                            placeholder="เล่าประสบการณ์หลังนำสื่อนี้ไปใช้งาน..."
+                            label={t('productDetail.review.commentLabel')}
+                            placeholder={t('productDetail.review.commentPlaceholder')}
                             inputProps={{ maxLength: 1000 }}
-                            helperText={`${reviewComment.length}/1,000 ตัวอักษร`}
+                            helperText={t('productDetail.review.characterCount', {
+                              count: reviewComment.length,
+                            })}
                             onChange={(event) => setReviewComment(event.target.value)}
                           />
                           <ReviewImageEditor
@@ -1147,10 +1190,10 @@ export function MarketplaceProductDetailView({
                               onClick={handleReviewSubmit}
                             >
                               {reviewSaving
-                                ? 'กำลังบันทึก...'
+                                ? t('productDetail.review.saving')
                                 : engagement.myReview
-                                  ? 'บันทึกการแก้ไข'
-                                  : 'เผยแพร่รีวิว'}
+                                  ? t('productDetail.review.saveChanges')
+                                  : t('productDetail.review.publish')}
                             </Button>
                             {engagement.myReview && (
                               <Button
@@ -1159,7 +1202,7 @@ export function MarketplaceProductDetailView({
                                 disabled={reviewSaving}
                                 onClick={handleCancelReviewEdit}
                               >
-                                ยกเลิก
+                                {t('productDetail.actions.cancel')}
                               </Button>
                             )}
                           </Stack>
@@ -1167,7 +1210,7 @@ export function MarketplaceProductDetailView({
                       )
                     ) : (
                       <Alert severity="info">
-                        ผู้ซื้อที่ชำระเงินสำเร็จแล้วสามารถให้ดาวและเขียนรีวิวได้
+                        {t('productDetail.review.buyersOnly')}
                       </Alert>
                     )}
                   </Stack>
@@ -1205,10 +1248,10 @@ export function MarketplaceProductDetailView({
                       <Box>
                         <RiStarLine size={42} />
                         <Typography variant="h6" sx={{ mt: 1 }}>
-                          ยังไม่มีรีวิว
+                          {t('productCard.noReviews')}
                         </Typography>
                         <Typography color="text.secondary">
-                          เป็นคนแรกที่รีวิวสินค้านี้ได้หลังการซื้อ
+                          {t('productDetail.review.beFirst')}
                         </Typography>
                       </Box>
                     </Card>
@@ -1233,7 +1276,7 @@ export function MarketplaceProductDetailView({
               <Box id="seller-showcase-title">{sellerName('h4')}</Box>
               <Typography color="text.secondary" sx={{ maxWidth: 620 }}>
                 {product.seller?.bio ||
-                  'ร้านค้าสื่อการสอนคุณภาพที่ผ่านการตรวจสอบโดย E-KRU Marketplace'}
+                  t('productDetail.seller.defaultBio')}
               </Typography>
               {!!storeHref && (
                 <Button
@@ -1243,7 +1286,7 @@ export function MarketplaceProductDetailView({
                   variant="contained"
                   sx={{ mt: 1, px: 3, borderRadius: 6 }}
                 >
-                  ดูโปรไฟล์ร้าน
+                  {t('productDetail.seller.viewProfile')}
                 </Button>
               )}
             </Stack>
@@ -1256,12 +1299,12 @@ export function MarketplaceProductDetailView({
               sx={{ mt: { xs: 5, md: 7 }, mb: 2.5 }}
             >
               <Stack direction="column">
-                <Typography variant="h5">สินค้าอื่นจาก</Typography>
+                <Typography variant="h5">{t('productDetail.seller.moreFrom')}</Typography>
                 <MarketplaceSellerLink
                   seller={product.seller}
                   showAvatar={false}
                   nameVariant="h5"
-                  fallbackName="ร้านนี้"
+                  fallbackName={t('productDetail.seller.thisStore')}
                 />
               </Stack>
               {!!storeHref && (
@@ -1271,7 +1314,7 @@ export function MarketplaceProductDetailView({
                   color="inherit"
                   sx={{ flexShrink: 0 }}
                 >
-                  ดูสินค้าทั้งหมด
+                  {t('productDetail.seller.viewAll')}
                 </Button>
               )}
             </Stack>
@@ -1364,7 +1407,9 @@ export function MarketplaceProductDetailView({
                   bgcolor: 'background.neutral',
                 }}
               >
-                <Typography color="text.secondary">ยังไม่มีสินค้าอื่นจากร้านนี้</Typography>
+                <Typography color="text.secondary">
+                  {t('productDetail.seller.noMoreProducts')}
+                </Typography>
               </Box>
             )}
           </Box>
@@ -1375,10 +1420,10 @@ export function MarketplaceProductDetailView({
             sx={{ pt: { xs: 4, md: 6 }, borderTop: '1px solid', borderColor: 'divider' }}
           >
             <Typography id="related-products-modal-title" variant="h4">
-              สินค้าใกล้เคียงใน E-KRU Marketplace
+              {t('productDetail.related.title')}
             </Typography>
             <Typography color="text.secondary" sx={{ mt: 0.75, mb: 3 }}>
-              คัดจากหมวดหมู่ แท็ก วิชา ระดับชั้น หลักสูตร ประเภทสื่อ ราคา และความสนใจของคุณ
+              {t('productDetail.related.description')}
             </Typography>
 
             {relatedProductsLoading ? (
@@ -1475,7 +1520,7 @@ export function MarketplaceProductDetailView({
                             seller={relatedProduct.seller}
                             showAvatar={false}
                             nameVariant="caption"
-                            fallbackName="ร้านค้า E-KRU"
+                            fallbackName={t('productDetail.seller.fallback')}
                             nameSx={{ color: 'text.secondary' }}
                           />
                         </Stack>
@@ -1494,7 +1539,7 @@ export function MarketplaceProductDetailView({
                 }}
               >
                 <Typography color="text.secondary">
-                  ยังไม่มีสินค้าใกล้เคียงที่พร้อมจำหน่าย
+                  {t('productDetail.related.empty')}
                 </Typography>
               </Box>
             )}
@@ -1512,12 +1557,12 @@ export function MarketplaceProductDetailView({
         color="inherit"
         startIcon={<RiArrowLeftLine />}
       >
-        กลับไป Marketplace
+        {t('productDetail.actions.backToMarketplace')}
       </Button>
 
       {product.status === 'archived' && (
         <Alert severity="info" sx={{ mt: 2 }}>
-          สินค้านี้หยุดเปิดขายแล้ว แต่คุณยังเปิดดูและดาวน์โหลดสินค้าที่ซื้อไว้ได้ตามเดิม
+          {t('productDetail.archivedNotice')}
         </Alert>
       )}
 
@@ -1592,7 +1637,9 @@ export function MarketplaceProductDetailView({
                   startIcon={<RiEyeLine />}
                   onClick={handlePreview}
                 >
-                  {previewLoading ? 'กำลังเปิดตัวอย่าง...' : 'ดูไฟล์ตัวอย่าง'}
+                  {previewLoading
+                    ? t('productDetail.preview.opening')
+                    : t('productDetail.preview.viewFile')}
                 </Button>
               )}
               {previewError && <Alert severity="info">{previewError}</Alert>}
@@ -1601,7 +1648,7 @@ export function MarketplaceProductDetailView({
 
           <Box sx={{ mt: 4 }}>
             <Typography variant="h4" sx={{ mb: 1.5 }}>
-              รายละเอียดสินค้า
+              {t('productDetail.details')}
             </Typography>
             <Typography sx={{ whiteSpace: 'pre-line', color: 'text.secondary', lineHeight: 1.9 }}>
               {stripHtml(content.description)}
@@ -1620,7 +1667,7 @@ export function MarketplaceProductDetailView({
               }}
             >
               <Typography variant="h5" sx={{ mb: 1.5 }}>
-                สิ่งที่คุณจะได้รับหลังชำระเงินสำเร็จ
+                {t('productDetail.purchaseBenefits')}
               </Typography>
               <Stack spacing={1.25}>
                 {purchaseBenefits.map((benefit, index) => (
@@ -1651,10 +1698,10 @@ export function MarketplaceProductDetailView({
                 label={
                   product.media_type?.name ??
                   (product.resource_type === 'digital'
-                    ? 'ไฟล์ดิจิทัล'
+                    ? t('productDetail.resource.digital')
                     : product.resource_type === 'service'
-                      ? 'บริการ'
-                      : 'สินค้าจัดส่ง')
+                      ? t('productDetail.resource.service')
+                      : t('productDetail.resource.physical'))
                 }
                 variant="outlined"
               />
@@ -1671,8 +1718,11 @@ export function MarketplaceProductDetailView({
               <Rating value={engagement.averageRating} precision={0.1} readOnly />
               <Typography variant="subtitle2">
                 {engagement.reviewCount
-                  ? `${engagement.averageRating.toFixed(1)} (${engagement.reviewCount} รีวิว)`
-                  : 'ยังไม่มีรีวิว'}
+                  ? t('productDetail.review.ratingParentheses', {
+                      rating: engagement.averageRating.toFixed(1),
+                      count: engagement.reviewCount,
+                    })
+                  : t('productCard.noReviews')}
               </Typography>
             </Stack>
 
@@ -1687,11 +1737,11 @@ export function MarketplaceProductDetailView({
                 </Stack>
                 {product.seller?.seller_type === 'teacher' ? (
                   <Typography variant="caption" color="text.secondary">
-                    ร้านค้าที่ผ่านการตรวจสอบโดย E-KRU Marketplace
+                    {t('productDetail.seller.verified')}
                   </Typography>
                 ) : (
                   <Typography variant="caption" color="text.secondary">
-                    ร้านค้าทางการ
+                    {t('productDetail.seller.official')}
                   </Typography>
                 )}
               </Box>
@@ -1716,10 +1766,18 @@ export function MarketplaceProductDetailView({
               }}
             >
               {[
-                { label: 'ยอดดู', value: engagement.views, icon: <RiEyeLine size={20} /> },
-                { label: 'ถูกใจ', value: engagement.likes, icon: <RiHeartLine size={19} /> },
                 {
-                  label: 'ยอดสั่งซื้อ',
+                  label: t('productCard.views'),
+                  value: engagement.views,
+                  icon: <RiEyeLine size={20} />,
+                },
+                {
+                  label: t('productCard.likes'),
+                  value: engagement.likes,
+                  icon: <RiHeartLine size={19} />,
+                },
+                {
+                  label: t('productCard.orders'),
                   value: engagement.purchases,
                   icon: <RiShoppingBag3Line size={19} />,
                 },
@@ -1729,14 +1787,14 @@ export function MarketplaceProductDetailView({
                   direction="row"
                   spacing={0.625}
                   alignItems="center"
-                  aria-label={`${stat.label} ${stat.value.toLocaleString('th-TH')}`}
+                  aria-label={`${stat.label} ${stat.value.toLocaleString(currentLang.numberFormat.code)}`}
                   title={stat.label}
                 >
                   <Box component="span" sx={{ display: 'inline-flex', color: 'primary.main' }}>
                     {stat.icon}
                   </Box>
                   <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 700 }}>
-                    {stat.value.toLocaleString('th-TH')}
+                    {stat.value.toLocaleString(currentLang.numberFormat.code)}
                   </Typography>
                 </Stack>
               ))}
@@ -1766,7 +1824,7 @@ export function MarketplaceProductDetailView({
                 component={RouterLink}
                 href={authenticated ? paths.marketplace.dashboardCart : paths.marketplace.cart}
               >
-                ไปที่ตะกร้า
+                {t('productDetail.actions.goToCart')}
               </Button>
             </Stack>
 
@@ -1774,22 +1832,22 @@ export function MarketplaceProductDetailView({
               <Alert severity="info">{purchaseAccess.message}</Alert>
             )}
 
-            {/* {product.resource_type === 'digital' && (
-              <Alert severity="success" icon={<RiDownloadCloud2Line />}>
-                ดาวน์โหลดไฟล์ได้จากหน้ารายการซื้อทันทีหลังชำระเงิน
-              </Alert>
-            )} */}
             {product.resource_type === 'feature_unlock' && (
               <Alert severity="info" icon={<RiShieldCheckLine />}>
                 <Typography variant="subtitle2">
                   {product.license_scope === 'individual'
-                    ? 'License ส่วนบุคคล — ไม่ต้องสังกัดโรงเรียน'
+                    ? t('productDetail.license.individual')
                     : product.license_scope === 'teacher'
-                      ? `License สำหรับครู ${product.license_seat_count ?? 1} Seat`
-                      : 'License สำหรับผู้ใช้ทั้งโรงเรียน'}
+                      ? t('productDetail.license.teacher', {
+                          count: product.license_seat_count ?? 1,
+                        })
+                      : t('productDetail.license.school')}
                 </Typography>
                 <Typography variant="body2">
-                  ใช้งาน {product.grant_duration_days ?? 30} วัน ·{' '}
+                  {t('productDetail.license.days', {
+                    count: product.grant_duration_days ?? 30,
+                  })}{' '}
+                  ·{' '}
                   {(product.grants_feature_keys?.length
                     ? product.grants_feature_keys
                     : product.grants_feature_key
@@ -1805,7 +1863,7 @@ export function MarketplaceProductDetailView({
             {!!productHighlights.length && (
               <Card variant="outlined" sx={{ p: 2.5, borderRadius: 2.5 }}>
                 <Typography variant="h5" sx={{ mb: 2.25 }}>
-                  ไฮไลต์สินค้า
+                  {t('productDetail.highlights.title')}
                 </Typography>
                 <Stack spacing={2}>
                   {productHighlights.map((item) => (
@@ -1829,10 +1887,18 @@ export function MarketplaceProductDetailView({
 
             <Grid container spacing={1}>
               {[
-                { label: 'ผู้เข้าชม', value: engagement.views, icon: <RiEyeLine /> },
-                { label: 'ยอดซื้อ', value: engagement.purchases, icon: <RiShoppingBag3Line /> },
                 {
-                  label: 'ดาวน์โหลด',
+                  label: t('productDetail.stats.visitors'),
+                  value: engagement.views,
+                  icon: <RiEyeLine />,
+                },
+                {
+                  label: t('productDetail.stats.purchases'),
+                  value: engagement.purchases,
+                  icon: <RiShoppingBag3Line />,
+                },
+                {
+                  label: t('productDetail.stats.downloads'),
                   value: engagement.downloads,
                   icon: <RiDownloadCloud2Line />,
                 },
@@ -1843,7 +1909,7 @@ export function MarketplaceProductDetailView({
                       {stat.icon}
                     </Box>
                     <Typography variant="subtitle1">
-                      {stat.value.toLocaleString('th-TH')}
+                      {stat.value.toLocaleString(currentLang.numberFormat.code)}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
                       {stat.label}
@@ -1865,13 +1931,15 @@ export function MarketplaceProductDetailView({
               <Stack direction="row" spacing={1} alignItems="center">
                 <RiStarLine size={24} />
                 <Typography variant="h5">
-                  {engagement.myReview ? 'แก้ไขรีวิวของคุณ' : 'ให้คะแนนสินค้านี้'}
+                  {engagement.myReview
+                    ? t('productDetail.review.editYours')
+                    : t('productDetail.review.rateProduct')}
                 </Typography>
               </Stack>
               {engagement.canReview ? (
                 <>
                   <Typography color="text.secondary">
-                    ให้คะแนนและแชร์ประสบการณ์หลังใช้งานสินค้า
+                    {t('productDetail.review.shareExperience')}
                   </Typography>
                   <Rating
                     size="large"
@@ -1882,7 +1950,7 @@ export function MarketplaceProductDetailView({
                     multiline
                     minRows={4}
                     value={reviewComment}
-                    label="เขียนรีวิว (ไม่บังคับ)"
+                    label={t('productDetail.review.optionalLabel')}
                     inputProps={{ maxLength: 1000 }}
                     helperText={`${reviewComment.length}/1,000`}
                     onChange={(event) => setReviewComment(event.target.value)}
@@ -1910,12 +1978,14 @@ export function MarketplaceProductDetailView({
                     disabled={!reviewRating || reviewSaving}
                     onClick={handleReviewSubmit}
                   >
-                    {reviewSaving ? 'กำลังบันทึก...' : 'บันทึกรีวิว'}
+                    {reviewSaving
+                      ? t('productDetail.review.saving')
+                      : t('productDetail.review.save')}
                   </Button>
                 </>
               ) : (
                 <Alert severity="info">
-                  ผู้ซื้อที่ชำระเงินสำเร็จแล้วเท่านั้นจึงจะให้ดาวและเขียนรีวิวได้
+                  {t('productDetail.review.buyersOnly')}
                 </Alert>
               )}
             </Stack>
@@ -1924,7 +1994,7 @@ export function MarketplaceProductDetailView({
 
         <Grid size={{ xs: 12, md: 7 }}>
           <Stack spacing={2.5}>
-            <Typography variant="h4">รีวิวจากผู้ซื้อ</Typography>
+            <Typography variant="h4">{t('productDetail.review.fromBuyers')}</Typography>
             {engagement.reviews.length ? (
               engagement.reviews.map((review) => (
                 <ReviewCard
@@ -1944,7 +2014,7 @@ export function MarketplaceProductDetailView({
               <Card variant="outlined" sx={{ p: 4, textAlign: 'center', borderRadius: 3 }}>
                 <RiStarLine size={36} />
                 <Typography color="text.secondary" sx={{ mt: 1 }}>
-                  ยังไม่มีรีวิว เป็นคนแรกที่รีวิวสินค้านี้ได้หลังการซื้อ
+                  {t('productDetail.review.emptyCombined')}
                 </Typography>
               </Card>
             )}
@@ -1956,6 +2026,7 @@ export function MarketplaceProductDetailView({
 }
 
 function ReviewImages({ images }: { images: MarketplaceProductReview['images'] }) {
+  const { t } = useTranslate('marketplace');
   if (!images.length) return null;
   return (
     <Box
@@ -1977,7 +2048,7 @@ function ReviewImages({ images }: { images: MarketplaceProductReview['images'] }
           <Box
             component="img"
             src={image.url}
-            alt="รูปประกอบรีวิว"
+            alt={t('productDetail.review.imageAlt')}
             sx={{
               width: 1,
               height: 104,
@@ -2013,6 +2084,7 @@ function ReviewImageEditor({
   onRemoveExisting: (id: string) => void;
   onRemoveNew: (index: number) => void;
 }) {
+  const { t } = useTranslate('marketplace');
   const keptImages = existingImages.filter((image) => keptImageIds.includes(image.id));
   const total = keptImages.length + newImages.length;
 
@@ -2025,7 +2097,7 @@ function ReviewImageEditor({
           startIcon={<RiImageAddLine />}
           disabled={disabled || total >= 3}
         >
-          เพิ่มรูปรีวิว
+          {t('productDetail.review.addImages')}
           <input
             hidden
             multiple
@@ -2038,7 +2110,7 @@ function ReviewImageEditor({
           />
         </Button>
         <Typography variant="caption" color="text.secondary">
-          {total}/3 รูป · ไม่เกิน 5 MB ต่อรูป
+          {t('productDetail.review.imageLimit', { total })}
         </Typography>
       </Stack>
       {total > 0 && (
@@ -2070,18 +2142,19 @@ function ReviewImageEditor({
 }
 
 function ReviewImagePreview({ src, onRemove }: { src: string; onRemove: () => void }) {
+  const { t } = useTranslate('marketplace');
   return (
     <Box sx={{ position: 'relative' }}>
       <Box
         component="img"
         src={src}
-        alt="ตัวอย่างรูปรีวิว"
+        alt={t('productDetail.review.imagePreviewAlt')}
         sx={{ width: 1, height: 96, display: 'block', objectFit: 'cover', borderRadius: 1.5 }}
       />
       <IconButton
         size="small"
         color="error"
-        aria-label="นำรูปออก"
+        aria-label={t('productDetail.review.removeImage')}
         onClick={onRemove}
         sx={{
           top: 4,
@@ -2115,13 +2188,14 @@ function ReviewCard({
   onReplyChange: (value: string) => void;
   onReply: () => void;
 }) {
+  const { t, currentLang } = useTranslate('marketplace');
   return (
     <Card variant="outlined" sx={{ p: 2.5, borderRadius: 2.5 }}>
       <Stack spacing={1.5}>
         <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" spacing={1}>
           <Typography variant="subtitle1">{review.reviewer_name}</Typography>
           <Typography variant="caption" color="text.secondary">
-            {new Intl.DateTimeFormat('th-TH', {
+            {new Intl.DateTimeFormat(currentLang.numberFormat.code, {
               dateStyle: 'medium',
               timeZone: 'Asia/Bangkok',
             }).format(new Date(review.updated_at))}
@@ -2146,7 +2220,9 @@ function ReviewCard({
               borderColor: 'primary.main',
             }}
           >
-            <Typography variant="subtitle2">คำตอบจาก {review.reply.responder_name}</Typography>
+            <Typography variant="subtitle2">
+              {t('productDetail.review.replyFrom', { name: review.reply.responder_name })}
+            </Typography>
             <Typography
               variant="body2"
               color="text.secondary"
@@ -2163,7 +2239,11 @@ function ReviewCard({
               fullWidth
               multiline
               minRows={2}
-              label={review.reply ? 'แก้ไขคำตอบจากร้านค้า' : 'ตอบกลับรีวิว'}
+              label={
+                review.reply
+                  ? t('productDetail.review.editReply')
+                  : t('productDetail.review.reply')
+              }
               value={replyValue}
               inputProps={{ maxLength: 1000 }}
               helperText={`${replyValue.length}/1,000`}
@@ -2176,7 +2256,11 @@ function ReviewCard({
               onClick={onReply}
               sx={{ alignSelf: 'flex-start' }}
             >
-              {replySaving ? 'กำลังบันทึก...' : review.reply ? 'บันทึกคำตอบ' : 'ตอบกลับ'}
+              {replySaving
+                ? t('productDetail.review.saving')
+                : review.reply
+                  ? t('productDetail.review.saveReply')
+                  : t('productDetail.review.replyAction')}
             </Button>
           </Stack>
         )}
