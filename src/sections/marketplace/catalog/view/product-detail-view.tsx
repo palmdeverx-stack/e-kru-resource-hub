@@ -528,8 +528,8 @@ export function MarketplaceProductDetailView({
   const addButtonLabel = activeSubscription
     ? t('productDetail.purchase.activeUntil', {
         date: new Intl.DateTimeFormat(currentLang.numberFormat.code, {
-        dateStyle: 'medium',
-        timeZone: 'Asia/Bangkok',
+          dateStyle: 'medium',
+          timeZone: 'Asia/Bangkok',
         }).format(new Date(activeSubscription)),
       })
     : purchaseUnavailable
@@ -606,9 +606,7 @@ export function MarketplaceProductDetailView({
         )}
         <Stack spacing={{ xs: 3, md: 4 }}>
           {product.status === 'archived' && (
-            <Alert severity="info">
-              {t('productDetail.archivedNotice')}
-            </Alert>
+            <Alert severity="info">{t('productDetail.archivedNotice')}</Alert>
           )}
           <Typography
             component="h1"
@@ -1126,9 +1124,9 @@ export function MarketplaceProductDetailView({
                             <Typography variant="caption" color="text.secondary">
                               {t('productDetail.review.lastEdited', {
                                 date: new Intl.DateTimeFormat(currentLang.numberFormat.code, {
-                                dateStyle: 'medium',
-                                timeStyle: 'short',
-                                timeZone: 'Asia/Bangkok',
+                                  dateStyle: 'medium',
+                                  timeStyle: 'short',
+                                  timeZone: 'Asia/Bangkok',
                                 }).format(new Date(engagement.myReview.updated_at)),
                               })}
                             </Typography>
@@ -1209,9 +1207,7 @@ export function MarketplaceProductDetailView({
                         </>
                       )
                     ) : (
-                      <Alert severity="info">
-                        {t('productDetail.review.buyersOnly')}
-                      </Alert>
+                      <Alert severity="info">{t('productDetail.review.buyersOnly')}</Alert>
                     )}
                   </Stack>
                 </Card>
@@ -1275,8 +1271,7 @@ export function MarketplaceProductDetailView({
             <Stack alignItems="center" spacing={1.25} sx={{ mt: 2.5, textAlign: 'center' }}>
               <Box id="seller-showcase-title">{sellerName('h4')}</Box>
               <Typography color="text.secondary" sx={{ maxWidth: 620 }}>
-                {product.seller?.bio ||
-                  t('productDetail.seller.defaultBio')}
+                {product.seller?.bio || t('productDetail.seller.defaultBio')}
               </Typography>
               {!!storeHref && (
                 <Button
@@ -1390,7 +1385,7 @@ export function MarketplaceProductDetailView({
                         >
                           {getLocalizedProduct(sellerProduct, currentLang.value).title}
                         </Typography>
-                        <Typography variant="body2" color="primary.main" sx={{ mt: 0.5 }}>
+                        <Typography variant="subtitle1" color="primary.main" sx={{ mt: 0.5 }}>
                           {formatPrice(Number(sellerProduct.price), sellerProduct.currency)}
                         </Typography>
                       </Box>
@@ -1538,9 +1533,7 @@ export function MarketplaceProductDetailView({
                   bgcolor: 'background.neutral',
                 }}
               >
-                <Typography color="text.secondary">
-                  {t('productDetail.related.empty')}
-                </Typography>
+                <Typography color="text.secondary">{t('productDetail.related.empty')}</Typography>
               </Box>
             )}
           </Box>
@@ -1984,9 +1977,7 @@ export function MarketplaceProductDetailView({
                   </Button>
                 </>
               ) : (
-                <Alert severity="info">
-                  {t('productDetail.review.buyersOnly')}
-                </Alert>
+                <Alert severity="info">{t('productDetail.review.buyersOnly')}</Alert>
               )}
             </Stack>
           </Card>
@@ -2240,9 +2231,7 @@ function ReviewCard({
               multiline
               minRows={2}
               label={
-                review.reply
-                  ? t('productDetail.review.editReply')
-                  : t('productDetail.review.reply')
+                review.reply ? t('productDetail.review.editReply') : t('productDetail.review.reply')
               }
               value={replyValue}
               inputProps={{ maxLength: 1000 }}

@@ -8,6 +8,7 @@ import { withMediaUrls } from '../seller/server/product-media';
 import { SELLER_TOOLS_CATEGORY } from '../seller/server/seller-tools-access';
 
 type ProductImage = {
+  id: string;
   storage_bucket: string;
   storage_path: string;
   is_cover?: boolean;
@@ -27,7 +28,7 @@ export const getPublicProductSeo = cache(async (id: string) => {
   const { data: product, error } = await supabaseAdmin
     .from('marketplace_products')
     .select(
-      'id, title, title_en, short_description, short_description_en, description, description_en, price, currency, cover_url, updated_at, seller:marketplace_sellers!inner(display_name, display_name_en, status), images:marketplace_product_images(storage_bucket, storage_path, is_cover, position), reviews:marketplace_product_reviews(rating)'
+      'id, title, title_en, short_description, short_description_en, description, description_en, price, currency, cover_url, updated_at, seller:marketplace_sellers!inner(display_name, display_name_en, status), images:marketplace_product_images(id, storage_bucket, storage_path, is_cover, position), reviews:marketplace_product_reviews(rating)'
     )
     .eq('id', id)
     .eq('status', 'published')
@@ -41,7 +42,7 @@ export const getPublicProductSeo = cache(async (id: string) => {
     images: (product.images ?? []) as ProductImage[],
     files: [],
   });
-  const images = [...resolved.images].sort(
+  const images = [...(resolved.images ?? [])].sort(
     (left, right) =>
       Number(Boolean(right.is_cover)) - Number(Boolean(left.is_cover)) ||
       Number(left.position ?? 0) - Number(right.position ?? 0)

@@ -83,8 +83,8 @@ export function MarketplaceProductDetailDialog({
         aria-label={t('catalog.productDialog.close')}
         onClick={onClose}
         sx={{
-          top: { xs: 'max(12px, env(safe-area-inset-top))', sm: 40 },
-          right: { xs: 12, sm: 50 },
+          top: { xs: 'max(12px, env(safe-area-inset-top))', sm: 18 },
+          right: { xs: 12, sm: 20 },
           zIndex: 5,
           position: 'absolute',
           bgcolor: 'background.paper',

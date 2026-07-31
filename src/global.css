@@ -58,6 +58,11 @@ img {
   max-width: 100%;
   vertical-align: middle;
 }
+img:not([data-allow-image-save='true']) {
+  user-select: none;
+  -webkit-user-drag: none;
+  -webkit-touch-callout: none;
+}
 ul {
   margin: 0;
   padding: 0;

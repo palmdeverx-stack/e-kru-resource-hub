@@ -16,6 +16,7 @@ import { themeConfig, ThemeProvider, primary as primaryColor } from 'src/theme';
 
 import { Snackbar } from 'src/components/snackbar';
 import { LocatorJS } from 'src/components/locator-js';
+import { ImageSaveGuard } from 'src/components/image';
 import { ProgressBar } from 'src/components/progress-bar';
 import { MotionLazy } from 'src/components/animate/motion-lazy';
 import { detectSettings } from 'src/components/settings/server';
@@ -159,6 +160,7 @@ export default async function RootLayout({ children }: RootLayoutProps) {
                       >
                         <MotionLazy>
                           <UiTranslationBridge />
+                          <ImageSaveGuard />
                           <LocatorJS />
                           <Snackbar />
                           <ProgressBar />

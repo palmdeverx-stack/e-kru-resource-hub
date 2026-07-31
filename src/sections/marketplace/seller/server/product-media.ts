@@ -10,19 +10,34 @@ export const PRODUCT_MANAGE_SELECT = `*,
   files:marketplace_product_files(*)`;
 
 type StoredMedia = {
+  id?: string;
+  is_cover?: boolean;
   storage_bucket: string;
   storage_path: string;
   [key: string]: unknown;
 };
 
-/** Resolves stored bucket/path pairs into request-time URLs: public for images, short-lived signed URLs for (private) files. */
-export async function withMediaUrls<T extends { images?: StoredMedia[]; files?: StoredMedia[] }>(
+function productImageUrl(imageId: string) {
+  return `/api/marketplace/images/${encodeURIComponent(imageId)}`;
+}
+
+function isSupabaseStorageUrl(value: unknown): value is string {
+  return typeof value === 'string' && value.includes('/storage/v1/object/');
+}
+
+/** Keeps storage details server-side: images use the app proxy and files use short-lived signed URLs. */
+export async function withMediaUrls<
+  T extends {
+    images?: StoredMedia[];
+    files?: StoredMedia[];
+    cover_url?: string | null;
+  },
+>(
   product: T
 ): Promise<T> {
   const images = (product.images ?? []).map((image) => ({
     ...image,
-    url: supabaseAdmin.storage.from(image.storage_bucket).getPublicUrl(image.storage_path).data
-      .publicUrl,
+    url: image.id ? productImageUrl(image.id) : null,
   }));
 
   const files = await Promise.all(
@@ -34,7 +49,12 @@ export async function withMediaUrls<T extends { images?: StoredMedia[]; files?: 
     })
   );
 
-  return { ...product, images, files };
+  const coverImage = images.find((image) => image.is_cover) ?? images[0];
+  const coverUrl = isSupabaseStorageUrl(product.cover_url)
+    ? (coverImage?.url ?? null)
+    : product.cover_url;
+
+  return { ...product, cover_url: coverUrl, images, files };
 }
 
 export async function refreshedImages(productId: string) {

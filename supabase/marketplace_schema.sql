@@ -1674,7 +1674,7 @@ values
   (
     'marketplace-product-covers',
     'marketplace-product-covers',
-    true,
+    false,
     5242880,
     array['image/jpeg', 'image/png', 'image/webp']
   ),
