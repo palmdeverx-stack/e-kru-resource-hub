@@ -2,6 +2,8 @@ import 'src/global.css';
 
 import type { Metadata, Viewport } from 'next';
 
+import { Analytics } from '@vercel/analytics/next';
+
 import InitColorSchemeScript from '@mui/material/InitColorSchemeScript';
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v15-appRouter';
 
@@ -166,6 +168,7 @@ export default async function RootLayout({ children }: RootLayoutProps) {
             </AuthProvider>
           </ReactQueryProvider>
         </I18nProvider>
+        <Analytics />
       </body>
     </html>
   );
