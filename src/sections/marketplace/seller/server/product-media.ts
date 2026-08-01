@@ -2,6 +2,8 @@ import 'server-only';
 
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 
+import { getPublicPlatformSettings } from '../../admin/server/platform-settings';
+
 export const PRODUCT_MANAGE_SELECT = `*,
   curriculum:marketplace_curricula(id,name),
   grade_levels:marketplace_product_grade_levels(grade_level:marketplace_grade_levels(id,name)),
@@ -17,6 +19,11 @@ type StoredMedia = {
   [key: string]: unknown;
 };
 
+type ProductSeller = {
+  owner_role?: unknown;
+  is_system_store?: unknown;
+};
+
 function productImageUrl(imageId: string) {
   return `/api/marketplace/images/${encodeURIComponent(imageId)}`;
 }
@@ -25,12 +32,30 @@ function isSupabaseStorageUrl(value: unknown): value is string {
   return typeof value === 'string' && value.includes('/storage/v1/object/');
 }
 
+function isOfficialSeller(seller: unknown) {
+  const candidate = Array.isArray(seller) ? seller[0] : seller;
+  const resolvedSeller =
+    candidate && typeof candidate === 'object' ? (candidate as ProductSeller) : null;
+  return resolvedSeller?.owner_role === 'master_admin' || resolvedSeller?.is_system_store === true;
+}
+
+async function getOfficialProductCoverFallback() {
+  const settings = await getPublicPlatformSettings();
+  return (
+    settings?.og_image_url?.trim() ||
+    settings?.logo_url?.trim() ||
+    settings?.transparent_logo_url?.trim() ||
+    null
+  );
+}
+
 /** Keeps storage details server-side: images use the app proxy and files use short-lived signed URLs. */
 export async function withMediaUrls<
   T extends {
     images?: StoredMedia[];
     files?: StoredMedia[];
     cover_url?: string | null;
+    seller?: unknown;
   },
 >(
   product: T
@@ -50,9 +75,14 @@ export async function withMediaUrls<
   );
 
   const coverImage = images.find((image) => image.is_cover) ?? images[0];
-  const coverUrl = isSupabaseStorageUrl(product.cover_url)
+  const storedCoverUrl = product.cover_url?.trim() || null;
+  let coverUrl = isSupabaseStorageUrl(storedCoverUrl)
     ? (coverImage?.url ?? null)
-    : product.cover_url;
+    : storedCoverUrl;
+
+  if (!coverUrl && !coverImage?.url && isOfficialSeller(product.seller)) {
+    coverUrl = await getOfficialProductCoverFallback();
+  }
 
   return { ...product, cover_url: coverUrl, images, files };
 }

@@ -358,6 +358,10 @@ export function MarketplaceProductDetailView({
             product.grant_duration_days
               ? ` · ${t('productDetail.license.days', { count: product.grant_duration_days })}`
               : ''
+          } · ${
+            product.license_target_system === 'marketplace'
+              ? t('productDetail.license.targetMarketplace')
+              : t('productDetail.license.targetEkru')
           }`,
         }
       : null;
@@ -1837,6 +1841,10 @@ export function MarketplaceProductDetailView({
                       : t('productDetail.license.school')}
                 </Typography>
                 <Typography variant="body2">
+                  {product.license_target_system === 'marketplace'
+                    ? t('productDetail.license.targetMarketplace')
+                    : t('productDetail.license.targetEkru')}{' '}
+                  ·{' '}
                   {t('productDetail.license.days', {
                     count: product.grant_duration_days ?? 30,
                   })}{' '}

@@ -4,6 +4,8 @@ function field(id: string, value: string) {
   return `${id}${String(value.length).padStart(2, '0')}${value}`;
 }
 
+// CRC16-CCITT per the EMV QR / PromptPay spec — bitwise ops are the algorithm, not optional.
+/* eslint-disable no-bitwise */
 function crc16(value: string) {
   let crc = 0xffff;
 
@@ -17,6 +19,7 @@ function crc16(value: string) {
 
   return crc.toString(16).toUpperCase().padStart(4, '0');
 }
+/* eslint-enable no-bitwise */
 
 export function normalizePromptPayId(value: string) {
   const digits = value.replace(/\D/g, '');

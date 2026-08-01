@@ -42,10 +42,22 @@
     "heading": "Why choose E-KRU",
     "description": "Everything educators need, from finding classroom resources to earning from their work.",
     "items": {
-      "fastSearch": { "title": "Find resources faster", "description": "Search by subject, grade level, and resource type in just a few steps." },
-      "earnIncome": { "title": "Earn from your resources", "description": "Turn your teaching materials into a structured source of income." },
-      "reviewedQuality": { "title": "Quality reviewed", "description": "Every product goes through a review process before it is published." },
-      "secure": { "title": "Safe and secure", "description": "Pay, download, and manage licenses through your E-KRU account." }
+      "fastSearch": {
+        "title": "Find resources faster",
+        "description": "Search by subject, grade level, and resource type in just a few steps."
+      },
+      "earnIncome": {
+        "title": "Earn from your resources",
+        "description": "Turn your teaching materials into a structured source of income."
+      },
+      "reviewedQuality": {
+        "title": "Quality reviewed",
+        "description": "Every product goes through a review process before it is published."
+      },
+      "secure": {
+        "title": "Safe and secure",
+        "description": "Pay, download, and manage licenses through your E-KRU account."
+      }
     }
   },
   "categories": {
@@ -65,20 +77,44 @@
       "title": "For buyers",
       "description": "Find the resources you need and put them to use right away.",
       "steps": {
-        "signUp": { "label": "Create an account", "description": "Use the same account as the E-KRU platform." },
-        "findResources": { "label": "Find resources", "description": "Filter by subject, grade level, and resource type." },
-        "buyDownload": { "label": "Buy and download", "description": "Pay securely and receive files in your account." },
-        "useResource": { "label": "Use in class", "description": "View your license and use the resource right away." }
+        "signUp": {
+          "label": "Create an account",
+          "description": "Use the same account as the E-KRU platform."
+        },
+        "findResources": {
+          "label": "Find resources",
+          "description": "Filter by subject, grade level, and resource type."
+        },
+        "buyDownload": {
+          "label": "Buy and download",
+          "description": "Pay securely and receive files in your account."
+        },
+        "useResource": {
+          "label": "Use in class",
+          "description": "View your license and use the resource right away."
+        }
       }
     },
     "seller": {
       "title": "For sellers",
       "description": "Open a store, submit your work for review, and start earning.",
       "steps": {
-        "openStore": { "label": "Open your store", "description": "Submit store details and verify your seller identity." },
-        "uploadResource": { "label": "Upload resources", "description": "Add product details, pricing, and downloadable files." },
-        "submitReview": { "label": "Submit for review", "description": "Our team reviews quality before publication." },
-        "startEarning": { "label": "Start earning", "description": "Track sales and payout cycles transparently." }
+        "openStore": {
+          "label": "Open your store",
+          "description": "Submit store details and verify your seller identity."
+        },
+        "uploadResource": {
+          "label": "Upload resources",
+          "description": "Add product details, pricing, and downloadable files."
+        },
+        "submitReview": {
+          "label": "Submit for review",
+          "description": "Our team reviews quality before publication."
+        },
+        "startEarning": {
+          "label": "Start earning",
+          "description": "Track sales and payout cycles transparently."
+        }
       }
     }
   },
@@ -86,21 +122,48 @@
     "heading": "Who it is for",
     "description": "One marketplace for educators, learners, and educational institutions.",
     "items": {
-      "teachers": { "title": "Teachers", "description": "Find classroom-ready resources and share your own work." },
-      "schools": { "title": "Schools", "description": "Purchase licenses and assign access to teachers at your school." },
-      "students": { "title": "Education students", "description": "Prepare for teaching and build your skills with quality resources." },
-      "tutors": { "title": "Tutors", "description": "Choose resources that fit your learners and teaching style." }
+      "teachers": {
+        "title": "Teachers",
+        "description": "Find classroom-ready resources and share your own work."
+      },
+      "schools": {
+        "title": "Schools",
+        "description": "Purchase licenses and assign access to teachers at your school."
+      },
+      "students": {
+        "title": "Education students",
+        "description": "Prepare for teaching and build your skills with quality resources."
+      },
+      "tutors": {
+        "title": "Tutors",
+        "description": "Choose resources that fit your learners and teaching style."
+      }
     }
   },
   "faq": {
     "heading": "Frequently asked questions",
     "description": "Important information before buying resources or opening a store on E-KRU Marketplace.",
     "items": {
-      "freeStore": { "question": "Is registration and opening a store free?", "answer": "Creating an account and submitting a store application are free. Once your store is approved, you can add products and submit them for publication review." },
-      "fees": { "question": "What are the selling fees?", "answer": "E-KRU Marketplace deducts fees from sales at the applicable rate. Sellers can review the fee rate and estimated net amount before accepting the agreement and from their store finance page." },
-      "payout": { "question": "When will sellers receive their money?", "answer": "Completed sales first enter a review period. Once the holding period has passed and a payout cycle is available, the amount ready for payout appears on the store finance page." },
-      "eligibleSellers": { "question": "Who can sell teaching resources?", "answer": "Teachers, individuals, schools, companies, publishers, and universities can apply. Sellers must verify their identity and payout account and accept the Marketplace agreements." },
-      "fileTypes": { "question": "Which file types are supported?", "answer": "Supported formats include PDF, DOC/DOCX, PPT/PPTX, XLS/XLSX, ZIP, and JPG, PNG, or WebP images. Each product file may be up to 50 MB and cover images up to 5 MB." }
+      "freeStore": {
+        "question": "Is registration and opening a store free?",
+        "answer": "Creating an account and submitting a store application are free. Once your store is approved, you can add products and submit them for publication review."
+      },
+      "fees": {
+        "question": "What are the selling fees?",
+        "answer": "E-KRU Marketplace deducts fees from sales at the applicable rate. Sellers can review the fee rate and estimated net amount before accepting the agreement and from their store finance page."
+      },
+      "payout": {
+        "question": "When will sellers receive their money?",
+        "answer": "Completed sales first enter a review period. Once the holding period has passed and a payout cycle is available, the amount ready for payout appears on the store finance page."
+      },
+      "eligibleSellers": {
+        "question": "Who can sell teaching resources?",
+        "answer": "Teachers, individuals, schools, companies, publishers, and universities can apply. Sellers must verify their identity and payout account and accept the Marketplace agreements."
+      },
+      "fileTypes": {
+        "question": "Which file types are supported?",
+        "answer": "Supported formats include PDF, DOC/DOCX, PPT/PPTX, XLS/XLSX, ZIP, and JPG, PNG, or WebP images. Each product file may be up to 50 MB and cover images up to 5 MB."
+      }
     }
   },
   "cta": {
@@ -120,7 +183,11 @@
     "contactLine": "Contact us on LINE OA",
     "support": "Marketplace support",
     "businessHours": "Business hours: {{hours}}",
-    "groups": { "marketplace": "Marketplace", "seller": "For sellers", "support": "Support and legal" },
+    "groups": {
+      "marketplace": "Marketplace",
+      "seller": "For sellers",
+      "support": "Support and legal"
+    },
     "links": {
       "home": "Marketplace home",
       "products": "All teaching resources",
@@ -281,12 +348,30 @@
       "heading": "What are you preparing to teach today?",
       "description": "Start with your lesson goal and we will help you find resources that fit the task.",
       "items": {
-        "lessonPlans": { "title": "Prepare a lesson plan", "description": "Plan classes faster with ready-to-adapt lesson plans." },
-        "worksheets": { "title": "Practise with worksheets", "description": "Choose ready-to-use exercises for class or homework." },
-        "supplementary": { "title": "Make class more engaging", "description": "Add games, slides, and activities that encourage participation." },
-        "quizzes": { "title": "Check understanding", "description": "Find quizzes and assessment tools for your learners." },
-        "courses": { "title": "Learn step by step", "description": "Build knowledge with structured courses and lessons." },
-        "explore": { "title": "Discover new ideas", "description": "Explore every resource type and choose what fits your class." }
+        "lessonPlans": {
+          "title": "Prepare a lesson plan",
+          "description": "Plan classes faster with ready-to-adapt lesson plans."
+        },
+        "worksheets": {
+          "title": "Practise with worksheets",
+          "description": "Choose ready-to-use exercises for class or homework."
+        },
+        "supplementary": {
+          "title": "Make class more engaging",
+          "description": "Add games, slides, and activities that encourage participation."
+        },
+        "quizzes": {
+          "title": "Check understanding",
+          "description": "Find quizzes and assessment tools for your learners."
+        },
+        "courses": {
+          "title": "Learn step by step",
+          "description": "Build knowledge with structured courses and lessons."
+        },
+        "explore": {
+          "title": "Discover new ideas",
+          "description": "Explore every resource type and choose what fits your class."
+        }
       }
     },
     "products": {
@@ -302,9 +387,19 @@
       "allCategories": "All",
       "priceAria": "Filter by price",
       "sortAria": "Sort products",
-      "grades": { "all": "All grades", "kindergarten": "Kindergarten", "primary": "Primary", "secondary": "Secondary" },
+      "grades": {
+        "all": "All grades",
+        "kindergarten": "Kindergarten",
+        "primary": "Primary",
+        "secondary": "Secondary"
+      },
       "prices": { "all": "All prices", "free": "Free", "paid": "Paid" },
-      "sort": { "popular": "Most popular", "latest": "Newest", "rating": "Top rated", "priceLow": "Lowest price" }
+      "sort": {
+        "popular": "Most popular",
+        "latest": "Newest",
+        "rating": "Top rated",
+        "priceLow": "Lowest price"
+      }
     },
     "states": {
       "loadingMore": "Loading more products...",
@@ -331,9 +426,24 @@
       "close": "Close product details"
     },
     "grades": {
-      "kindergarten": { "label": "Kindergarten", "levels": "K1 – K3", "title": "Learn through play", "description": "Creative activities, skill practice, and colourful resources for young learners." },
-      "primary": { "label": "Primary school", "levels": "P1 – P6", "title": "Build strong foundations", "description": "Worksheets, lesson plans, and activities that explain each concept step by step." },
-      "secondary": { "label": "Secondary school", "levels": "M1 – M6", "title": "Extend knowledge and critical thinking", "description": "In-depth resources, assessments, and future-ready activities." }
+      "kindergarten": {
+        "label": "Kindergarten",
+        "levels": "K1 – K3",
+        "title": "Learn through play",
+        "description": "Creative activities, skill practice, and colourful resources for young learners."
+      },
+      "primary": {
+        "label": "Primary school",
+        "levels": "P1 – P6",
+        "title": "Build strong foundations",
+        "description": "Worksheets, lesson plans, and activities that explain each concept step by step."
+      },
+      "secondary": {
+        "label": "Secondary school",
+        "levels": "M1 – M6",
+        "title": "Extend knowledge and critical thinking",
+        "description": "In-depth resources, assessments, and future-ready activities."
+      }
     }
   },
   "productDetail": {
@@ -392,6 +502,8 @@
       "teacher": "Teacher license, {{count}} seat",
       "teacher_other": "Teacher license, {{count}} seats",
       "school": "License for all users at the school",
+      "targetMarketplace": "Used in E-KRU Marketplace",
+      "targetEkru": "Used in the E-KRU system",
       "days": "Active for {{count}} days"
     },
     "share": {

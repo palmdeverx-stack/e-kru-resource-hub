@@ -153,7 +153,7 @@ const initialForm = {
   grantsPlanCode: '',
   grantDurationDays: '30',
   licenseTargetSystem: 'marketplace' as 'marketplace' | 'ekru',
-  licenseScope: 'school' as 'individual' | 'school' | 'teacher',
+  licenseScope: 'individual' as 'individual' | 'school' | 'teacher',
   licenseSeatCount: '1',
   licenseMaxTeachers: '',
   licenseMaxStudents: '',
@@ -1278,6 +1278,10 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                               : current.mediaTypeId,
                         grantsFeatureKeys:
                           productKind === 'license' ? current.grantsFeatureKeys : [],
+                        licenseScope:
+                          productKind === 'license' && current.licenseTargetSystem === 'marketplace'
+                            ? 'individual'
+                            : current.licenseScope,
                       }));
                     }}
                     helperText={
@@ -1611,7 +1615,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                         />
                       </Grid>
                     )}
-                    {form.licenseScope !== 'teacher' && (
+                    {form.licenseTargetSystem === 'ekru' && form.licenseScope !== 'teacher' && (
                       <Grid size={{ xs: 12 }}>
                         <TextField
                           fullWidth

@@ -452,8 +452,11 @@ create table if not exists public.marketplace_provider_settings (
   updated_at timestamptz not null default now()
 );
 
-insert into public.marketplace_provider_settings (id)
-values ('default')
+insert into public.marketplace_provider_settings (id, og_image_url)
+values (
+  'default',
+  'https://res.cloudinary.com/dkdbilwtj/image/upload/v1785509072/marketplace_ahtoum.png'
+)
 on conflict (id) do nothing;
 
 create or replace function public.sync_marketplace_provider_to_legal_documents()
@@ -868,6 +871,8 @@ alter table public.marketplace_products
   add column if not exists license_scope text not null default 'school'
     check (license_scope in ('individual', 'school', 'teacher'));
 alter table public.marketplace_products
+  add column if not exists license_target_system text;
+alter table public.marketplace_products
   add column if not exists license_seat_count integer not null default 1
     check (license_seat_count > 0);
 alter table public.marketplace_products
@@ -883,6 +888,29 @@ update public.marketplace_products
 set grants_feature_keys = array[grants_feature_key]
 where grants_feature_key is not null
   and cardinality(grants_feature_keys) = 0;
+
+update public.marketplace_products
+set license_target_system = case
+  when exists (
+    select 1
+    from unnest(coalesce(grants_feature_keys, array[]::text[])) as feature_key
+    where feature_key ~ '^(admin|teacher|student|academic)\.'
+  ) or grants_plan_code is not null then 'ekru'
+  else 'marketplace'
+end
+where resource_type = 'feature_unlock';
+
+update public.marketplace_products
+set license_target_system = null
+where resource_type <> 'feature_unlock';
+
+alter table public.marketplace_products
+  drop constraint if exists marketplace_products_license_target_system_check;
+alter table public.marketplace_products
+  add constraint marketplace_products_license_target_system_check check (
+    (resource_type = 'feature_unlock' and license_target_system in ('marketplace', 'ekru'))
+    or (resource_type <> 'feature_unlock' and license_target_system is null)
+  );
 
 alter table public.marketplace_products
   drop constraint if exists marketplace_products_status_check;

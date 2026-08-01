@@ -28,7 +28,7 @@ export const getPublicProductSeo = cache(async (id: string) => {
   const { data: product, error } = await supabaseAdmin
     .from('marketplace_products')
     .select(
-      'id, title, title_en, short_description, short_description_en, description, description_en, price, currency, cover_url, updated_at, seller:marketplace_sellers!inner(display_name, display_name_en, status), images:marketplace_product_images(id, storage_bucket, storage_path, is_cover, position), reviews:marketplace_product_reviews(rating)'
+      'id, title, title_en, short_description, short_description_en, description, description_en, price, currency, cover_url, updated_at, seller:marketplace_sellers!inner(display_name, display_name_en, status, owner_role), images:marketplace_product_images(id, storage_bucket, storage_path, is_cover, position), reviews:marketplace_product_reviews(rating)'
     )
     .eq('id', id)
     .eq('status', 'published')
@@ -41,6 +41,8 @@ export const getPublicProductSeo = cache(async (id: string) => {
   const resolved = await withMediaUrls({
     images: (product.images ?? []) as ProductImage[],
     files: [],
+    cover_url: product.cover_url,
+    seller: product.seller,
   });
   const images = [...(resolved.images ?? [])].sort(
     (left, right) =>
@@ -65,7 +67,7 @@ export const getPublicProductSeo = cache(async (id: string) => {
       `Teaching resource from ${seller?.display_name_en || seller?.display_name || 'E-KRU Marketplace'}`,
     price: Number(product.price),
     currency: product.currency,
-    image: images[0]?.url || product.cover_url || null,
+    image: images[0]?.url || resolved.cover_url || null,
     sellerName: seller?.display_name ?? 'E-KRU Marketplace',
     sellerNameEn: seller?.display_name_en || seller?.display_name || 'E-KRU Marketplace',
     reviewCount: ratings.length,

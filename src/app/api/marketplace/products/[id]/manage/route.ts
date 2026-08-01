@@ -374,6 +374,9 @@ export async function PATCH(request: Request, { params }: Context) {
       }
       update.media_type_id = mediaType.id;
       update.resource_type = mediaType.delivery_mode;
+      if (mediaType.delivery_mode !== 'feature_unlock') {
+        update.license_target_system = null;
+      }
     } else {
       update.media_type_id = null;
     }
@@ -453,6 +456,16 @@ export async function PATCH(request: Request, { params }: Context) {
     if (licenseTargetSystem === 'ekru' && hasMarketplaceFeature) {
       return NextResponse.json(
         { message: 'License ของระบบ E-KRU ไม่สามารถใช้ฟีเจอร์ Marketplace' },
+        { status: 400 }
+      );
+    }
+    if (
+      licenseTargetSystem === 'marketplace' &&
+      body.licenseScope !== undefined &&
+      body.licenseScope !== 'individual'
+    ) {
+      return NextResponse.json(
+        { message: 'License ที่ใช้ใน Marketplace ต้องเป็นสิทธิ์บุคคล' },
         { status: 400 }
       );
     }

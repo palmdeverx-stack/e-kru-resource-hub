@@ -21,6 +21,40 @@ type ProductEngagementCount = {
   purchases: number | string;
 };
 
+async function recordProductSearch(
+  queryText: string,
+  products: Array<{ id: string; seller_id: string }>
+) {
+  if (queryText.length < 2) return;
+
+  try {
+    const { data: event, error: eventError } = await supabaseAdmin
+      .from('marketplace_search_events')
+      .insert({
+        query_text: queryText.slice(0, 120),
+        normalized_query: queryText.toLocaleLowerCase('th-TH').slice(0, 120),
+        result_count: products.length,
+      })
+      .select('id')
+      .single();
+    if (eventError || !event || !products.length) return;
+
+    const uniqueProducts = [
+      ...new Map(products.map((product) => [product.id, product])).values(),
+    ];
+    await supabaseAdmin.from('marketplace_search_event_products').insert(
+      uniqueProducts.map((product, index) => ({
+        search_event_id: event.id,
+        product_id: product.id,
+        seller_id: product.seller_id,
+        position: index + 1,
+      }))
+    );
+  } catch {
+    // Search analytics must never interrupt the product catalog.
+  }
+}
+
 function withCardRating(
   product: Record<string, unknown>,
   counts?: ProductEngagementCount
@@ -287,6 +321,13 @@ export async function GET(request: Request) {
     : orderedRows;
   const hasMore = pagedRows.length > limit;
   const pageRows = pagedRows.slice(0, limit);
+  const searchTrackingPromise =
+    !mine && page === 1 && safeSearch.length >= 2
+      ? recordProductSearch(
+          safeSearch,
+          pageRows.map((product) => ({ id: product.id, seller_id: product.seller_id }))
+        )
+      : Promise.resolve();
   const engagementCounts = new Map<string, ProductEngagementCount>();
   if (pageRows.length) {
     const productIds = pageRows.map((product) => product.id);
@@ -413,6 +454,7 @@ export async function GET(request: Request) {
     >
   );
   counts.all = statusNames.reduce((sum, status) => sum + counts[status], 0);
+  await searchTrackingPromise;
   return NextResponse.json({
     products: safeProducts,
     hasMore,

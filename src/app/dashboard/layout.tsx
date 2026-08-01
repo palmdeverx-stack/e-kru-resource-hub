@@ -5,7 +5,6 @@ import type { NavSectionProps } from 'src/components/nav-section';
 import { useState, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
-import Badge from '@mui/material/Badge';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
@@ -116,6 +115,11 @@ const memberNavData: NavSectionProps['data'] = [
         icon: <RiIdCardLine />,
       },
       {
+        title: 'สถิติร้านค้า',
+        path: '/dashboard/seller/analytics',
+        icon: <RiBarChartBoxLine />,
+      },
+      {
         title: 'รายได้และการรับเงิน',
         path: '/dashboard/seller/finance',
         icon: <RiWallet3Line />,
@@ -195,6 +199,11 @@ const adminNavData: NavSectionProps['data'] = [
         title: 'ข้อมูลร้านค้า',
         path: '/dashboard/seller/profile',
         icon: <RiIdCardLine />,
+      },
+      {
+        title: 'สถิติร้านค้า',
+        path: '/dashboard/seller/analytics',
+        icon: <RiBarChartBoxLine />,
       },
       {
         title: 'รายได้และการรับเงิน',
@@ -328,6 +337,7 @@ export default function Layout({ children }: Props) {
   const { t } = useTranslate('navbar');
   const { user } = useAuthContext();
   const { itemCount } = useMarketplaceCart();
+  const hasCartItems = Number.isInteger(itemCount) && itemCount > 0;
   const [canViewSchoolEntitlements, setCanViewSchoolEntitlements] = useState(false);
   const [canUseSellerLine, setCanUseSellerLine] = useState(false);
   const [hasSubmittedSeller, setHasSubmittedSeller] = useState(false);
@@ -467,6 +477,7 @@ export default function Layout({ children }: Props) {
             : section.items.filter(
                 (item) =>
                   item.path !== '/dashboard/seller/profile' &&
+                  item.path !== '/dashboard/seller/analytics' &&
                   item.path !== '/dashboard/seller/finance'
               );
           const lineItems =
@@ -564,7 +575,7 @@ export default function Layout({ children }: Props) {
         main: {
           sx: {
             pb: {
-              xs: itemCount
+              xs: hasCartItems
                 ? 'calc(88px + max(env(safe-area-inset-bottom), 0px))'
                 : 'max(env(safe-area-inset-bottom), 0px)',
               sm: 0,
@@ -574,15 +585,18 @@ export default function Layout({ children }: Props) {
       }}
     >
       {children}
-      {itemCount > 0 && (
+      {hasCartItems && (
         <Box
           sx={{
-            left: 16,
-            right: 16,
+            left: '50%',
+            px: 2,
+            width: 1,
+            maxWidth: 520,
             zIndex: (theme) => theme.zIndex.appBar + 1,
             display: { xs: 'block', sm: 'none' },
             position: 'fixed',
             pointerEvents: 'none',
+            transform: 'translateX(-50%)',
             bottom: 'calc(12px + max(env(safe-area-inset-bottom), 0px))',
           }}
         >
@@ -595,21 +609,30 @@ export default function Layout({ children }: Props) {
             sx={{
               px: 2.5,
               py: 1.35,
+              color: 'common.white',
               borderRadius: 999,
               pointerEvents: 'auto',
               justifyContent: 'space-between',
-              boxShadow: '0 12px 32px rgba(21, 101, 245, 0.32)',
+              border: '1px solid rgba(255,255,255,0.18)',
+              background: 'linear-gradient(135deg, #1565F5 0%, #0B4FC6 100%)',
+              boxShadow: '0 14px 34px rgba(21, 101, 245, 0.34)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #0F5CE7 0%, #0845AE 100%)',
+              },
             }}
           >
             <Stack direction="row" spacing={1.25} alignItems="center">
-              <Badge badgeContent={itemCount} color="error" max={99}>
-                <RiShoppingCart2Line size={22} />
-              </Badge>
+              <RiShoppingCart2Line size={22} />
               <Typography component="span" variant="subtitle1" color="inherit">
                 {t('ตะกร้าสินค้า')}
               </Typography>
             </Stack>
-            <Typography component="span" variant="body2" color="inherit">
+            <Typography
+              component="span"
+              variant="caption"
+              color="inherit"
+              sx={{ px: 1.25, py: 0.5, borderRadius: 999, bgcolor: 'rgba(255,255,255,0.16)' }}
+            >
               {t('จำนวนรายการ', { count: itemCount })}
             </Typography>
           </Button>

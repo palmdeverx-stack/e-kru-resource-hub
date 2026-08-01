@@ -94,6 +94,7 @@ export const paths = {
     seller: '/dashboard/seller',
     sellerProfile: '/dashboard/seller/profile',
     sellerProfileEdit: '/dashboard/seller/profile/edit',
+    sellerAnalytics: '/dashboard/seller/analytics',
     sellerFinance: '/dashboard/seller/finance',
     sellerDeals: '/dashboard/seller/deals',
     sellerLineSettings: '/dashboard/seller/settings/line',
