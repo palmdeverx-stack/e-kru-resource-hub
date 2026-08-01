@@ -195,6 +195,7 @@ export type MarketplaceSeller = {
   cover_url?: string | null;
   profile_completion?: number;
   is_system_store?: boolean;
+  badges?: MarketplaceSellerBadge[];
   bio: string | null;
   contact_email: string | null;
   seller_name?: string | null;
@@ -231,6 +232,24 @@ export type MarketplaceSeller = {
     promptpay_id: string | null;
     is_verified?: boolean;
   } | null;
+};
+
+export type MarketplaceSellerBadge = {
+  seller_id: string;
+  badge_key:
+    | 'top_seller'
+    | 'highly_rated'
+    | 'best_seller'
+    | 'rising_creator'
+    | 'customer_favorite'
+    | 'new_creator';
+  label_th: string;
+  label_en: string;
+  description_th: string;
+  description_en: string;
+  icon_key: string;
+  color: string;
+  priority: number;
 };
 
 export type MarketplaceSellerDocument = {

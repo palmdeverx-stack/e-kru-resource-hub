@@ -33,6 +33,7 @@ import {
   RiVerifiedBadgeFill,
 } from 'src/components/remix-icon';
 
+import { MarketplaceSellerBadges } from '../../shared/seller-badges';
 import { isSellerProfileVerified } from '../../shared/seller-completion';
 
 type PublicStore = Pick<
@@ -47,6 +48,7 @@ type PublicStore = Pick<
   | 'seller_type'
   | 'profile_completion'
   | 'is_system_store'
+  | 'badges'
 > & {
   product_count: number;
   review_count: number;
@@ -303,6 +305,8 @@ function StoreCard({ store }: { store: PublicStore }) {
             sx={{ mt: 1 }}
           />
         </Box>
+
+        <MarketplaceSellerBadges badges={store.badges} limit={3} />
 
         <Typography
           variant="body2"

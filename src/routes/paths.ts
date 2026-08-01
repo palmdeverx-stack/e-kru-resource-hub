@@ -87,6 +87,7 @@ export const paths = {
     feedback: '/dashboard/feedback',
     referrals: '/dashboard/referrals',
     referralSettings: '/dashboard/settings/referrals',
+    sellerBadgeSettings: '/dashboard/settings/seller-badges',
     purchases: '/dashboard/purchases',
     licenses: '/dashboard/licenses',
     personalEntitlements: '/dashboard/my-apps',

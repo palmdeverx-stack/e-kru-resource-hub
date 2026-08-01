@@ -27,6 +27,7 @@ import {
   RiSearchLine,
   RiStore2Line,
   RiStore3Line,
+  RiTrophyLine,
   RiReceiptLine,
   RiWallet3Line,
   RiFeedbackLine,
@@ -251,6 +252,11 @@ const adminNavData: NavSectionProps['data'] = [
         icon: <RiShareForwardLine />,
       },
       {
+        title: 'ตั้งค่ารางวัลผู้ขาย',
+        path: '/dashboard/settings/seller-badges',
+        icon: <RiTrophyLine />,
+      },
+      {
         title: 'บัญชีผู้ใช้งาน',
         path: '/dashboard/settings/system-users',
         icon: <RiUserSettingsLine />,
@@ -454,19 +460,16 @@ export default function Layout({ children }: Props) {
     return () => controller.abort();
   }, [user?.id, user?.role]);
 
-  const adminNavigation =
-    user?.role === 'super_admin'
-      ? adminNavData.map((section) =>
-          section.subheader === 'ผู้ขาย'
-            ? {
-                ...section,
-                items: section.items.filter(
-                  (item) => item.path !== '/dashboard/seller/settings/line'
-                ),
-              }
-            : section
-        )
-      : adminNavData;
+  const adminNavigation = adminNavData.map((section) => {
+    let items = section.items;
+    if (user?.role === 'super_admin' && section.subheader === 'ผู้ขาย') {
+      items = items.filter((item) => item.path !== '/dashboard/seller/settings/line');
+    }
+    if (user?.role !== 'super_admin' && section.subheader === 'ตั้งค่าระบบ') {
+      items = items.filter((item) => item.path !== '/dashboard/settings/seller-badges');
+    }
+    return items === section.items ? section : { ...section, items };
+  });
 
   const navData = isMarketplaceAdmin(user?.role)
     ? adminNavigation

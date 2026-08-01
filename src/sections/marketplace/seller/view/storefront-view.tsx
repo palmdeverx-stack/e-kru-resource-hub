@@ -29,6 +29,7 @@ import {
 } from 'src/components/remix-icon';
 
 import { MarketplaceProductCard } from '../../shared/product-card';
+import { MarketplaceSellerBadges } from '../../shared/seller-badges';
 import { MarketplaceProductDetailDialog } from '../../catalog/components/product-detail-dialog';
 import { isSellerProfileVerified, isSystemMarketplaceSeller } from '../../shared/seller-completion';
 
@@ -211,6 +212,10 @@ export function MarketplaceStorefrontView({ slug, dashboardMode = false }: Props
                   })}
                 />
               </Stack>
+
+              <Box sx={{ mt: 2 }}>
+                <MarketplaceSellerBadges badges={seller.badges} />
+              </Box>
             </Stack>
           </Grid>
 

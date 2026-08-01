@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 
+import { getPublicSellerBadges } from 'src/sections/marketplace/seller/server/seller-badges';
 import { getSellerProfileCompletionById } from 'src/sections/marketplace/seller/server/seller-completion';
 
 type ProductRatingRow = {
@@ -56,6 +57,7 @@ export async function GET(request: Request) {
   if (productError) {
     return NextResponse.json({ message: productError.message }, { status: 500 });
   }
+  const badgesBySeller = await getPublicSellerBadges(sellerIds);
 
   const sellerStats = new Map<
     string,
@@ -92,6 +94,7 @@ export async function GET(request: Request) {
         product_count: stats.productCount,
         review_count: stats.reviewCount,
         average_rating: stats.reviewCount ? stats.ratingTotal / stats.reviewCount : 0,
+        badges: badgesBySeller.get(seller.id) ?? [],
       };
     })
   );

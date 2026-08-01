@@ -4,6 +4,7 @@ import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { requireAuthenticated } from 'src/lib/auth-token';
 
 import { withMediaUrls } from 'src/sections/marketplace/seller/server/product-media';
+import { getPublicSellerBadges } from 'src/sections/marketplace/seller/server/seller-badges';
 import { getSellerProfileCompletionById } from 'src/sections/marketplace/seller/server/seller-completion';
 import {
   canViewSellerTools,
@@ -44,12 +45,16 @@ export async function GET(request: Request, { params }: Context) {
       { status: error ? 500 : 404 }
     );
   }
-  const profileCompletion = await getSellerProfileCompletionById(seller.id);
+  const [profileCompletion, badgesBySeller] = await Promise.all([
+    getSellerProfileCompletionById(seller.id),
+    getPublicSellerBadges([seller.id]),
+  ]);
   const { owner_role: ownerRole, ...sellerDetails } = seller;
   const publicSeller = {
     ...sellerDetails,
     profile_completion: profileCompletion,
     is_system_store: ownerRole === 'master_admin',
+    badges: badgesBySeller.get(seller.id) ?? [],
   };
   let productsQuery = supabaseAdmin
     .from('marketplace_products')
