@@ -14,7 +14,7 @@
     },
     {
       "path": "/api/internal/marketplace-tags/cleanup",
-      "schedule": "15 * * * *"
+      "schedule": "15 3 * * *"
     }
   ]
 }
