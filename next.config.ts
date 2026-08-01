@@ -52,6 +52,9 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   trailingSlash: true,
+  // Keep sharp out of the webpack bundle so Next's file tracing can find its
+  // native linux-x64 binary in node_modules on Vercel.
+  serverExternalPackages: ['sharp'],
   // LINE does not follow the 308 redirect returned for POST webhooks.
   // Accept both webhook URL forms instead of redirecting before the route handler.
   skipTrailingSlashRedirect: true,

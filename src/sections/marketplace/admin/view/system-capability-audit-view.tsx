@@ -100,7 +100,8 @@ const additionalQualityMetrics = [
   {
     label: 'Performance Readiness',
     status: notMeasured,
-    detail: 'มี Image component, pagination และ parallel fetching แต่ยังไม่มี Core Web Vitals จาก Production',
+    detail:
+      'มี Image component, pagination และ parallel fetching แต่ยังไม่มี Core Web Vitals จาก Production',
   },
   {
     label: 'Reliability',
@@ -125,32 +126,38 @@ const additionalQualityMetrics = [
   {
     label: 'Test Coverage',
     status: notMeasured,
-    detail: 'มี TypeScript, Build และ Security Regression Test แต่ยังขาด Unit, Integration และ E2E coverage',
+    detail:
+      'มี TypeScript, Build และ Security Regression Test แต่ยังขาด Unit, Integration และ E2E coverage',
   },
   {
     label: 'Maintainability',
     status: partial,
-    detail: 'ใช้ TypeScript, ESLint และแยกโมดูลตามขอบเขตงาน โดยระบบมีขนาดใหญ่และควรติดตาม duplication',
+    detail:
+      'ใช้ TypeScript, ESLint และแยกโมดูลตามขอบเขตงาน โดยระบบมีขนาดใหญ่และควรติดตาม duplication',
   },
   {
     label: 'Mobile UX',
     status: notMeasured,
-    detail: 'มี responsive layout, mobile navigation และ touch-friendly controls แต่ยังไม่มีผลทดสอบหลายอุปกรณ์',
+    detail:
+      'มี responsive layout, mobile navigation และ touch-friendly controls แต่ยังไม่มีผลทดสอบหลายอุปกรณ์',
   },
   {
     label: 'Backup & Recovery',
     status: notMeasured,
-    detail: 'ยังไม่พบหลักฐาน Backup policy, Restore drill, RPO/RTO หรือ Disaster Recovery test ใน repository',
+    detail:
+      'ยังไม่พบหลักฐาน Backup policy, Restore drill, RPO/RTO หรือ Disaster Recovery test ใน repository',
   },
   {
     label: 'Observability',
     status: partial,
-    detail: 'มี Audit Log, analytics และ delivery status แต่ยังไม่มีหลักฐาน alerting และ error tracing ส่วนกลาง',
+    detail:
+      'มี Audit Log, analytics และ delivery status แต่ยังไม่มีหลักฐาน alerting และ error tracing ส่วนกลาง',
   },
   {
     label: 'External Service Readiness',
     status: partial,
-    detail: 'รองรับ Stripe, LINE, Email, Storage และ ClamAV แต่ความพร้อมจริงขึ้นกับการตั้งค่าแต่ละบริการ',
+    detail:
+      'รองรับ Stripe, LINE, Email, Storage และ ClamAV แต่ความพร้อมจริงขึ้นกับการตั้งค่าแต่ละบริการ',
   },
 ];
 
@@ -389,7 +396,11 @@ const priorities = [
 // Codex audit numbers stay exactly as that pass reported them.
 const claudeReviewer = 'Claude Sonnet 5';
 
-type ClaudeCheckStatus = typeof verified | typeof partial | typeof staticReview | typeof notMeasured;
+type ClaudeCheckStatus =
+  | typeof verified
+  | typeof partial
+  | typeof staticReview
+  | typeof notMeasured;
 
 const claudeChecks: { label: string; status: ClaudeCheckStatus; detail: string }[] = [
   {
@@ -432,7 +443,7 @@ export function SystemCapabilityAuditView() {
   }));
 
   return (
-    <Container maxWidth={false} sx={{ py: { xs: 3, md: 4 } }}>
+    <Container maxWidth={false} sx={{ py: { xs: 3 } }}>
       <Stack
         direction={{ xs: 'column', md: 'row' }}
         justifyContent="space-between"
@@ -460,8 +471,8 @@ export function SystemCapabilityAuditView() {
 
       <Alert severity="info" sx={{ mb: 3 }}>
         รายงานนี้อ่านจาก Navigation ที่เปิดใช้งาน หน้า UI และ API ของ Marketplace ที่เชื่อมกันจนจบ
-        ไม่ได้นับ Route ที่มีโค้ดอยู่แต่เป็นระบบ Legacy และยังไม่มี Usage Telemetry
-        ประเมินโดย {auditReviewer} ในรูปแบบ AI-assisted Static Review ไม่ใช่ผล Penetration Test
+        ไม่ได้นับ Route ที่มีโค้ดอยู่แต่เป็นระบบ Legacy และยังไม่มี Usage Telemetry ประเมินโดย{' '}
+        {auditReviewer} ในรูปแบบ AI-assisted Static Review ไม่ใช่ผล Penetration Test
         หรือการรับรองจากผู้ตรวจสอบอิสระ
       </Alert>
 
@@ -469,8 +480,7 @@ export function SystemCapabilityAuditView() {
         sx={{
           p: { xs: 2.5, md: 4 },
           mb: 3,
-          background:
-            'linear-gradient(135deg, rgba(21, 101, 192, 0.10), rgba(24, 169, 123, 0.08))',
+          background: 'linear-gradient(135deg, rgba(21, 101, 192, 0.10), rgba(24, 169, 123, 0.08))',
         }}
       >
         <Box
@@ -546,73 +556,73 @@ export function SystemCapabilityAuditView() {
 
         {reviewSourceTab === 'codex' && (
           <Stack spacing={2.5}>
-          <Box>
-            <Typography variant="h5">สรุปคะแนนจากหลักฐานทั้งหมด</Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              คำนวณจาก {scoredMetrics.length} ด้านระดับบนโดยให้น้ำหนักเท่ากัน และไม่นับหัวข้อ Security
-              ย่อยซ้ำอีกครั้ง
-            </Typography>
-            <Chip
-              size="small"
-              variant="soft"
-              color="info"
-              label={`ผู้ให้คะแนน · ${auditReviewer} (AI-assisted Static Review)`}
-              sx={{ mt: 1.25 }}
-            />
-          </Box>
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
-              gap: 2,
-            }}
-          >
-            {[
-              {
-                value: `${readinessScore}%`,
-                label: 'ความพร้อมที่ยืนยันได้',
-                detail: 'รวม N/A เป็น 0 เพื่อสะท้อนหลักฐานที่ยังขาด',
-                color: 'primary.main',
-              },
-              {
-                value: `${assessedScore}%`,
-                label: 'คุณภาพเฉพาะด้านที่ประเมินได้',
-                detail: `คำนวณจาก ${assessedMetrics.length} ด้านที่มีหลักฐาน`,
-                color: 'success.main',
-              },
-              {
-                value: `${evidenceCoverage}%`,
-                label: 'Evidence Coverage',
-                detail: `${assessedMetrics.length}/${scoredMetrics.length} ด้านมีข้อมูลสำหรับประเมิน`,
-                color: 'info.main',
-              },
-            ].map((item) => (
-              <Box key={item.label}>
-                <Typography variant="h3" color={item.color}>
-                  {item.value}
-                </Typography>
-                <Typography variant="subtitle1">{item.label}</Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {item.detail}
-                </Typography>
-              </Box>
-            ))}
-          </Box>
-          <Divider />
-          <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-            {evidenceCounts.map(({ status, count }) => (
+            <Box>
+              <Typography variant="h5">สรุปคะแนนจากหลักฐานทั้งหมด</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                คำนวณจาก {scoredMetrics.length} ด้านระดับบนโดยให้น้ำหนักเท่ากัน และไม่นับหัวข้อ
+                Security ย่อยซ้ำอีกครั้ง
+              </Typography>
               <Chip
-                key={status.label}
+                size="small"
                 variant="soft"
-                color={status.color}
-                label={`${status.label} ${count} ด้าน · ${status.points} คะแนน`}
+                color="info"
+                label={`ผู้ให้คะแนน · ${auditReviewer} (AI-assisted Static Review)`}
+                sx={{ mt: 1.25 }}
               />
-            ))}
-          </Stack>
-          <Typography variant="caption" color="text.secondary">
-            สูตร: ยืนยันจากหลักฐาน = 100, Static Review = 75, มีหลักฐานบางส่วน = 50 และ N/A = 0
-            คะแนนนี้วัดความพร้อมของหลักฐาน ไม่ใช่การรับประกันคุณภาพหรือความปลอดภัยของ Production
-          </Typography>
+            </Box>
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
+                gap: 2,
+              }}
+            >
+              {[
+                {
+                  value: `${readinessScore}%`,
+                  label: 'ความพร้อมที่ยืนยันได้',
+                  detail: 'รวม N/A เป็น 0 เพื่อสะท้อนหลักฐานที่ยังขาด',
+                  color: 'primary.main',
+                },
+                {
+                  value: `${assessedScore}%`,
+                  label: 'คุณภาพเฉพาะด้านที่ประเมินได้',
+                  detail: `คำนวณจาก ${assessedMetrics.length} ด้านที่มีหลักฐาน`,
+                  color: 'success.main',
+                },
+                {
+                  value: `${evidenceCoverage}%`,
+                  label: 'Evidence Coverage',
+                  detail: `${assessedMetrics.length}/${scoredMetrics.length} ด้านมีข้อมูลสำหรับประเมิน`,
+                  color: 'info.main',
+                },
+              ].map((item) => (
+                <Box key={item.label}>
+                  <Typography variant="h3" color={item.color}>
+                    {item.value}
+                  </Typography>
+                  <Typography variant="subtitle1">{item.label}</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {item.detail}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+            <Divider />
+            <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+              {evidenceCounts.map(({ status, count }) => (
+                <Chip
+                  key={status.label}
+                  variant="soft"
+                  color={status.color}
+                  label={`${status.label} ${count} ด้าน · ${status.points} คะแนน`}
+                />
+              ))}
+            </Stack>
+            <Typography variant="caption" color="text.secondary">
+              สูตร: ยืนยันจากหลักฐาน = 100, Static Review = 75, มีหลักฐานบางส่วน = 50 และ N/A = 0
+              คะแนนนี้วัดความพร้อมของหลักฐาน ไม่ใช่การรับประกันคุณภาพหรือความปลอดภัยของ Production
+            </Typography>
           </Stack>
         )}
 
@@ -646,8 +656,8 @@ export function SystemCapabilityAuditView() {
 
         {reviewSourceTab === 'external' && (
           <Alert severity="warning">
-            N/A · ยังไม่มีผล Penetration Test, External Security Audit หรือรายงานรับรองจากผู้ตรวจสอบอิสระ
-            จึงไม่สร้างคะแนนแทนข้อมูลที่ยังไม่มี
+            N/A · ยังไม่มีผล Penetration Test, External Security Audit
+            หรือรายงานรับรองจากผู้ตรวจสอบอิสระ จึงไม่สร้างคะแนนแทนข้อมูลที่ยังไม่มี
           </Alert>
         )}
 
@@ -656,8 +666,9 @@ export function SystemCapabilityAuditView() {
             <Box>
               <Typography variant="h5">สรุปคะแนนจากหลักฐาน Follow-up</Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                รายการที่ตรวจสอบและแก้ไขเพิ่มเติมนอกรอบ Audit เดิม คำนวณด้วยสูตรคะแนนเดียวกันแต่แยกเป็นชุดของตัวเอง
-                ไม่ได้นับรวมกับคะแนนสรุปของ {auditReviewer}
+                รายการที่ตรวจสอบและแก้ไขเพิ่มเติมนอกรอบ Audit เดิม
+                คำนวณด้วยสูตรคะแนนเดียวกันแต่แยกเป็นชุดของตัวเอง ไม่ได้นับรวมกับคะแนนสรุปของ{' '}
+                {auditReviewer}
               </Typography>
               <Chip
                 size="small"
@@ -724,7 +735,12 @@ export function SystemCapabilityAuditView() {
             <Stack spacing={2}>
               {claudeChecks.map((check) => (
                 <Box key={check.label}>
-                  <Stack direction="row" justifyContent="space-between" spacing={2} sx={{ mb: 0.75 }}>
+                  <Stack
+                    direction="row"
+                    justifyContent="space-between"
+                    spacing={2}
+                    sx={{ mb: 0.75 }}
+                  >
                     <Typography variant="subtitle2">{check.label}</Typography>
                     <Chip
                       size="small"
@@ -754,7 +770,11 @@ export function SystemCapabilityAuditView() {
         {[
           { value: capabilities.length, label: 'กลุ่มความสามารถ', detail: 'เฉพาะที่ใช้งานจริง' },
           { value: flows.length, label: 'Active End-to-End Flow', detail: 'ตั้งแต่ต้นจนจบ' },
-          { value: priorities.length, label: 'งานสำคัญถัดไป', detail: 'เพื่อเพิ่มความพร้อมของระบบ' },
+          {
+            value: priorities.length,
+            label: 'งานสำคัญถัดไป',
+            detail: 'เพื่อเพิ่มความพร้อมของระบบ',
+          },
         ].map((item) => (
           <Card key={item.label} sx={{ p: 2.5 }}>
             <Typography variant="h3" color="primary.main">
@@ -941,7 +961,12 @@ export function SystemCapabilityAuditView() {
                     {flow.title}
                   </Typography>
                 </Box>
-                <Chip size="small" variant="soft" color={flow.status.color} label={flow.status.label} />
+                <Chip
+                  size="small"
+                  variant="soft"
+                  color={flow.status.color}
+                  label={flow.status.label}
+                />
               </Stack>
               <Divider sx={{ my: 2 }} />
               <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" alignItems="center">
@@ -954,7 +979,11 @@ export function SystemCapabilityAuditView() {
                   </Stack>
                 ))}
               </Stack>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ display: 'block', mt: 1.5 }}
+              >
                 หลักฐาน: {flow.evidence}
               </Typography>
             </Card>
@@ -1051,7 +1080,6 @@ export function SystemCapabilityAuditView() {
           ))}
         </Stack>
       </Card>
-
     </Container>
   );
 }
