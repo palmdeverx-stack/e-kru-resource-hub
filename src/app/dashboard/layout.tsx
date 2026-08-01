@@ -147,33 +147,48 @@ const adminNavData: NavSectionProps['data'] = [
     ],
   },
   {
-    subheader: 'การดูแล Marketplace',
+    subheader: 'ภาพรวมและการอนุมัติ',
     items: [
-      {
-        title: 'ภาพรวม',
-        path: '/dashboard/marketing-overview',
-        icon: <RiBarChartBoxLine />,
-      },
       {
         title: 'ศูนย์ควบคุม',
         path: '/dashboard',
         icon: <RiShieldStarLine />,
       },
       {
-        title: 'อนุมัติร้านค้า',
-        path: '/dashboard/seller-approvals',
-        icon: <RiUserFollowLine />,
-      },
-      {
-        title: 'บัญชีร้านค้าในระบบ',
-        path: '/dashboard/seller-accounts',
-        icon: <RiStore3Line />,
+        title: 'ภาพรวมการตลาด',
+        path: '/dashboard/marketing-overview',
+        icon: <RiBarChartBoxLine />,
       },
       {
         title: 'อนุมัติสินค้า',
         path: '/dashboard/product-approvals',
         icon: <RiShieldCheckLine />,
       },
+      {
+        title: 'อนุมัติร้านค้า',
+        path: '/dashboard/seller-approvals',
+        icon: <RiUserFollowLine />,
+      },
+    ],
+  },
+  {
+    subheader: 'ผู้ขายและรางวัล',
+    items: [
+      {
+        title: 'บัญชีร้านค้าในระบบ',
+        path: '/dashboard/seller-accounts',
+        icon: <RiStore3Line />,
+      },
+      {
+        title: 'ตั้งค่ารางวัลผู้ขาย',
+        path: '/dashboard/settings/seller-badges',
+        icon: <RiTrophyLine />,
+      },
+    ],
+  },
+  {
+    subheader: 'การเงิน Marketplace',
+    items: [
       {
         title: 'ใบเสร็จรับเงิน',
         path: '/dashboard/receipts',
@@ -184,10 +199,15 @@ const adminNavData: NavSectionProps['data'] = [
         path: '/dashboard/payouts',
         icon: <RiExchangeDollarLine />,
       },
+      {
+        title: 'ตั้งค่าการเงิน',
+        path: '/dashboard/settings/finance',
+        icon: <RiSecurePaymentLine />,
+      },
     ],
   },
   {
-    subheader: 'ผู้ขาย',
+    subheader: 'ร้านค้าทางการ',
     items: [
       {
         title: 'ร้านค้าของฉัน',
@@ -237,11 +257,6 @@ const adminNavData: NavSectionProps['data'] = [
         icon: <RiChatSettingsLine />,
       },
       {
-        title: 'ตั้งค่าการเงิน',
-        path: '/dashboard/settings/finance',
-        icon: <RiSecurePaymentLine />,
-      },
-      {
         title: 'พื้นที่จัดเก็บ',
         path: '/dashboard/settings/storage',
         icon: <RiDatabase2Line />,
@@ -250,11 +265,6 @@ const adminNavData: NavSectionProps['data'] = [
         title: 'ตั้งค่าแนะนำเพื่อน',
         path: '/dashboard/settings/referrals',
         icon: <RiShareForwardLine />,
-      },
-      {
-        title: 'ตั้งค่ารางวัลผู้ขาย',
-        path: '/dashboard/settings/seller-badges',
-        icon: <RiTrophyLine />,
       },
       {
         title: 'บัญชีผู้ใช้งาน',
@@ -274,10 +284,10 @@ const adminNavData: NavSectionProps['data'] = [
     ],
   },
   {
-    subheader: 'Master',
+    subheader: 'ข้อมูลหลัก',
     items: [
       {
-        title: 'ข้อมูลหลัก',
+        title: 'จัดการข้อมูลหลัก',
         path: '/dashboard/master',
         icon: <RiSettings3Line />,
         children: [
@@ -462,11 +472,8 @@ export default function Layout({ children }: Props) {
 
   const adminNavigation = adminNavData.map((section) => {
     let items = section.items;
-    if (user?.role === 'super_admin' && section.subheader === 'ผู้ขาย') {
+    if (user?.role === 'super_admin' && section.subheader === 'ร้านค้าทางการ') {
       items = items.filter((item) => item.path !== '/dashboard/seller/settings/line');
-    }
-    if (!isMarketplaceAdmin(user?.role) && section.subheader === 'ตั้งค่าระบบ') {
-      items = items.filter((item) => item.path !== '/dashboard/settings/seller-badges');
     }
     return items === section.items ? section : { ...section, items };
   });
