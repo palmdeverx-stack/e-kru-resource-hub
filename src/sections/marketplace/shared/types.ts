@@ -111,7 +111,11 @@ export type MarketplaceProductFile = {
   file_size: number;
   position: number;
   is_preview: boolean;
-  url: string;
+  scan_status?: 'pending_scan' | 'safe' | 'rejected';
+  scan_engine?: string | null;
+  scan_result?: string | null;
+  scanned_at?: string | null;
+  url: string | null;
 };
 
 export type MarketplaceProductReview = {

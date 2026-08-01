@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
+import { rejectCrossSiteMutation } from 'src/lib/request-security';
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -17,6 +18,8 @@ async function loadLicense(id: string, schoolId: string) {
 }
 
 export async function POST(request: Request, { params }: Context) {
+  const csrfError = rejectCrossSiteMutation(request);
+  if (csrfError) return csrfError;
   const caller = requireRole(request, ['school_admin']);
   if (!caller?.schoolId) {
     return NextResponse.json({ message: 'เฉพาะผู้ดูแลโรงเรียนเท่านั้น' }, { status: 403 });
@@ -88,6 +91,8 @@ export async function POST(request: Request, { params }: Context) {
 }
 
 export async function DELETE(request: Request, { params }: Context) {
+  const csrfError = rejectCrossSiteMutation(request);
+  if (csrfError) return csrfError;
   const caller = requireRole(request, ['school_admin']);
   if (!caller?.schoolId) {
     return NextResponse.json({ message: 'เฉพาะผู้ดูแลโรงเรียนเท่านั้น' }, { status: 403 });

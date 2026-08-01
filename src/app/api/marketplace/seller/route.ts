@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { requireAuthenticated } from 'src/lib/auth-token';
+import { isActionAllowed } from 'src/lib/auth-rate-limit';
+import { rejectCrossSiteMutation } from 'src/lib/request-security';
+import { revealPayoutAccount, encryptPayoutAccountFields } from 'src/lib/financial-data-cipher';
 
 import { findThaiBank } from 'src/sections/marketplace/shared/thai-banks';
 import { provisionEkruSystemSeller } from 'src/sections/marketplace/seller/server/system-seller';
@@ -42,7 +45,11 @@ async function withSellerRelations(seller: Record<string, unknown> | null) {
       };
     })
   );
-  return { ...seller, documents: documentsWithUrls, payout_account: payoutAccount };
+  return {
+    ...seller,
+    documents: documentsWithUrls,
+    payout_account: revealPayoutAccount(payoutAccount),
+  };
 }
 
 export async function GET(request: Request) {
@@ -74,14 +81,34 @@ export async function GET(request: Request) {
   const sellerWithRelations = await withSellerRelations(existingSeller);
   const pendingProfile = existingSeller?.pending_profile_data as Record<string, unknown> | null;
   if (new URL(request.url).searchParams.get('edit') === '1' && pendingProfile) {
-    return NextResponse.json({ seller: { ...sellerWithRelations, ...pendingProfile } });
+    const pendingPayout = pendingProfile.payout_account as Record<string, unknown> | undefined;
+    return NextResponse.json({
+      seller: {
+        ...sellerWithRelations,
+        ...pendingProfile,
+        payout_account: revealPayoutAccount(pendingPayout),
+      },
+    });
   }
   return NextResponse.json({ seller: sellerWithRelations });
 }
 
 export async function POST(request: Request) {
+  const csrfError = rejectCrossSiteMutation(request);
+  if (csrfError) return csrfError;
   const caller = requireAuthenticated(request);
   if (!caller) return NextResponse.json({ message: 'กรุณาเข้าสู่ระบบ' }, { status: 401 });
+  if (
+    !(await isActionAllowed({
+      request,
+      action: 'marketplace-seller-profile',
+      subject: caller.sub,
+      maxAttempts: 30,
+      windowSeconds: 5 * 60,
+    }))
+  ) {
+    return NextResponse.json({ message: 'บันทึกข้อมูลร้านบ่อยเกินไป' }, { status: 429 });
+  }
   const body = await request.json().catch(() => null);
 
   if (caller.role === 'master_admin' || caller.role === 'marketplace_admin') {
@@ -246,12 +273,19 @@ export async function POST(request: Request) {
       action === 'submit' && body.feeAgreement ? now : existing?.fee_agreement_accepted_at,
     pdpa_accepted_at: action === 'submit' && body.pdpaAccepted ? now : existing?.pdpa_accepted_at,
   };
-  const payoutPayload = {
+  const promptpayId = String(body?.promptpayId ?? '').replace(/\D/g, '') || null;
+  const plainPayoutPayload = {
     bank_code: bankCode || null,
     bank_name: bankName || null,
     account_number: accountNumber || null,
     account_name: accountName || null,
-    promptpay_id: String(body?.promptpayId ?? '').replace(/\D/g, '') || null,
+    promptpay_id: promptpayId,
+  };
+  const payoutPayload = {
+    bank_code: bankCode || null,
+    bank_name: bankName || null,
+    account_name: accountName || null,
+    ...encryptPayoutAccountFields(accountNumber || null, promptpayId),
   };
 
   if (remainsActive) {
@@ -296,7 +330,7 @@ export async function POST(request: Request) {
       seller: {
         ...sellerWithRelations,
         ...sellerProfilePayload,
-        payout_account: payoutPayload,
+        payout_account: plainPayoutPayload,
       },
       message:
         action === 'submit'
@@ -333,9 +367,8 @@ export async function POST(request: Request) {
       seller_id: seller.id,
       bank_code: bankCode,
       bank_name: bankName,
-      account_number: accountNumber,
       account_name: accountName,
-      promptpay_id: String(body?.promptpayId ?? '').replace(/\D/g, '') || null,
+      ...encryptPayoutAccountFields(accountNumber, promptpayId),
       is_verified: false,
       updated_at: now,
     });

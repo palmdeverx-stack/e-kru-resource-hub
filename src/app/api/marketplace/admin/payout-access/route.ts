@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { NextResponse } from 'next/server';
 
 import { isSignInAllowed } from 'src/lib/auth-rate-limit';
+import { rejectCrossSiteMutation } from 'src/lib/request-security';
 import {
   requireRole,
   signPayoutAccess,
@@ -16,6 +17,8 @@ function codesMatch(code: string, expectedCode: string) {
 }
 
 export async function POST(request: Request) {
+  const csrfError = rejectCrossSiteMutation(request);
+  if (csrfError) return csrfError;
   const caller = requireRole(request, ['master_admin']);
   if (!caller) {
     return NextResponse.json({ message: 'ไม่มีสิทธิ์เข้าถึงข้อมูลการโอนเงิน' }, { status: 403 });

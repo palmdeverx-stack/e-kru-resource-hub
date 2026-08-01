@@ -1,12 +1,15 @@
 import { NextResponse } from 'next/server';
 
 import { requireRole } from 'src/lib/auth-token';
+import { rejectCrossSiteMutation } from 'src/lib/request-security';
 
 import { revokeSchoolLicense } from 'src/sections/marketplace/checkout/server/license-lifecycle';
 
 type Context = { params: Promise<{ id: string }> };
 
 export async function PATCH(request: Request, { params }: Context) {
+  const csrfError = rejectCrossSiteMutation(request);
+  if (csrfError) return csrfError;
   const caller = requireRole(request, ['master_admin']);
   if (!caller) {
     return NextResponse.json({ message: 'เฉพาะผู้ดูแล Marketplace เท่านั้น' }, { status: 403 });

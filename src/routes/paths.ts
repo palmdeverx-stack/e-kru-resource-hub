@@ -79,6 +79,7 @@ export const paths = {
     lineSettings: '/dashboard/settings/line',
     financeSettings: '/dashboard/settings/finance',
     storageSettings: '/dashboard/settings/storage',
+    systemAudit: '/dashboard/settings/system-audit',
     securityAudit: '/dashboard/settings/security-audit',
     systemUsers: '/dashboard/settings/system-users',
     paymentReviews: '/dashboard/payment-reviews',

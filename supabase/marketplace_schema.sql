@@ -453,13 +453,18 @@ create table if not exists public.marketplace_provider_settings (
   default_language text not null default 'th',
   service_country text not null default 'TH',
   production_url text,
+  clamav_host text,
+  clamav_port integer not null default 3310
+    check (clamav_port between 1 and 65535),
   updated_by uuid,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
 alter table public.marketplace_provider_settings
-  add column if not exists official_product_thumbnail_url text;
+  add column if not exists official_product_thumbnail_url text,
+  add column if not exists clamav_host text,
+  add column if not exists clamav_port integer not null default 3310;
 
 insert into public.marketplace_provider_settings (id, og_image_url)
 values (

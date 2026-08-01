@@ -4,6 +4,8 @@ import { parseBangkokDateTime } from 'src/utils/timezone';
 
 import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
+import { isActionAllowed } from 'src/lib/auth-rate-limit';
+import { rejectCrossSiteMutation } from 'src/lib/request-security';
 
 import { ownedSellerId } from 'src/sections/marketplace/seller/server/owned-seller';
 import { MARKETPLACE_MINIMUM_PAID_PRICE_THB } from 'src/sections/marketplace/shared/payment';
@@ -39,9 +41,22 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const csrfError = rejectCrossSiteMutation(request);
+  if (csrfError) return csrfError;
   const caller = requireRole(request, ['master_admin']);
   if (!caller) {
     return NextResponse.json({ message: 'เมนูนี้สำหรับ Super Admin เท่านั้น' }, { status: 403 });
+  }
+  if (
+    !(await isActionAllowed({
+      request,
+      action: 'marketplace-sales-deal',
+      subject: caller.sub,
+      maxAttempts: 20,
+      windowSeconds: 5 * 60,
+    }))
+  ) {
+    return NextResponse.json({ message: 'สร้างข้อเสนอบ่อยเกินไป' }, { status: 429 });
   }
   const seller = await ownedSellerId(caller.sub);
   if (!seller || seller.status !== 'active') {

@@ -2,12 +2,15 @@ import { NextResponse } from 'next/server';
 
 import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
+import { rejectCrossSiteMutation } from 'src/lib/request-security';
 
 type Context = {
   params: Promise<{ id: string }>;
 };
 
 export async function PATCH(request: Request, { params }: Context) {
+  const csrfError = rejectCrossSiteMutation(request);
+  if (csrfError) return csrfError;
   if (!requireRole(request, ['master_admin'])) {
     return NextResponse.json({ message: 'ไม่มีสิทธิ์แก้ไขหมวดหมู่' }, { status: 403 });
   }
@@ -80,6 +83,8 @@ export async function PATCH(request: Request, { params }: Context) {
 }
 
 export async function DELETE(request: Request, { params }: Context) {
+  const csrfError = rejectCrossSiteMutation(request);
+  if (csrfError) return csrfError;
   if (!requireRole(request, ['master_admin'])) {
     return NextResponse.json({ message: 'ไม่มีสิทธิ์ลบหมวดหมู่' }, { status: 403 });
   }

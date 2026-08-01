@@ -2,10 +2,14 @@ import { NextResponse } from 'next/server';
 
 import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
+import { rejectCrossSiteMutation } from 'src/lib/request-security';
 
 // ----------------------------------------------------------------------
 
 export async function POST(request: Request) {
+  const crossSiteError = rejectCrossSiteMutation(request);
+  if (crossSiteError) return crossSiteError;
+
   const caller = requireRole(request, [
     'master_admin',
     'school_admin',

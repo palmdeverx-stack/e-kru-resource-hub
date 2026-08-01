@@ -1,3 +1,5 @@
+import { rejectCrossSiteMutation } from 'src/lib/request-security';
+
 import {
   updateLookup,
   deleteLookup,
@@ -7,9 +9,13 @@ import {
 type Context = { params: Promise<{ id: string }> };
 
 export async function PATCH(request: Request, { params }: Context) {
+  const csrfError = rejectCrossSiteMutation(request);
+  if (csrfError) return csrfError;
   return updateLookup(request, (await params).id, saleTypeConfig);
 }
 
 export async function DELETE(request: Request, { params }: Context) {
+  const csrfError = rejectCrossSiteMutation(request);
+  if (csrfError) return csrfError;
   return deleteLookup(request, (await params).id, saleTypeConfig);
 }

@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { writeSecurityAudit } from 'src/lib/security-audit';
+import { rejectCrossSiteMutation } from 'src/lib/request-security';
 
 const BADGE_KEYS = [
   'top_seller',
@@ -57,6 +58,8 @@ export async function GET(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  const csrfError = rejectCrossSiteMutation(request);
+  if (csrfError) return csrfError;
   const caller = authorize(request);
   if (!caller) {
     return NextResponse.json(

@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { requireAuthenticated } from 'src/lib/auth-token';
+import { isActionAllowed } from 'src/lib/auth-rate-limit';
+import { rejectCrossSiteMutation } from 'src/lib/request-security';
 
 import { withMediaUrls } from 'src/sections/marketplace/seller/server/product-media';
 import { getEligibleLicenseSchools } from 'src/sections/marketplace/checkout/server/school-targets';
@@ -75,8 +77,21 @@ export async function GET(request: Request, { params }: Context) {
 }
 
 export async function POST(request: Request, { params }: Context) {
+  const csrfError = rejectCrossSiteMutation(request);
+  if (csrfError) return csrfError;
   const caller = requireAuthenticated(request);
   if (!caller) return NextResponse.json({ message: 'กรุณาเข้าสู่ระบบก่อนยอมรับ' }, { status: 401 });
+  if (
+    !(await isActionAllowed({
+      request,
+      action: 'marketplace-quote-accept',
+      subject: caller.sub,
+      maxAttempts: 10,
+      windowSeconds: 10 * 60,
+    }))
+  ) {
+    return NextResponse.json({ message: 'ดำเนินการข้อเสนอบ่อยเกินไป' }, { status: 429 });
+  }
   const { token } = await params;
   const { data: rawDeal, error } = await loadQuote(token);
   const deal = rawDeal as QuoteRow | null;

@@ -21,6 +21,7 @@ import { MarketplaceBrand } from 'src/components/marketplace-brand';
 import {
   RiKey2Line,
   RiHome5Line,
+  RiFlowChart,
   RiRocketLine,
   RiSchoolLine,
   RiIdCardLine,
@@ -275,6 +276,11 @@ const adminNavData: NavSectionProps['data'] = [
         title: 'บัญชีผู้ใช้งาน',
         path: '/dashboard/settings/system-users',
         icon: <RiUserSettingsLine />,
+      },
+      {
+        title: 'ภาพรวมและคุณภาพระบบ',
+        path: '/dashboard/settings/system-audit',
+        icon: <RiFlowChart />,
       },
       {
         title: 'บันทึกความปลอดภัย',

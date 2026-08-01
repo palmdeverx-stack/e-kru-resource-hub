@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { supabaseAdmin } from 'src/lib/supabase-admin';
+import { decryptFinancialValue } from 'src/lib/financial-data-cipher';
 
 export const DEFAULT_FINANCE_SETTINGS = {
   id: 'default',
@@ -26,7 +27,17 @@ export async function getFinanceSettings() {
     .maybeSingle();
 
   if (error) throw error;
-  return data ?? DEFAULT_FINANCE_SETTINGS;
+  if (!data) return DEFAULT_FINANCE_SETTINGS;
+  return {
+    ...data,
+    promptpay_id: decryptFinancialValue(data.promptpay_id_encrypted) ?? data.promptpay_id ?? null,
+    payout_account_number:
+      decryptFinancialValue(data.payout_account_number_encrypted) ??
+      data.payout_account_number ??
+      null,
+    promptpay_id_encrypted: undefined,
+    payout_account_number_encrypted: undefined,
+  };
 }
 
 export function money(value: number) {

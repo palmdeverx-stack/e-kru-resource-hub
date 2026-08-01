@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 
 import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
+import { rejectCrossSiteMutation } from 'src/lib/request-security';
+import { revealPayoutAccount } from 'src/lib/financial-data-cipher';
 
 import { getFinanceSettings } from 'src/sections/marketplace/admin/server/finance';
 
@@ -76,10 +78,16 @@ export async function GET(request: Request, { params }: Context) {
         ? seller.profile_rejection_reason
         : seller.rejection_reason,
       documents: signedDocuments,
-      payout_account: isProfileRevision && proposedPayout ? proposedPayout : payoutAccount,
+      payout_account: revealPayoutAccount(
+        isProfileRevision && proposedPayout ? proposedPayout : payoutAccount
+      ),
       is_profile_revision: isProfileRevision,
       approved_profile: isProfileRevision
-        ? { ...seller, payout_account: payoutAccount, pending_profile_data: undefined }
+        ? {
+            ...seller,
+            payout_account: revealPayoutAccount(payoutAccount),
+            pending_profile_data: undefined,
+          }
         : null,
     },
     defaultCommissionRate: Number(financeSettings.commission_rate),
@@ -87,6 +95,8 @@ export async function GET(request: Request, { params }: Context) {
 }
 
 export async function PATCH(request: Request, { params }: Context) {
+  const csrfError = rejectCrossSiteMutation(request);
+  if (csrfError) return csrfError;
   if (!requireRole(request, ['master_admin', 'marketplace_admin'])) {
     return NextResponse.json({ message: 'ไม่มีสิทธิ์ตั้งค่าค่าธรรมเนียมร้านค้า' }, { status: 403 });
   }

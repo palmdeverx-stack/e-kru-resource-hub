@@ -44,7 +44,7 @@ export async function GET(request: Request, { params }: Context) {
     await Promise.all([
       supabaseAdmin
         .from('marketplace_product_files')
-        .select('id, product_id, storage_bucket, storage_path, file_name')
+        .select('id, product_id, storage_bucket, storage_path, file_name, scan_status')
         .eq('id', fileId)
         .maybeSingle(),
       supabaseAdmin
@@ -76,6 +76,24 @@ export async function GET(request: Request, { params }: Context) {
       metadata: { order_item_id: orderItemId, reason: 'not_entitled' },
     });
     return NextResponse.json({ message: 'ไม่มีสิทธิ์ดาวน์โหลดไฟล์นี้' }, { status: 403 });
+  }
+  if (file.scan_status === 'rejected') {
+    await writeSecurityAudit({
+      request,
+      actorId: caller.sub,
+      actorUsername: caller.username,
+      actorRole: caller.role,
+      category: 'download',
+      action: 'marketplace.product_file_download',
+      targetType: 'product_file',
+      targetId: file.id,
+      result: 'denied',
+      metadata: { reason: 'malware_detected', scan_status: file.scan_status },
+    });
+    return NextResponse.json(
+      { message: 'ไฟล์นี้ถูกระงับและไม่สามารถดาวน์โหลดได้' },
+      { status: 423 }
+    );
   }
 
   const { data: signedFile, error: signedError } = await supabaseAdmin.storage

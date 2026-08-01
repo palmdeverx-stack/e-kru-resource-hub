@@ -3,8 +3,11 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { requireAuthenticated } from 'src/lib/auth-token';
 
-import { withMediaUrls } from 'src/sections/marketplace/seller/server/product-media';
 import { withPublicSystemStoreFlag } from 'src/sections/marketplace/seller/server/public-seller';
+import {
+  withMediaUrls,
+  withoutFileScanMetadata,
+} from 'src/sections/marketplace/seller/server/product-media';
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -97,7 +100,7 @@ export async function GET(request: Request, { params }: Context) {
       });
       const files = isPaid
         ? (product.files ?? []).map((file) => ({
-            ...file,
+            ...withoutFileScanMetadata(file),
             url: `/api/marketplace/downloads/${String(file.id)}?orderItemId=${String(item.id)}`,
           }))
         : [];

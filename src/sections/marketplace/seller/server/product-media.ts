@@ -24,6 +24,15 @@ type ProductSeller = {
   is_system_store?: unknown;
 };
 
+export function withoutFileScanMetadata<T extends Record<string, unknown>>(file: T) {
+  const publicFile = { ...file };
+  delete publicFile.scan_status;
+  delete publicFile.scan_engine;
+  delete publicFile.scan_result;
+  delete publicFile.scanned_at;
+  return publicFile;
+}
+
 function productImageUrl(imageId: string) {
   return `/api/marketplace/images/${encodeURIComponent(imageId)}`;
 }
@@ -58,9 +67,7 @@ export async function withMediaUrls<
     cover_url?: string | null;
     seller?: unknown;
   },
->(
-  product: T
-): Promise<T> {
+>(product: T, options: { includeScanMetadata?: boolean } = {}): Promise<T> {
   const images = (product.images ?? []).map((image) => ({
     ...image,
     url: image.id ? productImageUrl(image.id) : null,
@@ -68,18 +75,29 @@ export async function withMediaUrls<
 
   const files = await Promise.all(
     (product.files ?? []).map(async (file) => {
-      const { data } = await supabaseAdmin.storage
-        .from(file.storage_bucket)
-        .createSignedUrl(file.storage_path, 10 * 60);
-      return { ...file, url: data?.signedUrl ?? null };
+      const scanStatus = file.scan_status;
+      const publicFile = withoutFileScanMetadata(file);
+      const data =
+        scanStatus === 'rejected'
+          ? null
+          : (
+              await supabaseAdmin.storage
+                .from(file.storage_bucket)
+                .createSignedUrl(file.storage_path, 10 * 60)
+            ).data;
+      const resolvedFile = { ...file, url: data?.signedUrl ?? null };
+      return options.includeScanMetadata
+        ? resolvedFile
+        : {
+            ...publicFile,
+            url: resolvedFile.url,
+          };
     })
   );
 
   const coverImage = images.find((image) => image.is_cover) ?? images[0];
   const storedCoverUrl = product.cover_url?.trim() || null;
-  let coverUrl = isSupabaseStorageUrl(storedCoverUrl)
-    ? (coverImage?.url ?? null)
-    : storedCoverUrl;
+  let coverUrl = isSupabaseStorageUrl(storedCoverUrl) ? (coverImage?.url ?? null) : storedCoverUrl;
 
   if (!coverUrl && !coverImage?.url && isOfficialSeller(product.seller)) {
     coverUrl = await getOfficialProductCoverFallback();

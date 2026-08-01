@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { writeSecurityAudit } from 'src/lib/security-audit';
+import { rejectCrossSiteMutation } from 'src/lib/request-security';
 
 import {
   withMediaUrls,
@@ -44,7 +45,7 @@ export async function GET(request: Request, { params }: Context) {
 
   return NextResponse.json({
     product: {
-      ...(await withMediaUrls(product)),
+      ...(await withMediaUrls(product, { includeScanMetadata: true })),
       submission_count: reviewHistory?.length ?? 0,
       review_history: reviewHistory ?? [],
     },
@@ -52,6 +53,8 @@ export async function GET(request: Request, { params }: Context) {
 }
 
 export async function PATCH(request: Request, { params }: Context) {
+  const csrfError = rejectCrossSiteMutation(request);
+  if (csrfError) return csrfError;
   const reviewer = requireRole(request, ['master_admin']);
   if (!reviewer) {
     return NextResponse.json({ message: 'ไม่มีสิทธิ์อนุมัติสินค้า' }, { status: 403 });

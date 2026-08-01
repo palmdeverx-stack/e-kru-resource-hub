@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
+import { rejectCrossSiteMutation } from 'src/lib/request-security';
 import { optimizeUploadedImage } from 'src/lib/server-image-optimizer';
 
 const BUCKET = 'marketplace-announcement-assets';
@@ -12,6 +13,8 @@ const EXTENSIONS: Record<string, string> = {
 };
 
 export async function POST(request: Request) {
+  const csrfError = rejectCrossSiteMutation(request);
+  if (csrfError) return csrfError;
   const caller = requireRole(request, ['master_admin']);
   if (!caller)
     return NextResponse.json({ message: 'ไม่มีสิทธิ์อัปโหลดรูปประกาศ' }, { status: 403 });

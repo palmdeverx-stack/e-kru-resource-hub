@@ -2041,13 +2041,14 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                               </Box>
                               <Button
                                 component="a"
-                                href={file.url}
+                                href={file.url ?? undefined}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 size="small"
                                 color="inherit"
                                 variant="outlined"
                                 startIcon={<RiEyeLine />}
+                                disabled={!file.url}
                               >
                                 ดูไฟล์
                               </Button>

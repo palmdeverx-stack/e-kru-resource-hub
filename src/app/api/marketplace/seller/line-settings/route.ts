@@ -3,6 +3,8 @@ import { createHash, randomBytes } from 'node:crypto';
 
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { requireAuthenticated } from 'src/lib/auth-token';
+import { isActionAllowed } from 'src/lib/auth-rate-limit';
+import { rejectCrossSiteMutation } from 'src/lib/request-security';
 import { encryptLineCredential, decryptLineCredential } from 'src/lib/line-credentials';
 
 import { provisionEkruSystemSeller } from 'src/sections/marketplace/seller/server/system-seller';
@@ -61,7 +63,8 @@ async function findSeller(caller: Caller) {
     .eq('owner_id', caller.sub)
     .maybeSingle();
   if (error) throw error;
-  if (seller || (caller.role !== 'master_admin' && caller.role !== 'marketplace_admin')) return seller;
+  if (seller || (caller.role !== 'master_admin' && caller.role !== 'marketplace_admin'))
+    return seller;
 
   const result = await provisionEkruSystemSeller(caller.sub);
   if (result.error) throw result.error;
@@ -192,6 +195,8 @@ export async function GET(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  const csrfError = rejectCrossSiteMutation(request);
+  if (csrfError) return csrfError;
   const caller = requireAuthenticated(request);
   if (!caller) return NextResponse.json({ message: 'กรุณาเข้าสู่ระบบ' }, { status: 401 });
   const body = await request.json().catch(() => null);
@@ -274,6 +279,8 @@ export async function PATCH(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const csrfError = rejectCrossSiteMutation(request);
+  if (csrfError) return csrfError;
   const caller = requireAuthenticated(request);
   if (!caller) return NextResponse.json({ message: 'กรุณาเข้าสู่ระบบ' }, { status: 401 });
   const body = await request.json().catch(() => null);
@@ -347,6 +354,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: 'คำสั่งไม่ถูกต้อง' }, { status: 400 });
   }
 
+  if (
+    !(await isActionAllowed({
+      request,
+      action: 'marketplace-line-test',
+      subject: caller.sub,
+      maxAttempts: 10,
+      windowSeconds: 10 * 60,
+    }))
+  ) {
+    return NextResponse.json(
+      { message: 'ทดลองส่ง LINE บ่อยเกินไป กรุณารอสักครู่' },
+      { status: 429 }
+    );
+  }
+
   try {
     const access = await getSellerLineFeatureAccess(caller.sub, caller.role);
     const accessError = sellerLineAccessError(access);
@@ -416,6 +438,8 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  const csrfError = rejectCrossSiteMutation(request);
+  if (csrfError) return csrfError;
   const caller = requireAuthenticated(request);
   if (!caller) return NextResponse.json({ message: 'กรุณาเข้าสู่ระบบ' }, { status: 401 });
 

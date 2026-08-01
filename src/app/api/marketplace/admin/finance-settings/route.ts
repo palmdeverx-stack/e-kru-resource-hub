@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
 
 import { supabaseAdmin } from 'src/lib/supabase-admin';
+import { isActionAllowed } from 'src/lib/auth-rate-limit';
 import { writeSecurityAudit } from 'src/lib/security-audit';
 import { requireRole, hasPayoutAccess } from 'src/lib/auth-token';
+import { rejectCrossSiteMutation } from 'src/lib/request-security';
+import { encryptFinancialValue } from 'src/lib/financial-data-cipher';
 
 import { findThaiBank } from 'src/sections/marketplace/shared/thai-banks';
 import { getFinanceSettings } from 'src/sections/marketplace/admin/server/finance';
@@ -43,12 +46,25 @@ export async function GET(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  const csrfError = rejectCrossSiteMutation(request);
+  if (csrfError) return csrfError;
   const caller = authorize(request);
   if (!caller) {
     return NextResponse.json({ message: 'ไม่มีสิทธิ์ตั้งค่าการเงิน' }, { status: 403 });
   }
   if (!hasPayoutAccess(request, caller.sub)) {
     return NextResponse.json({ message: 'กรุณายืนยัน PIN เพื่อตั้งค่าการเงิน' }, { status: 401 });
+  }
+  if (
+    !(await isActionAllowed({
+      request,
+      action: 'marketplace-finance-settings',
+      subject: caller.sub,
+      maxAttempts: 10,
+      windowSeconds: 10 * 60,
+    }))
+  ) {
+    return NextResponse.json({ message: 'แก้ไขข้อมูลการเงินบ่อยเกินไป' }, { status: 429 });
   }
   const previous = await getFinanceSettings();
   const body = await request.json().catch(() => null);
@@ -103,11 +119,13 @@ export async function PATCH(request: Request) {
 
   const { error } = await supabaseAdmin.from('marketplace_finance_settings').upsert({
     id: 'default',
-    promptpay_id: promptpayId || null,
+    promptpay_id: null,
+    promptpay_id_encrypted: encryptFinancialValue(promptpayId || null),
     promptpay_account_name: accountName || null,
     payout_bank_code: payoutBankCode || null,
     payout_bank_name: payoutBankName || null,
-    payout_account_number: payoutAccountNumber || null,
+    payout_account_number: null,
+    payout_account_number_encrypted: encryptFinancialValue(payoutAccountNumber || null),
     payout_account_name: payoutAccountName || null,
     commission_rate: commissionRate,
     hold_days: holdDays,

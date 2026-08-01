@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
+import { rejectCrossSiteMutation } from 'src/lib/request-security';
 import { seedDefaultDepartments } from 'src/lib/default-departments';
 
 import { hashSchoolOnboardingToken } from 'src/sections/marketplace/checkout/server/school-onboarding';
@@ -22,6 +23,8 @@ export async function GET(_: Request, context: RouteContext) {
 }
 
 export async function POST(request: Request, context: RouteContext) {
+  const csrfError = rejectCrossSiteMutation(request);
+  if (csrfError) return csrfError;
   const caller = requireRole(request, ['marketplace_user']);
   if (!caller) {
     return NextResponse.json(

@@ -3,11 +3,14 @@ import { NextResponse } from 'next/server';
 import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { writeSecurityAudit } from 'src/lib/security-audit';
+import { rejectCrossSiteMutation } from 'src/lib/request-security';
 
 const STATUSES = new Set(['new', 'reviewing', 'planned', 'resolved', 'closed']);
 type Context = { params: Promise<{ id: string }> };
 
 export async function PATCH(request: Request, { params }: Context) {
+  const csrfError = rejectCrossSiteMutation(request);
+  if (csrfError) return csrfError;
   const caller = requireRole(request, ['master_admin']);
   if (!caller) {
     return NextResponse.json({ message: 'ไม่มีสิทธิ์จัดการ Feedback' }, { status: 403 });

@@ -2,6 +2,8 @@ import 'server-only';
 
 import jwt from 'jsonwebtoken';
 
+import { supabaseAdmin } from 'src/lib/supabase-admin';
+
 // ----------------------------------------------------------------------
 
 const rawSecret = process.env.AUTH_JWT_SECRET;
@@ -16,7 +18,7 @@ const payoutAccessSecret = `${secret}:marketplace-payout-access`;
 
 export const ACCESS_TOKEN_COOKIE = 'access_token';
 export const PAYOUT_ACCESS_COOKIE = 'marketplace_payout_access';
-const ACCESS_TOKEN_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
+const ACCESS_TOKEN_MAX_AGE_SECONDS = 30 * 60;
 const PAYOUT_ACCESS_MAX_AGE_SECONDS = 15 * 60;
 
 export const accessTokenCookieOptions = {
@@ -48,6 +50,7 @@ export type AppTokenPayload = {
   username: string;
   role: AppRole;
   schoolId: string | null;
+  sessionVersion?: number;
 };
 
 type PinChallengePayload = {
@@ -61,12 +64,12 @@ type PayoutAccessPayload = {
 };
 
 export function signAppToken(payload: AppTokenPayload): string {
-  return jwt.sign(payload, secret, { expiresIn: '7d' });
+  return jwt.sign(payload, secret, { algorithm: 'HS256', expiresIn: ACCESS_TOKEN_MAX_AGE_SECONDS });
 }
 
 export function verifyAppToken(token: string): AppTokenPayload | null {
   try {
-    return jwt.verify(token, secret) as AppTokenPayload;
+    return jwt.verify(token, secret, { algorithms: ['HS256'] }) as AppTokenPayload;
   } catch {
     return null;
   }
@@ -134,6 +137,38 @@ export function requireAuthenticated(request: Request): AppTokenPayload | null {
   return token ? verifyAppToken(token) : null;
 }
 
+export async function isActiveTokenAccount(payload: AppTokenPayload) {
+  if (payload.role === 'marketplace_user') {
+    const { data, error } = await supabaseAdmin
+      .from('marketplace_users')
+      .select('is_active,is_suspended,session_version')
+      .eq('id', payload.sub)
+      .maybeSingle();
+    return Boolean(
+      !error &&
+      data?.is_active !== false &&
+      data?.is_suspended !== true &&
+      Number(data?.session_version ?? 0) === Number(payload.sessionVersion ?? 0)
+    );
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('app_users')
+    .select('role,school_id,is_active,is_suspended,student_status,session_version')
+    .eq('id', payload.sub)
+    .maybeSingle();
+  return Boolean(
+    !error &&
+    data &&
+    data.role === payload.role &&
+    (data.school_id ?? null) === payload.schoolId &&
+    data.is_active !== false &&
+    data.is_suspended !== true &&
+    !(payload.role === 'student' && (data.student_status ?? 'studying') !== 'studying') &&
+    Number(data.session_version ?? 0) === Number(payload.sessionVersion ?? 0)
+  );
+}
+
 export function hasPayoutAccess(request: Request, userId: string): boolean {
   const token = getCookieValue(request, PAYOUT_ACCESS_COOKIE);
   return token ? verifyPayoutAccess(token, userId) : false;
@@ -156,6 +191,7 @@ type AppUserRow = {
   staff_type?: string | null;
   position_title?: string | null;
   employment_status?: string | null;
+  session_version?: number;
 };
 
 export function toPublicUser(user: AppUserRow) {

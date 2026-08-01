@@ -1178,12 +1178,25 @@ function ProductReviewDetail({ product }: { product: ReviewProduct }) {
                         {file.is_preview && (
                           <Chip size="small" color="info" variant="soft" label="ไฟล์ตัวอย่าง" />
                         )}
+                        <Chip
+                          size="small"
+                          variant="soft"
+                          label={file.scan_status ?? 'pending_scan'}
+                          color={
+                            file.scan_status === 'safe'
+                              ? 'success'
+                              : file.scan_status === 'rejected'
+                                ? 'error'
+                                : 'warning'
+                          }
+                        />
                       </Stack>
                       <Typography variant="caption" color="text.secondary">
                         {file.mime_type || 'ไม่ระบุชนิด'} · {formatFileSize(file.file_size)}
                       </Typography>
                     </Box>
                     <Button
+                      component="a"
                       href={file.url ?? undefined}
                       target="_blank"
                       rel="noopener noreferrer"

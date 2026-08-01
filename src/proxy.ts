@@ -4,7 +4,13 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 import { paths } from 'src/routes/paths';
 
-import { verifyAppToken, ACCESS_TOKEN_COOKIE } from 'src/lib/auth-token';
+import {
+  signAppToken,
+  verifyAppToken,
+  ACCESS_TOKEN_COOKIE,
+  isActiveTokenAccount,
+  accessTokenCookieOptions,
+} from 'src/lib/auth-token';
 
 // ----------------------------------------------------------------------
 
@@ -70,9 +76,35 @@ function noIndex(response: NextResponse) {
   return response;
 }
 
-export function proxy(request: NextRequest) {
+function nextWithSlidingSession(caller: ReturnType<typeof verifyAppToken>) {
+  const response = NextResponse.next();
+  const expiresAt = (caller as (typeof caller & { exp?: number }) | null)?.exp;
+  if (caller && expiresAt && expiresAt - Math.floor(Date.now() / 1000) <= 10 * 60) {
+    response.cookies.set(
+      ACCESS_TOKEN_COOKIE,
+      signAppToken({
+        sub: caller.sub,
+        username: caller.username,
+        role: caller.role,
+        schoolId: caller.schoolId,
+        sessionVersion: caller.sessionVersion,
+      }),
+      accessTokenCookieOptions
+    );
+  }
+  return noIndex(response);
+}
+
+export async function proxy(request: NextRequest) {
   const token = request.cookies.get(ACCESS_TOKEN_COOKIE)?.value;
   const caller = token ? verifyAppToken(token) : null;
+  if (caller && !(await isActiveTokenAccount(caller))) {
+    const response = request.nextUrl.pathname.startsWith('/api/')
+      ? NextResponse.json({ message: 'Session หมดอายุหรือถูกเพิกถอน' }, { status: 401 })
+      : NextResponse.redirect(new URL(paths.auth.jwt.signIn, request.url));
+    response.cookies.delete(ACCESS_TOKEN_COOKIE);
+    return noIndex(response);
+  }
   const isAuthPage =
     request.nextUrl.pathname === '/auth' || request.nextUrl.pathname.startsWith('/auth/');
 
@@ -84,7 +116,7 @@ export function proxy(request: NextRequest) {
     ({ prefix }) =>
       request.nextUrl.pathname === prefix || request.nextUrl.pathname.startsWith(`${prefix}/`)
   );
-  if (!area) return noIndex(NextResponse.next());
+  if (!area) return nextWithSlidingSession(caller);
 
   if (!caller) {
     const signInUrl = new URL(paths.auth.jwt.signIn, request.url);
@@ -96,7 +128,7 @@ export function proxy(request: NextRequest) {
     return noIndex(NextResponse.redirect(new URL(homeForRole(), request.url)));
   }
 
-  return noIndex(NextResponse.next());
+  return nextWithSlidingSession(caller);
 }
 
 export const config = {
@@ -108,5 +140,6 @@ export const config = {
     '/admin/:path*',
     '/teacher/:path*',
     '/student/:path*',
+    '/api/:path*',
   ],
 };

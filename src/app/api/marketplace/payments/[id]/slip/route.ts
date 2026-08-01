@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { requireAuthenticated } from 'src/lib/auth-token';
+import { isActionAllowed } from 'src/lib/auth-rate-limit';
+import { rejectCrossSiteMutation } from 'src/lib/request-security';
 import { optimizeUploadedImage } from 'src/lib/server-image-optimizer';
 
 type Context = { params: Promise<{ id: string }> };
@@ -10,8 +12,22 @@ const ACCEPTED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const MAX_SIZE = 5 * 1024 * 1024;
 
 export async function POST(request: Request, { params }: Context) {
+  const csrfError = rejectCrossSiteMutation(request);
+  if (csrfError) return csrfError;
   const caller = requireAuthenticated(request);
   if (!caller) return NextResponse.json({ message: 'กรุณาเข้าสู่ระบบ' }, { status: 401 });
+
+  if (
+    !(await isActionAllowed({
+      request,
+      action: 'marketplace-slip-upload',
+      subject: caller.sub,
+      maxAttempts: 10,
+      windowSeconds: 10 * 60,
+    }))
+  ) {
+    return NextResponse.json({ message: 'อัปโหลดสลิปบ่อยเกินไป' }, { status: 429 });
+  }
 
   const { id } = await params;
   const { data: session, error: sessionError } = await supabaseAdmin

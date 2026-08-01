@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { requireAuthenticated } from 'src/lib/auth-token';
+import { rejectCrossSiteMutation } from 'src/lib/request-security';
 
 import { withMediaUrls } from 'src/sections/marketplace/seller/server/product-media';
 import { withPublicSystemStoreFlag } from 'src/sections/marketplace/seller/server/public-seller';
@@ -131,6 +132,8 @@ export async function GET(request: Request) {
 }
 
 export async function PUT(request: Request) {
+  const csrfError = rejectCrossSiteMutation(request);
+  if (csrfError) return csrfError;
   const caller = requireAuthenticated(request);
   if (!caller) {
     return NextResponse.json({ message: 'กรุณาเข้าสู่ระบบ' }, { status: 401 });

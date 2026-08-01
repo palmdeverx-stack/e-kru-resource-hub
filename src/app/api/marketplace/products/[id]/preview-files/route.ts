@@ -29,6 +29,7 @@ export async function GET(request: Request, { params }: Context) {
     .select('id, storage_bucket, storage_path, file_name, mime_type, position')
     .eq('product_id', id)
     .eq('is_preview', true)
+    .neq('scan_status', 'rejected')
     .order('position');
   if (error) return NextResponse.json({ message: error.message }, { status: 500 });
 

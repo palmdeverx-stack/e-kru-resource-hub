@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server';
 import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { writeSecurityAudit } from 'src/lib/security-audit';
+import { rejectCrossSiteMutation } from 'src/lib/request-security';
+import { isValidClamAvHost, isValidClamAvPort } from 'src/lib/malware-scanner';
 
 function authorize(request: Request) {
   return requireRole(request, ['master_admin', 'marketplace_admin']);
@@ -38,6 +40,8 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
+
+  const storedClamavHost = String(data?.clamav_host ?? '').trim();
 
   return NextResponse.json({
     settings: {
@@ -85,12 +89,18 @@ export async function GET(request: Request) {
       defaultLanguage: data?.default_language ?? 'th',
       serviceCountry: data?.service_country ?? 'TH',
       productionUrl: data?.production_url ?? '',
+      clamavHost: storedClamavHost || process.env.CLAMAV_HOST || '',
+      clamavPort: Number(
+        storedClamavHost ? (data?.clamav_port ?? 3310) : (process.env.CLAMAV_PORT ?? 3310)
+      ),
       updatedAt: data?.updated_at ?? null,
     },
   });
 }
 
 export async function PATCH(request: Request) {
+  const csrfError = rejectCrossSiteMutation(request);
+  if (csrfError) return csrfError;
   const caller = authorize(request);
   if (!caller) {
     return NextResponse.json({ message: 'ไม่มีสิทธิ์แก้ไขข้อมูลผู้ให้บริการ' }, { status: 403 });
@@ -141,6 +151,8 @@ export async function PATCH(request: Request) {
   const defaultLanguage = String(body?.defaultLanguage ?? 'th').trim().toLowerCase();
   const serviceCountry = String(body?.serviceCountry ?? 'TH').trim().toUpperCase();
   const productionUrl = String(body?.productionUrl ?? '').trim();
+  const clamavHost = String(body?.clamavHost ?? '').trim();
+  const clamavPort = Number(body?.clamavPort ?? 3310);
   const emails = [supportEmail, financeEmail, privacyEmail].filter(Boolean);
   const urls = [
     websiteUrl,
@@ -177,7 +189,9 @@ export async function PATCH(request: Request) {
     !/^[A-Z]{3}$/.test(currency) ||
     !/^[A-Z]{2}$/.test(serviceCountry) ||
     !['th', 'en'].includes(defaultLanguage) ||
-    timezone.length < 3
+    timezone.length < 3 ||
+    (clamavHost && !isValidClamAvHost(clamavHost)) ||
+    !isValidClamAvPort(clamavPort)
   ) {
     return NextResponse.json(
       { message: 'กรุณากรอกข้อมูลผู้ให้บริการและข้อมูลติดต่อให้ถูกต้องครบถ้วน' },
@@ -231,6 +245,8 @@ export async function PATCH(request: Request) {
     default_language: defaultLanguage,
     service_country: serviceCountry,
     production_url: productionUrl || null,
+    clamav_host: clamavHost || null,
+    clamav_port: clamavPort,
     updated_by: caller.sub,
     updated_at: new Date().toISOString(),
   });
@@ -246,7 +262,7 @@ export async function PATCH(request: Request) {
     targetType: 'provider_settings',
     targetId: 'default',
     result: 'success',
-    metadata: { provider_type: providerType },
+    metadata: { provider_type: providerType, clamav_configured: Boolean(clamavHost) },
   });
 
   return NextResponse.json({ success: true });

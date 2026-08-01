@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { requireAuthenticated } from 'src/lib/auth-token';
+import { rejectCrossSiteMutation } from 'src/lib/request-security';
 import { optimizeUploadedImage } from 'src/lib/server-image-optimizer';
 
 import { refreshedImages } from 'src/sections/marketplace/seller/server/product-media';
@@ -15,6 +16,8 @@ const MAX_IMAGES = 10;
 type Context = { params: Promise<{ id: string }> };
 
 export async function POST(request: Request, { params }: Context) {
+  const csrfError = rejectCrossSiteMutation(request);
+  if (csrfError) return csrfError;
   const caller = requireAuthenticated(request);
   if (!caller) return NextResponse.json({ message: 'กรุณาเข้าสู่ระบบ' }, { status: 401 });
 

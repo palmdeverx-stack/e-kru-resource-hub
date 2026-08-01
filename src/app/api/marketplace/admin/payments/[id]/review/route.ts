@@ -4,12 +4,15 @@ import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { createNotifications } from 'src/lib/notifications';
 import { writeSecurityAudit } from 'src/lib/security-audit';
+import { rejectCrossSiteMutation } from 'src/lib/request-security';
 
 import { finalizeMarketplacePayment } from 'src/sections/marketplace/checkout/server/finalize-payment';
 
 type Context = { params: Promise<{ id: string }> };
 
 export async function PATCH(request: Request, { params }: Context) {
+  const csrfError = rejectCrossSiteMutation(request);
+  if (csrfError) return csrfError;
   const caller = requireRole(request, ['master_admin']);
   if (!caller) {
     return NextResponse.json({ message: 'ไม่มีสิทธิ์ตรวจสอบการชำระเงิน' }, { status: 403 });

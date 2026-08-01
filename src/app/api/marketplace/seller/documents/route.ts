@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { requireAuthenticated } from 'src/lib/auth-token';
+import { rejectCrossSiteMutation } from 'src/lib/request-security';
 import { optimizeUploadedImage } from 'src/lib/server-image-optimizer';
 
 const TYPES = new Set([
@@ -69,6 +70,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const csrfError = rejectCrossSiteMutation(request);
+  if (csrfError) return csrfError;
   const caller = requireAuthenticated(request);
   if (!caller) return NextResponse.json({ message: 'กรุณาเข้าสู่ระบบ' }, { status: 401 });
   const formData = await request.formData();

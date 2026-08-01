@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 
 import { supabaseAdmin } from 'src/lib/supabase-admin';
+import { isActionAllowed } from 'src/lib/auth-rate-limit';
+import { rejectCrossSiteMutation } from 'src/lib/request-security';
 import {
   signAppToken,
   toPublicUser,
@@ -14,11 +16,28 @@ import {
 } from 'src/sections/marketplace/auth/server/email-verification';
 
 export async function POST(request: Request) {
+  const csrfError = rejectCrossSiteMutation(request);
+  if (csrfError) return csrfError;
   const body = await request.json();
   const email = String(body.email ?? '')
     .trim()
     .toLowerCase();
   const code = String(body.code ?? '').trim();
+
+  if (
+    !(await isActionAllowed({
+      request,
+      action: 'auth-verify-email',
+      subject: email,
+      maxAttempts: 10,
+      windowSeconds: 10 * 60,
+    }))
+  ) {
+    return NextResponse.json(
+      { message: 'ตรวจสอบรหัสบ่อยเกินไป กรุณาลองใหม่ภายหลัง' },
+      { status: 429 }
+    );
+  }
 
   if (!email || !/^\d{6}$/.test(code)) {
     return NextResponse.json({ message: 'กรุณากรอกรหัสยืนยัน 6 หลัก' }, { status: 400 });
@@ -112,6 +131,7 @@ export async function POST(request: Request) {
     username: activeUser.username,
     role: 'marketplace_user',
     schoolId: null,
+    sessionVersion: Number(activeUser.session_version ?? 0),
   });
   const response = NextResponse.json({
     user: toPublicUser({ ...activeUser, school_id: null }),

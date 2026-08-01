@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server';
 
-import { requireAuthenticated } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
+import { requireAuthenticated } from 'src/lib/auth-token';
+import { rejectCrossSiteMutation } from 'src/lib/request-security';
 
 import { getStripe } from 'src/sections/marketplace/checkout/server/stripe';
 
 export async function POST(request: Request) {
+  const csrfError = rejectCrossSiteMutation(request);
+  if (csrfError) return csrfError;
   const caller = requireAuthenticated(request);
   if (!caller) return NextResponse.json({ message: 'กรุณาเข้าสู่ระบบ' }, { status: 401 });
   const { data: local } = await supabaseAdmin

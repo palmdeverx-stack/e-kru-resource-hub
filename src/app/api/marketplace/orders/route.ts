@@ -2,9 +2,10 @@ import { NextResponse } from 'next/server';
 
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { requireAuthenticated } from 'src/lib/auth-token';
+import { isActionAllowed } from 'src/lib/auth-rate-limit';
+import { rejectCrossSiteMutation } from 'src/lib/request-security';
 
 import { STRIPE_MINIMUM_THB } from 'src/sections/marketplace/shared/payment';
-import { withMediaUrls } from 'src/sections/marketplace/seller/server/product-media';
 import { money, getFinanceSettings } from 'src/sections/marketplace/admin/server/finance';
 import { captureOrderEvidence } from 'src/sections/marketplace/checkout/server/order-evidence';
 import { getStripe, isStripeConfigured } from 'src/sections/marketplace/checkout/server/stripe';
@@ -12,6 +13,10 @@ import { resolveReferralAttribution } from 'src/sections/marketplace/referrals/s
 import { withPublicSystemStoreFlag } from 'src/sections/marketplace/seller/server/public-seller';
 import { getEligibleLicenseSchools } from 'src/sections/marketplace/checkout/server/school-targets';
 import { createSchoolOnboardingForPaidOrders } from 'src/sections/marketplace/checkout/server/school-onboarding';
+import {
+  withMediaUrls,
+  withoutFileScanMetadata,
+} from 'src/sections/marketplace/seller/server/product-media';
 import { grantFeatureEntitlementsForOrders } from 'src/sections/marketplace/checkout/server/grant-feature-entitlements';
 import {
   canViewSellerTools,
@@ -98,7 +103,7 @@ export async function GET(request: Request) {
             };
           }
           const files = (product.files ?? []).map((file) => ({
-            ...file,
+            ...withoutFileScanMetadata(file),
             url: `/api/marketplace/downloads/${String(file.id)}?orderItemId=${String(item.id)}`,
           }));
           return {
@@ -115,9 +120,25 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const csrfError = rejectCrossSiteMutation(request);
+  if (csrfError) return csrfError;
   const caller = requireAuthenticated(request);
   if (!caller) {
     return NextResponse.json({ message: 'กรุณาเข้าสู่ระบบ' }, { status: 401 });
+  }
+  if (
+    !(await isActionAllowed({
+      request,
+      action: 'marketplace-checkout',
+      subject: caller.sub,
+      maxAttempts: 10,
+      windowSeconds: 60,
+    }))
+  ) {
+    return NextResponse.json(
+      { message: 'สร้างรายการชำระเงินบ่อยเกินไป กรุณารอสักครู่' },
+      { status: 429 }
+    );
   }
 
   const body = await request.json().catch(() => null);
@@ -195,8 +216,7 @@ export async function POST(request: Request) {
   }
 
   const hasPlatformLicense = products.some(
-    (product) =>
-      product.resource_type === 'feature_unlock' && product.license_scope === 'platform'
+    (product) => product.resource_type === 'feature_unlock' && product.license_scope === 'platform'
   );
   const recurringProducts = products.filter(
     (product) =>
@@ -209,8 +229,7 @@ export async function POST(request: Request) {
   ) {
     return NextResponse.json(
       {
-        message:
-          'License ต่ออายุอัตโนมัติต้องซื้อครั้งละ 1 รายการและชำระด้วยบัตรผ่าน Stripe',
+        message: 'License ต่ออายุอัตโนมัติต้องซื้อครั้งละ 1 รายการและชำระด้วยบัตรผ่าน Stripe',
       },
       { status: 400 }
     );
@@ -547,8 +566,7 @@ export async function POST(request: Request) {
               unit_amount: Math.round(Number(item.price) * 100),
               ...(recurringProduct && {
                 recurring: {
-                  interval:
-                    recurringProduct.license_billing_cycle === 'yearly' ? 'year' : 'month',
+                  interval: recurringProduct.license_billing_cycle === 'yearly' ? 'year' : 'month',
                 },
               }),
               product_data: { name: item.title.slice(0, 120) },
@@ -611,7 +629,9 @@ export async function POST(request: Request) {
             stripe_checkout_session_id: stripeSession.id,
           });
         if (subscriptionError) {
-          await getStripe().checkout.sessions.expire(stripeSession.id).catch(() => undefined);
+          await getStripe()
+            .checkout.sessions.expire(stripeSession.id)
+            .catch(() => undefined);
           throw subscriptionError;
         }
       }

@@ -3,6 +3,7 @@ import { createHash, randomBytes } from 'node:crypto';
 
 import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
+import { rejectCrossSiteMutation } from 'src/lib/request-security';
 import { encryptLineCredential, decryptLineCredential } from 'src/lib/line-credentials';
 
 import { MARKETPLACE_MINIMUM_PAID_PRICE_THB } from 'src/sections/marketplace/shared/payment';
@@ -140,6 +141,8 @@ export async function GET(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  const csrfError = rejectCrossSiteMutation(request);
+  if (csrfError) return csrfError;
   const caller = authorize(request);
   if (!caller) {
     return NextResponse.json({ message: 'ไม่มีสิทธิ์ตั้งค่า LINE Marketplace' }, { status: 403 });
@@ -280,6 +283,8 @@ export async function PATCH(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const csrfError = rejectCrossSiteMutation(request);
+  if (csrfError) return csrfError;
   const caller = authorize(request);
   if (!caller) {
     return NextResponse.json({ message: 'ไม่มีสิทธิ์ตั้งค่า LINE Marketplace' }, { status: 403 });
@@ -375,6 +380,8 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  const csrfError = rejectCrossSiteMutation(request);
+  if (csrfError) return csrfError;
   const caller = authorize(request);
   if (!caller) {
     return NextResponse.json({ message: 'ไม่มีสิทธิ์ตั้งค่า LINE Marketplace' }, { status: 403 });

@@ -35,6 +35,16 @@ const optionalEmail = z
   .string()
   .trim()
   .refine((value) => !value || /^\S+@\S+\.\S+$/.test(value), { error: 'รูปแบบอีเมลไม่ถูกต้อง' });
+const optionalHost = z
+  .string()
+  .trim()
+  .max(253)
+  .refine(
+    (value) =>
+      !value ||
+      (!value.includes('://') && !/[\s/\\?#@]/.test(value) && /^[A-Za-z0-9._:[\]-]+$/.test(value)),
+    { error: 'กรุณาระบุ Hostname หรือ IP โดยไม่ใส่ http:// หรือ https://' }
+  );
 
 const PlatformSettingsSchema = z
   .object({
@@ -96,6 +106,8 @@ const PlatformSettingsSchema = z
       .trim()
       .regex(/^[A-Za-z]{2}$/),
     productionUrl: optionalUrl,
+    clamavHost: optionalHost,
+    clamavPort: z.number().int().min(1).max(65535),
     updatedAt: z.string().nullable(),
   })
   .superRefine((value, context) => {
@@ -168,6 +180,8 @@ const initialForm: ProviderForm = {
   defaultLanguage: 'th',
   serviceCountry: 'TH',
   productionUrl: '',
+  clamavHost: '',
+  clamavPort: 3310,
   updatedAt: null,
 };
 
@@ -268,6 +282,10 @@ export function MarketplacePlatformSettingsView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [clamavTest, setClamavTest] = useState<{
+    status: 'idle' | 'testing' | 'success' | 'error';
+    message: string;
+  }>({ status: 'idle', message: '' });
   const methods = useForm<ProviderForm>({
     resolver: zodResolver(PlatformSettingsSchema),
     defaultValues: initialForm,
@@ -321,6 +339,29 @@ export function MarketplacePlatformSettingsView() {
       setMessage('บันทึกข้อมูลแพลตฟอร์มและปรับเอกสารทุกฉบับแล้ว');
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : 'บันทึกข้อมูลแพลตฟอร์มไม่สำเร็จ');
+    }
+  };
+
+  const testClamAv = async () => {
+    const { clamavHost, clamavPort } = getValues();
+    setClamavTest({ status: 'testing', message: '' });
+    try {
+      const result = await parseResponse(
+        await fetch('/api/marketplace/admin/provider-settings/clamav-test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ host: clamavHost, port: clamavPort }),
+        })
+      );
+      setClamavTest({
+        status: 'success',
+        message: `เชื่อมต่อ ClamAV สำเร็จ (${result.response})`,
+      });
+    } catch (testError) {
+      setClamavTest({
+        status: 'error',
+        message: testError instanceof Error ? testError.message : 'ทดสอบ ClamAV ไม่สำเร็จ',
+      });
     }
   };
 
@@ -378,9 +419,8 @@ export function MarketplacePlatformSettingsView() {
         </Alert>
       )}
 
-      <Alert severity="info" sx={{ mb: 3 }}>
-        เมื่อบันทึก ชื่อ เลขทะเบียน เลขภาษี
-        และข้อมูลติดต่อจะนำไปใช้กับเอกสารข้อกำหนดทุกฉบับอัตโนมัติ
+      <Alert severity="error" sx={{ mb: 3 }}>
+        เพิ่ม ClamAV ตรวจสอบไฟล์
       </Alert>
 
       <Form methods={methods} onSubmit={handleSubmit(save)}>
@@ -856,6 +896,73 @@ export function MarketplacePlatformSettingsView() {
                   }
                 />
               </Stack>
+
+              <Divider />
+              <Stack
+                direction={{ xs: 'column', sm: 'row' }}
+                justifyContent="space-between"
+                alignItems={{ sm: 'center' }}
+                spacing={1}
+              >
+                <Box>
+                  <Typography variant="h5">ตรวจสอบไฟล์ด้วย ClamAV</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                    หากยังไม่ตั้งค่า ไฟล์จะถูกอัปโหลดด้วยสถานะ pending_scan
+                    เพื่อให้แอดมินตรวจภายหลัง
+                  </Typography>
+                </Box>
+                <Chip
+                  variant="soft"
+                  color={form.clamavHost ? 'success' : 'warning'}
+                  label={form.clamavHost ? 'ตั้งค่าแล้ว' : 'ยังไม่ได้ตั้งค่า'}
+                />
+              </Stack>
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="flex-start">
+                <TextField
+                  fullWidth
+                  label="CLAMAV_HOST"
+                  placeholder="clamav.example.com"
+                  value={form.clamavHost}
+                  error={Boolean(errors.clamavHost)}
+                  helperText={
+                    errors.clamavHost?.message ?? 'ใส่เฉพาะ Hostname หรือ IP ไม่ต้องใส่ Protocol'
+                  }
+                  onChange={(event) => {
+                    setForm((current) => ({ ...current, clamavHost: event.target.value }));
+                    setClamavTest({ status: 'idle', message: '' });
+                  }}
+                />
+                <TextField
+                  label="CLAMAV_PORT"
+                  type="number"
+                  value={form.clamavPort}
+                  error={Boolean(errors.clamavPort)}
+                  helperText={errors.clamavPort?.message ?? 'ค่าปกติคือ 3310'}
+                  onChange={(event) => {
+                    setForm((current) => ({ ...current, clamavPort: Number(event.target.value) }));
+                    setClamavTest({ status: 'idle', message: '' });
+                  }}
+                  slotProps={{ htmlInput: { min: 1, max: 65535 } }}
+                  sx={{ width: { xs: 1, md: 220 }, flexShrink: 0 }}
+                />
+                <Button
+                  type="button"
+                  variant="outlined"
+                  size="large"
+                  loading={clamavTest.status === 'testing'}
+                  disabled={!form.clamavHost || Boolean(errors.clamavHost || errors.clamavPort)}
+                  onClick={testClamAv}
+                  sx={{ minWidth: 180, minHeight: 56, flexShrink: 0 }}
+                >
+                  ทดสอบการเชื่อมต่อ
+                </Button>
+              </Stack>
+              {clamavTest.status === 'success' && (
+                <Alert severity="success">{clamavTest.message}</Alert>
+              )}
+              {clamavTest.status === 'error' && (
+                <Alert severity="error">{clamavTest.message}</Alert>
+              )}
 
               {!!form.updatedAt && (
                 <Typography variant="caption" color="text.secondary">

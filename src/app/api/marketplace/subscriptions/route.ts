@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 
-import { requireAuthenticated } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
+import { requireAuthenticated } from 'src/lib/auth-token';
+import { rejectCrossSiteMutation } from 'src/lib/request-security';
 
 import { getStripe } from 'src/sections/marketplace/checkout/server/stripe';
 import { subscriptionPeriod } from 'src/sections/marketplace/checkout/server/license-subscriptions';
@@ -21,6 +22,8 @@ export async function GET(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  const csrfError = rejectCrossSiteMutation(request);
+  if (csrfError) return csrfError;
   const caller = requireAuthenticated(request);
   if (!caller) return NextResponse.json({ message: 'กรุณาเข้าสู่ระบบ' }, { status: 401 });
   const body = await request.json().catch(() => null);

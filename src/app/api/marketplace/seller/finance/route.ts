@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { requireAuthenticated } from 'src/lib/auth-token';
+import { revealPayoutSnapshot } from 'src/lib/financial-data-cipher';
 
 import { getFinanceSettings } from 'src/sections/marketplace/admin/server/finance';
 
@@ -150,6 +151,8 @@ export async function GET(request: Request) {
           payment_session: null,
         })),
     ledger: rows,
-    payouts: canViewPayoutHistory ? (payouts ?? []) : [],
+    payouts: canViewPayoutHistory
+      ? (payouts ?? []).map((payout) => revealPayoutSnapshot(payout))
+      : [],
   });
 }

@@ -82,7 +82,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       .from('marketplace_product_files')
       .select('id', { count: 'exact', head: true })
       .eq('product_id', id)
-      .eq('is_preview', true),
+      .eq('is_preview', true)
+      .neq('scan_status', 'rejected'),
   ]);
   const purchaseAccess = hasArchivedPurchase
     ? {

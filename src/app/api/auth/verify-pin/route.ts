@@ -4,6 +4,7 @@ import { after, NextResponse } from 'next/server';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { isSignInAllowed } from 'src/lib/auth-rate-limit';
 import { writeSecurityAudit } from 'src/lib/security-audit';
+import { rejectCrossSiteMutation } from 'src/lib/request-security';
 import { isSubscriptionUsable, loadSchoolSubscription } from 'src/lib/school-subscription';
 import {
   signAppToken,
@@ -100,6 +101,7 @@ async function handleVerifyPin(request: Request) {
     username: user.username,
     role: user.role,
     schoolId: user.school_id,
+    sessionVersion: Number(user.session_version ?? 0),
   });
 
   const response = NextResponse.json({ user: toPublicUser(user) });
@@ -108,6 +110,8 @@ async function handleVerifyPin(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const csrfError = rejectCrossSiteMutation(request);
+  if (csrfError) return csrfError;
   let actorId: string | null = null;
   try {
     const body = (await request.clone().json()) as { pinChallengeToken?: unknown };

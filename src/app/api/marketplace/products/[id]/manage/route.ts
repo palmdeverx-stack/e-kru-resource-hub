@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { requireAuthenticated } from 'src/lib/auth-token';
+import { rejectCrossSiteMutation } from 'src/lib/request-security';
 import { ALL_SCHOOL_FEATURE_KEYS } from 'src/lib/school-subscription-config';
 
 import { ownedSellerId } from 'src/sections/marketplace/seller/server/owned-seller';
@@ -96,6 +97,8 @@ export async function GET(request: Request, { params }: Context) {
 }
 
 export async function PATCH(request: Request, { params }: Context) {
+  const csrfError = rejectCrossSiteMutation(request);
+  if (csrfError) return csrfError;
   const caller = requireAuthenticated(request);
   if (!caller) return NextResponse.json({ message: 'กรุณาเข้าสู่ระบบ' }, { status: 401 });
 
@@ -437,10 +440,7 @@ export async function PATCH(request: Request, { params }: Context) {
         { status: 403 }
       );
     }
-    if (
-      licenseScope === 'platform' &&
-      String(body.licenseTargetSystem ?? '') !== 'ekru'
-    ) {
+    if (licenseScope === 'platform' && String(body.licenseTargetSystem ?? '') !== 'ekru') {
       return NextResponse.json(
         { message: 'License สำหรับทุกคนในแพลตฟอร์มใช้ได้กับระบบ E-KRU เท่านั้น' },
         { status: 400 }
@@ -788,9 +788,16 @@ export async function PATCH(request: Request, { params }: Context) {
       return NextResponse.json({ message: 'กรุณาอัปโหลดรูปปกอย่างน้อย 1 รูป' }, { status: 400 });
     }
     const fileOptional = FILE_OPTIONAL_RESOURCE_TYPES.has(String(product.resource_type));
+    const productFiles = (product.files ?? []) as Array<{ scan_status?: string }>;
+    if (productFiles.some((file) => file.scan_status === 'rejected')) {
+      return NextResponse.json(
+        { message: 'ยังส่งสินค้าไม่ได้ เนื่องจากมีไฟล์ที่ถูกระงับ' },
+        { status: 409 }
+      );
+    }
     if (
       !fileOptional &&
-      !(product.files as unknown[] | null)?.length &&
+      !productFiles.length &&
       !(product.external_links as unknown[] | null)?.length &&
       plainTextLength(String(product.purchase_benefits_html ?? '')) === 0
     ) {
@@ -927,6 +934,8 @@ export async function PATCH(request: Request, { params }: Context) {
 }
 
 export async function DELETE(request: Request, { params }: Context) {
+  const csrfError = rejectCrossSiteMutation(request);
+  if (csrfError) return csrfError;
   const caller = requireAuthenticated(request);
   if (!caller) return NextResponse.json({ message: 'กรุณาเข้าสู่ระบบ' }, { status: 401 });
 

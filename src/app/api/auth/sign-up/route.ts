@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 
 import { supabaseAdmin } from 'src/lib/supabase-admin';
+import { isActionAllowed } from 'src/lib/auth-rate-limit';
+import { rejectCrossSiteMutation } from 'src/lib/request-security';
 
 import {
   verificationExpiry,
@@ -12,6 +14,8 @@ import {
 // ----------------------------------------------------------------------
 
 export async function POST(request: Request) {
+  const csrfError = rejectCrossSiteMutation(request);
+  if (csrfError) return csrfError;
   const body = await request.json();
   const username = String(body.username ?? '').trim();
   const password = String(body.password ?? '');
@@ -20,6 +24,21 @@ export async function POST(request: Request) {
     .toLowerCase();
   const firstName = String(body.firstName ?? '').trim();
   const lastName = String(body.lastName ?? '').trim();
+
+  if (
+    !(await isActionAllowed({
+      request,
+      action: 'auth-sign-up',
+      subject: email,
+      maxAttempts: 5,
+      windowSeconds: 60 * 60,
+    }))
+  ) {
+    return NextResponse.json(
+      { message: 'สร้างบัญชีบ่อยเกินไป กรุณาลองใหม่ภายหลัง' },
+      { status: 429 }
+    );
+  }
 
   if (!username || !email || !firstName || !lastName || password.length < 8) {
     return NextResponse.json(

@@ -2,6 +2,12 @@ import { NextResponse } from 'next/server';
 
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { requireRole, hasPayoutAccess } from 'src/lib/auth-token';
+import { rejectCrossSiteMutation } from 'src/lib/request-security';
+import {
+  revealPayoutAccount,
+  revealPayoutSnapshot,
+  encryptFinancialValue,
+} from 'src/lib/financial-data-cipher';
 
 import { money, getFinanceSettings } from 'src/sections/marketplace/admin/server/finance';
 
@@ -66,9 +72,11 @@ export async function GET(request: Request) {
       seller: sellerRecord
         ? { id: sellerRecord.id, display_name: sellerRecord.display_name }
         : null,
-      account: Array.isArray(sellerRecord?.payout_account)
-        ? sellerRecord.payout_account[0]
-        : sellerRecord?.payout_account,
+      account: revealPayoutAccount(
+        Array.isArray(sellerRecord?.payout_account)
+          ? sellerRecord.payout_account[0]
+          : sellerRecord?.payout_account
+      ),
       amount: 0,
     };
     current.amount = money(current.amount + Number(entry.amount));
@@ -80,7 +88,7 @@ export async function GET(request: Request) {
       sellerId,
       ...value,
     })),
-    payouts: payouts ?? [],
+    payouts: (payouts ?? []).map((payout) => revealPayoutSnapshot(payout)),
     payoutPolicy: {
       holdDays: Number(finance.hold_days),
       minimumPayout: Number(finance.minimum_payout),
@@ -111,6 +119,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const csrfError = rejectCrossSiteMutation(request);
+  if (csrfError) return csrfError;
   const caller = requireRole(request, ['master_admin']);
   if (!caller) {
     return NextResponse.json({ message: 'ไม่มีสิทธิ์จัดการการโอนเงิน' }, { status: 403 });
@@ -135,7 +145,8 @@ export async function POST(request: Request) {
       .lte('available_at', new Date().toISOString()),
     getFinanceSettings(),
   ]);
-  if (!account) {
+  const revealedAccount = revealPayoutAccount(account);
+  if (!revealedAccount?.account_number) {
     return NextResponse.json({ message: 'ผู้ขายยังไม่ได้บันทึกบัญชีรับเงิน' }, { status: 400 });
   }
   const amount = money((entries ?? []).reduce((sum, entry) => sum + Number(entry.amount), 0));
@@ -151,10 +162,13 @@ export async function POST(request: Request) {
     .insert({
       seller_id: sellerId,
       amount,
-      bank_code_snapshot: account.bank_code,
-      bank_name_snapshot: account.bank_name,
-      account_number_snapshot: account.account_number,
-      account_name_snapshot: account.account_name,
+      bank_code_snapshot: revealedAccount.bank_code,
+      bank_name_snapshot: revealedAccount.bank_name,
+      account_number_snapshot: null,
+      account_number_snapshot_encrypted: encryptFinancialValue(
+        String(revealedAccount.account_number)
+      ),
+      account_name_snapshot: revealedAccount.account_name,
     })
     .select('*')
     .single();
@@ -190,5 +204,5 @@ export async function POST(request: Request) {
     );
   }
 
-  return NextResponse.json({ payout }, { status: 201 });
+  return NextResponse.json({ payout: revealPayoutSnapshot(payout) }, { status: 201 });
 }

@@ -4,6 +4,7 @@ import { after, NextResponse } from 'next/server';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { isSignInAllowed } from 'src/lib/auth-rate-limit';
 import { writeSecurityAudit } from 'src/lib/security-audit';
+import { rejectCrossSiteMutation } from 'src/lib/request-security';
 import { verifyMarketplacePassword } from 'src/lib/marketplace-auth';
 import { isSubscriptionUsable, loadSchoolSubscription } from 'src/lib/school-subscription';
 import {
@@ -89,6 +90,7 @@ async function handleSignIn(request: Request) {
       username: marketplaceUser.username,
       role: 'marketplace_user',
       schoolId: null,
+      sessionVersion: Number(marketplaceUser.session_version ?? 0),
     });
     const response = NextResponse.json({
       user: toPublicUser({ ...marketplaceUser, school_id: null }),
@@ -191,6 +193,7 @@ async function handleSignIn(request: Request) {
     username: user.username,
     role: user.role,
     schoolId: user.school_id,
+    sessionVersion: Number(user.session_version ?? 0),
   });
 
   const response = NextResponse.json({ user: toPublicUser(user) });
@@ -199,6 +202,8 @@ async function handleSignIn(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const csrfError = rejectCrossSiteMutation(request);
+  if (csrfError) return csrfError;
   let username = '';
   try {
     const body = (await request.clone().json()) as { username?: unknown };

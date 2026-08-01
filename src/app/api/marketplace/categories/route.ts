@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
+import { rejectCrossSiteMutation } from 'src/lib/request-security';
 
 export async function GET(request: Request) {
   const includeInactive = new URL(request.url).searchParams.get('all') === '1';
@@ -28,6 +29,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const csrfError = rejectCrossSiteMutation(request);
+  if (csrfError) return csrfError;
   if (!requireRole(request, ['master_admin'])) {
     return NextResponse.json({ message: 'ไม่มีสิทธิ์เพิ่มหมวดหมู่' }, { status: 403 });
   }

@@ -4,6 +4,7 @@ import { after, NextResponse } from 'next/server';
 
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { writeSecurityAudit } from 'src/lib/security-audit';
+import { rejectCrossSiteMutation } from 'src/lib/request-security';
 import { isSubscriptionUsable, loadSchoolSubscription } from 'src/lib/school-subscription';
 import {
   signAppToken,
@@ -84,6 +85,7 @@ function authenticatedResponse(user: Parameters<typeof toPublicUser>[0]) {
     username: user.username,
     role: user.role,
     schoolId: user.school_id ?? null,
+    sessionVersion: Number(user.session_version ?? 0),
   });
   const response = NextResponse.json({ user: toPublicUser(user) });
   response.cookies.set(ACCESS_TOKEN_COOKIE, accessToken, accessTokenCookieOptions);
@@ -223,6 +225,8 @@ async function handleGoogleSignIn(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const csrfError = rejectCrossSiteMutation(request);
+  if (csrfError) return csrfError;
   const response = await handleGoogleSignIn(request);
   const responseBody = (await response
     .clone()

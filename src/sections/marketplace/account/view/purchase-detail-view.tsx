@@ -65,6 +65,7 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
   const [receiptIssuing, setReceiptIssuing] = useState(false);
   const [receiptIssueError, setReceiptIssueError] = useState('');
   const [copiedPromptItemId, setCopiedPromptItemId] = useState<string | null>(null);
+  const [externalLink, setExternalLink] = useState<{ label: string; url: string } | null>(null);
   const [receiptForm, setReceiptForm] = useState({
     buyerName: '',
     buyerEmail: '',
@@ -623,8 +624,8 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                                 {product.license_scope === 'platform'
                                   ? 'ดูสิทธิ์สำหรับทุกคน'
                                   : product.license_scope === 'individual'
-                                  ? 'ดูสิทธิ์ของฉัน'
-                                  : 'จัดการ License'}
+                                    ? 'ดูสิทธิ์ของฉัน'
+                                    : 'จัดการ License'}
                               </Button>
                             </Box>
                           ) : (
@@ -752,10 +753,7 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                               {product.external_links.map((link, index) => (
                                 <Button
                                   key={`${link.url}-${index}`}
-                                  component="a"
-                                  href={link.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
+                                  onClick={() => setExternalLink(link)}
                                   variant="outlined"
                                   endIcon={<RiExternalLinkLine />}
                                   sx={{
@@ -1130,6 +1128,44 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
             startIcon={<RiDownloadLine />}
           >
             ดาวน์โหลด PDF
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(externalLink)}
+        onClose={() => setExternalLink(null)}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>กำลังออกจาก E-KRU Marketplace</DialogTitle>
+        <DialogContent>
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            เว็บไซต์ปลายทางอยู่นอกระบบ E-KRU โปรดตรวจสอบชื่อเว็บไซต์ก่อนกรอกข้อมูลส่วนตัว รหัสผ่าน
+            หรือข้อมูลการชำระเงิน
+          </Alert>
+          <Typography variant="subtitle2">{externalLink?.label}</Typography>
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ mt: 0.5, wordBreak: 'break-all' }}
+          >
+            {externalLink?.url}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button color="inherit" onClick={() => setExternalLink(null)}>
+            ยกเลิก
+          </Button>
+          <Button
+            variant="contained"
+            endIcon={<RiExternalLinkLine />}
+            onClick={() => {
+              if (externalLink) window.open(externalLink.url, '_blank', 'noopener,noreferrer');
+              setExternalLink(null);
+            }}
+          >
+            ไปยังเว็บไซต์ภายนอก
           </Button>
         </DialogActions>
       </Dialog>

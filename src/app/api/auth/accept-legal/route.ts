@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server';
 
 import { supabaseAdmin } from 'src/lib/supabase-admin';
+import { rejectCrossSiteMutation } from 'src/lib/request-security';
 import { toPublicUser, verifyAppToken, getRequestToken } from 'src/lib/auth-token';
 
 // ----------------------------------------------------------------------
 
 export async function POST(request: Request) {
+  const csrfError = rejectCrossSiteMutation(request);
+  if (csrfError) return csrfError;
   const token = getRequestToken(request);
   const payload = token ? verifyAppToken(token) : null;
 

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { supabaseAdmin } from 'src/lib/supabase-admin';
+import { rejectCrossSiteMutation } from 'src/lib/request-security';
 
 import {
   verificationExpiry,
@@ -11,6 +12,8 @@ import {
 } from 'src/sections/marketplace/auth/server/email-verification';
 
 export async function POST(request: Request) {
+  const csrfError = rejectCrossSiteMutation(request);
+  if (csrfError) return csrfError;
   const body = await request.json();
   const email = String(body.email ?? '')
     .trim()

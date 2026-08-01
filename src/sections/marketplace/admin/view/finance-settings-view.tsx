@@ -13,9 +13,13 @@ import Button from '@mui/material/Button';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import Container from '@mui/material/Container';
+import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
+import InputAdornment from '@mui/material/InputAdornment';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import CircularProgress from '@mui/material/CircularProgress';
+
+import { RiEyeLine, RiEyeOffLine } from 'src/components/remix-icon';
 
 import { ThaiBankAutocomplete } from '../../shared/bank-autocomplete';
 
@@ -112,6 +116,7 @@ export function MarketplaceFinanceSettingsView({
 }: Props) {
   const [form, setForm] = useState(initial);
   const [numericDrafts, setNumericDrafts] = useState(initialNumericDrafts);
+  const [showPayoutAccountNumber, setShowPayoutAccountNumber] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
@@ -729,12 +734,28 @@ export function MarketplaceFinanceSettingsView({
                 />
                 <TextField
                   fullWidth
+                  type={showPayoutAccountNumber ? 'text' : 'password'}
                   label="เลขบัญชีต้นทาง"
                   value={form.payoutAccountNumber}
                   onChange={(event) =>
                     setForm({ ...form, payoutAccountNumber: event.target.value.replace(/\D/g, '') })
                   }
-                  slotProps={{ htmlInput: { inputMode: 'numeric', maxLength: 20 } }}
+                  slotProps={{
+                    input: {
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            edge="end"
+                            aria-label={showPayoutAccountNumber ? 'ซ่อนเลขบัญชี' : 'แสดงเลขบัญชี'}
+                            onClick={() => setShowPayoutAccountNumber((current) => !current)}
+                          >
+                            {showPayoutAccountNumber ? <RiEyeOffLine /> : <RiEyeLine />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    },
+                    htmlInput: { inputMode: 'numeric', maxLength: 20, autoComplete: 'off' },
+                  }}
                 />
                 <TextField
                   fullWidth
