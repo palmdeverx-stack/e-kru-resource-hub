@@ -14,9 +14,15 @@ type Props = {
   open: boolean;
   onClose: () => void;
   onGranted: () => void;
+  description?: string;
 };
 
-export function MarketplacePayoutAccessDialog({ open, onClose, onGranted }: Props) {
+export function MarketplacePayoutAccessDialog({
+  open,
+  onClose,
+  onGranted,
+  description = 'กรอก PIN ผู้ดูแลระบบ 4 หลักเพื่อเข้าสู่หน้าโอนเงินให้ผู้ขาย',
+}: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
@@ -82,7 +88,7 @@ export function MarketplacePayoutAccessDialog({ open, onClose, onGranted }: Prop
           ยืนยัน PIN
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
-          กรอก PIN ผู้ดูแลระบบ 4 หลักเพื่อเข้าสู่หน้าโอนเงินให้ผู้ขาย
+          {description}
         </Typography>
 
         {!!error && (

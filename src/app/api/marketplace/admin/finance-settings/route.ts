@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 
-import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { writeSecurityAudit } from 'src/lib/security-audit';
+import { requireRole, hasPayoutAccess } from 'src/lib/auth-token';
 
 import { findThaiBank } from 'src/sections/marketplace/shared/thai-banks';
 import { getFinanceSettings } from 'src/sections/marketplace/admin/server/finance';
@@ -14,8 +14,12 @@ function authorize(request: Request) {
 }
 
 export async function GET(request: Request) {
-  if (!authorize(request)) {
+  const caller = authorize(request);
+  if (!caller) {
     return NextResponse.json({ message: 'ไม่มีสิทธิ์ตั้งค่าการเงิน' }, { status: 403 });
+  }
+  if (!hasPayoutAccess(request, caller.sub)) {
+    return NextResponse.json({ message: 'กรุณายืนยัน PIN เพื่อดูข้อมูลการเงิน' }, { status: 401 });
   }
   const settings = await getFinanceSettings();
   return NextResponse.json({
@@ -42,6 +46,9 @@ export async function PATCH(request: Request) {
   const caller = authorize(request);
   if (!caller) {
     return NextResponse.json({ message: 'ไม่มีสิทธิ์ตั้งค่าการเงิน' }, { status: 403 });
+  }
+  if (!hasPayoutAccess(request, caller.sub)) {
+    return NextResponse.json({ message: 'กรุณายืนยัน PIN เพื่อตั้งค่าการเงิน' }, { status: 401 });
   }
   const previous = await getFinanceSettings();
   const body = await request.json().catch(() => null);

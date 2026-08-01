@@ -32,12 +32,15 @@ import { formatThaiDateTime } from 'src/utils/timezone';
 import {
   RiUser3Line,
   RiSearchLine,
+  RiUserAddLine,
   RiUserForbidLine,
   RiShieldUserLine,
   RiCheckboxCircleLine,
 } from 'src/components/remix-icon';
 
 import { useAuthContext } from 'src/auth/hooks';
+
+import { SystemUserCreateDialog } from './system-user-create-dialog';
 
 type SystemAccount = {
   id: string;
@@ -56,7 +59,8 @@ type SystemAccount = {
 };
 
 const roleLabels: Record<string, string> = {
-  master_admin: 'Super Admin',
+  master_admin: 'Master Admin',
+  super_admin: 'Admin',
   school_admin: 'ผู้ดูแลโรงเรียน',
   teacher: 'ครู',
   student: 'นักเรียน',
@@ -90,6 +94,7 @@ export function SystemUsersView() {
   const [selected, setSelected] = useState<SystemAccount | null>(null);
   const [reason, setReason] = useState('');
   const [saving, setSaving] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -177,12 +182,24 @@ export function SystemUsersView() {
             แสดงเฉพาะบัญชี Marketplace และบัญชี E-KRU ที่มีประวัติใช้งาน Marketplace
           </Typography>
         </Box>
-        <Chip
-          icon={<RiShieldUserLine />}
-          color="primary"
-          variant="soft"
-          label={`${total.toLocaleString('th-TH')} บัญชี`}
-        />
+        <Stack direction="row" spacing={1.5} alignItems="center">
+          <Chip
+            icon={<RiShieldUserLine />}
+            color="primary"
+            variant="soft"
+            label={`${total.toLocaleString('th-TH')} บัญชี`}
+          />
+          <Button
+            variant="contained"
+            startIcon={<RiUserAddLine />}
+            onClick={() => {
+              setError('');
+              setCreateOpen(true);
+            }}
+          >
+            สร้างบัญชี
+          </Button>
+        </Stack>
       </Stack>
 
       {!!error && (
@@ -419,6 +436,17 @@ export function SystemUsersView() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <SystemUserCreateDialog
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={async (successMessage) => {
+          setMessage(successMessage);
+          setError('');
+          setPage(0);
+          await load();
+        }}
+      />
     </Container>
   );
 }

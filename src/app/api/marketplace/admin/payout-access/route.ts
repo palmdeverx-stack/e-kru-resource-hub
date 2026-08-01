@@ -39,7 +39,7 @@ export async function POST(request: Request) {
   const expectedCode = configuredCode || (/^\d{8}$/.test(masterPin) ? masterPin.slice(-4) : '');
   if (!/^\d{4}$/.test(expectedCode)) {
     return NextResponse.json(
-      { message: 'ระบบยังไม่ได้ตั้งรหัสสำหรับหน้าโอนเงิน กรุณาติดต่อผู้ดูแลเซิร์ฟเวอร์' },
+      { message: 'ระบบยังไม่ได้ตั้ง PIN สำหรับข้อมูลการเงิน กรุณาติดต่อผู้ดูแลเซิร์ฟเวอร์' },
       { status: 503 }
     );
   }

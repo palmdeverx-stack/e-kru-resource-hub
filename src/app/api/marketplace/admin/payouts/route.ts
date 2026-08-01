@@ -5,6 +5,21 @@ import { requireRole, hasPayoutAccess } from 'src/lib/auth-token';
 
 import { money, getFinanceSettings } from 'src/sections/marketplace/admin/server/finance';
 
+function getPayoutSchedule(payoutDay: number) {
+  const bangkokNow = new Date(Date.now() + 7 * 60 * 60 * 1000);
+  const currentDay = bangkokNow.getUTCDay();
+  const daysUntilPayout = (payoutDay - currentDay + 7) % 7;
+  const nextPayout = new Date(bangkokNow);
+  nextPayout.setUTCDate(nextPayout.getUTCDate() + daysUntilPayout);
+  nextPayout.setUTCHours(0, 0, 0, 0);
+
+  return {
+    payoutDay,
+    isPayoutDay: currentDay === payoutDay,
+    nextPayoutAt: new Date(nextPayout.getTime() - 7 * 60 * 60 * 1000).toISOString(),
+  };
+}
+
 export async function GET(request: Request) {
   const caller = requireRole(request, ['master_admin']);
   if (!caller) {
@@ -69,6 +84,7 @@ export async function GET(request: Request) {
     payoutPolicy: {
       holdDays: Number(finance.hold_days),
       minimumPayout: Number(finance.minimum_payout),
+      ...getPayoutSchedule(Number(finance.payout_day)),
     },
     payoutSourceAccount:
       finance.payout_bank_code &&

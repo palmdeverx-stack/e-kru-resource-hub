@@ -1,11 +1,20 @@
+import bcrypt from 'bcryptjs';
 import { NextResponse } from 'next/server';
 
 import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { writeSecurityAudit } from 'src/lib/security-audit';
-import { syncLinkedStaffAuth } from 'src/lib/staff-supabase-auth';
+import { syncLinkedStaffAuth, linkStaffToSupabaseAuth } from 'src/lib/staff-supabase-auth';
 
-const ROLES = ['master_admin', 'school_admin', 'teacher', 'student', 'marketplace_user'];
+const ROLES = [
+  'master_admin',
+  'super_admin',
+  'school_admin',
+  'teacher',
+  'student',
+  'marketplace_user',
+];
+const CREATABLE_ADMIN_ROLES = ['super_admin', 'master_admin'] as const;
 const STATUSES = ['active', 'inactive', 'unverified', 'suspended'];
 const SOURCES = ['app', 'marketplace'] as const;
 
@@ -105,6 +114,114 @@ export async function GET(request: Request) {
     pageSize,
     currentUserId: caller.sub,
   });
+}
+
+export async function POST(request: Request) {
+  const caller = requireRole(request, ['master_admin']);
+  if (!caller) {
+    await writeSecurityAudit({
+      request,
+      category: 'authorization',
+      action: 'system_user.created',
+      result: 'denied',
+    });
+    return NextResponse.json({ message: 'ไม่มีสิทธิ์สร้างบัญชีผู้ดูแลระบบ' }, { status: 403 });
+  }
+
+  const body = await request.json().catch(() => null);
+  const username = String(body?.username ?? '').trim().toLowerCase();
+  const email = String(body?.email ?? '').trim().toLowerCase();
+  const password = String(body?.password ?? '');
+  const firstName = String(body?.firstName ?? '').trim();
+  const lastName = String(body?.lastName ?? '').trim();
+  const role = String(body?.role ?? '');
+
+  if (!/^[a-z0-9._-]{3,40}$/.test(username)) {
+    return NextResponse.json(
+      { message: 'ชื่อผู้ใช้ต้องมี 3–40 ตัวอักษร และใช้เฉพาะ a-z, 0-9, จุด ขีดกลาง หรือขีดล่าง' },
+      { status: 400 }
+    );
+  }
+  if (!/^\S+@\S+\.\S+$/.test(email) || !firstName || !lastName || password.length < 8) {
+    return NextResponse.json(
+      { message: 'กรุณากรอกชื่อ อีเมล และรหัสผ่านอย่างน้อย 8 ตัวอักษรให้ครบถ้วน' },
+      { status: 400 }
+    );
+  }
+  if (!CREATABLE_ADMIN_ROLES.includes(role as (typeof CREATABLE_ADMIN_ROLES)[number])) {
+    return NextResponse.json({ message: 'ประเภทบัญชีผู้ดูแลระบบไม่ถูกต้อง' }, { status: 400 });
+  }
+
+  const [{ data: appUser }, { data: marketplaceUser }] = await Promise.all([
+    supabaseAdmin.from('app_users').select('id').ilike('username', username).maybeSingle(),
+    supabaseAdmin.from('marketplace_users').select('id').ilike('username', username).maybeSingle(),
+  ]);
+  if (appUser || marketplaceUser) {
+    return NextResponse.json({ message: 'ชื่อผู้ใช้นี้ถูกใช้งานแล้ว' }, { status: 409 });
+  }
+
+  const passwordHash = await bcrypt.hash(password, 10);
+  const { data: user, error: insertError } = await supabaseAdmin
+    .from('app_users')
+    .insert({
+      username,
+      email,
+      first_name: firstName,
+      last_name: lastName,
+      password_hash: passwordHash,
+      password_ciphertext: null,
+      must_change_password: true,
+      role,
+      school_id: null,
+      is_active: true,
+    })
+    .select('id, username, email, first_name, last_name, role, school_id, is_active, created_at')
+    .single();
+
+  if (insertError || !user) {
+    return NextResponse.json(
+      {
+        message:
+          insertError?.code === '23505'
+            ? 'ชื่อผู้ใช้หรืออีเมลนี้ถูกใช้งานแล้ว'
+            : (insertError?.message ?? 'สร้างบัญชีผู้ดูแลระบบไม่สำเร็จ'),
+      },
+      { status: insertError?.code === '23505' ? 409 : 500 }
+    );
+  }
+
+  const linked = await linkStaffToSupabaseAuth(
+    { ...user, role: role as 'super_admin' | 'master_admin' },
+    password
+  );
+  if (!linked.ok) {
+    await supabaseAdmin.from('app_users').delete().eq('id', user.id);
+    return NextResponse.json(
+      { message: `สร้างบัญชีเข้าสู่ระบบไม่สำเร็จ: ${linked.message}` },
+      { status: 500 }
+    );
+  }
+
+  await writeSecurityAudit({
+    request,
+    actorId: caller.sub,
+    actorUsername: caller.username,
+    actorRole: caller.role,
+    category: 'account',
+    action: 'system_user.created',
+    targetType: 'app_user',
+    targetId: user.id,
+    result: 'success',
+    metadata: { targetUsername: username, targetRole: role },
+  });
+
+  return NextResponse.json(
+    {
+      user,
+      message: `สร้างบัญชี ${role === 'master_admin' ? 'Master Admin' : 'Admin'} แล้ว`,
+    },
+    { status: 201 }
+  );
 }
 
 export async function PATCH(request: Request) {

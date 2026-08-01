@@ -18,13 +18,13 @@ export async function PATCH(request: Request, { params }: Context) {
   const { id } = await params;
   const body = await request.json().catch(() => null);
   const status = body?.status;
-  const reference = String(body?.transferReference ?? '').trim();
+  const reference = String(body?.transferReference ?? '').trim().toUpperCase();
   const reason = String(body?.failureReason ?? '').trim();
   if (!['paid', 'failed'].includes(status)) {
     return NextResponse.json({ message: 'สถานะไม่ถูกต้อง' }, { status: 400 });
   }
-  if (status === 'paid' && reference.length < 4) {
-    return NextResponse.json({ message: 'กรุณาระบุเลขอ้างอิงการโอน' }, { status: 400 });
+  if (status === 'paid' && (reference.length < 4 || reference.length > 100)) {
+    return NextResponse.json({ message: 'เลขอ้างอิงต้องมี 4–100 ตัวอักษร' }, { status: 400 });
   }
   if (status === 'failed' && reason.length < 3) {
     return NextResponse.json({ message: 'กรุณาระบุสาเหตุที่โอนไม่สำเร็จ' }, { status: 400 });
@@ -39,6 +39,24 @@ export async function PATCH(request: Request, { params }: Context) {
   if (!payout) {
     return NextResponse.json({ message: 'รายการนี้ดำเนินการไปแล้ว' }, { status: 409 });
   }
+  if (status === 'paid') {
+    const { data: duplicateReference, error: referenceError } = await supabaseAdmin
+      .from('marketplace_payouts')
+      .select('id')
+      .ilike('transfer_reference', reference)
+      .neq('id', id)
+      .limit(1)
+      .maybeSingle();
+    if (referenceError) {
+      return NextResponse.json({ message: referenceError.message }, { status: 500 });
+    }
+    if (duplicateReference) {
+      return NextResponse.json(
+        { message: 'เลขอ้างอิงนี้ถูกใช้กับรายการโอนอื่นแล้ว กรุณาตรวจสอบอีกครั้ง' },
+        { status: 409 }
+      );
+    }
+  }
   const now = new Date().toISOString();
   const { error } = await supabaseAdmin
     .from('marketplace_payouts')
@@ -51,7 +69,15 @@ export async function PATCH(request: Request, { params }: Context) {
       updated_at: now,
     })
     .eq('id', id);
-  if (error) return NextResponse.json({ message: error.message }, { status: 500 });
+  if (error) {
+    if (error.code === '23505') {
+      return NextResponse.json(
+        { message: 'เลขอ้างอิงนี้ถูกใช้กับรายการโอนอื่นแล้ว กรุณาตรวจสอบอีกครั้ง' },
+        { status: 409 }
+      );
+    }
+    return NextResponse.json({ message: error.message }, { status: 500 });
+  }
 
   if (status === 'failed') {
     await supabaseAdmin
