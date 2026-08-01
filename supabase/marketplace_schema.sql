@@ -296,6 +296,7 @@ create table if not exists public.marketplace_line_settings (
   is_enabled boolean not null default false,
   notify_new_seller boolean not null default true,
   notify_product_approval boolean not null default true,
+  notify_payout_due boolean not null default true,
   allow_seller_notifications boolean not null default false,
   seller_notification_price numeric(12, 2) not null default 99
     check (seller_notification_price >= 10),
@@ -328,10 +329,11 @@ create table if not exists public.marketplace_line_link_tokens (
 
 create table if not exists public.marketplace_line_deliveries (
   id uuid primary key default gen_random_uuid(),
-  event_type text not null check (event_type in ('new_seller', 'product_approval')),
+  event_type text not null check (event_type in ('new_seller', 'product_approval', 'payout_due')),
   source_id uuid,
+  dedupe_key text,
   message_text text not null,
-  status text not null check (status in ('sent', 'failed', 'skipped')),
+  status text not null check (status in ('processing', 'sent', 'failed', 'skipped')),
   line_user_id text,
   last_error text,
   created_at timestamptz not null default now(),
@@ -340,6 +342,9 @@ create table if not exists public.marketplace_line_deliveries (
 
 create index if not exists marketplace_line_deliveries_created_idx
   on public.marketplace_line_deliveries (created_at desc);
+create unique index if not exists marketplace_line_deliveries_dedupe_key
+  on public.marketplace_line_deliveries (dedupe_key)
+  where dedupe_key is not null;
 
 create table if not exists public.marketplace_legal_documents (
   id uuid primary key default gen_random_uuid(),
@@ -601,7 +606,12 @@ create table if not exists public.marketplace_sellers (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid not null unique,
   owner_role text not null
-    check (owner_role in ('master_admin', 'school_admin', 'teacher', 'student', 'marketplace_user')),
+    check (
+      owner_role in (
+        'master_admin', 'marketplace_admin', 'school_admin', 'teacher', 'student',
+        'marketplace_user'
+      )
+    ),
   seller_type text not null
     check (seller_type in ('teacher', 'external', 'organization')),
   display_name text not null,
@@ -868,12 +878,15 @@ alter table public.marketplace_products
   add column if not exists grants_feature_key text;
 alter table public.marketplace_products
   add column if not exists grant_duration_days integer;
+alter table public.marketplace_products
+  add column if not exists license_billing_cycle text not null default 'one_time'
+    check (license_billing_cycle in ('one_time', 'monthly', 'yearly', 'contract'));
 alter table public.subscription_plans
   add column if not exists plan_scope text not null default 'school'
     check (plan_scope in ('school', 'individual'));
 alter table public.marketplace_products
   add column if not exists license_scope text not null default 'school'
-    check (license_scope in ('individual', 'school', 'teacher'));
+    check (license_scope in ('individual', 'school', 'teacher', 'platform'));
 alter table public.marketplace_products
   add column if not exists license_target_system text;
 alter table public.marketplace_products
@@ -1141,8 +1154,8 @@ create index if not exists marketplace_product_collections_user_idx
 create index if not exists marketplace_product_collections_product_type_idx
   on public.marketplace_product_collections (product_id, collection_type);
 
--- Marketplace purchases of "feature_unlock" products grant a school a
--- time-limited entitlement here. This is separate from (additive to)
+-- Marketplace purchases of "feature_unlock" products grant a school either a
+-- fixed-term or perpetual entitlement here. This is separate from (additive to)
 -- school_subscriptions.enabled_features, since that table has one expiry per
 -- whole plan while each purchased feature key needs its own, independently
 -- renewable expiry.
@@ -1150,7 +1163,7 @@ create table if not exists public.school_feature_purchases (
   id uuid primary key default gen_random_uuid(),
   school_id uuid not null references public.schools(id) on delete cascade,
   feature_key text not null,
-  expires_at timestamptz not null,
+  expires_at timestamptz,
   source_order_id uuid references public.marketplace_orders(id) on delete set null,
   source_product_id uuid references public.marketplace_products(id) on delete set null,
   created_at timestamptz not null default now(),
@@ -1176,7 +1189,7 @@ create table if not exists public.marketplace_school_licenses (
   line_quota integer check (line_quota >= 0),
   duration_days integer check (duration_days > 0),
   starts_at timestamptz not null default now(),
-  expires_at timestamptz not null,
+  expires_at timestamptz,
   status text not null default 'active'
     check (status in ('active', 'renewed', 'expired', 'disputed', 'revoked', 'refunded')),
   revoked_at timestamptz,
@@ -1214,6 +1227,60 @@ create index if not exists marketplace_user_licenses_buyer_idx
   on public.marketplace_user_licenses (buyer_id, expires_at desc);
 create index if not exists marketplace_user_licenses_features_idx
   on public.marketplace_user_licenses using gin (feature_keys);
+
+create table if not exists public.marketplace_platform_licenses (
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid not null references public.marketplace_products(id) on delete restrict,
+  order_id uuid not null references public.marketplace_orders(id) on delete restrict,
+  order_item_id uuid not null unique references public.marketplace_order_items(id) on delete restrict,
+  feature_keys text[] not null default '{}',
+  grants_plan_code text,
+  duration_days integer check (duration_days > 0),
+  starts_at timestamptz not null default now(),
+  expires_at timestamptz,
+  status text not null default 'active'
+    check (status in ('active', 'renewed', 'expired', 'disputed', 'revoked', 'refunded')),
+  revoked_at timestamptz,
+  revoke_reason text,
+  renewed_from_license_id uuid
+    references public.marketplace_platform_licenses(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists marketplace_platform_licenses_expiry_idx
+  on public.marketplace_platform_licenses (status, expires_at desc);
+create index if not exists marketplace_platform_licenses_product_idx
+  on public.marketplace_platform_licenses (product_id, expires_at desc);
+create index if not exists marketplace_platform_licenses_features_idx
+  on public.marketplace_platform_licenses using gin (feature_keys);
+
+create table if not exists public.marketplace_license_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  buyer_id uuid not null,
+  product_id uuid not null references public.marketplace_products(id) on delete restrict,
+  seller_id uuid not null references public.marketplace_sellers(id) on delete restrict,
+  initial_order_id uuid not null unique references public.marketplace_orders(id) on delete restrict,
+  license_school_id uuid references public.schools(id) on delete restrict,
+  billing_cycle text not null check (billing_cycle in ('monthly', 'yearly')),
+  amount numeric(12,2) not null check (amount >= 10),
+  currency text not null default 'THB',
+  stripe_checkout_session_id text not null unique,
+  stripe_customer_id text,
+  stripe_subscription_id text unique,
+  status text not null default 'incomplete'
+    check (status in ('incomplete', 'active', 'past_due', 'unpaid', 'paused', 'canceled')),
+  current_period_start timestamptz,
+  current_period_end timestamptz,
+  cancel_at_period_end boolean not null default false,
+  canceled_at timestamptz,
+  last_invoice_id text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists marketplace_license_subscriptions_buyer_idx
+  on public.marketplace_license_subscriptions (buyer_id, status, current_period_end desc);
+create index if not exists marketplace_license_subscriptions_product_idx
+  on public.marketplace_license_subscriptions (product_id, status);
 
 create table if not exists public.marketplace_user_license_events (
   id uuid primary key default gen_random_uuid(),
@@ -1491,6 +1558,9 @@ alter table public.marketplace_payment_sessions
   add column if not exists stripe_payment_intent_id text,
   add column if not exists stripe_checkout_url text,
   add column if not exists processor_fee numeric(12, 2) not null default 0;
+alter table public.marketplace_payment_sessions
+  add column if not exists stripe_invoice_id text,
+  add column if not exists stripe_subscription_id text;
 
 alter table public.marketplace_payment_sessions
   drop constraint if exists marketplace_payment_sessions_payment_method_check;
@@ -1504,6 +1574,9 @@ create unique index if not exists marketplace_payment_stripe_session_key
 create unique index if not exists marketplace_payment_stripe_intent_key
   on public.marketplace_payment_sessions (stripe_payment_intent_id)
   where stripe_payment_intent_id is not null;
+create unique index if not exists marketplace_payment_stripe_invoice_key
+  on public.marketplace_payment_sessions (stripe_invoice_id)
+  where stripe_invoice_id is not null;
 
 create unique index if not exists marketplace_payment_bank_reference_key
   on public.marketplace_payment_sessions (bank_transaction_reference)
@@ -1821,6 +1894,8 @@ alter table public.marketplace_product_collections enable row level security;
 alter table public.marketplace_school_licenses enable row level security;
 alter table public.marketplace_school_onboardings enable row level security;
 alter table public.marketplace_user_licenses enable row level security;
+alter table public.marketplace_platform_licenses enable row level security;
+alter table public.marketplace_license_subscriptions enable row level security;
 alter table public.marketplace_user_license_events enable row level security;
 alter table public.marketplace_teacher_license_assignments enable row level security;
 alter table public.school_feature_purchases enable row level security;

@@ -10,24 +10,50 @@ import { verifyAppToken, ACCESS_TOKEN_COOKIE } from 'src/lib/auth-token';
 
 const AREA_ROLES: Array<{ prefix: string; roles: AppRole[] }> = [
   { prefix: '/dashboard/master', roles: ['master_admin'] },
-  { prefix: '/dashboard/seller-approvals', roles: ['master_admin'] },
+  { prefix: '/dashboard/seller-approvals', roles: ['master_admin', 'marketplace_admin'] },
   { prefix: '/dashboard/product-approvals', roles: ['master_admin'] },
   { prefix: '/dashboard/payment-reviews', roles: ['master_admin'] },
   { prefix: '/dashboard/receipts', roles: ['master_admin'] },
   { prefix: '/dashboard/payouts', roles: ['master_admin'] },
+  {
+    prefix: '/dashboard/settings/platform',
+    roles: ['master_admin', 'marketplace_admin'],
+  },
+  {
+    prefix: '/dashboard/settings/storage',
+    roles: ['master_admin', 'marketplace_admin'],
+  },
+  {
+    prefix: '/dashboard/settings/seller-badges',
+    roles: ['master_admin', 'marketplace_admin'],
+  },
   { prefix: '/dashboard/settings', roles: ['master_admin'] },
-  { prefix: '/dashboard/licenses', roles: ['school_admin'] },
+  { prefix: '/dashboard/licenses', roles: ['master_admin', 'school_admin'] },
   {
     prefix: '/dashboard/school-entitlements',
     roles: ['teacher', 'marketplace_user'],
   },
   {
     prefix: '/dashboard',
-    roles: ['master_admin', 'school_admin', 'teacher', 'student', 'marketplace_user'],
+    roles: [
+      'master_admin',
+      'marketplace_admin',
+      'school_admin',
+      'teacher',
+      'student',
+      'marketplace_user',
+    ],
   },
   {
     prefix: '/checkout',
-    roles: ['master_admin', 'school_admin', 'teacher', 'student', 'marketplace_user'],
+    roles: [
+      'master_admin',
+      'marketplace_admin',
+      'school_admin',
+      'teacher',
+      'student',
+      'marketplace_user',
+    ],
   },
   { prefix: '/master', roles: ['master_admin'] },
   { prefix: '/admin', roles: ['school_admin'] },

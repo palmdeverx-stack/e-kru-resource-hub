@@ -58,7 +58,7 @@ const actions = [
 
 export function MarketplaceDashboardOverviewView() {
   const { user } = useAuthContext();
-  const isPlatformAdmin = user?.role === 'master_admin' || user?.role === 'super_admin';
+  const isPlatformAdmin = user?.role === 'master_admin' || user?.role === 'marketplace_admin';
 
   return (
     <>

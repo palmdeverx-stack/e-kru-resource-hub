@@ -8,6 +8,29 @@ import { encryptLineCredential, decryptLineCredential } from 'src/lib/line-crede
 import { MARKETPLACE_MINIMUM_PAID_PRICE_THB } from 'src/sections/marketplace/shared/payment';
 import { syncSellerLineFeatureProducts } from 'src/sections/marketplace/seller/server/seller-line-product';
 
+const TEST_NOTIFICATION_MESSAGES = {
+  new_seller: [
+    '🧪 ทดสอบ: มีคำขอเปิดร้านใหม่',
+    'ร้านตัวอย่าง: ห้องเรียนสร้างสรรค์',
+    'ประเภทผู้ขาย: บุคคลทั่วไป',
+    'กรุณาตรวจสอบข้อมูลและเอกสารของผู้สมัคร',
+  ].join('\n'),
+  product_approval: [
+    '🧪 ทดสอบ: มีสินค้ารออนุมัติ',
+    'สินค้า: แบบฝึกทักษะคณิตศาสตร์ ป.4',
+    'ร้านค้า: ห้องเรียนสร้างสรรค์',
+    'กรุณาตรวจสอบรายละเอียดและไฟล์สินค้า',
+  ].join('\n'),
+  payout_due: [
+    '🧪 ทดสอบ: ถึงวันทำรอบโอนเงินผู้ขาย',
+    'พร้อมสร้างรอบ 3 ร้าน รวม ฿12,450.00',
+    'รอยืนยันการโอน 1 รายการ รวม ฿2,100.00',
+    'ต้องตรวจสอบบัญชีหรือยอดขั้นต่ำ 1 ร้าน',
+  ].join('\n'),
+} as const;
+
+type TestNotificationEvent = keyof typeof TEST_NOTIFICATION_MESSAGES;
+
 function authorize(request: Request) {
   return requireRole(request, ['master_admin']);
 }
@@ -92,6 +115,7 @@ export async function GET(request: Request) {
       hasAccessToken: Boolean(settings?.channel_access_token_encrypted),
       notifyNewSeller: settings?.notify_new_seller ?? true,
       notifyProductApproval: settings?.notify_product_approval ?? true,
+      notifyPayoutDue: settings?.notify_payout_due ?? true,
       allowSellerNotifications: settings?.allow_seller_notifications ?? false,
       sellerNotificationPrice: Number(settings?.seller_notification_price ?? 99),
       sellerByoaDescription: settings?.seller_byoa_description ?? '',
@@ -158,6 +182,7 @@ export async function PATCH(request: Request) {
     Boolean(parsedWebhook.search || parsedWebhook.hash) ||
     typeof body?.notifyNewSeller !== 'boolean' ||
     typeof body?.notifyProductApproval !== 'boolean' ||
+    typeof body?.notifyPayoutDue !== 'boolean' ||
     typeof body?.allowSellerNotifications !== 'boolean' ||
     !Number.isFinite(sellerNotificationPrice) ||
     sellerNotificationPrice < MARKETPLACE_MINIMUM_PAID_PRICE_THB ||
@@ -201,6 +226,7 @@ export async function PATCH(request: Request) {
       is_enabled: isEnabled && !requiresLineLink,
       notify_new_seller: body.notifyNewSeller,
       notify_product_approval: body.notifyProductApproval,
+      notify_payout_due: body.notifyPayoutDue,
       allow_seller_notifications: body.allowSellerNotifications,
       seller_notification_price: sellerNotificationPrice,
       seller_byoa_description: sellerByoaDescription,
@@ -290,7 +316,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ invitation: { code, expiresAt, lineUrl } });
   }
 
-  if (body?.action !== 'test') {
+  if (body?.action !== 'test' && body?.action !== 'test_event') {
     return NextResponse.json({ message: 'คำสั่งไม่ถูกต้อง' }, { status: 400 });
   }
   if (!settings?.channel_access_token_encrypted || !settings.line_user_id) {
@@ -299,6 +325,25 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
+
+  const testEvent = String(body?.event ?? '') as TestNotificationEvent;
+  if (
+    body.action === 'test_event' &&
+    !Object.prototype.hasOwnProperty.call(TEST_NOTIFICATION_MESSAGES, testEvent)
+  ) {
+    return NextResponse.json({ message: 'ประเภทรายการแจ้งเตือนไม่ถูกต้อง' }, { status: 400 });
+  }
+
+  const messageText =
+    body.action === 'test_event'
+      ? `${TEST_NOTIFICATION_MESSAGES[testEvent]}\n\nเปิดหน้าที่เกี่ยวข้อง: ${
+          testEvent === 'new_seller'
+            ? `${new URL(request.url).origin}/dashboard/seller-approvals`
+            : testEvent === 'product_approval'
+              ? `${new URL(request.url).origin}/dashboard/product-approvals`
+              : `${new URL(request.url).origin}/dashboard/payouts`
+        }`
+      : '✅ ทดสอบแจ้งเตือน E-KRU Marketplace สำเร็จ';
 
   try {
     const accessToken = decryptLineCredential(settings.channel_access_token_encrypted);
@@ -310,7 +355,7 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify({
         to: settings.line_user_id,
-        messages: [{ type: 'text', text: '✅ ทดสอบแจ้งเตือน E-KRU Marketplace สำเร็จ' }],
+        messages: [{ type: 'text', text: messageText }],
       }),
     });
     const result = await response.json().catch(() => null);
@@ -320,7 +365,10 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
-    return NextResponse.json({ success: true });
+    return NextResponse.json({
+      success: true,
+      ...(body.action === 'test_event' && { event: testEvent }),
+    });
   } catch {
     return NextResponse.json({ message: 'ไม่สามารถเชื่อมต่อ LINE ได้' }, { status: 502 });
   }

@@ -43,7 +43,7 @@ export async function GET(request: Request) {
 
   const now = new Date().toISOString();
   const canViewPaymentTransactions =
-    caller.role === 'super_admin' || caller.role === 'master_admin';
+    caller.role === 'marketplace_admin' || caller.role === 'master_admin';
   const canViewPayoutHistory = canViewPaymentTransactions;
   const [
     { data: ledger, error: ledgerError },
@@ -94,7 +94,7 @@ export async function GET(request: Request) {
     ['paid', 'completed'].includes(order.status)
   );
   const effectiveCommissionRate =
-    seller.owner_role === 'master_admin' || seller.owner_role === 'super_admin'
+    seller.owner_role === 'master_admin' || seller.owner_role === 'marketplace_admin'
       ? 0
       : Number(seller.commission_rate_override ?? finance.commission_rate);
   const grossSales = successfulOrders.reduce((sum, order) => sum + Number(order.gross_amount), 0);
@@ -135,7 +135,7 @@ export async function GET(request: Request) {
       holdDays: Number(finance.hold_days),
       commissionRate: effectiveCommissionRate,
       commissionSource:
-        seller.owner_role === 'master_admin' || seller.owner_role === 'super_admin'
+        seller.owner_role === 'master_admin' || seller.owner_role === 'marketplace_admin'
           ? 'system_store'
           : seller.commission_rate_override === null
             ? 'default'

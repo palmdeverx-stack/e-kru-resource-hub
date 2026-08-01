@@ -98,7 +98,7 @@ export async function notifySellerPaymentReceived(input: PaymentNotificationInpu
       license.feature_keys?.includes(MARKETPLACE_SELLER_LINE_TRIAL_FEATURE_KEY)
   );
   const isSystemSeller =
-    seller.owner_role === 'master_admin' || seller.owner_role === 'super_admin';
+    seller.owner_role === 'master_admin' || seller.owner_role === 'marketplace_admin';
   const systemSellerUsesOwnAccount = Boolean(
     isSystemSeller &&
     settings?.is_enabled &&

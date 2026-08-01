@@ -5,7 +5,7 @@ import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { writeSecurityAudit } from 'src/lib/security-audit';
 
 function authorize(request: Request) {
-  return requireRole(request, ['master_admin', 'super_admin']);
+  return requireRole(request, ['master_admin', 'marketplace_admin']);
 }
 
 function isHttpUrl(value: string) {

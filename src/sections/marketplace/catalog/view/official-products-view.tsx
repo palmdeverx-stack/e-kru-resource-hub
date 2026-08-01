@@ -109,7 +109,9 @@ function getCategoryIcon(category: string) {
 
 function matchesAudience(product: MarketplaceProduct, audience: Audience) {
   if (audience === 'all') return true;
-  if (audience === 'school') return product.license_scope === 'school';
+  if (audience === 'school') {
+    return product.license_scope === 'school' || product.license_scope === 'platform';
+  }
   return product.license_scope === 'individual' || product.license_scope === 'teacher';
 }
 

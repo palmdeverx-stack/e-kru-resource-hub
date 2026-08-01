@@ -128,7 +128,7 @@ export function MarketplaceAdminOverviewView() {
     load();
   }, [load]);
 
-  if (user?.role !== 'master_admin') {
+  if (user?.role !== 'master_admin' && user?.role !== 'marketplace_admin') {
     return (
       <Container maxWidth="lg" sx={{ py: 6 }}>
         <Alert severity="error">หน้านี้สำหรับ Super Admin เท่านั้น</Alert>

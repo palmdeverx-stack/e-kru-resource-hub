@@ -163,7 +163,7 @@ export function SellerDealsView() {
 
     if (
       selectedProduct?.resource_type === 'feature_unlock' &&
-      selectedProduct.license_scope !== 'individual' &&
+      ['school', 'teacher'].includes(selectedProduct.license_scope ?? '') &&
       !/^\d{8}$/.test(data.schoolCode)
     ) {
       setFormError('schoolCode', {

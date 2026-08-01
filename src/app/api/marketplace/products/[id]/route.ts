@@ -61,7 +61,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     };
   }
   const eligibleSchools =
-    caller && product.resource_type === 'feature_unlock' && product.license_scope !== 'individual'
+    caller &&
+    product.resource_type === 'feature_unlock' &&
+    ['school', 'teacher'].includes(product.license_scope)
       ? await getEligibleLicenseSchools(caller)
       : [];
   const [engagement, resolvedPurchaseAccess, previewFileResult] = await Promise.all([
@@ -69,6 +71,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     getProductPurchaseAccess({
       productId: id,
       buyerId: caller?.sub,
+      buyerRole: caller?.role,
       schoolId: caller?.schoolId,
       schoolIds: eligibleSchools.map((school) => school.id),
       resourceType: product.resource_type,

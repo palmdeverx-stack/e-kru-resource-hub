@@ -8,7 +8,7 @@ import { getFinanceSettings } from 'src/sections/marketplace/admin/server/financ
 type Context = { params: Promise<{ id: string }> };
 
 export async function GET(request: Request, { params }: Context) {
-  if (!requireRole(request, ['master_admin', 'super_admin'])) {
+  if (!requireRole(request, ['master_admin', 'marketplace_admin'])) {
     return NextResponse.json({ message: 'ไม่มีสิทธิ์ดูข้อมูลร้านค้า' }, { status: 403 });
   }
 
@@ -87,7 +87,7 @@ export async function GET(request: Request, { params }: Context) {
 }
 
 export async function PATCH(request: Request, { params }: Context) {
-  if (!requireRole(request, ['master_admin', 'super_admin'])) {
+  if (!requireRole(request, ['master_admin', 'marketplace_admin'])) {
     return NextResponse.json({ message: 'ไม่มีสิทธิ์ตั้งค่าค่าธรรมเนียมร้านค้า' }, { status: 403 });
   }
 

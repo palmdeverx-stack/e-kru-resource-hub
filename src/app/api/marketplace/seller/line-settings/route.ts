@@ -61,7 +61,7 @@ async function findSeller(caller: Caller) {
     .eq('owner_id', caller.sub)
     .maybeSingle();
   if (error) throw error;
-  if (seller || (caller.role !== 'master_admin' && caller.role !== 'super_admin')) return seller;
+  if (seller || (caller.role !== 'master_admin' && caller.role !== 'marketplace_admin')) return seller;
 
   const result = await provisionEkruSystemSeller(caller.sub);
   if (result.error) throw result.error;

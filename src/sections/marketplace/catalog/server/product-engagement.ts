@@ -99,6 +99,7 @@ export async function getProductPurchaseAccess({
   buyerId,
   schoolId,
   schoolIds,
+  buyerRole,
   resourceType,
   licenseScope,
   featureKeys,
@@ -107,10 +108,41 @@ export async function getProductPurchaseAccess({
   buyerId?: string;
   schoolId?: string | null;
   schoolIds?: string[];
+  buyerRole?: string | null;
   resourceType: string;
-  licenseScope?: 'individual' | 'school' | 'teacher' | null;
+  licenseScope?: 'individual' | 'school' | 'teacher' | 'platform' | null;
   featureKeys?: string[] | null;
 }): Promise<MarketplaceProductPurchaseAccess> {
+  if (resourceType === 'feature_unlock' && licenseScope === 'platform') {
+    const { data: licenses } = await supabaseAdmin
+      .from('marketplace_platform_licenses')
+      .select('expires_at')
+      .eq('product_id', productId)
+      .eq('status', 'active')
+      .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
+      .order('expires_at', { ascending: false })
+      .limit(1);
+    const activeLicense = licenses?.[0];
+    if (activeLicense) {
+      return {
+        canPurchase: false,
+        hasPurchased: true,
+        accessExpiresAt: activeLicense.expires_at,
+        message: 'License นี้เปิดใช้งานสำหรับทุกคนในแพลตฟอร์มแล้ว',
+      };
+    }
+    return {
+      canPurchase: Boolean(buyerId && buyerRole === 'master_admin'),
+      hasPurchased: false,
+      accessExpiresAt: null,
+      message: !buyerId
+        ? 'กรุณาเข้าสู่ระบบด้วยบัญชี Master Admin เพื่อเปิด License นี้'
+        : buyerRole !== 'master_admin'
+          ? 'เฉพาะ Master Admin เท่านั้นที่เปิด License สำหรับทั้งแพลตฟอร์มได้'
+          : null,
+    };
+  }
+
   if (!buyerId) {
     return {
       canPurchase: true,
@@ -170,7 +202,7 @@ export async function getProductPurchaseAccess({
       .in('school_id', targetSchoolIds)
       .eq('product_id', productId)
       .eq('status', 'active')
-      .gt('expires_at', new Date().toISOString());
+      .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`);
     const licensedSchoolIds = new Set((licenses ?? []).map((license) => license.school_id));
     const canPurchase = targetSchoolIds.some((id) => !licensedSchoolIds.has(id));
     const expiresAt = canPurchase

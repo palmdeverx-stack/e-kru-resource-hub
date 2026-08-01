@@ -31,6 +31,15 @@ export async function schoolHasFeature(schoolId: string, feature: SchoolFeatureK
     return true;
   }
 
+  const { data: platformLicenses } = await supabaseAdmin
+    .from('marketplace_platform_licenses')
+    .select('id')
+    .eq('status', 'active')
+    .contains('feature_keys', [feature])
+    .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
+    .limit(1);
+  if (platformLicenses?.length) return true;
+
   const { data: licenses } = await supabaseAdmin
     .from('marketplace_school_licenses')
     .select('id')
@@ -38,7 +47,7 @@ export async function schoolHasFeature(schoolId: string, feature: SchoolFeatureK
     .eq('license_scope', 'school')
     .eq('status', 'active')
     .contains('feature_keys', [feature])
-    .gt('expires_at', new Date().toISOString())
+    .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
     .limit(1);
   if (licenses?.length) return true;
 
@@ -47,16 +56,37 @@ export async function schoolHasFeature(schoolId: string, feature: SchoolFeatureK
     .select('id')
     .eq('school_id', schoolId)
     .eq('feature_key', feature)
-    .gt('expires_at', new Date().toISOString())
+    .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
     .maybeSingle();
   return !!data;
 }
 
 export async function userHasFeature(
   userId: string,
-  schoolId: string,
+  schoolId: string | null,
   feature: SchoolFeatureKey
 ) {
+  const now = new Date().toISOString();
+  const { data: individualLicenses } = await supabaseAdmin
+    .from('marketplace_user_licenses')
+    .select('id')
+    .eq('buyer_id', userId)
+    .eq('status', 'active')
+    .contains('feature_keys', [feature])
+    .or(`expires_at.is.null,expires_at.gt.${now}`)
+    .limit(1);
+  if (individualLicenses?.length) return true;
+
+  const { data: platformLicenses } = await supabaseAdmin
+    .from('marketplace_platform_licenses')
+    .select('id')
+    .eq('status', 'active')
+    .contains('feature_keys', [feature])
+    .or(`expires_at.is.null,expires_at.gt.${now}`)
+    .limit(1);
+  if (platformLicenses?.length) return true;
+
+  if (!schoolId) return false;
   if (await schoolHasFeature(schoolId, feature)) return true;
 
   const { data: assignments, error } = await supabaseAdmin
@@ -77,7 +107,7 @@ export async function userHasFeature(
     .eq('license_scope', 'teacher')
     .eq('status', 'active')
     .contains('feature_keys', [feature])
-    .gt('expires_at', new Date().toISOString())
+    .or(`expires_at.is.null,expires_at.gt.${now}`)
     .limit(1);
   return Boolean(licenses?.length);
 }
@@ -115,7 +145,7 @@ export async function grantSchoolFeature(
 export async function grantSchoolFeatureUntil(
   schoolId: string,
   featureKey: SchoolFeatureKey,
-  requestedExpiresAt: string,
+  requestedExpiresAt: string | null,
   meta: { orderId?: string; productId?: string } = {}
 ) {
   const { data: existing } = await supabaseAdmin
@@ -125,9 +155,13 @@ export async function grantSchoolFeatureUntil(
     .eq('feature_key', featureKey)
     .maybeSingle();
   const expiresAt =
-    existing?.expires_at && new Date(existing.expires_at) > new Date(requestedExpiresAt)
-      ? existing.expires_at
-      : requestedExpiresAt;
+    existing && existing.expires_at == null
+      ? null
+      : requestedExpiresAt == null
+        ? null
+        : existing?.expires_at && new Date(existing.expires_at) > new Date(requestedExpiresAt)
+          ? existing.expires_at
+          : requestedExpiresAt;
   const { error } = await supabaseAdmin.from('school_feature_purchases').upsert(
     {
       school_id: schoolId,

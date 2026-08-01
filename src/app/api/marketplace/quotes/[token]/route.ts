@@ -9,7 +9,7 @@ import { getEligibleLicenseSchools } from 'src/sections/marketplace/checkout/ser
 type Context = { params: Promise<{ token: string }> };
 
 const QUOTE_SELECT =
-  '*, seller:marketplace_sellers(id,display_name,logo_url,contact_email,owner_role), product:marketplace_products(id,title,title_en,short_description,short_description_en,price,currency,resource_type,license_scope,grant_duration_days,cover_url,status,images:marketplace_product_images(*))';
+  '*, seller:marketplace_sellers(id,display_name,logo_url,contact_email,owner_role), product:marketplace_products(id,title,title_en,short_description,short_description_en,price,currency,resource_type,license_scope,grant_duration_days,license_billing_cycle,cover_url,status,images:marketplace_product_images(*))';
 
 type QuoteRow = {
   id: string;
@@ -105,7 +105,10 @@ export async function POST(request: Request, { params }: Context) {
 
   const product = Array.isArray(deal.product) ? deal.product[0] : deal.product;
   let schoolId = deal.school_id as string | null;
-  if (product?.resource_type === 'feature_unlock' && product.license_scope !== 'individual') {
+  if (
+    product?.resource_type === 'feature_unlock' &&
+    ['school', 'teacher'].includes(String(product.license_scope))
+  ) {
     if (!deal.school_code) {
       return NextResponse.json({ message: 'ข้อเสนอนี้ไม่มีรหัสโรงเรียน' }, { status: 400 });
     }

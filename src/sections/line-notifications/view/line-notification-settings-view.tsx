@@ -1,7 +1,10 @@
 'use client';
 
 import type { LineNotificationSettingsInput } from '../line-notification-actions';
-import type { MarketplaceLineSettingsInput } from '../marketplace-line-settings-actions';
+import type {
+  MarketplaceLineTestEvent,
+  MarketplaceLineSettingsInput,
+} from '../marketplace-line-settings-actions';
 
 import QRCode from 'qrcode';
 import { useState, useEffect } from 'react';
@@ -38,6 +41,7 @@ import {
   unlinkMarketplaceLine,
   getMarketplaceLineSettings,
   saveMarketplaceLineSettings,
+  testMarketplaceLineNotification,
   testMarketplaceLineConnection,
   createMarketplaceLineInvitation,
 } from '../marketplace-line-settings-actions';
@@ -94,6 +98,7 @@ const EMPTY_MARKETPLACE_FORM: MarketplaceLineSettingsInput = {
   isEnabled: false,
   notifyNewSeller: true,
   notifyProductApproval: true,
+  notifyPayoutDue: true,
   allowSellerNotifications: false,
   sellerNotificationPrice: 99,
   sellerByoaDescription: 'ใช้ LINE OA ของตัวเอง กรอก Channel token และ User ID เอง',
@@ -104,6 +109,32 @@ const EMPTY_MARKETPLACE_FORM: MarketplaceLineSettingsInput = {
   sellerTrialDays: 7,
   sellerTrialQuota: 10,
 };
+
+const MARKETPLACE_NOTIFICATION_ITEMS: Array<{
+  field: 'notifyNewSeller' | 'notifyProductApproval' | 'notifyPayoutDue';
+  event: MarketplaceLineTestEvent;
+  label: string;
+  description: string;
+}> = [
+  {
+    field: 'notifyNewSeller',
+    event: 'new_seller',
+    label: 'ผู้ขายสมัครใหม่',
+    description: 'แจ้งเมื่อมีคำขอเปิดร้านใหม่',
+  },
+  {
+    field: 'notifyProductApproval',
+    event: 'product_approval',
+    label: 'รายการรออนุมัติ',
+    description: 'แจ้งเมื่อผู้ขายส่งสินค้าให้ตรวจสอบ',
+  },
+  {
+    field: 'notifyPayoutDue',
+    event: 'payout_due',
+    label: 'ถึงวันทำรอบโอน',
+    description: 'แจ้งเวลา 09:00 น. ในวันทำรอบ พร้อมจำนวนร้านและยอดรวม',
+  },
+];
 
 function MarketplaceLineNotificationSettings() {
   const queryClient = useQueryClient();
@@ -128,6 +159,7 @@ function MarketplaceLineNotificationSettings() {
     },
   });
   const testMutation = useMutation({ mutationFn: testMarketplaceLineConnection });
+  const testEventMutation = useMutation({ mutationFn: testMarketplaceLineNotification });
   const inviteMutation = useMutation({ mutationFn: createMarketplaceLineInvitation });
   const unlinkMutation = useMutation({
     mutationFn: unlinkMarketplaceLine,
@@ -145,6 +177,7 @@ function MarketplaceLineNotificationSettings() {
       isEnabled: query.data.integration.isEnabled,
       notifyNewSeller: query.data.integration.notifyNewSeller,
       notifyProductApproval: query.data.integration.notifyProductApproval,
+      notifyPayoutDue: query.data.integration.notifyPayoutDue,
       allowSellerNotifications: query.data.integration.allowSellerNotifications,
       sellerNotificationPrice: query.data.integration.sellerNotificationPrice,
       sellerByoaDescription: query.data.integration.sellerByoaDescription,
@@ -197,9 +230,19 @@ function MarketplaceLineNotificationSettings() {
     value: MarketplaceLineSettingsInput[K]
   ) => setForm((current) => ({ ...current, [key]: value }));
   const mutationError =
-    saveMutation.error || testMutation.error || inviteMutation.error || unlinkMutation.error;
+    saveMutation.error ||
+    testMutation.error ||
+    testEventMutation.error ||
+    inviteMutation.error ||
+    unlinkMutation.error;
   const mutationSuccess =
-    saveMutation.isSuccess || testMutation.isSuccess || unlinkMutation.isSuccess;
+    saveMutation.isSuccess ||
+    testMutation.isSuccess ||
+    testEventMutation.isSuccess ||
+    unlinkMutation.isSuccess;
+  const testedNotificationLabel = MARKETPLACE_NOTIFICATION_ITEMS.find(
+    (item) => item.event === testEventMutation.data?.event
+  )?.label;
   const quotaPercent =
     quota.limit && quota.limit > 0
       ? Math.min(100, Math.round((quota.used / quota.limit) * 100))
@@ -222,7 +265,7 @@ function MarketplaceLineNotificationSettings() {
             LINE Settings
           </Typography>
           <Typography color="text.secondary" sx={{ mt: 0.75 }}>
-            แจ้ง Super Admin เมื่อมีคำขอเปิดร้านใหม่หรือสินค้ารอการอนุมัติ
+            แจ้งผู้ดูแล Marketplace เมื่อมีรายการสำคัญที่ต้องดำเนินการ
           </Typography>
         </Box>
         <Chip
@@ -234,9 +277,11 @@ function MarketplaceLineNotificationSettings() {
       {(mutationError || mutationSuccess) && (
         <Alert severity={mutationError ? 'error' : 'success'} sx={{ mb: 3 }}>
           {mutationError?.message ??
-            (testMutation.isSuccess
-              ? 'ส่งข้อความทดสอบไปยัง LINE ที่ผูกไว้แล้ว'
-              : unlinkMutation.isSuccess
+            (testEventMutation.isSuccess
+              ? `ส่งตัวอย่าง “${testedNotificationLabel ?? 'รายการแจ้งเตือน'}” ไปยัง LINE ที่ผูกไว้แล้ว`
+              : testMutation.isSuccess
+                ? 'ส่งข้อความทดสอบไปยัง LINE ที่ผูกไว้แล้ว'
+                : unlinkMutation.isSuccess
                 ? 'ยกเลิกการผูก LINE แล้ว'
                 : saveMutation.data?.message || 'บันทึกการตั้งค่าเรียบร้อยแล้ว')}
         </Alert>
@@ -340,17 +385,18 @@ function MarketplaceLineNotificationSettings() {
 
           <Card variant="outlined" sx={{ p: { xs: 2.5, md: 3 } }}>
             <Typography variant="h6">รายการแจ้งเตือน</Typography>
-            {[
-              ['notifyNewSeller', 'ผู้ขายสมัครใหม่', 'แจ้งเมื่อมีคำขอเปิดร้านใหม่'],
-              ['notifyProductApproval', 'รายการรออนุมัติ', 'แจ้งเมื่อผู้ขายส่งสินค้าให้ตรวจสอบ'],
-            ].map(([key, label, description]) => (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 1 }}>
+              ปุ่มส่งทดสอบจะส่งข้อความตัวอย่างทันที โดยไม่เปลี่ยนสถานะสวิตช์ของรายการ
+            </Typography>
+            {MARKETPLACE_NOTIFICATION_ITEMS.map(({ field, event, label, description }) => (
               <Box
-                key={key}
+                key={field}
                 sx={{
                   py: 1.5,
                   gap: 2,
                   display: 'flex',
-                  alignItems: 'center',
+                  alignItems: { xs: 'flex-start', sm: 'center' },
+                  flexDirection: { xs: 'column', sm: 'row' },
                   borderBottom: '1px solid',
                   borderColor: 'divider',
                   justifyContent: 'space-between',
@@ -362,15 +408,27 @@ function MarketplaceLineNotificationSettings() {
                     {description}
                   </Typography>
                 </Box>
-                <Switch
-                  checked={Boolean(form[key as keyof MarketplaceLineSettingsInput])}
-                  onChange={(event) =>
-                    setField(
-                      key as 'notifyNewSeller' | 'notifyProductApproval',
-                      event.target.checked
-                    )
-                  }
-                />
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  alignItems="center"
+                  justifyContent="flex-end"
+                  sx={{ width: { xs: 1, sm: 'auto' } }}
+                >
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    disabled={!integration.lineLinkedAt || !integration.hasAccessToken}
+                    loading={testEventMutation.isPending && testEventMutation.variables === event}
+                    onClick={() => testEventMutation.mutate(event)}
+                  >
+                    ส่งทดสอบ
+                  </Button>
+                  <Switch
+                    checked={form[field]}
+                    onChange={(changeEvent) => setField(field, changeEvent.target.checked)}
+                  />
+                </Stack>
               </Box>
             ))}
             <FormControlLabel
@@ -713,12 +771,32 @@ function MarketplaceLineNotificationSettings() {
                 >
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}>
                     <Typography variant="subtitle2">
-                      {delivery.event_type === 'new_seller' ? 'ผู้ขายสมัครใหม่' : 'สินค้ารออนุมัติ'}
+                      {delivery.event_type === 'new_seller'
+                        ? 'ผู้ขายสมัครใหม่'
+                        : delivery.event_type === 'product_approval'
+                          ? 'สินค้ารออนุมัติ'
+                          : 'ถึงวันทำรอบโอน'}
                     </Typography>
                     <Chip
                       size="small"
-                      color={delivery.status === 'sent' ? 'success' : 'error'}
-                      label={delivery.status === 'sent' ? 'ส่งแล้ว' : 'ไม่สำเร็จ'}
+                      color={
+                        delivery.status === 'sent'
+                          ? 'success'
+                          : delivery.status === 'processing'
+                            ? 'info'
+                            : delivery.status === 'skipped'
+                              ? 'default'
+                              : 'error'
+                      }
+                      label={
+                        delivery.status === 'sent'
+                          ? 'ส่งแล้ว'
+                          : delivery.status === 'processing'
+                            ? 'กำลังส่ง'
+                            : delivery.status === 'skipped'
+                              ? 'ข้าม'
+                              : 'ไม่สำเร็จ'
+                      }
                     />
                   </Box>
                   {delivery.last_error && (

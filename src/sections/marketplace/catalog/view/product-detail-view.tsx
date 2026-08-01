@@ -353,11 +353,19 @@ export function MarketplaceProductDetailView({
               ? t('productDetail.license.individualShort')
               : product.license_scope === 'teacher'
                 ? t('productDetail.license.teacherShort')
-                : t('productDetail.license.schoolShort')
+                : product.license_scope === 'platform'
+                  ? t('productDetail.license.platformShort')
+                  : t('productDetail.license.schoolShort')
           }${
-            product.grant_duration_days
-              ? ` · ${t('productDetail.license.days', { count: product.grant_duration_days })}`
-              : ''
+            product.license_billing_cycle === 'monthly'
+              ? ' · รายเดือน'
+              : product.license_billing_cycle === 'yearly'
+                ? ' · รายปี'
+                : product.license_billing_cycle === 'contract'
+                  ? ` · ตามสัญญา ${product.grant_duration_days ?? 0} วัน`
+                  : product.grant_duration_days == null
+              ? ' · ซื้อขาด'
+              : ` · ${t('productDetail.license.days', { count: product.grant_duration_days })}`
           } · ${
             product.license_target_system === 'marketplace'
               ? t('productDetail.license.targetMarketplace')
@@ -1838,16 +1846,26 @@ export function MarketplaceProductDetailView({
                       ? t('productDetail.license.teacher', {
                           count: product.license_seat_count ?? 1,
                         })
-                      : t('productDetail.license.school')}
+                      : product.license_scope === 'platform'
+                        ? t('productDetail.license.platform')
+                        : t('productDetail.license.school')}
                 </Typography>
                 <Typography variant="body2">
                   {product.license_target_system === 'marketplace'
                     ? t('productDetail.license.targetMarketplace')
                     : t('productDetail.license.targetEkru')}{' '}
                   ·{' '}
-                  {t('productDetail.license.days', {
-                    count: product.grant_duration_days ?? 30,
-                  })}{' '}
+                  {product.grant_duration_days == null
+                    ? 'ซื้อขาด · ไม่มีวันหมดอายุ'
+                    : product.license_billing_cycle === 'monthly'
+                      ? 'รายเดือน · ตัดบัตรอัตโนมัติ'
+                      : product.license_billing_cycle === 'yearly'
+                        ? 'รายปี · ตัดบัตรอัตโนมัติ'
+                        : product.license_billing_cycle === 'contract'
+                          ? `ตามสัญญา ${product.grant_duration_days} วัน`
+                          : t('productDetail.license.days', {
+                              count: product.grant_duration_days,
+                            })}{' '}
                   ·{' '}
                   {(product.grants_feature_keys?.length
                     ? product.grants_feature_keys

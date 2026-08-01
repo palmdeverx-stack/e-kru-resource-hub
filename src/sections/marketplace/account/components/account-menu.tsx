@@ -164,5 +164,5 @@ function roleLabel(role?: string) {
 }
 
 function isSuperAdminRole(role?: string) {
-  return role === 'master_admin' || role === 'super_admin';
+  return role === 'master_admin' || role === 'marketplace_admin';
 }

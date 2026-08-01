@@ -44,7 +44,7 @@ const TYPE_TITLES: Record<LegalDocumentType, string> = {
 };
 
 function isMaster(request: Request) {
-  return requireRole(request, ['master_admin', 'super_admin']);
+  return requireRole(request, ['master_admin', 'marketplace_admin']);
 }
 
 function plainText(html: string) {

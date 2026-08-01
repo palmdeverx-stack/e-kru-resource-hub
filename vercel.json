@@ -13,6 +13,10 @@
       "schedule": "0 2 * * *"
     },
     {
+      "path": "/api/internal/marketplace-payout-reminders/process",
+      "schedule": "0 2 * * *"
+    },
+    {
       "path": "/api/internal/marketplace-tags/cleanup",
       "schedule": "15 3 * * *"
     }

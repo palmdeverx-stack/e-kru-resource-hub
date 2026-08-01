@@ -105,7 +105,7 @@ with eligible_sellers as (
   from public.marketplace_sellers seller
   where seller.id = any(seller_ids)
     and seller.status = 'active'
-    and seller.owner_role not in ('master_admin', 'super_admin')
+    and seller.owner_role not in ('master_admin', 'marketplace_admin')
 ),
 enabled_badges as (
   select *

@@ -21,7 +21,7 @@ import { RiEyeLine, RiEyeOffLine } from 'src/components/remix-icon';
 
 const SystemUserCreateSchema = z
   .object({
-    role: z.enum(['super_admin', 'master_admin']),
+    role: z.enum(['marketplace_admin', 'master_admin']),
     firstName: z.string().trim().min(1, { error: 'กรุณากรอกชื่อ' }),
     lastName: z.string().trim().min(1, { error: 'กรุณากรอกนามสกุล' }),
     username: z
@@ -44,7 +44,7 @@ const SystemUserCreateSchema = z
 type SystemUserCreateValues = z.infer<typeof SystemUserCreateSchema>;
 
 const defaultValues: SystemUserCreateValues = {
-  role: 'super_admin',
+  role: 'marketplace_admin',
   firstName: '',
   lastName: '',
   username: '',
@@ -113,7 +113,7 @@ export function SystemUserCreateDialog({ open, onClose, onCreated }: Props) {
           <Stack spacing={2.5}>
             {!!submitError && <Alert severity="error">{submitError}</Alert>}
             <RHFTextField name="role" select required label="สิทธิ์บัญชี">
-              <MenuItem value="super_admin">Admin</MenuItem>
+              <MenuItem value="marketplace_admin">Marketplace Admin</MenuItem>
               <MenuItem value="master_admin">Master Admin</MenuItem>
             </RHFTextField>
             {role === 'master_admin' && (

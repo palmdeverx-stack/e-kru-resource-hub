@@ -155,7 +155,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuthContext();
-  const isSystemStore = user?.role === 'master_admin' || user?.role === 'super_admin';
+  const isSystemStore = user?.role === 'master_admin' || user?.role === 'marketplace_admin';
   const [seller, setSeller] = useState<MarketplaceSeller | null>(null);
   const [form, setForm] = useState(initialForm);
   const [activeStep, setActiveStep] = useState(0);

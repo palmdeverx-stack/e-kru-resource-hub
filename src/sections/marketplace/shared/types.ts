@@ -286,7 +286,8 @@ export type MarketplaceProduct = {
   grants_feature_keys?: string[];
   grants_plan_code?: string | null;
   grant_duration_days?: number | null;
-  license_scope?: 'individual' | 'school' | 'teacher';
+  license_billing_cycle?: 'one_time' | 'monthly' | 'yearly' | 'contract';
+  license_scope?: 'individual' | 'school' | 'teacher' | 'platform';
   license_target_system?: LicenseTargetSystem | null;
   license_seat_count?: number;
   license_max_teachers?: number | null;
@@ -407,6 +408,7 @@ export type MarketplaceOrder = {
           | 'license_seat_count'
           | 'grants_plan_code'
           | 'grant_duration_days'
+          | 'license_billing_cycle'
           | 'external_links'
           | 'purchase_benefits_html'
         > & {
@@ -467,6 +469,17 @@ export type MarketplaceOrder = {
     duration_days: number | null;
     starts_at: string;
     expires_at: string | null;
+    status: 'active' | 'renewed' | 'expired' | 'disputed' | 'revoked' | 'refunded';
+  }>;
+  platform_licenses?: Array<{
+    id: string;
+    order_item_id: string;
+    product_id: string;
+    feature_keys: string[];
+    grants_plan_code: string | null;
+    duration_days: number;
+    starts_at: string;
+    expires_at: string;
     status: 'active' | 'renewed' | 'expired' | 'disputed' | 'revoked' | 'refunded';
   }>;
 };
@@ -532,7 +545,8 @@ export type ProductInput = {
   grantsFeatureKeys?: string[];
   grantsPlanCode?: string;
   grantDurationDays?: number | null;
-  licenseScope?: 'individual' | 'school' | 'teacher';
+  licenseBillingCycle?: 'one_time' | 'monthly' | 'yearly' | 'contract';
+  licenseScope?: 'individual' | 'school' | 'teacher' | 'platform';
   licenseTargetSystem?: LicenseTargetSystem;
   licenseSeatCount?: number;
   licenseMaxTeachers?: number;

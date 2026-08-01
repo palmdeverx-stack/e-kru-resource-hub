@@ -10,7 +10,7 @@ export async function reconcileFeature(schoolId: string, featureKey: string) {
     .eq('license_scope', 'school')
     .eq('status', 'active')
     .contains('feature_keys', [featureKey])
-    .gt('expires_at', new Date().toISOString())
+    .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
     .order('expires_at', { ascending: false })
     .limit(1);
   const effective = licenses?.[0];
@@ -99,6 +99,30 @@ export async function revokeUserLicense(
   return license;
 }
 
+export async function revokePlatformLicense(
+  licenseId: string,
+  status: 'refunded' | 'revoked',
+  reason: string
+) {
+  const { data: license, error } = await supabaseAdmin
+    .from('marketplace_platform_licenses')
+    .select('*')
+    .eq('id', licenseId)
+    .eq('status', 'active')
+    .maybeSingle();
+  if (error) throw error;
+  if (!license) return null;
+
+  const now = new Date().toISOString();
+  const { error: updateError } = await supabaseAdmin
+    .from('marketplace_platform_licenses')
+    .update({ status, revoked_at: now, revoke_reason: reason, updated_at: now })
+    .eq('id', license.id)
+    .eq('status', 'active');
+  if (updateError) throw updateError;
+  return license;
+}
+
 export async function revokeLicensesForPaymentSession(
   paymentSessionId: string,
   status: 'refunded' | 'revoked',
@@ -130,5 +154,14 @@ export async function revokeLicensesForPaymentSession(
   for (const license of userLicenses ?? []) {
     await revokeUserLicense(license.id, status, reason, paymentSessionId);
   }
-  return [...(licenses ?? []), ...(userLicenses ?? [])];
+  const { data: platformLicenses, error: platformLicenseError } = await supabaseAdmin
+    .from('marketplace_platform_licenses')
+    .select('*')
+    .in('order_id', orderIds)
+    .eq('status', 'active');
+  if (platformLicenseError) throw platformLicenseError;
+  for (const license of platformLicenses ?? []) {
+    await revokePlatformLicense(license.id, status, reason);
+  }
+  return [...(licenses ?? []), ...(userLicenses ?? []), ...(platformLicenses ?? [])];
 }

@@ -89,6 +89,11 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
   const [licenseSchoolId, setLicenseSchoolId] = useState('');
   const salesDealToken = searchParams.get('dealToken') ?? '';
   const isFree = subtotal === 0;
+  const hasRecurringLicense = items.some(
+    (item) =>
+      item.product.resource_type === 'feature_unlock' &&
+      ['monthly', 'yearly'].includes(item.product.license_billing_cycle ?? 'one_time')
+  );
   const stripeBelowMinimum = !isFree && availableMethods.stripe && subtotal < STRIPE_MINIMUM_THB;
   const stripeAvailable = availableMethods.stripe && !stripeBelowMinimum;
   const hasConfiguredPaymentMethod = availableMethods.promptpay || availableMethods.stripe;
@@ -98,11 +103,16 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
     (item) =>
       item.product.resource_type === 'feature_unlock' && item.product.license_scope === 'individual'
   );
+  const hasPlatformLicense = items.some(
+    (item) =>
+      item.product.resource_type === 'feature_unlock' && item.product.license_scope === 'platform'
+  );
   const hasSchoolLicense = items.some(
     (item) =>
-      item.product.resource_type === 'feature_unlock' && item.product.license_scope !== 'individual'
+      item.product.resource_type === 'feature_unlock' &&
+      ['school', 'teacher'].includes(item.product.license_scope ?? '')
   );
-  const hasFeatureProduct = hasIndividualLicense || hasSchoolLicense;
+  const hasFeatureProduct = hasIndividualLicense || hasSchoolLicense || hasPlatformLicense;
   const productsHref = dashboardMode
     ? paths.marketplace.dashboardProducts
     : paths.marketplace.products;
@@ -132,14 +142,16 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
 
   useEffect(() => {
     if (paymentMethodsLoading || isFree) return;
-    if (availableMethods.promptpay) {
+    if (hasRecurringLicense && stripeAvailable) {
+      setPaymentMethod('stripe');
+    } else if (availableMethods.promptpay) {
       setPaymentMethod('promptpay');
     } else if (stripeAvailable) {
       setPaymentMethod('stripe');
     } else {
       setPaymentMethod('');
     }
-  }, [availableMethods.promptpay, isFree, paymentMethodsLoading, stripeAvailable]);
+  }, [availableMethods.promptpay, hasRecurringLicense, isFree, paymentMethodsLoading, stripeAvailable]);
 
   useEffect(() => {
     if (!authenticated || !hasSchoolLicense || salesDealToken) return;
@@ -312,12 +324,22 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
                         )}
                         <Stack direction="row" spacing={1} sx={{ mt: 1.25 }}>
                           <Chip size="small" color="success" variant="soft" label="0 บาท" />
-                          {!!durationDays && (
+                          {item.product.resource_type === 'feature_unlock' && (
                             <Chip
                               size="small"
                               color="info"
                               variant="soft"
-                              label={`ใช้งาน ${durationDays} วัน`}
+                              label={
+                                item.product.license_billing_cycle === 'monthly'
+                                  ? 'รายเดือน · ต่ออายุอัตโนมัติ'
+                                  : item.product.license_billing_cycle === 'yearly'
+                                    ? 'รายปี · ต่ออายุอัตโนมัติ'
+                                    : item.product.license_billing_cycle === 'contract'
+                                      ? `ตามสัญญา ${durationDays} วัน`
+                                      : durationDays == null
+                                  ? 'ซื้อขาด · ไม่มีวันหมดอายุ'
+                                  : `ใช้งาน ${durationDays} วัน`
+                              }
                             />
                           )}
                         </Stack>
@@ -412,7 +434,7 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
                 เลือกช่องทางที่สะดวก ระบบจะแสดงเฉพาะช่องทางที่เปิดใช้งาน
               </Typography>
               <Stack spacing={1.5} sx={{ mt: 2 }}>
-                {availableMethods.promptpay && (
+                {availableMethods.promptpay && !hasRecurringLicense && (
                   <PaymentOption
                     selected={paymentMethod === 'promptpay'}
                     icon={<RiQrCodeLine size={28} />}
@@ -440,6 +462,11 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
                   />
                 )}
               </Stack>
+              {hasRecurringLicense && (
+                <Alert severity="info" sx={{ mt: 2 }}>
+                  ระบบจะผูกบัตรกับ Stripe และตัดเงินอัตโนมัติตามรอบ คุณสามารถยกเลิกการต่ออายุได้ภายหลัง
+                </Alert>
+              )}
             </Card>
           )}
 

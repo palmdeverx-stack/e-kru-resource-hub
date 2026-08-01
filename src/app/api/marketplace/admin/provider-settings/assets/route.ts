@@ -17,7 +17,7 @@ const ASSET_TYPES = new Set([
 const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 export async function POST(request: Request) {
-  const caller = requireRole(request, ['master_admin', 'super_admin']);
+  const caller = requireRole(request, ['master_admin', 'marketplace_admin']);
   if (!caller) {
     return NextResponse.json({ message: 'ไม่มีสิทธิ์อัปโหลดไฟล์แพลตฟอร์ม' }, { status: 403 });
   }

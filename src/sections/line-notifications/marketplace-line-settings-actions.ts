@@ -1,5 +1,7 @@
 'use client';
 
+export type MarketplaceLineTestEvent = 'new_seller' | 'product_approval' | 'payout_due';
+
 export type MarketplaceLineSettings = {
   integration: {
     channelId: string;
@@ -9,6 +11,7 @@ export type MarketplaceLineSettings = {
     hasAccessToken: boolean;
     notifyNewSeller: boolean;
     notifyProductApproval: boolean;
+    notifyPayoutDue: boolean;
     allowSellerNotifications: boolean;
     sellerNotificationPrice: number;
     sellerByoaDescription: string;
@@ -36,8 +39,8 @@ export type MarketplaceLineSettings = {
   };
   recentDeliveries: Array<{
     id: string;
-    event_type: 'new_seller' | 'product_approval';
-    status: 'sent' | 'failed' | 'skipped';
+    event_type: 'new_seller' | 'product_approval' | 'payout_due';
+    status: 'processing' | 'sent' | 'failed' | 'skipped';
     last_error: string | null;
     created_at: string;
     sent_at: string | null;
@@ -53,6 +56,7 @@ export type MarketplaceLineSettingsInput = {
   isEnabled: boolean;
   notifyNewSeller: boolean;
   notifyProductApproval: boolean;
+  notifyPayoutDue: boolean;
   allowSellerNotifications: boolean;
   sellerNotificationPrice: number;
   sellerByoaDescription: string;
@@ -109,6 +113,17 @@ export async function testMarketplaceLineConnection() {
       body: JSON.stringify({ action: 'test' }),
     }),
     'ไม่สามารถส่งข้อความทดสอบได้'
+  );
+}
+
+export async function testMarketplaceLineNotification(event: MarketplaceLineTestEvent) {
+  return parse<{ success: boolean; event: MarketplaceLineTestEvent }>(
+    await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'test_event', event }),
+    }),
+    'ไม่สามารถส่งรายการแจ้งเตือนทดสอบได้'
   );
 }
 

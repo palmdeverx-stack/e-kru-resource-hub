@@ -283,10 +283,10 @@ export function MarketplaceSellerFinanceView() {
   );
   const canViewPaymentTransactions =
     Boolean(data?.canViewPaymentTransactions) &&
-    (user?.role === 'super_admin' || user?.role === 'master_admin');
+    (user?.role === 'marketplace_admin' || user?.role === 'master_admin');
   const canViewPayoutHistory =
     Boolean(data?.canViewPayoutHistory) &&
-    (user?.role === 'super_admin' || user?.role === 'master_admin');
+    (user?.role === 'marketplace_admin' || user?.role === 'master_admin');
 
   const summaryCards = [
     {
@@ -462,6 +462,22 @@ export function MarketplaceSellerFinanceView() {
                 timeZone: 'Asia/Bangkok',
               })}{' '}
               · ระบบจัดรอบทุก{payoutDayNames[data?.schedule.payoutDay ?? 5]}
+            </Alert>
+            <Alert severity="info" sx={{ mb: 3 }}>
+              <Typography variant="subtitle2">เงินจะเข้าบัญชีเมื่อไร?</Typography>
+              <Typography variant="body2" sx={{ mt: 0.5 }}>
+                หลังลูกค้าชำระสำเร็จ ระบบพักยอด{' '}
+                {(data?.schedule.holdDays ?? 0).toLocaleString('th-TH')} วัน
+                แล้วนำยอดที่ถึงขั้นต่ำไปรวมในรอบวัน
+                {payoutDayNames[data?.schedule.payoutDay ?? 5]} โดยทั่วไปจึงใช้เวลาประมาณ{' '}
+                {(data?.schedule.holdDays ?? 0).toLocaleString('th-TH')}–
+                {((data?.schedule.holdDays ?? 0) + 7).toLocaleString('th-TH')} วัน
+                หลังชำระสำเร็จ
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                เป็นวันที่โดยประมาณ วันหยุด การตรวจสอบการชำระ การคืนเงิน หรือการดำเนินการของธนาคาร
+                อาจทำให้เงินเข้าช้ากว่ากำหนด
+              </Typography>
             </Alert>
 
             <Typography variant="h5">สถานะเงินของคำสั่งซื้อ</Typography>
@@ -953,8 +969,10 @@ export function MarketplaceSellerFinanceView() {
               )}
             </Stack>
             <Alert severity="info" sx={{ mt: 3 }}>
-              จ่ายเป็นรอบทุก{payoutDayNames[data?.schedule.payoutDay ?? 5]} · ยอดขั้นต่ำ{' '}
-              {formatPrice(Number(data?.schedule.minimumPayout ?? 0))}
+              พักยอด {(data?.schedule.holdDays ?? 0).toLocaleString('th-TH')} วัน · จ่ายเป็นรอบทุก
+              {payoutDayNames[data?.schedule.payoutDay ?? 5]} · ยอดขั้นต่ำ{' '}
+              {formatPrice(Number(data?.schedule.minimumPayout ?? 0))} · วันรอบโอนเป็นวันประมาณการ
+              ไม่ใช่วันรับประกันเงินเข้าบัญชี{' '}
               หากต้องการแก้ไขบัญชีรับเงิน ให้ไปที่เมนูข้อมูลร้านค้า
             </Alert>
           </Box>

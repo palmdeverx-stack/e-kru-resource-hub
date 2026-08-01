@@ -51,7 +51,7 @@ export async function getSellerLineFeatureAccess(
   userId: string,
   role?: string
 ): Promise<SellerLineFeatureAccess> {
-  if (role === 'master_admin' || role === 'super_admin') {
+  if (role === 'master_admin' || role === 'marketplace_admin') {
     return {
       allowed: true,
       entitled: true,

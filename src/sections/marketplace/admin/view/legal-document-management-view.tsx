@@ -130,11 +130,11 @@ export function MarketplaceLegalDocumentManagementView() {
   }, []);
 
   useEffect(() => {
-    if (user?.role === 'master_admin' || user?.role === 'super_admin') load();
+    if (user?.role === 'master_admin' || user?.role === 'marketplace_admin') load();
   }, [load, user?.role]);
 
   useEffect(() => {
-    if (user?.role !== 'master_admin' && user?.role !== 'super_admin') return;
+    if (user?.role !== 'master_admin' && user?.role !== 'marketplace_admin') return;
     fetch('/api/marketplace/admin/provider-settings', { cache: 'no-store' })
       .then(parseResponse)
       .then((result) => {
@@ -160,7 +160,7 @@ export function MarketplaceLegalDocumentManagementView() {
     setPage((current) => Math.min(current, lastPage));
   }, [items.length, rowsPerPage]);
 
-  if (user?.role !== 'master_admin' && user?.role !== 'super_admin') {
+  if (user?.role !== 'master_admin' && user?.role !== 'marketplace_admin') {
     return (
       <Box sx={{ p: 4 }}>
         <Alert severity="error">เมนูนี้สำหรับ Super Admin เท่านั้น</Alert>

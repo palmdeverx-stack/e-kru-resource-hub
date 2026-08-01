@@ -37,7 +37,7 @@ export const payoutAccessCookieOptions = {
 
 export type AppRole =
   | 'master_admin'
-  | 'super_admin'
+  | 'marketplace_admin'
   | 'school_admin'
   | 'teacher'
   | 'student'

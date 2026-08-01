@@ -174,6 +174,11 @@ const adminNavData: NavSectionProps['data'] = [
     subheader: 'การเงิน Marketplace',
     items: [
       {
+        title: 'ตรวจสอบ License',
+        path: '/dashboard/licenses',
+        icon: <RiKey2Line />,
+      },
+      {
         title: 'ใบเสร็จรับเงิน',
         path: '/dashboard/receipts',
         icon: <RiReceiptLine />,
@@ -341,12 +346,26 @@ const adminNavData: NavSectionProps['data'] = [
   },
 ];
 
+const MARKETPLACE_ADMIN_NAV_PATHS = new Set([
+  '/dashboard',
+  '/dashboard/seller-approvals',
+  '/dashboard/settings/seller-badges',
+  '/dashboard/products',
+  '/dashboard/cart',
+  '/dashboard/seller',
+  '/dashboard/seller/profile',
+  '/dashboard/seller/analytics',
+  '/dashboard/seller/finance',
+  '/dashboard/settings/platform',
+  '/dashboard/settings/storage',
+]);
+
 type Props = {
   children: React.ReactNode;
 };
 
 function isMarketplaceAdmin(role?: string | null) {
-  return role === 'master_admin' || role === 'super_admin';
+  return role === 'master_admin' || role === 'marketplace_admin';
 }
 
 export default function Layout({ children }: Props) {
@@ -470,13 +489,15 @@ export default function Layout({ children }: Props) {
     return () => controller.abort();
   }, [user?.id, user?.role]);
 
-  const adminNavigation = adminNavData.map((section) => {
-    let items = section.items;
-    if (user?.role === 'super_admin' && section.subheader === 'ร้านค้าทางการ') {
-      items = items.filter((item) => item.path !== '/dashboard/seller/settings/line');
-    }
-    return items === section.items ? section : { ...section, items };
-  });
+  const adminNavigation =
+    user?.role === 'marketplace_admin'
+      ? adminNavData
+          .map((section) => ({
+            ...section,
+            items: section.items.filter((item) => MARKETPLACE_ADMIN_NAV_PATHS.has(item.path)),
+          }))
+          .filter((section) => section.items.length > 0)
+      : adminNavData;
 
   const navData = isMarketplaceAdmin(user?.role)
     ? adminNavigation

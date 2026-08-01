@@ -82,7 +82,7 @@ export async function POST(request: Request) {
     !expiresAt ||
     expiresAt <= new Date() ||
     (product.resource_type === 'feature_unlock' &&
-      product.license_scope !== 'individual' &&
+      ['school', 'teacher'].includes(product.license_scope) &&
       !/^\d{8}$/.test(schoolCode))
   ) {
     return NextResponse.json(

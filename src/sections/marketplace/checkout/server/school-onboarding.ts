@@ -33,7 +33,7 @@ export async function createSchoolOnboardingForPaidOrders(params: {
     )
     .in('order_id', params.orderIds)
     .eq('product.resource_type', 'feature_unlock')
-    .neq('product.license_scope', 'individual')
+    .in('product.license_scope', ['school', 'teacher'])
     .is('order.license_school_id', null)
     .limit(1);
   if (itemError) throw itemError;

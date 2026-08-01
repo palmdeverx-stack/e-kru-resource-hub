@@ -122,7 +122,7 @@ export function MarketplaceSellerApprovalDetailView({
   }, [sellerId]);
 
   useEffect(() => {
-    if (user?.role === 'master_admin' || user?.role === 'super_admin') load();
+    if (user?.role === 'master_admin' || user?.role === 'marketplace_admin') load();
   }, [load, user?.role]);
 
   const review = async (action: 'approve' | 'reject') => {
@@ -196,7 +196,7 @@ export function MarketplaceSellerApprovalDetailView({
     }
   };
 
-  if (user?.role !== 'master_admin' && user?.role !== 'super_admin') {
+  if (user?.role !== 'master_admin' && user?.role !== 'marketplace_admin') {
     return (
       <Container maxWidth="lg" sx={{ py: 5 }}>
         <Alert severity="error">หน้านี้สำหรับ Super Admin เท่านั้น</Alert>

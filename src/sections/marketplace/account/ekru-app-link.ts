@@ -31,7 +31,7 @@ export function getLicenseAppDestination({
   let path = '/';
   if (featureKeys.includes(SCHOOL_LINE_NOTIFICATIONS_FEATURE)) {
     path = '/admin/line-notifications/';
-  } else if (role === 'master_admin' || role === 'super_admin') {
+  } else if (role === 'master_admin' || role === 'marketplace_admin') {
     path = '/master/';
   } else if (role === 'teacher' || featureKeys.some((key) => key.startsWith('teacher.'))) {
     path = '/teacher/';

@@ -151,9 +151,11 @@ const initialForm = {
   listPrice: '',
   grantsFeatureKeys: [] as string[],
   grantsPlanCode: '',
+  licenseBillingCycle: 'one_time' as 'one_time' | 'monthly' | 'yearly' | 'contract',
+  licenseDurationType: 'days' as 'days' | 'perpetual',
   grantDurationDays: '30',
   licenseTargetSystem: 'marketplace' as 'marketplace' | 'ekru',
-  licenseScope: 'individual' as 'individual' | 'school' | 'teacher',
+  licenseScope: 'individual' as 'individual' | 'school' | 'teacher' | 'platform',
   licenseSeatCount: '1',
   licenseMaxTeachers: '',
   licenseMaxStudents: '',
@@ -341,6 +343,8 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
           ? [product.grants_feature_key]
           : [],
       grantsPlanCode: product.grants_plan_code ?? '',
+      licenseBillingCycle: product.license_billing_cycle ?? 'one_time',
+      licenseDurationType: product.grant_duration_days == null ? 'perpetual' : 'days',
       grantDurationDays: String(product.grant_duration_days ?? 30),
       licenseTargetSystem:
         product.license_target_system ??
@@ -399,7 +403,9 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
       : form.licenseScope === 'teacher'
         ? SCHOOL_FEATURES.filter((feature) => feature.key.startsWith('teacher.'))
         : SCHOOL_FEATURES;
-  const isPerpetualLicense = form.grantsFeatureKeys.includes(MARKETPLACE_SELLER_LINE_FEATURE.key);
+  const isPerpetualLicense =
+    (form.licenseBillingCycle === 'one_time' && form.licenseDurationType === 'perpetual') ||
+    form.grantsFeatureKeys.includes(MARKETPLACE_SELLER_LINE_FEATURE.key);
   const visibleImages = images.filter((image) => !pendingDeletedImageIds.includes(image.id));
   const coverImage = visibleImages.find((image) => image.is_cover) ?? visibleImages[0];
   const previewImages = visibleImages.filter((image) => image.id !== coverImage?.id);
@@ -543,6 +549,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
     grantsFeatureKey: isLicenseProduct ? form.grantsFeatureKeys[0] || undefined : undefined,
     grantsFeatureKeys: isLicenseProduct ? form.grantsFeatureKeys : [],
     grantsPlanCode: isLicenseProduct ? form.grantsPlanCode.trim() || undefined : undefined,
+    licenseBillingCycle: isLicenseProduct ? form.licenseBillingCycle : undefined,
     licenseTargetSystem: isLicenseProduct ? form.licenseTargetSystem : undefined,
     grantDurationDays:
       isLicenseProduct && form.grantsFeatureKeys.length
@@ -1442,6 +1449,44 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                   <>
                     <Grid size={{ xs: 12, sm: 6 }}>
                       <TextField
+                        select
+                        fullWidth
+                        label="รูปแบบการเรียกเก็บเงิน"
+                        value={form.licenseBillingCycle}
+                        onChange={(event) => {
+                          const cycle = event.target.value as
+                            | 'one_time'
+                            | 'monthly'
+                            | 'yearly'
+                            | 'contract';
+                          setForm((current) => ({
+                            ...current,
+                            licenseBillingCycle: cycle,
+                            licenseDurationType: cycle === 'one_time' ? current.licenseDurationType : 'days',
+                            grantDurationDays:
+                              cycle === 'monthly'
+                                ? '30'
+                                : cycle === 'yearly'
+                                  ? '365'
+                                  : current.grantDurationDays,
+                          }));
+                        }}
+                        helperText={
+                          form.licenseBillingCycle === 'contract'
+                            ? 'กำหนดระยะเวลาและเงื่อนไขเฉพาะในข้อเสนอ/สัญญา'
+                            : ['monthly', 'yearly'].includes(form.licenseBillingCycle)
+                              ? 'ตัดบัตรอัตโนมัติผ่าน Stripe จนกว่าจะยกเลิก'
+                              : 'ชำระครั้งเดียว'
+                        }
+                      >
+                        <MenuItem value="one_time">ครั้งเดียว / ซื้อขาด</MenuItem>
+                        <MenuItem value="monthly">รายเดือน — ต่ออายุอัตโนมัติ</MenuItem>
+                        <MenuItem value="yearly">รายปี — ต่ออายุอัตโนมัติ</MenuItem>
+                        <MenuItem value="contract">ตามสัญญา — กำหนดจำนวนวัน</MenuItem>
+                      </TextField>
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <TextField
                         fullWidth
                         required
                         select
@@ -1483,7 +1528,8 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                           const licenseScope = event.target.value as
                             | 'individual'
                             | 'school'
-                            | 'teacher';
+                            | 'teacher'
+                            | 'platform';
                           setForm((current) => ({
                             ...current,
                             licenseScope,
@@ -1518,13 +1564,45 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                             <MenuItem key="teacher" value="teacher">
                               รายครูภายใต้โรงเรียน
                             </MenuItem>,
+                            ...(user?.role === 'master_admin'
+                              ? [
+                                  <MenuItem key="platform" value="platform">
+                                    ทุกคนในแพลตฟอร์ม
+                                  </MenuItem>,
+                                ]
+                              : []),
                           ]
                         )}
                       </TextField>
                     </Grid>
                     <Grid size={{ xs: 12, sm: 6 }}>
+                      <TextField
+                        select
+                        fullWidth
+                        label="รูปแบบระยะเวลา"
+                        value={isPerpetualLicense ? 'perpetual' : form.licenseDurationType}
+                        disabled={
+                          form.grantsFeatureKeys.includes(MARKETPLACE_SELLER_LINE_FEATURE.key) ||
+                          form.licenseBillingCycle !== 'one_time' ||
+                          selectedSubscriptionPlan?.billing_cycle === 'monthly' ||
+                          selectedSubscriptionPlan?.billing_cycle === 'yearly'
+                        }
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            licenseDurationType: event.target.value as 'days' | 'perpetual',
+                          }))
+                        }
+                      >
+                        <MenuItem value="perpetual">ซื้อขาด — ไม่มีวันหมดอายุ</MenuItem>
+                        <MenuItem value="days">กำหนดจำนวนวัน</MenuItem>
+                      </TextField>
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                       {isPerpetualLicense ? (
-                        <Alert severity="success">License ซื้อขาด · ไม่มีวันหมดอายุ</Alert>
+                        <Alert severity="success" sx={{ minHeight: 56, alignItems: 'center' }}>
+                          ผู้ซื้อชำระครั้งเดียวและใช้งานได้ตลอด จนกว่าจะคืนเงินหรือเพิกถอนสิทธิ์
+                        </Alert>
                       ) : (
                         <TextField
                           fullWidth
@@ -1546,7 +1624,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                       )}
                     </Grid>
                     <Grid size={{ xs: 12 }}>
-                      {form.licenseScope === 'school' && (
+                      {['school', 'platform'].includes(form.licenseScope) && (
                         <Stack direction="row" justifyContent="flex-end" sx={{ mb: 1 }}>
                           <Button
                             size="small"
@@ -1589,8 +1667,10 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                                 ? `ดึง ${selectedSubscriptionPlan.enabled_features.length} ฟีเจอร์จากแพ็กเกจ ${selectedSubscriptionPlan.name}`
                                 : form.licenseScope === 'teacher'
                                   ? 'License รายครูเลือกได้เฉพาะฟีเจอร์สำหรับครู'
-                                  : form.licenseScope === 'individual'
-                                    ? 'สิทธิ์จะเปิดให้บัญชีผู้ซื้อรายบุคคล'
+                                : form.licenseScope === 'individual'
+                                  ? 'สิทธิ์จะเปิดให้บัญชีผู้ซื้อรายบุคคล'
+                                  : form.licenseScope === 'platform'
+                                    ? 'Master Admin เปิดใช้ครั้งเดียว ผู้ใช้ปัจจุบันและผู้ใช้ใหม่ทุกคนจะได้รับสิทธิ์'
                                     : 'สิทธิ์จะเปิดให้ผู้ใช้ทั้งโรงเรียน'
                             }
                           />
@@ -1632,8 +1712,19 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                                 ? {
                                     ...current,
                                     grantsPlanCode: plan.code,
+                                    licenseBillingCycle:
+                                      plan.billing_cycle === 'monthly'
+                                        ? 'monthly'
+                                        : plan.billing_cycle === 'yearly'
+                                          ? 'yearly'
+                                          : 'contract',
                                     grantsFeatureKeys: plan.enabled_features,
                                     price: String(plan.price),
+                                    licenseDurationType:
+                                      plan.billing_cycle === 'monthly' ||
+                                      plan.billing_cycle === 'yearly'
+                                        ? 'days'
+                                        : current.licenseDurationType,
                                     grantDurationDays:
                                       plan.billing_cycle === 'monthly'
                                         ? '30'

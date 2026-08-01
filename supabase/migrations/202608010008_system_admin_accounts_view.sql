@@ -23,7 +23,7 @@ select
 from public.app_users user_account
 left join public.schools school on school.id = user_account.school_id
 where
-  user_account.role in ('master_admin', 'super_admin')
+  user_account.role in ('master_admin', 'marketplace_admin')
   or exists (
     select 1
     from public.marketplace_sellers seller

@@ -6,7 +6,7 @@ import { supabaseAdmin } from 'src/lib/supabase-admin';
 const GIB = 1024 ** 3;
 
 function authorize(request: Request) {
-  return requireRole(request, ['master_admin', 'super_admin']);
+  return requireRole(request, ['master_admin', 'marketplace_admin']);
 }
 
 export async function GET(request: Request) {

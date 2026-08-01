@@ -60,7 +60,7 @@ type SystemAccount = {
 
 const roleLabels: Record<string, string> = {
   master_admin: 'Master Admin',
-  super_admin: 'Admin',
+  marketplace_admin: 'Marketplace Admin',
   school_admin: 'ผู้ดูแลโรงเรียน',
   teacher: 'ครู',
   student: 'นักเรียน',

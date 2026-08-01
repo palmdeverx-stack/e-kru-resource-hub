@@ -43,7 +43,7 @@ type OrderProduct = {
   file_url: string | null;
   cover_url: string | null;
   resource_type: string;
-  license_scope: 'individual' | 'school' | 'teacher' | null;
+  license_scope: 'individual' | 'school' | 'teacher' | 'platform' | null;
   images?: Array<{ storage_bucket: string; storage_path: string; [key: string]: unknown }>;
   files?: Array<{ storage_bucket: string; storage_path: string; [key: string]: unknown }>;
 } | null;
@@ -143,7 +143,7 @@ export async function POST(request: Request) {
   const { data: products, error: productError } = await supabaseAdmin
     .from('marketplace_products')
     .select(
-      'id, seller_id, title, title_en, category, short_description, description, price, list_price, currency, status, resource_type, grants_feature_key, grants_feature_keys, grants_plan_code, grant_duration_days, license_scope, license_seat_count, license_max_teachers, license_max_students, license_max_school_admins, license_line_quota, purchase_benefits, purchase_benefits_html, seller:marketplace_sellers(owner_role, commission_rate_override)'
+      'id, seller_id, title, title_en, category, short_description, description, price, list_price, currency, status, resource_type, grants_feature_key, grants_feature_keys, grants_plan_code, grant_duration_days, license_billing_cycle, license_scope, license_seat_count, license_max_teachers, license_max_students, license_max_school_admins, license_line_quota, purchase_benefits, purchase_benefits_html, seller:marketplace_sellers(owner_role, commission_rate_override)'
     )
     .in('id', uniqueProductIds)
     .eq('status', 'published');
@@ -194,9 +194,37 @@ export async function POST(request: Request) {
     requestedLicenseSchoolId = deal.school_id ?? requestedLicenseSchoolId;
   }
 
+  const hasPlatformLicense = products.some(
+    (product) =>
+      product.resource_type === 'feature_unlock' && product.license_scope === 'platform'
+  );
+  const recurringProducts = products.filter(
+    (product) =>
+      product.resource_type === 'feature_unlock' &&
+      ['monthly', 'yearly'].includes(product.license_billing_cycle ?? 'one_time')
+  );
+  if (
+    recurringProducts.length > 0 &&
+    (products.length !== 1 || requestedPaymentMethod !== 'stripe' || salesDeal)
+  ) {
+    return NextResponse.json(
+      {
+        message:
+          'License ต่ออายุอัตโนมัติต้องซื้อครั้งละ 1 รายการและชำระด้วยบัตรผ่าน Stripe',
+      },
+      { status: 400 }
+    );
+  }
+  if (hasPlatformLicense && caller.role !== 'master_admin') {
+    return NextResponse.json(
+      { message: 'เฉพาะ Master Admin เท่านั้นที่เปิด License สำหรับทั้งแพลตฟอร์มได้' },
+      { status: 403 }
+    );
+  }
   const hasSchoolLicense = products.some(
     (product) =>
-      product.resource_type === 'feature_unlock' && product.license_scope !== 'individual'
+      product.resource_type === 'feature_unlock' &&
+      ['school', 'teacher'].includes(product.license_scope)
   );
   if (hasSchoolLicense) {
     const eligibleSchools = await getEligibleLicenseSchools(caller);
@@ -223,7 +251,7 @@ export async function POST(request: Request) {
         caller.role === 'marketplace_user' &&
         !requestedLicenseSchoolId &&
         product.resource_type === 'feature_unlock' &&
-        product.license_scope !== 'individual'
+        ['school', 'teacher'].includes(product.license_scope)
       ) {
         const hasPurchased = await hasPurchasedProduct(product.id, caller.sub);
         return {
@@ -241,6 +269,7 @@ export async function POST(request: Request) {
         access: await getProductPurchaseAccess({
           productId: product.id,
           buyerId: caller.sub,
+          buyerRole: caller.role,
           schoolId: hasSchoolLicense ? requestedLicenseSchoolId : caller.schoolId,
           resourceType: product.resource_type,
           licenseScope: product.license_scope,
@@ -490,10 +519,24 @@ export async function POST(request: Request) {
         .select('email')
         .eq('id', caller.sub)
         .maybeSingle();
+      const recurringProduct = recurringProducts[0];
+      const { data: previousSubscription } = recurringProduct
+        ? await supabaseAdmin
+            .from('marketplace_license_subscriptions')
+            .select('stripe_customer_id')
+            .eq('buyer_id', caller.sub)
+            .not('stripe_customer_id', 'is', null)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+        : { data: null };
+      const stripeCustomerId = previousSubscription?.stripe_customer_id ?? null;
       const stripeSession = await getStripe().checkout.sessions.create({
-        mode: 'payment',
+        mode: recurringProduct ? 'subscription' : 'payment',
         client_reference_id: paymentSession.id,
-        customer_email: buyerForStripe?.email ?? undefined,
+        ...(stripeCustomerId
+          ? { customer: stripeCustomerId }
+          : { customer_email: buyerForStripe?.email ?? undefined }),
         line_items: [...itemsBySeller.values()]
           .flat()
           .filter((item) => Number(item.price) > 0)
@@ -502,6 +545,12 @@ export async function POST(request: Request) {
             price_data: {
               currency: 'thb',
               unit_amount: Math.round(Number(item.price) * 100),
+              ...(recurringProduct && {
+                recurring: {
+                  interval:
+                    recurringProduct.license_billing_cycle === 'yearly' ? 'year' : 'month',
+                },
+              }),
               product_data: { name: item.title.slice(0, 120) },
             },
           })),
@@ -509,9 +558,22 @@ export async function POST(request: Request) {
           marketplace_payment_session_id: paymentSession.id,
           buyer_id: caller.sub,
         },
-        payment_intent_data: {
-          metadata: { marketplace_payment_session_id: paymentSession.id },
-        },
+        ...(recurringProduct
+          ? {
+              payment_method_types: ['card'] as const,
+              subscription_data: {
+                metadata: {
+                  marketplace_payment_session_id: paymentSession.id,
+                  marketplace_order_id: String(createdOrders[0]?.id ?? ''),
+                  marketplace_product_id: recurringProduct.id,
+                },
+              },
+            }
+          : {
+              payment_intent_data: {
+                metadata: { marketplace_payment_session_id: paymentSession.id },
+              },
+            }),
         success_url: `${origin}/dashboard/payment/${paymentSession.id}?stripe=success`,
         cancel_url: `${origin}/dashboard/payment/${paymentSession.id}?stripe=cancelled`,
       });
@@ -533,6 +595,25 @@ export async function POST(request: Request) {
           .checkout.sessions.expire(stripeSession.id)
           .catch(() => undefined);
         throw updateError ?? new Error('บันทึกรายการชำระเงินออนไลน์ไม่สำเร็จ');
+      }
+      if (recurringProduct) {
+        const { error: subscriptionError } = await supabaseAdmin
+          .from('marketplace_license_subscriptions')
+          .insert({
+            buyer_id: caller.sub,
+            product_id: recurringProduct.id,
+            seller_id: recurringProduct.seller_id,
+            initial_order_id: createdOrders[0].id,
+            license_school_id: requestedLicenseSchoolId || null,
+            billing_cycle: recurringProduct.license_billing_cycle,
+            amount: checkoutTotal,
+            currency: recurringProduct.currency ?? 'THB',
+            stripe_checkout_session_id: stripeSession.id,
+          });
+        if (subscriptionError) {
+          await getStripe().checkout.sessions.expire(stripeSession.id).catch(() => undefined);
+          throw subscriptionError;
+        }
       }
       finalPaymentSession = updatedSession;
     } catch (stripeError) {

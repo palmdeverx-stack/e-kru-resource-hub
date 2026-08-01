@@ -47,7 +47,7 @@ export async function GET(request: Request) {
     .select('owner_id')
     .eq('id', document.seller_id)
     .maybeSingle();
-  const isAdmin = caller.role === 'master_admin' || caller.role === 'super_admin';
+  const isAdmin = caller.role === 'master_admin' || caller.role === 'marketplace_admin';
   if (!seller || (seller.owner_id !== caller.sub && !isAdmin)) {
     return NextResponse.json({ message: 'ไม่มีสิทธิ์ดูเอกสารนี้' }, { status: 403 });
   }

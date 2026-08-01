@@ -1350,6 +1350,7 @@ function licenseScopeLabel(scope: MarketplaceProduct['license_scope']) {
   if (scope === 'individual') return 'License บุคคล';
   if (scope === 'teacher') return 'License รายครู';
   if (scope === 'school') return 'License โรงเรียน';
+  if (scope === 'platform') return 'License ทุกคนในแพลตฟอร์ม';
   return 'ไม่ได้ระบุ';
 }
 

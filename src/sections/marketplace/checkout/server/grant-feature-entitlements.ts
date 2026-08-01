@@ -5,16 +5,6 @@ import type { SchoolFeatureKey } from 'src/lib/school-subscription-config';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { grantSchoolFeatureUntil } from 'src/lib/school-subscription';
 
-import {
-  MARKETPLACE_SELLER_LINE_FEATURE_KEY,
-  MARKETPLACE_SELLER_LINE_MANAGED_FEATURE_KEY,
-} from '../../seller/line-feature';
-
-const SELLER_LINE_FEATURE_KEYS: string[] = [
-  MARKETPLACE_SELLER_LINE_FEATURE_KEY,
-  MARKETPLACE_SELLER_LINE_MANAGED_FEATURE_KEY,
-];
-
 type OrderItemRow = {
   id: string;
   order_id: string;
@@ -25,7 +15,7 @@ type OrderItemRow = {
     grants_feature_keys: string[] | null;
     grants_plan_code: string | null;
     grant_duration_days: number | null;
-    license_scope: 'individual' | 'school' | 'teacher' | null;
+    license_scope: 'individual' | 'school' | 'teacher' | 'platform' | null;
     license_seat_count: number | null;
     license_max_teachers: number | null;
     license_max_students: number | null;
@@ -60,8 +50,7 @@ export async function grantFeatureEntitlementsForOrders(orderIds: string[]) {
     return (
       item.product?.resource_type === 'feature_unlock' &&
       featureKeys.length > 0 &&
-      ((item.product.grant_duration_days ?? 0) > 0 ||
-        featureKeys.some((key) => SELLER_LINE_FEATURE_KEYS.includes(key)))
+      (item.product.grant_duration_days == null || item.product.grant_duration_days > 0)
     );
   });
   if (!featureItems.length) return [];
@@ -79,12 +68,60 @@ export async function grantFeatureEntitlementsForOrders(orderIds: string[]) {
       ),
     ] as string[];
     const startsAt = new Date();
+    const isPerpetual = product.grant_duration_days == null;
+
+    if (product.license_scope === 'platform') {
+      const { data: previousLicense } = await supabaseAdmin
+        .from('marketplace_platform_licenses')
+        .select('id,expires_at')
+        .eq('product_id', product.id)
+        .eq('status', 'active')
+        .order('expires_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const expiryBase =
+        previousLicense?.expires_at && new Date(previousLicense.expires_at) > startsAt
+          ? new Date(previousLicense.expires_at)
+          : startsAt;
+      const expiresAt = isPerpetual
+        ? null
+        : new Date(
+            expiryBase.getTime() + Number(product.grant_duration_days) * 24 * 60 * 60 * 1000
+          ).toISOString();
+      const { data: existingLicense, error: existingError } = await supabaseAdmin
+        .from('marketplace_platform_licenses')
+        .select('*')
+        .eq('order_item_id', item.id)
+        .maybeSingle();
+      if (existingError) throw existingError;
+      let license = existingLicense;
+
+      if (!license) {
+        const inserted = await supabaseAdmin
+          .from('marketplace_platform_licenses')
+          .insert({
+            product_id: product.id,
+            order_id: item.order_id,
+            order_item_id: item.id,
+            feature_keys: featureKeys,
+            grants_plan_code: product.grants_plan_code,
+            duration_days: product.grant_duration_days,
+            renewed_from_license_id: previousLicense?.id ?? null,
+            starts_at: startsAt.toISOString(),
+            expires_at: expiresAt,
+          })
+          .select('*')
+          .single();
+        if (inserted.error) throw inserted.error;
+        license = inserted.data;
+      }
+      licenses.push(license);
+      continue;
+    }
 
     if (product.license_scope === 'individual') {
       const buyerId = item.order?.buyer_id;
       if (!buyerId) throw new Error(`ไม่พบผู้ซื้อในคำสั่งซื้อ ${item.order_id}`);
-      const isPerpetual = featureKeys.some((key) => SELLER_LINE_FEATURE_KEYS.includes(key));
-
       const { data: previousLicense } = await supabaseAdmin
         .from('marketplace_user_licenses')
         .select('id,expires_at')
@@ -158,9 +195,11 @@ export async function grantFeatureEntitlementsForOrders(orderIds: string[]) {
       previousLicense?.expires_at && new Date(previousLicense.expires_at) > startsAt
         ? new Date(previousLicense.expires_at)
         : startsAt;
-    const expiresAt = new Date(
-      expiryBase.getTime() + Number(product.grant_duration_days) * 24 * 60 * 60 * 1000
-    ).toISOString();
+    const expiresAt = isPerpetual
+      ? null
+      : new Date(
+          expiryBase.getTime() + Number(product.grant_duration_days) * 24 * 60 * 60 * 1000
+        ).toISOString();
 
     const { data: existingLicense, error: licenseError } = await supabaseAdmin
       .from('marketplace_school_licenses')

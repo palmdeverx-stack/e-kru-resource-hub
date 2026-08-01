@@ -484,9 +484,11 @@
       "individualShort": "License บุคคล",
       "teacherShort": "License รายครู",
       "schoolShort": "License โรงเรียน",
+      "platformShort": "License ทุกคนในแพลตฟอร์ม",
       "individual": "License ส่วนบุคคล — ไม่ต้องสังกัดโรงเรียน",
       "teacher": "License สำหรับครู {{count}} Seat",
       "school": "License สำหรับผู้ใช้ทั้งโรงเรียน",
+      "platform": "License สำหรับผู้ใช้ทุกคนในแพลตฟอร์ม",
       "targetMarketplace": "ใช้งานใน E-KRU Marketplace",
       "targetEkru": "ใช้งานในระบบ E-KRU",
       "days": "ใช้งาน {{count}} วัน"

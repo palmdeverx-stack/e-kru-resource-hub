@@ -8,13 +8,13 @@ import { syncLinkedStaffAuth, linkStaffToSupabaseAuth } from 'src/lib/staff-supa
 
 const ROLES = [
   'master_admin',
-  'super_admin',
+  'marketplace_admin',
   'school_admin',
   'teacher',
   'student',
   'marketplace_user',
 ];
-const CREATABLE_ADMIN_ROLES = ['super_admin', 'master_admin'] as const;
+const CREATABLE_ADMIN_ROLES = ['marketplace_admin', 'master_admin'] as const;
 const STATUSES = ['active', 'inactive', 'unverified', 'suspended'];
 const SOURCES = ['app', 'marketplace'] as const;
 
@@ -191,7 +191,7 @@ export async function POST(request: Request) {
   }
 
   const linked = await linkStaffToSupabaseAuth(
-    { ...user, role: role as 'super_admin' | 'master_admin' },
+    { ...user, role: role as 'marketplace_admin' | 'master_admin' },
     password
   );
   if (!linked.ok) {
@@ -218,7 +218,7 @@ export async function POST(request: Request) {
   return NextResponse.json(
     {
       user,
-      message: `สร้างบัญชี ${role === 'master_admin' ? 'Master Admin' : 'Admin'} แล้ว`,
+      message: `สร้างบัญชี ${role === 'master_admin' ? 'Master Admin' : 'Marketplace Admin'} แล้ว`,
     },
     { status: 201 }
   );
@@ -306,7 +306,7 @@ export async function PATCH(request: Request) {
       .neq('id', id);
     if ((count ?? 0) === 0) {
       return NextResponse.json(
-        { message: 'ไม่สามารถระงับ Super Admin คนสุดท้ายของระบบ' },
+        { message: 'ไม่สามารถระงับ Master Admin คนสุดท้ายของระบบ' },
         { status: 409 }
       );
     }

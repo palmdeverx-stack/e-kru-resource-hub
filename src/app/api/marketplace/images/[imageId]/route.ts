@@ -7,7 +7,7 @@ import { hasPurchasedProduct } from 'src/sections/marketplace/catalog/server/pro
 
 type Context = { params: Promise<{ imageId: string }> };
 
-const ADMIN_ROLES = new Set(['master_admin', 'super_admin']);
+const ADMIN_ROLES = new Set(['master_admin', 'marketplace_admin']);
 
 export async function GET(request: Request, { params }: Context) {
   const { imageId } = await params;

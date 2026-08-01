@@ -30,7 +30,7 @@ const PROFILE_FIELDS = [
 ] as const;
 
 export async function PATCH(request: Request, { params }: Context) {
-  const reviewer = requireRole(request, ['master_admin', 'super_admin']);
+  const reviewer = requireRole(request, ['master_admin', 'marketplace_admin']);
   if (!reviewer) {
     return NextResponse.json({ message: 'ไม่มีสิทธิ์อนุมัติร้านค้า' }, { status: 403 });
   }

@@ -32,7 +32,7 @@ const INTEGER_CRITERIA = new Set([
 ]);
 
 function authorize(request: Request) {
-  return requireRole(request, ['master_admin', 'super_admin']);
+  return requireRole(request, ['master_admin', 'marketplace_admin']);
 }
 
 export async function GET(request: Request) {

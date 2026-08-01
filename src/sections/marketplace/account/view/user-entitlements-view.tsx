@@ -31,6 +31,15 @@ type Entitlement = {
   planCode: string | null;
   startsAt: string;
   expiresAt: string | null;
+  subscription: {
+    id: string;
+    billing_cycle: 'monthly' | 'yearly';
+    amount: number;
+    currency: string;
+    status: string;
+    current_period_end: string | null;
+    cancel_at_period_end: boolean;
+  } | null;
   product: {
     id: string;
     title: string;
@@ -38,12 +47,13 @@ type Entitlement = {
     shortDescription: string | null;
     shortDescriptionEn: string | null;
     coverUrl: string | null;
-    licenseScope: 'individual' | 'school' | 'teacher';
+    licenseScope: 'individual' | 'school' | 'teacher' | 'platform';
     licenseTargetSystem: 'marketplace' | 'ekru' | null;
   } | null;
 };
 
-function formatDate(value: string) {
+function formatDate(value: string | null) {
+  if (!value) return '—';
   return new Intl.DateTimeFormat('th-TH', {
     dateStyle: 'long',
     timeZone: 'Asia/Bangkok',
@@ -55,6 +65,43 @@ export function UserEntitlementsView() {
   const [entitlements, setEntitlements] = useState<Entitlement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [workingId, setWorkingId] = useState('');
+
+  const updateSubscription = async (entitlement: Entitlement, action: 'cancel' | 'resume') => {
+    if (!entitlement.subscription) return;
+    setWorkingId(entitlement.subscription.id);
+    setError('');
+    try {
+      const response = await fetch('/api/marketplace/subscriptions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: entitlement.subscription.id, action }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message ?? 'อัปเดต Subscription ไม่สำเร็จ');
+      setEntitlements((current) =>
+        current.map((item) =>
+          item.id === entitlement.id ? { ...item, subscription: result.subscription } : item
+        )
+      );
+    } catch (updateError) {
+      setError(updateError instanceof Error ? updateError.message : 'อัปเดต Subscription ไม่สำเร็จ');
+    } finally {
+      setWorkingId('');
+    }
+  };
+
+  const openBillingPortal = async () => {
+    setError('');
+    try {
+      const response = await fetch('/api/marketplace/subscriptions/portal', { method: 'POST' });
+      const result = await response.json();
+      if (!response.ok || !result.url) throw new Error(result.message ?? 'เปิดหน้าจัดการบัตรไม่สำเร็จ');
+      window.location.assign(result.url);
+    } catch (portalError) {
+      setError(portalError instanceof Error ? portalError.message : 'เปิดหน้าจัดการบัตรไม่สำเร็จ');
+    }
+  };
 
   useEffect(() => {
     fetch('/api/marketplace/user-entitlements', { cache: 'no-store' })
@@ -80,7 +127,7 @@ export function UserEntitlementsView() {
             แอปและสิทธิ์ของฉัน
           </Typography>
           <Typography color="text.secondary">
-            แพ็กเกจ E-KRU ที่ซื้อด้วยบัญชีนี้และไม่ขึ้นกับโรงเรียน
+            แพ็กเกจ E-KRU ส่วนบุคคลและสิทธิ์ที่เปิดให้ทุกคนในแพลตฟอร์ม
           </Typography>
         </Box>
       </Stack>
@@ -107,6 +154,7 @@ export function UserEntitlementsView() {
                 ? entitlement.product.shortDescriptionEn
                 : entitlement.product?.shortDescription;
             const isSchoolEntitlement = entitlement.product?.licenseScope === 'school';
+            const isPlatformEntitlement = entitlement.product?.licenseScope === 'platform';
             const destination = getLicenseAppDestination({
               baseUrl: CONFIG.ekruUrl,
               targetSystem: entitlement.product?.licenseTargetSystem,
@@ -137,7 +185,13 @@ export function UserEntitlementsView() {
                         color="success"
                         variant="soft"
                         icon={<RiShieldCheckLine />}
-                        label={isSchoolEntitlement ? 'สิทธิ์จากโรงเรียน' : 'สิทธิ์บุคคล'}
+                        label={
+                          isPlatformEntitlement
+                            ? 'สิทธิ์ทุกคนในแพลตฟอร์ม'
+                            : isSchoolEntitlement
+                              ? 'สิทธิ์จากโรงเรียน'
+                              : 'สิทธิ์บุคคล'
+                        }
                       />
                     </Stack>
                     <Alert severity="success" icon={<RiCalendarCheckLine />}>
@@ -145,6 +199,45 @@ export function UserEntitlementsView() {
                         ? `ใช้งานได้ถึง ${formatDate(entitlement.expiresAt)}`
                         : 'สิทธิ์ถาวร · ไม่มีวันหมดอายุ'}
                     </Alert>
+                    {entitlement.subscription && (
+                      <Alert
+                        severity={entitlement.subscription.status === 'past_due' ? 'warning' : 'info'}
+                      >
+                        <Typography variant="subtitle2">
+                          ต่ออายุอัตโนมัติ{entitlement.subscription.billing_cycle === 'yearly' ? 'รายปี' : 'รายเดือน'} ·{' '}
+                          {Number(entitlement.subscription.amount).toLocaleString('th-TH', {
+                            style: 'currency',
+                            currency: entitlement.subscription.currency,
+                          })}
+                        </Typography>
+                        <Typography variant="body2">
+                          {entitlement.subscription.status === 'past_due'
+                            ? 'ตัดเงินไม่สำเร็จ กรุณาแก้ไขวิธีชำระเงิน'
+                            : entitlement.subscription.cancel_at_period_end
+                              ? `ยกเลิกการต่ออายุแล้ว ใช้ได้ถึง ${formatDate(entitlement.subscription.current_period_end!)}`
+                              : `ตัดเงินรอบถัดไป ${formatDate(entitlement.subscription.current_period_end!)}`}
+                        </Typography>
+                        <Button
+                          size="small"
+                          color={entitlement.subscription.cancel_at_period_end ? 'primary' : 'error'}
+                          disabled={workingId === entitlement.subscription.id}
+                          onClick={() =>
+                            updateSubscription(
+                              entitlement,
+                              entitlement.subscription!.cancel_at_period_end ? 'resume' : 'cancel'
+                            )
+                          }
+                          sx={{ mt: 1 }}
+                        >
+                          {entitlement.subscription.cancel_at_period_end
+                            ? 'เปิดต่ออายุอีกครั้ง'
+                            : 'ยกเลิกเมื่อสิ้นสุดรอบ'}
+                        </Button>
+                        <Button size="small" onClick={openBillingPortal} sx={{ mt: 1, ml: 1 }}>
+                          จัดการบัตรและใบแจ้งหนี้
+                        </Button>
+                      </Alert>
+                    )}
                     {!!destination.href && (
                       <Button
                         fullWidth

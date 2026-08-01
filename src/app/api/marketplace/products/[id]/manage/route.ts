@@ -428,8 +428,23 @@ export async function PATCH(request: Request, { params }: Context) {
   }
   if (body.licenseScope !== undefined) {
     const licenseScope = String(body.licenseScope);
-    if (!['individual', 'school', 'teacher'].includes(licenseScope)) {
+    if (!['individual', 'school', 'teacher', 'platform'].includes(licenseScope)) {
       return NextResponse.json({ message: 'รูปแบบ License ไม่ถูกต้อง' }, { status: 400 });
+    }
+    if (licenseScope === 'platform' && caller.role !== 'master_admin') {
+      return NextResponse.json(
+        { message: 'เฉพาะ Master Admin เท่านั้นที่กำหนดสิทธิ์ทุกคนในแพลตฟอร์มได้' },
+        { status: 403 }
+      );
+    }
+    if (
+      licenseScope === 'platform' &&
+      String(body.licenseTargetSystem ?? '') !== 'ekru'
+    ) {
+      return NextResponse.json(
+        { message: 'License สำหรับทุกคนในแพลตฟอร์มใช้ได้กับระบบ E-KRU เท่านั้น' },
+        { status: 400 }
+      );
     }
     update.license_scope = licenseScope;
   }
@@ -485,10 +500,7 @@ export async function PATCH(request: Request, { params }: Context) {
     const requestedFeatureKeys: string[] = Array.isArray(body.grantsFeatureKeys)
       ? body.grantsFeatureKeys.map((value: unknown) => String(value))
       : [];
-    if (
-      body.grantDurationDays === null &&
-      requestedFeatureKeys.some((featureKey) => SELLER_LINE_FEATURE_KEYS.has(featureKey))
-    ) {
+    if (body.grantDurationDays === null && requestedFeatureKeys.length > 0) {
       update.grant_duration_days = null;
     } else {
       const grantDurationDays = Number(body.grantDurationDays);
@@ -496,6 +508,18 @@ export async function PATCH(request: Request, { params }: Context) {
         return NextResponse.json({ message: 'ระยะเวลาปลดล็อกต้องมากกว่า 0 วัน' }, { status: 400 });
       }
       update.grant_duration_days = grantDurationDays;
+    }
+  }
+  if (body.licenseBillingCycle !== undefined) {
+    const billingCycle = String(body.licenseBillingCycle);
+    if (!['one_time', 'monthly', 'yearly', 'contract'].includes(billingCycle)) {
+      return NextResponse.json({ message: 'รูปแบบการเรียกเก็บเงินไม่ถูกต้อง' }, { status: 400 });
+    }
+    update.license_billing_cycle = billingCycle;
+    if (billingCycle === 'monthly') update.grant_duration_days = 30;
+    if (billingCycle === 'yearly') update.grant_duration_days = 365;
+    if (billingCycle === 'contract' && !(Number(body.grantDurationDays) > 0)) {
+      return NextResponse.json({ message: 'License ตามสัญญาต้องกำหนดจำนวนวัน' }, { status: 400 });
     }
   }
   const requestedPlanCode =
@@ -787,10 +811,29 @@ export async function PATCH(request: Request, { params }: Context) {
         return NextResponse.json({ message: 'กรุณาเลือกระบบที่นำ License ไปใช้' }, { status: 400 });
       }
       if (
-        !featureKeys.some((featureKey) => SELLER_LINE_FEATURE_KEYS.has(featureKey)) &&
-        !(Number(product.grant_duration_days) > 0)
+        product.license_target_system === 'marketplace' &&
+        product.license_scope !== 'individual'
       ) {
-        return NextResponse.json({ message: 'กรุณาระบุระยะเวลาปลดล็อก' }, { status: 400 });
+        return NextResponse.json(
+          { message: 'License ที่ใช้ใน Marketplace ต้องเป็นสิทธิ์บุคคล' },
+          { status: 400 }
+        );
+      }
+      if (product.license_scope === 'platform' && caller.role !== 'master_admin') {
+        return NextResponse.json(
+          { message: 'เฉพาะ Master Admin เท่านั้นที่ส่ง License สำหรับทั้งแพลตฟอร์มได้' },
+          { status: 403 }
+        );
+      }
+      // A null duration is an explicit perpetual (one-time purchase) license.
+      if (
+        ['monthly', 'yearly'].includes(product.license_billing_cycle ?? 'one_time') &&
+        Number(product.price) < MARKETPLACE_MINIMUM_PAID_PRICE_THB
+      ) {
+        return NextResponse.json(
+          { message: 'License ต่ออายุอัตโนมัติต้องมีราคาตั้งแต่ 10 บาทขึ้นไป' },
+          { status: 400 }
+        );
       }
       if (product.license_scope === 'teacher' && !(Number(product.license_seat_count) > 0)) {
         return NextResponse.json({ message: 'กรุณาระบุจำนวน Seat ครู' }, { status: 400 });

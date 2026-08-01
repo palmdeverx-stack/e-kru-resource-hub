@@ -293,7 +293,7 @@ export function MarketplacePlatformSettingsView() {
   };
 
   useEffect(() => {
-    if (user?.role !== 'master_admin' && user?.role !== 'super_admin') return;
+    if (user?.role !== 'master_admin' && user?.role !== 'marketplace_admin') return;
     fetch('/api/marketplace/admin/provider-settings', { cache: 'no-store' })
       .then(parseResponse)
       .then((result) => reset(result.settings))
@@ -324,7 +324,7 @@ export function MarketplacePlatformSettingsView() {
     }
   };
 
-  if (user?.role !== 'master_admin' && user?.role !== 'super_admin') {
+  if (user?.role !== 'master_admin' && user?.role !== 'marketplace_admin') {
     return (
       <Box sx={{ p: 4 }}>
         <Alert severity="error">เมนูนี้สำหรับ Super Admin เท่านั้น</Alert>

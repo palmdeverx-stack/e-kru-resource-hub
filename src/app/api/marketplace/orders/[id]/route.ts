@@ -35,7 +35,7 @@ export async function GET(request: Request, { params }: Context) {
   const { data: order, error } = await supabaseAdmin
     .from('marketplace_orders')
     .select(
-      '*, seller:marketplace_sellers(id, display_name, slug, logo_url, owner_role), payment_session:marketplace_payment_sessions(id, amount, currency, payment_method, status, account_name_snapshot, submitted_at, reviewed_at, rejection_reason, bank_transaction_reference, stripe_payment_intent_id, processor_fee, expires_at, created_at), items:marketplace_order_items(*, product:marketplace_products(id, title, title_en, short_description, short_description_en, file_url, cover_url, category, subject_label, resource_type, license_scope, license_seat_count, grants_plan_code, grant_duration_days, external_links, purchase_benefits, purchase_benefits_html, images:marketplace_product_images(*), files:marketplace_product_files(*)))'
+      '*, seller:marketplace_sellers(id, display_name, slug, logo_url, owner_role), payment_session:marketplace_payment_sessions(id, amount, currency, payment_method, status, account_name_snapshot, submitted_at, reviewed_at, rejection_reason, bank_transaction_reference, stripe_payment_intent_id, stripe_subscription_id, processor_fee, expires_at, created_at), items:marketplace_order_items(*, product:marketplace_products(id, title, title_en, short_description, short_description_en, file_url, cover_url, category, subject_label, resource_type, license_scope, license_seat_count, grants_plan_code, grant_duration_days, license_billing_cycle, external_links, purchase_benefits, purchase_benefits_html, images:marketplace_product_images(*), files:marketplace_product_files(*)))'
     )
     .eq('id', id)
     .eq('buyer_id', caller.sub)
@@ -47,7 +47,12 @@ export async function GET(request: Request, { params }: Context) {
     );
   }
 
-  const [{ data: receipt }, { data: schoolLicenses }, { data: userLicenses }] = await Promise.all([
+  const [
+    { data: receipt },
+    { data: schoolLicenses },
+    { data: userLicenses },
+    { data: platformLicenses },
+  ] = await Promise.all([
     order.payment_session_id
       ? supabaseAdmin
           .from('marketplace_receipts')
@@ -71,6 +76,12 @@ export async function GET(request: Request, { params }: Context) {
       )
       .eq('order_id', order.id)
       .eq('buyer_id', caller.sub),
+    supabaseAdmin
+      .from('marketplace_platform_licenses')
+      .select(
+        'id, order_item_id, product_id, feature_keys, grants_plan_code, duration_days, starts_at, expires_at, status'
+      )
+      .eq('order_id', order.id),
   ]);
 
   const isPaid = ['paid', 'completed'].includes(order.status);
@@ -112,6 +123,7 @@ export async function GET(request: Request, { params }: Context) {
       receipt: receipt ?? null,
       school_licenses: schoolLicenses ?? [],
       user_licenses: userLicenses ?? [],
+      platform_licenses: platformLicenses ?? [],
     },
   });
 }

@@ -409,7 +409,10 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                 const userLicense = order.user_licenses?.find(
                   (license) => license.order_item_id === item.id
                 );
-                const license = schoolLicense ?? userLicense;
+                const platformLicense = order.platform_licenses?.find(
+                  (license) => license.order_item_id === item.id
+                );
+                const license = schoolLicense ?? userLicense ?? platformLicense;
                 const cover =
                   product?.images?.find((image) => image.is_cover)?.url ??
                   product?.images?.[0]?.url ??
@@ -611,13 +614,15 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                                 size="small"
                                 component={RouterLink}
                                 href={
-                                  product.license_scope === 'individual'
+                                  ['individual', 'platform'].includes(product.license_scope ?? '')
                                     ? paths.marketplace.personalEntitlements
                                     : paths.marketplace.licenses
                                 }
                                 sx={{ mt: 0.5 }}
                               >
-                                {product.license_scope === 'individual'
+                                {product.license_scope === 'platform'
+                                  ? 'ดูสิทธิ์สำหรับทุกคน'
+                                  : product.license_scope === 'individual'
                                   ? 'ดูสิทธิ์ของฉัน'
                                   : 'จัดการ License'}
                               </Button>
@@ -1169,9 +1174,10 @@ function resourceTypeLabel(resourceType?: string) {
   return 'สินค้า';
 }
 
-function licenseScopeLabel(scope?: 'individual' | 'school' | 'teacher') {
+function licenseScopeLabel(scope?: 'individual' | 'school' | 'teacher' | 'platform') {
   if (scope === 'individual') return 'บุคคล';
   if (scope === 'teacher') return 'Seat ครู';
+  if (scope === 'platform') return 'ทุกคนในแพลตฟอร์ม';
   return 'โรงเรียน';
 }
 

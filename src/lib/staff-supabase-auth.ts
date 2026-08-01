@@ -32,14 +32,14 @@ type LinkResult =
 export function isStaffAuthRole(role: AppRole): boolean {
   return (
     role === 'master_admin' ||
-    role === 'super_admin' ||
+    role === 'marketplace_admin' ||
     role === 'school_admin' ||
     role === 'teacher'
   );
 }
 
 export function defaultStaffAuthRole(role: AppRole): StaffAuthRole {
-  if (role === 'master_admin' || role === 'super_admin') return 'super_admin';
+  if (role === 'master_admin' || role === 'marketplace_admin') return 'super_admin';
   if (role === 'school_admin') return 'school_admin';
   return 'teacher';
 }

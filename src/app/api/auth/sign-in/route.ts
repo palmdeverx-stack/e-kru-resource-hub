@@ -159,7 +159,7 @@ async function handleSignIn(request: Request) {
     );
   }
 
-  if (user.role !== 'master_admin' && user.role !== 'super_admin') {
+  if (user.role !== 'master_admin' && user.role !== 'marketplace_admin') {
     const [{ data: school }, subscription] = await Promise.all([
       supabaseAdmin.from('schools').select('is_active').eq('id', user.school_id).maybeSingle(),
       loadSchoolSubscription(user.school_id),

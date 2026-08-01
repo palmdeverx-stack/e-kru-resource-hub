@@ -79,7 +79,12 @@ export async function handleStripeDispute(dispute: Stripe.Dispute, eventType: Di
 
   const orders = session.orders ?? [];
   const orderIds = orders.map((order) => order.id);
-  const [{ data: schoolLicenses }, { data: userLicenses }, { data: existingDispute }] =
+  const [
+    { data: schoolLicenses },
+    { data: userLicenses },
+    { data: platformLicenses },
+    { data: existingDispute },
+  ] =
     await Promise.all([
       orderIds.length
         ? supabaseAdmin
@@ -90,6 +95,12 @@ export async function handleStripeDispute(dispute: Stripe.Dispute, eventType: Di
       orderIds.length
         ? supabaseAdmin
             .from('marketplace_user_licenses')
+            .select('id,status')
+            .in('order_id', orderIds)
+        : Promise.resolve({ data: [] }),
+      orderIds.length
+        ? supabaseAdmin
+            .from('marketplace_platform_licenses')
             .select('id,status')
             .in('order_id', orderIds)
         : Promise.resolve({ data: [] }),
@@ -109,6 +120,11 @@ export async function handleStripeDispute(dispute: Stripe.Dispute, eventType: Di
         })),
         ...(userLicenses ?? []).map((license) => ({
           type: 'user',
+          id: license.id,
+          status: license.status,
+        })),
+        ...(platformLicenses ?? []).map((license) => ({
+          type: 'platform',
           id: license.id,
           status: license.status,
         })),
@@ -193,6 +209,16 @@ export async function handleStripeDispute(dispute: Stripe.Dispute, eventType: Di
         })
         .in('order_id', orderIds)
         .eq('status', 'active');
+      await supabaseAdmin
+        .from('marketplace_platform_licenses')
+        .update({
+          status: 'disputed',
+          revoked_at: now,
+          revoke_reason: `Stripe dispute ${dispute.id}`,
+          updated_at: now,
+        })
+        .in('order_id', orderIds)
+        .eq('status', 'active');
       await supabaseAdmin.from('marketplace_ledger_entries').upsert(
         orders.map((order) => ({
           order_id: order.id,
@@ -248,6 +274,12 @@ export async function handleStripeDispute(dispute: Stripe.Dispute, eventType: Di
             license.type === 'user' && license.status === 'active'
         )
         .map((license: { id: string }) => license.id);
+      const activePlatformIds = licenseStateSnapshot
+        .filter(
+          (license: { type: string; status: string }) =>
+            license.type === 'platform' && license.status === 'active'
+        )
+        .map((license: { id: string }) => license.id);
       if (activeSchoolIds.length) {
         await supabaseAdmin
           .from('marketplace_school_licenses')
@@ -260,6 +292,13 @@ export async function handleStripeDispute(dispute: Stripe.Dispute, eventType: Di
           .from('marketplace_user_licenses')
           .update({ status: 'active', revoked_at: null, revoke_reason: null, updated_at: now })
           .in('id', activeUserIds)
+          .eq('status', 'disputed');
+      }
+      if (activePlatformIds.length) {
+        await supabaseAdmin
+          .from('marketplace_platform_licenses')
+          .update({ status: 'active', revoked_at: null, revoke_reason: null, updated_at: now })
+          .in('id', activePlatformIds)
           .eq('status', 'disputed');
       }
       await supabaseAdmin.from('marketplace_ledger_entries').upsert(
@@ -303,6 +342,16 @@ export async function handleStripeDispute(dispute: Stripe.Dispute, eventType: Di
         .eq('status', 'disputed');
       await supabaseAdmin
         .from('marketplace_user_licenses')
+        .update({
+          status: 'refunded',
+          revoked_at: now,
+          revoke_reason: `แพ้ Stripe dispute ${dispute.id}`,
+          updated_at: now,
+        })
+        .in('order_id', orderIds)
+        .eq('status', 'disputed');
+      await supabaseAdmin
+        .from('marketplace_platform_licenses')
         .update({
           status: 'refunded',
           revoked_at: now,

@@ -4,7 +4,7 @@ import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 
 export async function GET(request: Request) {
-  const caller = requireRole(request, ['master_admin']);
+  const caller = requireRole(request, ['master_admin', 'marketplace_admin']);
   if (!caller) {
     return NextResponse.json(
       { message: 'ไม่มีสิทธิ์เข้าถึงศูนย์ควบคุม Marketplace' },

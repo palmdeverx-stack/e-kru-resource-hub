@@ -7,7 +7,7 @@ const allowedStatuses = ['pending', 'active', 'rejected'] as const;
 type SellerStatus = (typeof allowedStatuses)[number];
 
 export async function GET(request: Request) {
-  if (!requireRole(request, ['master_admin', 'super_admin'])) {
+  if (!requireRole(request, ['master_admin', 'marketplace_admin'])) {
     return NextResponse.json({ message: 'ไม่มีสิทธิ์ตรวจสอบคำขอเปิดร้าน' }, { status: 403 });
   }
 

@@ -498,10 +498,12 @@
       "individualShort": "Individual license",
       "teacherShort": "Teacher license",
       "schoolShort": "School license",
+      "platformShort": "Platform-wide license",
       "individual": "Individual license — no school affiliation required",
       "teacher": "Teacher license, {{count}} seat",
       "teacher_other": "Teacher license, {{count}} seats",
       "school": "License for all users at the school",
+      "platform": "License for every user on the platform",
       "targetMarketplace": "Used in E-KRU Marketplace",
       "targetEkru": "Used in the E-KRU system",
       "days": "Active for {{count}} days"

@@ -9,6 +9,13 @@ import { handleStripeDispute } from 'src/sections/marketplace/checkout/server/di
 import { getStripe, getStripeWebhookSecret } from 'src/sections/marketplace/checkout/server/stripe';
 import { finalizeMarketplacePayment } from 'src/sections/marketplace/checkout/server/finalize-payment';
 import { revokeLicensesForPaymentSession } from 'src/sections/marketplace/checkout/server/license-lifecycle';
+import {
+  subscriptionPeriod,
+  stripeSubscriptionId,
+  createRenewalPayment,
+  alignOrderLicensesToPeriod,
+  markSubscriptionPaymentFailed,
+} from 'src/sections/marketplace/checkout/server/license-subscriptions';
 
 export const runtime = 'nodejs';
 
@@ -43,6 +50,68 @@ async function getProcessorDetails(paymentIntentId: string | null) {
   } catch {
     return { fee: 0, snapshot: null };
   }
+}
+
+async function invoicePaymentIntentId(invoice: Stripe.Invoice) {
+  const embedded = invoice.payments?.data
+    .map((item) => item.payment.payment_intent)
+    .find(Boolean);
+  if (embedded) return typeof embedded === 'string' ? embedded : embedded.id;
+  const payments = await getStripe().invoicePayments.list({ invoice: invoice.id, status: 'paid' });
+  const intent = payments.data.map((item) => item.payment.payment_intent).find(Boolean);
+  return intent ? (typeof intent === 'string' ? intent : intent.id) : null;
+}
+
+function localSubscriptionStatus(status: Stripe.Subscription.Status) {
+  if (status === 'trialing') return 'active';
+  if (status === 'incomplete_expired') return 'canceled';
+  return status;
+}
+
+async function syncStripeSubscription(subscription: Stripe.Subscription) {
+  const period = subscriptionPeriod(subscription);
+  let { data, error } = await supabaseAdmin
+    .from('marketplace_license_subscriptions')
+    .update({
+      stripe_customer_id: idOf(subscription.customer),
+      stripe_subscription_id: subscription.id,
+      status: localSubscriptionStatus(subscription.status),
+      current_period_start: period.startsAt,
+      current_period_end: period.endsAt,
+      cancel_at_period_end: subscription.cancel_at_period_end,
+      canceled_at: subscription.canceled_at
+        ? new Date(subscription.canceled_at * 1000).toISOString()
+        : null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('stripe_subscription_id', subscription.id)
+    .select('id')
+    .maybeSingle();
+  if (error) throw error;
+  if (!data && subscription.metadata.marketplace_order_id) {
+    const fallback = await supabaseAdmin
+      .from('marketplace_license_subscriptions')
+      .update({
+        stripe_customer_id: idOf(subscription.customer),
+        stripe_subscription_id: subscription.id,
+        status: localSubscriptionStatus(subscription.status),
+        current_period_start: period.startsAt,
+        current_period_end: period.endsAt,
+        cancel_at_period_end: subscription.cancel_at_period_end,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('initial_order_id', subscription.metadata.marketplace_order_id)
+      .select('id')
+      .maybeSingle();
+    data = fallback.data;
+    error = fallback.error;
+    if (error) throw error;
+  }
+  return data?.id ?? null;
+}
+
+function idOf(value: string | { id: string } | null | undefined) {
+  return typeof value === 'string' ? value : value?.id ?? null;
 }
 
 async function loadLocalSession(stripeSession: Stripe.Checkout.Session) {
@@ -208,10 +277,55 @@ export async function POST(request: Request) {
       const local = await loadLocalSession(stripeSession);
       paymentSessionId = local.id;
       if (stripeSession.payment_status === 'paid') {
-        const paymentIntentId =
-          typeof stripeSession.payment_intent === 'string'
-            ? stripeSession.payment_intent
-            : (stripeSession.payment_intent?.id ?? null);
+        const stripeSubscription = idOf(stripeSession.subscription);
+        const stripeInvoice = idOf(stripeSession.invoice);
+        let paymentIntentId = idOf(stripeSession.payment_intent);
+        let periodEnd: string | null = null;
+        if (stripeSubscription) {
+          const subscription = await getStripe().subscriptions.retrieve(stripeSubscription, {
+            expand: ['items.data'],
+          });
+          const period = subscriptionPeriod(subscription);
+          periodEnd = period.endsAt;
+          const invoice = stripeInvoice
+            ? await getStripe().invoices.retrieve(stripeInvoice, { expand: ['payments'] })
+            : null;
+          paymentIntentId = invoice ? await invoicePaymentIntentId(invoice) : null;
+          const { data: order } = await supabaseAdmin
+            .from('marketplace_orders')
+            .select('id')
+            .eq('payment_session_id', local.id)
+            .maybeSingle();
+          await supabaseAdmin
+            .from('marketplace_payment_sessions')
+            .update({
+              stripe_invoice_id: stripeInvoice,
+              stripe_subscription_id: stripeSubscription,
+              stripe_payment_intent_id: paymentIntentId,
+            })
+            .eq('id', local.id);
+          await supabaseAdmin
+            .from('marketplace_license_subscriptions')
+            .update({
+              stripe_customer_id: idOf(stripeSession.customer),
+              stripe_subscription_id: stripeSubscription,
+              status: localSubscriptionStatus(subscription.status),
+              current_period_start: period.startsAt,
+              current_period_end: period.endsAt,
+              last_invoice_id: stripeInvoice,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('stripe_checkout_session_id', stripeSession.id);
+          const processor = await getProcessorDetails(paymentIntentId);
+          await finalizeMarketplacePayment({
+            paymentSessionId: local.id,
+            allowedStatuses: ['pending_payment'],
+            stripePaymentIntentId: paymentIntentId,
+            processorFee: processor.fee,
+            paymentSnapshot: processor.snapshot,
+          });
+          if (order && periodEnd) await alignOrderLicensesToPeriod(order.id, periodEnd);
+        } else {
         const processor = await getProcessorDetails(paymentIntentId);
         await finalizeMarketplacePayment({
           paymentSessionId: local.id,
@@ -220,7 +334,26 @@ export async function POST(request: Request) {
           processorFee: processor.fee,
           paymentSnapshot: processor.snapshot,
         });
+        }
       }
+    } else if (event.type === 'invoice.paid') {
+      const invoice = event.data.object as Stripe.Invoice;
+      if (stripeSubscriptionId(invoice) && invoice.billing_reason !== 'subscription_create') {
+        const paymentIntentId = await invoicePaymentIntentId(invoice);
+        const processor = await getProcessorDetails(paymentIntentId);
+        paymentSessionId = await createRenewalPayment({
+          invoice,
+          paymentIntentId,
+          processorFee: processor.fee,
+        });
+      }
+    } else if (event.type === 'invoice.payment_failed') {
+      await markSubscriptionPaymentFailed(event.data.object as Stripe.Invoice);
+    } else if (
+      event.type === 'customer.subscription.updated' ||
+      event.type === 'customer.subscription.deleted'
+    ) {
+      await syncStripeSubscription(event.data.object as Stripe.Subscription);
     } else if (event.type === 'checkout.session.expired') {
       paymentSessionId = await markStripePaymentFailed(
         event.data.object as Stripe.Checkout.Session,
