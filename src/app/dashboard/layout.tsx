@@ -131,22 +131,6 @@ const memberNavData: NavSectionProps['data'] = [
 
 const adminNavData: NavSectionProps['data'] = [
   {
-    subheader: 'Marketplace',
-    items: [
-      {
-        title: 'สินค้าทั้งหมด',
-        path: '/dashboard/products',
-        deepMatch: false,
-        icon: <RiSearchLine />,
-      },
-      {
-        title: 'ตะกร้าของฉัน',
-        path: '/dashboard/cart',
-        icon: <RiShoppingCart2Line />,
-      },
-    ],
-  },
-  {
     subheader: 'ภาพรวมและการอนุมัติ',
     items: [
       {
@@ -203,6 +187,22 @@ const adminNavData: NavSectionProps['data'] = [
         title: 'ตั้งค่าการเงิน',
         path: '/dashboard/settings/finance',
         icon: <RiSecurePaymentLine />,
+      },
+    ],
+  },
+  {
+    subheader: 'Marketplace',
+    items: [
+      {
+        title: 'สินค้าทั้งหมด',
+        path: '/dashboard/products',
+        deepMatch: false,
+        icon: <RiSearchLine />,
+      },
+      {
+        title: 'ตะกร้าของฉัน',
+        path: '/dashboard/cart',
+        icon: <RiShoppingCart2Line />,
       },
     ],
   },
