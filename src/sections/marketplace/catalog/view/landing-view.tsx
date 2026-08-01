@@ -755,11 +755,16 @@ export function MarketplaceLandingView() {
                   elevation={0}
                   sx={{
                     px: { xs: 2, md: 2.5 },
+                    overflow: 'hidden',
                     borderRadius: '12px !important',
-                    border: '1px solid',
-                    borderColor: 'divider',
+                    border: '1px solid #DCE4EE !important',
+                    borderBottom: '1px solid #D3DDE9 !important',
                     bgcolor: 'background.paper',
                     '&::before': { display: 'none' },
+                    '&:last-of-type': {
+                      borderBottomLeftRadius: '12px !important',
+                      borderBottomRightRadius: '12px !important',
+                    },
                   }}
                 >
                   <AccordionSummary
@@ -824,7 +829,7 @@ export function MarketplaceLandingView() {
               <Button
                 size="large"
                 variant="contained"
-                color="inherit"
+                color="white"
                 component={RouterLink}
                 href={paths.marketplace.products}
               >

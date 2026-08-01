@@ -20,6 +20,7 @@ import { ImageSaveGuard } from 'src/components/image';
 import { ProgressBar } from 'src/components/progress-bar';
 import { MotionLazy } from 'src/components/animate/motion-lazy';
 import { detectSettings } from 'src/components/settings/server';
+import { MarketplaceBrandProvider } from 'src/components/marketplace-brand';
 import { defaultSettings, SettingsProvider, LazySettingsDrawer } from 'src/components/settings';
 
 import { MarketplaceCartProvider } from 'src/sections/marketplace/cart/cart-context';
@@ -133,7 +134,18 @@ async function getAppConfig() {
 }
 
 export default async function RootLayout({ children }: RootLayoutProps) {
-  const appConfig = await getAppConfig();
+  const [appConfig, platformSettings] = await Promise.all([
+    getAppConfig(),
+    getPublicPlatformSettings(),
+  ]);
+  const brand = {
+    platformName:
+      platformSettings?.platform_name_th ||
+      platformSettings?.platform_name_en ||
+      'E-KRU Marketplace',
+    logoUrl: platformSettings?.logo_url || null,
+    transparentLogoUrl: platformSettings?.transparent_logo_url || null,
+  };
 
   return (
     <html lang={appConfig.lang} dir={appConfig.dir} suppressHydrationWarning>
@@ -144,40 +156,42 @@ export default async function RootLayout({ children }: RootLayoutProps) {
           defaultMode={themeConfig.defaultMode}
         />
 
-        <I18nProvider lang={appConfig.i18nLang}>
-          <ReactQueryProvider>
-            <AuthProvider>
-              <MarketplaceCartProvider>
-                <SettingsProvider
-                  defaultSettings={defaultSettings}
-                  cookieSettings={appConfig.cookieSettings}
-                >
-                  <LocalizationProvider>
-                    <AppRouterCacheProvider options={{ key: 'css' }}>
-                      <ThemeProvider
-                        modeStorageKey={themeConfig.modeStorageKey}
-                        defaultMode={themeConfig.defaultMode}
-                      >
-                        <MotionLazy>
-                          <UiTranslationBridge />
-                          <ImageSaveGuard />
-                          <LocatorJS />
-                          <Snackbar />
-                          <ProgressBar />
-                          <MarketplacePopupAnnouncement />
-                          <MarketplaceCookieConsentBanner />
-                          <LazySettingsDrawer defaultSettings={defaultSettings} />
-                          {children}
-                          <Analytics />
-                        </MotionLazy>
-                      </ThemeProvider>
-                    </AppRouterCacheProvider>
-                  </LocalizationProvider>
-                </SettingsProvider>
-              </MarketplaceCartProvider>
-            </AuthProvider>
-          </ReactQueryProvider>
-        </I18nProvider>
+        <MarketplaceBrandProvider brand={brand}>
+          <I18nProvider lang={appConfig.i18nLang}>
+            <ReactQueryProvider>
+              <AuthProvider>
+                <MarketplaceCartProvider>
+                  <SettingsProvider
+                    defaultSettings={defaultSettings}
+                    cookieSettings={appConfig.cookieSettings}
+                  >
+                    <LocalizationProvider>
+                      <AppRouterCacheProvider options={{ key: 'css' }}>
+                        <ThemeProvider
+                          modeStorageKey={themeConfig.modeStorageKey}
+                          defaultMode={themeConfig.defaultMode}
+                        >
+                          <MotionLazy>
+                            <UiTranslationBridge />
+                            <ImageSaveGuard />
+                            <LocatorJS />
+                            <Snackbar />
+                            <ProgressBar />
+                            <MarketplacePopupAnnouncement />
+                            <MarketplaceCookieConsentBanner />
+                            <LazySettingsDrawer defaultSettings={defaultSettings} />
+                            {children}
+                            <Analytics />
+                          </MotionLazy>
+                        </ThemeProvider>
+                      </AppRouterCacheProvider>
+                    </LocalizationProvider>
+                  </SettingsProvider>
+                </MarketplaceCartProvider>
+              </AuthProvider>
+            </ReactQueryProvider>
+          </I18nProvider>
+        </MarketplaceBrandProvider>
       </body>
     </html>
   );

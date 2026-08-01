@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import type { ReactNode } from 'react';
+
+import { useState, useEffect, useContext, createContext } from 'react';
 
 import Link from '@mui/material/Link';
 import Stack from '@mui/material/Stack';
@@ -18,11 +20,25 @@ type MarketplaceBrandProps = {
   height?: number;
 };
 
-type PublicBrand = {
+export type PublicBrand = {
   platformName?: string;
   logoUrl?: string | null;
   transparentLogoUrl?: string | null;
 };
+
+const MarketplaceBrandContext = createContext<PublicBrand | undefined>(undefined);
+
+export function MarketplaceBrandProvider({
+  brand,
+  children,
+}: {
+  brand: PublicBrand;
+  children: ReactNode;
+}) {
+  return (
+    <MarketplaceBrandContext.Provider value={brand}>{children}</MarketplaceBrandContext.Provider>
+  );
+}
 
 export function MarketplaceBrand({
   compact = false,
@@ -32,16 +48,18 @@ export function MarketplaceBrand({
   width: widthProp,
   height: heightProp,
 }: MarketplaceBrandProps) {
-  const [brand, setBrand] = useState<PublicBrand | null>(null);
+  const serverBrand = useContext(MarketplaceBrandContext);
+  const [brand, setBrand] = useState<PublicBrand | null>(serverBrand ?? null);
 
   useEffect(() => {
+    if (serverBrand) return undefined;
     const controller = new AbortController();
     fetch('/api/marketplace/contact', { signal: controller.signal })
       .then((response) => (response.ok ? (response.json() as Promise<PublicBrand>) : null))
       .then((result) => result && setBrand(result))
       .catch(() => undefined);
     return () => controller.abort();
-  }, []);
+  }, [serverBrand]);
 
   const imageUrl =
     variant === 'transparent'

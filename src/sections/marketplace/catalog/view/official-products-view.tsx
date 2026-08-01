@@ -272,40 +272,42 @@ export function OfficialProductsView() {
 
       <Container id="official-products" maxWidth="lg" sx={{ py: { xs: 6, md: 9 } }}>
         <Stack spacing={4}>
-          <Grid container spacing={2}>
-            {categories.map((item) => {
-              const selected = category === item;
-              const CategoryIcon = item === 'all' ? RiShieldStarFill : getCategoryIcon(item);
-              return (
-                <Grid key={item} size={{ xs: 6, sm: 4, md: 2 }}>
-                  <Paper
-                    component="button"
-                    type="button"
-                    onClick={() => setCategory(item)}
-                    aria-pressed={selected}
-                    sx={{
-                      p: 2,
-                      width: 1,
-                      height: 1,
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      color: selected ? 'primary.main' : 'text.primary',
-                      border: '1px solid',
-                      borderColor: selected ? 'primary.main' : 'divider',
-                      bgcolor: selected ? 'primary.lighter' : 'background.paper',
-                      transition: 'transform 180ms ease, border-color 180ms ease',
-                      '&:hover': { transform: 'translateY(-3px)', borderColor: 'primary.main' },
-                    }}
-                  >
-                    <CategoryIcon size={25} />
-                    <Typography variant="subtitle2" sx={{ mt: 1 }}>
-                      {item === 'all' ? text.allAudience : item}
-                    </Typography>
-                  </Paper>
-                </Grid>
-              );
-            })}
-          </Grid>
+          {!loading && !loadError && products.length > 0 && (
+            <Grid container spacing={2}>
+              {categories.map((item) => {
+                const selected = category === item;
+                const CategoryIcon = item === 'all' ? RiShieldStarFill : getCategoryIcon(item);
+                return (
+                  <Grid key={item} size={{ xs: 6, sm: 4, md: 2 }}>
+                    <Paper
+                      component="button"
+                      type="button"
+                      onClick={() => setCategory(item)}
+                      aria-pressed={selected}
+                      sx={{
+                        p: 2,
+                        width: 1,
+                        height: 1,
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        color: selected ? 'primary.main' : 'text.primary',
+                        border: '1px solid',
+                        borderColor: selected ? 'primary.main' : 'divider',
+                        bgcolor: selected ? 'primary.lighter' : 'background.paper',
+                        transition: 'transform 180ms ease, border-color 180ms ease',
+                        '&:hover': { transform: 'translateY(-3px)', borderColor: 'primary.main' },
+                      }}
+                    >
+                      <CategoryIcon size={25} />
+                      <Typography variant="subtitle2" sx={{ mt: 1 }}>
+                        {item === 'all' ? text.allAudience : item}
+                      </Typography>
+                    </Paper>
+                  </Grid>
+                );
+              })}
+            </Grid>
+          )}
 
           <Stack
             direction={{ xs: 'column', md: 'row' }}

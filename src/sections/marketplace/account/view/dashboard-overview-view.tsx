@@ -98,7 +98,7 @@ export function MarketplaceDashboardOverviewView() {
             component={RouterLink}
             href={paths.marketplace.dashboardProducts}
             variant="contained"
-            color="inherit"
+            color="white"
             endIcon={<RiArrowRightLine />}
             sx={{ mt: 3, color: 'primary.darker', bgcolor: 'common.white' }}
           >
@@ -278,6 +278,7 @@ export function MarketplaceDashboardCollectionsSection() {
             component={RouterLink}
             href={paths.marketplace.dashboardProducts}
             variant="contained"
+            color="primary"
           >
             เลือกดูสินค้า
           </Button>

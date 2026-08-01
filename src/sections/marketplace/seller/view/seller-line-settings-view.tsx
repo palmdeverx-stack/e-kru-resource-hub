@@ -498,11 +498,21 @@ export function MarketplaceSellerLineSettingsView() {
             รับข้อความเมื่อระบบยืนยันเงินจากผู้ซื้อของร้าน {data?.seller.display_name}
           </Typography>
         </Box>
-        <Stack direction="row" spacing={1} alignItems="center">
+        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
           <Chip
             color={data?.settings.isEnabled ? 'success' : 'default'}
             label={data?.settings.isEnabled ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}
           />
+          {!!data?.lineConnection.linkedAt && (
+            <Button
+              variant="contained"
+              startIcon={<RiSendPlaneLine />}
+              loading={testing}
+              onClick={test}
+            >
+              ทดลองส่ง
+            </Button>
+          )}
           <Button
             component={RouterLink}
             href={paths.marketplace.sellerLineGuide}
@@ -747,14 +757,6 @@ export function MarketplaceSellerLineSettingsView() {
                     ผูกกับ {data.lineConnection.displayName || 'บัญชี LINE'} แล้ว
                   </Alert>
                   <Stack direction="row" spacing={1} flexWrap="wrap">
-                    <Button
-                      variant="outlined"
-                      startIcon={<RiSendPlaneLine />}
-                      loading={testing}
-                      onClick={test}
-                    >
-                      ส่งข้อความทดสอบ
-                    </Button>
                     <Button color="error" loading={unlinking} onClick={unlinkLine}>
                       ยกเลิกการผูก
                     </Button>
