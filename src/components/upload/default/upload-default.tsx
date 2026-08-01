@@ -74,7 +74,10 @@ export function Upload({
       />
     );
 
-  const renderSingleFilePreview = () => isSingleFileSelected && <SingleFilePreview file={value} />;
+  const renderSingleFilePreview = () =>
+    isSingleFileSelected && (
+      <SingleFilePreview file={value} {...slotProps?.singlePreview} />
+    );
 
   const renderMultiFilesPreview = () =>
     hasMultiFilesSelected && (

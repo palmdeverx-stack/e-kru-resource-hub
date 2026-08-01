@@ -5,7 +5,15 @@ import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { optimizeUploadedImage } from 'src/lib/server-image-optimizer';
 
 const BUCKET = 'marketplace-platform-assets';
-const ASSET_TYPES = new Set(['logo', 'transparent-logo', 'favicon', 'og-image', 'signature', 'seal']);
+const ASSET_TYPES = new Set([
+  'logo',
+  'transparent-logo',
+  'favicon',
+  'og-image',
+  'official-product-thumbnail',
+  'signature',
+  'seal',
+]);
 const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 export async function POST(request: Request) {

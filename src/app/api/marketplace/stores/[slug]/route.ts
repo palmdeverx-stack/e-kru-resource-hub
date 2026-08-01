@@ -73,7 +73,7 @@ export async function GET(request: Request, { params }: Context) {
   }
   const resolvedProducts = await Promise.all(
     (products ?? []).map(async (product) => {
-      const resolved = await withMediaUrls({ ...product, files: [] });
+      const resolved = await withMediaUrls({ ...product, files: [], seller });
       const ratings = (product.reviews ?? [])
         .map((review) => Number(review.rating))
         .filter((rating) => Number.isFinite(rating));

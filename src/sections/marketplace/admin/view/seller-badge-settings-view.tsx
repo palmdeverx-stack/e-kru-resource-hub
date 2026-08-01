@@ -143,45 +143,49 @@ export function MarketplaceSellerBadgeSettingsView() {
 
   return (
     <Container maxWidth={false} sx={{ py: { xs: 3, md: 4 } }}>
-      <Stack
-        direction={{ xs: 'column', md: 'row' }}
-        justifyContent="space-between"
-        spacing={2}
-      >
+      <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2}>
         <Box>
           <Stack direction="row" spacing={1.25} alignItems="center">
             <RiTrophyLine size={30} />
-            <Typography component="h1" variant="h3">ตั้งค่ารางวัลผู้ขาย</Typography>
+            <Typography component="h1" variant="h3">
+              ตั้งค่ารางวัลผู้ขาย
+            </Typography>
           </Stack>
           <Typography color="text.secondary" sx={{ mt: 0.75, maxWidth: 820 }}>
             เปิด–ปิดและกำหนดเกณฑ์ Badge อัตโนมัติ ผู้ขายแต่ละร้านสามารถได้รับหลาย Badge พร้อมกัน
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          size="large"
-          startIcon={<RiSave3Line />}
-          loading={saving}
-          disabled={setupRequired || !settings.length}
-          onClick={save}
-        >
-          บันทึกทั้งหมด
-        </Button>
+        <Box>
+          <Button
+            variant="contained"
+            size="medium"
+            startIcon={<RiSave3Line />}
+            loading={saving}
+            disabled={setupRequired || !settings.length}
+            onClick={save}
+          >
+            บันทึกทั้งหมด
+          </Button>
+        </Box>
       </Stack>
 
-      {error && <Alert severity="error" sx={{ mt: 3 }}>{error}</Alert>}
-      {message && <Alert severity="success" sx={{ mt: 3 }}>{message}</Alert>}
+      {error && (
+        <Alert severity="error" sx={{ mt: 3 }}>
+          {error}
+        </Alert>
+      )}
+      {message && (
+        <Alert severity="success" sx={{ mt: 3 }}>
+          {message}
+        </Alert>
+      )}
       {setupRequired && (
         <Alert severity="warning" sx={{ mt: 3 }}>
           ยังไม่ได้ติดตั้งตารางรางวัลผู้ขาย กรุณารัน migration ล่าสุด
         </Alert>
       )}
-      <Alert severity="info" sx={{ mt: 3 }}>
-        ร้านทางการของระบบไม่เข้าร่วมการแข่งขัน Badge และการเปลี่ยนเกณฑ์ไม่ลบรางวัลย้อนหลัง
-        เพราะระบบจะคำนวณใหม่จากข้อมูลจริงทุกครั้ง
-      </Alert>
 
-      <Grid container spacing={2.5} sx={{ mt: 1 }}>
+      <Grid container spacing={2.5} sx={{ mt: 3 }}>
         {settings.map((setting) => {
           const Icon = iconByBadge[setting.badge_key];
           return (
@@ -232,7 +236,11 @@ export function MarketplaceSellerBadgeSettingsView() {
                     size="small"
                     variant="outlined"
                     label={setting.label_en}
-                    sx={{ alignSelf: 'flex-start', color: setting.color, borderColor: setting.color }}
+                    sx={{
+                      alignSelf: 'flex-start',
+                      color: setting.color,
+                      borderColor: setting.color,
+                    }}
                   />
                   <Divider />
 
@@ -262,7 +270,9 @@ export function MarketplaceSellerBadgeSettingsView() {
                           helperText={criteriaLabels[key]?.helper}
                           value={value}
                           disabled={!setting.is_enabled}
-                          slotProps={{ htmlInput: { min: 0, step: key === 'min_average_rating' ? 0.1 : 1 } }}
+                          slotProps={{
+                            htmlInput: { min: 0, step: key === 'min_average_rating' ? 0.1 : 1 },
+                          }}
                           onChange={(event) =>
                             updateCriterion(setting.badge_key, key, Number(event.target.value))
                           }

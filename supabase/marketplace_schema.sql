@@ -439,6 +439,7 @@ create table if not exists public.marketplace_provider_settings (
   transparent_logo_url text,
   favicon_url text,
   og_image_url text,
+  official_product_thumbnail_url text,
   primary_color text default '#1565C0',
   footer_text text,
   copyright_text text,
@@ -451,6 +452,9 @@ create table if not exists public.marketplace_provider_settings (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.marketplace_provider_settings
+  add column if not exists official_product_thumbnail_url text;
 
 insert into public.marketplace_provider_settings (id, og_image_url)
 values (

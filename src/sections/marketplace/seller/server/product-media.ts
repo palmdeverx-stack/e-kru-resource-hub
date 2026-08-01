@@ -42,6 +42,7 @@ function isOfficialSeller(seller: unknown) {
 async function getOfficialProductCoverFallback() {
   const settings = await getPublicPlatformSettings();
   return (
+    settings?.official_product_thumbnail_url?.trim() ||
     settings?.og_image_url?.trim() ||
     settings?.logo_url?.trim() ||
     settings?.transparent_logo_url?.trim() ||

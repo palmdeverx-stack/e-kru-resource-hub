@@ -10,6 +10,7 @@ type Context = { params: Promise<{ id: string }> };
 
 type OrderProduct = {
   file_url: string | null;
+  cover_url?: string | null;
   external_links?: Array<{ label: string; url: string }>;
   images?: Array<{ storage_bucket: string; storage_path: string; [key: string]: unknown }>;
   files?: Array<{ storage_bucket: string; storage_path: string; [key: string]: unknown }>;
@@ -80,6 +81,8 @@ export async function GET(request: Request, { params }: Context) {
       const media = await withMediaUrls({
         images: product.images ?? [],
         files: [],
+        cover_url: product.cover_url,
+        seller: order.seller,
       });
       const files = isPaid
         ? (product.files ?? []).map((file) => ({
@@ -92,6 +95,7 @@ export async function GET(request: Request, { params }: Context) {
         product: {
           ...product,
           images: media.images,
+          cover_url: media.cover_url,
           files,
           file_url: isPaid ? product.file_url : null,
           external_links: isPaid ? safeDeliveryLinks(product.external_links) : [],

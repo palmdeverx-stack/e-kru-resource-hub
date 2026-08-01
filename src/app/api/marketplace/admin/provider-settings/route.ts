@@ -76,6 +76,7 @@ export async function GET(request: Request) {
       transparentLogoUrl: data?.transparent_logo_url ?? '',
       faviconUrl: data?.favicon_url ?? '',
       ogImageUrl: data?.og_image_url ?? '',
+      officialProductThumbnailUrl: data?.official_product_thumbnail_url ?? '',
       primaryColor: data?.primary_color ?? '#1565C0',
       footerText: data?.footer_text ?? '',
       copyrightText: data?.copyright_text ?? '',
@@ -131,6 +132,7 @@ export async function PATCH(request: Request) {
   const transparentLogoUrl = String(body?.transparentLogoUrl ?? '').trim();
   const faviconUrl = String(body?.faviconUrl ?? '').trim();
   const ogImageUrl = String(body?.ogImageUrl ?? '').trim();
+  const officialProductThumbnailUrl = String(body?.officialProductThumbnailUrl ?? '').trim();
   const primaryColor = String(body?.primaryColor ?? '').trim().toUpperCase();
   const footerText = String(body?.footerText ?? '').trim();
   const copyrightText = String(body?.copyrightText ?? '').trim();
@@ -149,6 +151,7 @@ export async function PATCH(request: Request) {
     transparentLogoUrl,
     faviconUrl,
     ogImageUrl,
+    officialProductThumbnailUrl,
     productionUrl,
   ];
 
@@ -219,6 +222,7 @@ export async function PATCH(request: Request) {
     transparent_logo_url: transparentLogoUrl || null,
     favicon_url: faviconUrl || null,
     og_image_url: ogImageUrl || null,
+    official_product_thumbnail_url: officialProductThumbnailUrl || null,
     primary_color: primaryColor,
     footer_text: footerText || null,
     copyright_text: copyrightText || null,

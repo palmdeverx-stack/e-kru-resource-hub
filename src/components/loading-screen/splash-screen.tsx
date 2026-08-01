@@ -9,6 +9,7 @@ import Portal from '@mui/material/Portal';
 import { styled } from '@mui/material/styles';
 
 import { AnimateLogoZoom } from '../animate';
+import { MarketplaceBrand } from '../marketplace-brand';
 
 // ----------------------------------------------------------------------
 
@@ -31,7 +32,12 @@ export function SplashScreen({ portal = true, slots, slotProps, sx, ...other }: 
     <PortalWrapper>
       <LoadingWrapper {...slotProps?.wrapper}>
         <LoadingContent sx={sx} {...other}>
-          {slots?.logo ?? <AnimateLogoZoom {...slotProps?.logo} />}
+          {slots?.logo ?? (
+            <AnimateLogoZoom
+              logo={<MarketplaceBrand compact disabled width={72} height={72} />}
+              {...slotProps?.logo}
+            />
+          )}
         </LoadingContent>
       </LoadingWrapper>
     </PortalWrapper>

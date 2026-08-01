@@ -9,7 +9,7 @@ import { getEligibleLicenseSchools } from 'src/sections/marketplace/checkout/ser
 type Context = { params: Promise<{ token: string }> };
 
 const QUOTE_SELECT =
-  '*, seller:marketplace_sellers(id,display_name,logo_url,contact_email), product:marketplace_products(id,title,title_en,short_description,short_description_en,price,currency,resource_type,license_scope,grant_duration_days,cover_url,status,images:marketplace_product_images(*))';
+  '*, seller:marketplace_sellers(id,display_name,logo_url,contact_email,owner_role), product:marketplace_products(id,title,title_en,short_description,short_description_en,price,currency,resource_type,license_scope,grant_duration_days,cover_url,status,images:marketplace_product_images(*))';
 
 type QuoteRow = {
   id: string;
@@ -35,7 +35,9 @@ async function loadQuote(token: string) {
 
 async function serializeQuote(deal: QuoteRow) {
   const rawProduct = Array.isArray(deal.product) ? deal.product[0] : deal.product;
-  const product = rawProduct ? await withMediaUrls({ ...rawProduct, files: [] }) : null;
+  const product = rawProduct
+    ? await withMediaUrls({ ...rawProduct, files: [], seller: deal.seller })
+    : null;
   return {
     ...deal,
     product: product ? { ...product, price: Number(deal.negotiated_price) } : null,

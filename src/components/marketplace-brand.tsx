@@ -14,6 +14,8 @@ type MarketplaceBrandProps = {
   variant?: 'default' | 'transparent';
   href?: string;
   disabled?: boolean;
+  width?: number;
+  height?: number;
 };
 
 type PublicBrand = {
@@ -27,6 +29,8 @@ export function MarketplaceBrand({
   variant = 'default',
   href = '/',
   disabled = false,
+  width: widthProp,
+  height: heightProp,
 }: MarketplaceBrandProps) {
   const [brand, setBrand] = useState<PublicBrand | null>(null);
 
@@ -43,8 +47,8 @@ export function MarketplaceBrand({
     variant === 'transparent'
       ? brand?.transparentLogoUrl || brand?.logoUrl
       : brand?.logoUrl || brand?.transparentLogoUrl;
-  const width = compact ? 126 : { xs: 132, sm: 148, md: 164 };
-  const height = compact ? 38 : { xs: 40, sm: 44, md: 48 };
+  const width = widthProp ?? (compact ? 126 : { xs: 132, sm: 148, md: 164 });
+  const height = heightProp ?? (compact ? 38 : { xs: 40, sm: 44, md: 48 });
 
   return (
     <Stack direction="row" spacing={1.25} alignItems="center" sx={{ minWidth: 0 }}>

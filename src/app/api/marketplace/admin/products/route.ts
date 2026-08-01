@@ -28,7 +28,7 @@ export async function GET(request: Request) {
   let query = supabaseAdmin
     .from('marketplace_products')
     .select(
-      '*, seller:marketplace_sellers(id, display_name, seller_type, contact_email), media_type:marketplace_media_types(id, name), sale_type:marketplace_sale_types(id, name, pricing_mode), images:marketplace_product_images(*)',
+      '*, seller:marketplace_sellers(id, display_name, seller_type, contact_email, owner_role), media_type:marketplace_media_types(id, name), sale_type:marketplace_sale_types(id, name, pricing_mode), images:marketplace_product_images(*)',
       { count: 'exact' }
     )
     .order('submitted_at', { ascending: false, nullsFirst: false })

@@ -42,7 +42,9 @@ const PlatformSettingsSchema = z
     firstName: z.string().trim(),
     lastName: z.string().trim(),
     companyName: z.string().trim(),
-    companyRegistrationNo: z.string().regex(/^\d{0,13}$/, { error: 'กรุณาระบุตัวเลขไม่เกิน 13 หลัก' }),
+    companyRegistrationNo: z
+      .string()
+      .regex(/^\d{0,13}$/, { error: 'กรุณาระบุตัวเลขไม่เกิน 13 หลัก' }),
     taxId: z.string().regex(/^$|^\d{13}$/, { error: 'เลขประจำตัวผู้เสียภาษีต้องมี 13 หลัก' }),
     address: z.string().trim().min(10, { error: 'กรุณากรอกที่อยู่ให้ครบถ้วน' }),
     contactEmail: z.email({ error: 'รูปแบบอีเมลติดต่อไม่ถูกต้อง' }),
@@ -67,19 +69,32 @@ const PlatformSettingsSchema = z
     authorizedSignatoryName: z.string().trim(),
     signatureUrl: optionalUrl,
     sealUrl: optionalUrl,
-    receiptPrefix: z.string().trim().regex(/^[A-Za-z0-9_-]{0,12}$/),
-    taxInvoicePrefix: z.string().trim().regex(/^[A-Za-z0-9_-]{0,12}$/),
+    receiptPrefix: z
+      .string()
+      .trim()
+      .regex(/^[A-Za-z0-9_-]{0,12}$/),
+    taxInvoicePrefix: z
+      .string()
+      .trim()
+      .regex(/^[A-Za-z0-9_-]{0,12}$/),
     logoUrl: optionalUrl,
     transparentLogoUrl: optionalUrl,
     faviconUrl: optionalUrl,
     ogImageUrl: optionalUrl,
+    officialProductThumbnailUrl: optionalUrl,
     primaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, { error: 'สีต้องอยู่ในรูปแบบ #1565C0' }),
     footerText: z.string().trim().max(500),
     copyrightText: z.string().trim().max(250),
     timezone: z.string().trim().min(3),
-    currency: z.string().trim().regex(/^[A-Za-z]{3}$/),
+    currency: z
+      .string()
+      .trim()
+      .regex(/^[A-Za-z]{3}$/),
     defaultLanguage: z.enum(['th', 'en']),
-    serviceCountry: z.string().trim().regex(/^[A-Za-z]{2}$/),
+    serviceCountry: z
+      .string()
+      .trim()
+      .regex(/^[A-Za-z]{2}$/),
     productionUrl: optionalUrl,
     updatedAt: z.string().nullable(),
   })
@@ -144,6 +159,7 @@ const initialForm: ProviderForm = {
   transparentLogoUrl: '',
   faviconUrl: '',
   ogImageUrl: '',
+  officialProductThumbnailUrl: '',
   primaryColor: '#1565C0',
   footerText: '',
   copyrightText: '',
@@ -161,7 +177,14 @@ async function parseResponse(response: Response) {
   return result;
 }
 
-type AssetType = 'logo' | 'transparent-logo' | 'favicon' | 'og-image' | 'signature' | 'seal';
+type AssetType =
+  | 'logo'
+  | 'transparent-logo'
+  | 'favicon'
+  | 'og-image'
+  | 'official-product-thumbnail'
+  | 'signature'
+  | 'seal';
 
 function AssetUploadField({
   label,
@@ -229,6 +252,11 @@ function AssetUploadField({
           `ลากไฟล์มาวาง หรือกดเลือกไฟล์ · JPG, PNG, WEBP ไม่เกิน ${assetType === 'favicon' ? '1' : '5'} MB`
         }
         error={Boolean(uploadError)}
+        slotProps={{
+          singlePreview: {
+            sx: { '& img': { objectFit: 'contain' } },
+          },
+        }}
         sx={{ height: 150 }}
       />
     </Box>
@@ -311,7 +339,7 @@ export function MarketplacePlatformSettingsView() {
   const validationMessage = Object.values(errors)[0]?.message;
 
   return (
-    <Container maxWidth="lg" sx={{ py: { xs: 3, md: 4 } }}>
+    <Container maxWidth={false} sx={{ py: { xs: 3 } }}>
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
         justifyContent="space-between"
@@ -351,486 +379,496 @@ export function MarketplacePlatformSettingsView() {
       )}
 
       <Alert severity="info" sx={{ mb: 3 }}>
-        เมื่อบันทึก ชื่อ เลขทะเบียน เลขภาษี และข้อมูลติดต่อจะนำไปใช้กับเอกสารข้อกำหนดทุกฉบับอัตโนมัติ
+        เมื่อบันทึก ชื่อ เลขทะเบียน เลขภาษี
+        และข้อมูลติดต่อจะนำไปใช้กับเอกสารข้อกำหนดทุกฉบับอัตโนมัติ
       </Alert>
 
       <Form methods={methods} onSubmit={handleSubmit(save)}>
         <Card sx={{ p: { xs: 2.5, md: 4 } }}>
-        {loading ? (
-          <Box sx={{ minHeight: 260, display: 'grid', placeItems: 'center' }}>
-            <CircularProgress />
-          </Box>
-        ) : (
-          <Stack spacing={2.5}>
-            <Typography variant="h5">ข้อมูลพื้นฐานและแบรนด์</Typography>
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-              <TextField
-                required
-                fullWidth
-                label="ชื่อแพลตฟอร์ม (ไทย)"
-                value={form.platformNameTh}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, platformNameTh: event.target.value }))
-                }
-              />
-              <TextField
-                fullWidth
-                label="ชื่อแพลตฟอร์ม (อังกฤษ)"
-                value={form.platformNameEn}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, platformNameEn: event.target.value }))
-                }
-              />
-              <TextField
-                required
-                fullWidth
-                label="ชื่อแบรนด์"
-                value={form.brandName}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, brandName: event.target.value }))
-                }
-              />
-            </Stack>
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-              <TextField
-                fullWidth
-                label="เว็บไซต์หลัก"
-                placeholder="https://example.com"
-                value={form.websiteUrl}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, websiteUrl: event.target.value }))
-                }
-              />
-              <TextField
-                fullWidth
-                label="Production URL"
-                placeholder="https://example.com"
-                value={form.productionUrl}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, productionUrl: event.target.value }))
-                }
-              />
-              <TextField
-                fullWidth
-                label="สีหลัก"
-                placeholder="#1565C0"
-                value={form.primaryColor}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, primaryColor: event.target.value }))
-                }
-              />
-            </Stack>
-
-            <Divider />
-            <Typography variant="h5">เจ้าของและผู้ให้บริการตามกฎหมาย</Typography>
-            <TextField
-              select
-              fullWidth
-              label="ประเภทผู้ให้บริการ"
-              value={form.providerType}
-              onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  providerType: event.target.value as ProviderForm['providerType'],
-                }))
-              }
-            >
-              <MenuItem value="individual">บุคคลธรรมดา</MenuItem>
-              <MenuItem value="company">นิติบุคคล / บริษัท</MenuItem>
-            </TextField>
-
-            {form.providerType === 'individual' ? (
+          {loading ? (
+            <Box sx={{ minHeight: 260, display: 'grid', placeItems: 'center' }}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <Stack spacing={2.5}>
+              <Typography variant="h5">ข้อมูลพื้นฐานและแบรนด์</Typography>
               <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
                 <TextField
                   required
                   fullWidth
-                  label="ชื่อ"
-                  value={form.firstName}
+                  label="ชื่อแพลตฟอร์ม (ไทย)"
+                  value={form.platformNameTh}
                   onChange={(event) =>
-                    setForm((current) => ({ ...current, firstName: event.target.value }))
+                    setForm((current) => ({ ...current, platformNameTh: event.target.value }))
+                  }
+                />
+                <TextField
+                  fullWidth
+                  label="ชื่อแพลตฟอร์ม (อังกฤษ)"
+                  value={form.platformNameEn}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, platformNameEn: event.target.value }))
                   }
                 />
                 <TextField
                   required
                   fullWidth
-                  label="นามสกุล"
-                  value={form.lastName}
+                  label="ชื่อแบรนด์"
+                  value={form.brandName}
                   onChange={(event) =>
-                    setForm((current) => ({ ...current, lastName: event.target.value }))
+                    setForm((current) => ({ ...current, brandName: event.target.value }))
                   }
                 />
               </Stack>
-            ) : (
               <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
                 <TextField
-                  required
                   fullWidth
-                  label="ชื่อนิติบุคคล / บริษัท"
-                  value={form.companyName}
+                  label="เว็บไซต์หลัก"
+                  placeholder="https://example.com"
+                  value={form.websiteUrl}
                   onChange={(event) =>
-                    setForm((current) => ({ ...current, companyName: event.target.value }))
+                    setForm((current) => ({ ...current, websiteUrl: event.target.value }))
                   }
                 />
                 <TextField
-                  required
                   fullWidth
-                  label="เลขทะเบียนนิติบุคคล"
-                  value={form.companyRegistrationNo}
+                  label="Production URL"
+                  placeholder="https://example.com"
+                  value={form.productionUrl}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, productionUrl: event.target.value }))
+                  }
+                />
+                <TextField
+                  fullWidth
+                  label="สีหลัก"
+                  placeholder="#1565C0"
+                  value={form.primaryColor}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, primaryColor: event.target.value }))
+                  }
+                />
+              </Stack>
+
+              <Divider />
+              <Typography variant="h5">เจ้าของและผู้ให้บริการตามกฎหมาย</Typography>
+              <TextField
+                select
+                fullWidth
+                label="ประเภทผู้ให้บริการ"
+                value={form.providerType}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    providerType: event.target.value as ProviderForm['providerType'],
+                  }))
+                }
+              >
+                <MenuItem value="individual">บุคคลธรรมดา</MenuItem>
+                <MenuItem value="company">นิติบุคคล / บริษัท</MenuItem>
+              </TextField>
+
+              {form.providerType === 'individual' ? (
+                <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                  <TextField
+                    required
+                    fullWidth
+                    label="ชื่อ"
+                    value={form.firstName}
+                    onChange={(event) =>
+                      setForm((current) => ({ ...current, firstName: event.target.value }))
+                    }
+                  />
+                  <TextField
+                    required
+                    fullWidth
+                    label="นามสกุล"
+                    value={form.lastName}
+                    onChange={(event) =>
+                      setForm((current) => ({ ...current, lastName: event.target.value }))
+                    }
+                  />
+                </Stack>
+              ) : (
+                <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                  <TextField
+                    required
+                    fullWidth
+                    label="ชื่อนิติบุคคล / บริษัท"
+                    value={form.companyName}
+                    onChange={(event) =>
+                      setForm((current) => ({ ...current, companyName: event.target.value }))
+                    }
+                  />
+                  <TextField
+                    required
+                    fullWidth
+                    label="เลขทะเบียนนิติบุคคล"
+                    value={form.companyRegistrationNo}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        companyRegistrationNo: event.target.value.replace(/\D/g, ''),
+                      }))
+                    }
+                    slotProps={{ htmlInput: { inputMode: 'numeric', maxLength: 13 } }}
+                  />
+                </Stack>
+              )}
+
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                <TextField
+                  fullWidth
+                  required={form.providerType === 'company'}
+                  label="เลขประจำตัวผู้เสียภาษี"
+                  value={form.taxId}
                   onChange={(event) =>
                     setForm((current) => ({
                       ...current,
-                      companyRegistrationNo: event.target.value.replace(/\D/g, ''),
+                      taxId: event.target.value.replace(/\D/g, ''),
                     }))
+                  }
+                  helperText={
+                    form.providerType === 'individual'
+                      ? 'ไม่บังคับสำหรับบุคคลธรรมดา'
+                      : 'เลข 13 หลักของนิติบุคคล'
                   }
                   slotProps={{ htmlInput: { inputMode: 'numeric', maxLength: 13 } }}
                 />
-              </Stack>
-            )}
-
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-              <TextField
-                fullWidth
-                required={form.providerType === 'company'}
-                label="เลขประจำตัวผู้เสียภาษี"
-                value={form.taxId}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    taxId: event.target.value.replace(/\D/g, ''),
-                  }))
-                }
-                helperText={
-                  form.providerType === 'individual'
-                    ? 'ไม่บังคับสำหรับบุคคลธรรมดา'
-                    : 'เลข 13 หลักของนิติบุคคล'
-                }
-                slotProps={{ htmlInput: { inputMode: 'numeric', maxLength: 13 } }}
-              />
-              <TextField
-                required
-                fullWidth
-                type="email"
-                label="อีเมลติดต่อ"
-                value={form.contactEmail}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, contactEmail: event.target.value }))
-                }
-              />
-              <TextField
-                fullWidth
-                label="เบอร์โทรศัพท์"
-                value={form.contactPhone}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, contactPhone: event.target.value }))
-                }
-                slotProps={{ htmlInput: { inputMode: 'tel', maxLength: 16 } }}
-              />
-            </Stack>
-            <TextField
-              required
-              fullWidth
-              multiline
-              minRows={3}
-              label="ที่อยู่สำหรับติดต่อ"
-              value={form.address}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, address: event.target.value }))
-              }
-            />
-
-            <Divider />
-            <Typography variant="h5">ภาษีและการออกเอกสาร</Typography>
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center">
-              <FormControlLabel
-                sx={{ minWidth: 210 }}
-                control={
-                  <Switch
-                    checked={form.vatRegistered}
-                    onChange={(event) =>
-                      setForm((current) => ({ ...current, vatRegistered: event.target.checked }))
-                    }
-                  />
-                }
-                label="จดทะเบียน VAT"
-              />
-              <TextField
-                fullWidth
-                type="number"
-                label="อัตรา VAT (%)"
-                disabled={!form.vatRegistered}
-                value={form.vatRate}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, vatRate: Number(event.target.value) }))
-                }
-                slotProps={{ htmlInput: { min: 0, max: 100, step: 0.01 } }}
-              />
-              <TextField
-                select
-                fullWidth
-                label="ประเภทสำนักงาน"
-                value={form.officeType}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    officeType: event.target.value as ProviderForm['officeType'],
-                  }))
-                }
-              >
-                <MenuItem value="head_office">สำนักงานใหญ่</MenuItem>
-                <MenuItem value="branch">สาขา</MenuItem>
-              </TextField>
-              {form.officeType === 'branch' && (
                 <TextField
                   required
                   fullWidth
-                  label="เลขที่สาขา"
-                  value={form.branchNumber}
+                  type="email"
+                  label="อีเมลติดต่อ"
+                  value={form.contactEmail}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, contactEmail: event.target.value }))
+                  }
+                />
+                <TextField
+                  fullWidth
+                  label="เบอร์โทรศัพท์"
+                  value={form.contactPhone}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, contactPhone: event.target.value }))
+                  }
+                  slotProps={{ htmlInput: { inputMode: 'tel', maxLength: 16 } }}
+                />
+              </Stack>
+              <TextField
+                required
+                fullWidth
+                multiline
+                minRows={3}
+                label="ที่อยู่สำหรับติดต่อ"
+                value={form.address}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, address: event.target.value }))
+                }
+              />
+
+              <Divider />
+              <Typography variant="h5">ภาษีและการออกเอกสาร</Typography>
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center">
+                <FormControlLabel
+                  sx={{ minWidth: 210 }}
+                  control={
+                    <Switch
+                      checked={form.vatRegistered}
+                      onChange={(event) =>
+                        setForm((current) => ({ ...current, vatRegistered: event.target.checked }))
+                      }
+                    />
+                  }
+                  label="จดทะเบียน VAT"
+                />
+                <TextField
+                  fullWidth
+                  type="number"
+                  label="อัตรา VAT (%)"
+                  disabled={!form.vatRegistered}
+                  value={form.vatRate}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, vatRate: Number(event.target.value) }))
+                  }
+                  slotProps={{ htmlInput: { min: 0, max: 100, step: 0.01 } }}
+                />
+                <TextField
+                  select
+                  fullWidth
+                  label="ประเภทสำนักงาน"
+                  value={form.officeType}
                   onChange={(event) =>
                     setForm((current) => ({
                       ...current,
-                      branchNumber: event.target.value.replace(/\D/g, ''),
+                      officeType: event.target.value as ProviderForm['officeType'],
+                    }))
+                  }
+                >
+                  <MenuItem value="head_office">สำนักงานใหญ่</MenuItem>
+                  <MenuItem value="branch">สาขา</MenuItem>
+                </TextField>
+                {form.officeType === 'branch' && (
+                  <TextField
+                    required
+                    fullWidth
+                    label="เลขที่สาขา"
+                    value={form.branchNumber}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        branchNumber: event.target.value.replace(/\D/g, ''),
+                      }))
+                    }
+                  />
+                )}
+              </Stack>
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                <TextField
+                  fullWidth
+                  label="ชื่อผู้ออกเอกสาร"
+                  value={form.documentIssuerName}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, documentIssuerName: event.target.value }))
+                  }
+                />
+                <TextField
+                  fullWidth
+                  label="ผู้มีอำนาจลงนาม"
+                  value={form.authorizedSignatoryName}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      authorizedSignatoryName: event.target.value,
                     }))
                   }
                 />
+              </Stack>
+              <TextField
+                fullWidth
+                multiline
+                minRows={2}
+                label="ที่อยู่สำหรับออกเอกสารภาษี"
+                value={form.documentTaxAddress}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, documentTaxAddress: event.target.value }))
+                }
+              />
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                <TextField
+                  fullWidth
+                  label="คำนำหน้าเลขใบเสร็จ"
+                  value={form.receiptPrefix}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, receiptPrefix: event.target.value }))
+                  }
+                />
+                <TextField
+                  fullWidth
+                  label="คำนำหน้าเลขใบกำกับภาษี"
+                  value={form.taxInvoicePrefix}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, taxInvoicePrefix: event.target.value }))
+                  }
+                />
+              </Stack>
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                <AssetUploadField
+                  label="ลายเซ็นผู้มีอำนาจ"
+                  assetType="signature"
+                  value={form.signatureUrl}
+                  onChange={(url) => setValue('signatureUrl', url, { shouldDirty: true })}
+                />
+                <AssetUploadField
+                  label="ตราประทับ"
+                  assetType="seal"
+                  value={form.sealUrl}
+                  onChange={(url) => setValue('sealUrl', url, { shouldDirty: true })}
+                />
+              </Stack>
+
+              <Divider />
+              <Typography variant="h5">ช่องทางติดต่อ</Typography>
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                <TextField
+                  fullWidth
+                  type="email"
+                  label="อีเมล Support"
+                  value={form.supportEmail}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, supportEmail: event.target.value }))
+                  }
+                />
+                <TextField
+                  fullWidth
+                  label="เบอร์ Support"
+                  value={form.supportPhone}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, supportPhone: event.target.value }))
+                  }
+                />
+                <TextField
+                  fullWidth
+                  label="LINE Official Account"
+                  placeholder="@example"
+                  value={form.lineOaId}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, lineOaId: event.target.value }))
+                  }
+                />
+              </Stack>
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                <TextField
+                  fullWidth
+                  type="email"
+                  label="อีเมลฝ่ายการเงิน"
+                  value={form.financeEmail}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, financeEmail: event.target.value }))
+                  }
+                />
+                <TextField
+                  fullWidth
+                  type="email"
+                  label="อีเมล PDPA"
+                  value={form.privacyEmail}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, privacyEmail: event.target.value }))
+                  }
+                />
+                <TextField
+                  fullWidth
+                  label="เวลาทำการ"
+                  placeholder="จันทร์–ศุกร์ 09:00–17:00 น."
+                  value={form.businessHours}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, businessHours: event.target.value }))
+                  }
+                />
+              </Stack>
+              <TextField
+                fullWidth
+                label="URL แจ้งปัญหา/ร้องเรียน"
+                value={form.complaintUrl}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, complaintUrl: event.target.value }))
+                }
+              />
+
+              <Divider />
+              <Typography variant="h5">ไฟล์แบรนด์และการแชร์</Typography>
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                <AssetUploadField
+                  label="โลโก้หลัก"
+                  assetType="logo"
+                  value={form.logoUrl}
+                  onChange={(url) => setValue('logoUrl', url, { shouldDirty: true })}
+                />
+                <AssetUploadField
+                  label="โลโก้พื้นหลังโปร่งใส"
+                  assetType="transparent-logo"
+                  value={form.transparentLogoUrl}
+                  onChange={(url) => setValue('transparentLogoUrl', url, { shouldDirty: true })}
+                />
+                <AssetUploadField
+                  label="Favicon"
+                  assetType="favicon"
+                  value={form.faviconUrl}
+                  onChange={(url) => setValue('faviconUrl', url, { shouldDirty: true })}
+                />
+              </Stack>
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                <AssetUploadField
+                  label="รูป OG สำหรับแชร์"
+                  assetType="og-image"
+                  value={form.ogImageUrl}
+                  onChange={(url) => setValue('ogImageUrl', url, { shouldDirty: true })}
+                />
+                <AssetUploadField
+                  label="ภาพ Thumbnail สินค้าร้านค้าทางการ"
+                  assetType="official-product-thumbnail"
+                  value={form.officialProductThumbnailUrl}
+                  onChange={(url) =>
+                    setValue('officialProductThumbnailUrl', url, { shouldDirty: true })
+                  }
+                />
+              </Stack>
+
+              <TextField
+                fullWidth
+                multiline
+                minRows={2}
+                label="ข้อความ Footer"
+                value={form.footerText}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, footerText: event.target.value }))
+                }
+              />
+              <TextField
+                fullWidth
+                label="ข้อความ Copyright"
+                value={form.copyrightText}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, copyrightText: event.target.value }))
+                }
+              />
+
+              <Divider />
+              <Typography variant="h5">ค่าระบบ</Typography>
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                <TextField
+                  fullWidth
+                  label="เขตเวลา"
+                  value={form.timezone}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, timezone: event.target.value }))
+                  }
+                />
+                <TextField
+                  fullWidth
+                  label="สกุลเงิน"
+                  value={form.currency}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, currency: event.target.value }))
+                  }
+                />
+                <TextField
+                  select
+                  fullWidth
+                  label="ภาษาหลัก"
+                  value={form.defaultLanguage}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      defaultLanguage: event.target.value as ProviderForm['defaultLanguage'],
+                    }))
+                  }
+                >
+                  <MenuItem value="th">ไทย</MenuItem>
+                  <MenuItem value="en">English</MenuItem>
+                </TextField>
+                <TextField
+                  fullWidth
+                  label="ประเทศที่ให้บริการ"
+                  value={form.serviceCountry}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, serviceCountry: event.target.value }))
+                  }
+                />
+              </Stack>
+
+              {!!form.updatedAt && (
+                <Typography variant="caption" color="text.secondary">
+                  แก้ไขล่าสุด {fDateTime(form.updatedAt)}
+                </Typography>
               )}
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <Button variant="contained" size="large" type="submit" loading={isSubmitting}>
+                  บันทึกข้อมูลแพลตฟอร์ม
+                </Button>
+              </Box>
             </Stack>
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-              <TextField
-                fullWidth
-                label="ชื่อผู้ออกเอกสาร"
-                value={form.documentIssuerName}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, documentIssuerName: event.target.value }))
-                }
-              />
-              <TextField
-                fullWidth
-                label="ผู้มีอำนาจลงนาม"
-                value={form.authorizedSignatoryName}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    authorizedSignatoryName: event.target.value,
-                  }))
-                }
-              />
-            </Stack>
-            <TextField
-              fullWidth
-              multiline
-              minRows={2}
-              label="ที่อยู่สำหรับออกเอกสารภาษี"
-              value={form.documentTaxAddress}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, documentTaxAddress: event.target.value }))
-              }
-            />
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-              <TextField
-                fullWidth
-                label="คำนำหน้าเลขใบเสร็จ"
-                value={form.receiptPrefix}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, receiptPrefix: event.target.value }))
-                }
-              />
-              <TextField
-                fullWidth
-                label="คำนำหน้าเลขใบกำกับภาษี"
-                value={form.taxInvoicePrefix}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, taxInvoicePrefix: event.target.value }))
-                }
-              />
-            </Stack>
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-              <AssetUploadField
-                label="ลายเซ็นผู้มีอำนาจ"
-                assetType="signature"
-                value={form.signatureUrl}
-                onChange={(url) => setValue('signatureUrl', url, { shouldDirty: true })}
-              />
-              <AssetUploadField
-                label="ตราประทับ"
-                assetType="seal"
-                value={form.sealUrl}
-                onChange={(url) => setValue('sealUrl', url, { shouldDirty: true })}
-              />
-            </Stack>
-
-            <Divider />
-            <Typography variant="h5">ช่องทางติดต่อ</Typography>
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-              <TextField
-                fullWidth
-                type="email"
-                label="อีเมล Support"
-                value={form.supportEmail}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, supportEmail: event.target.value }))
-                }
-              />
-              <TextField
-                fullWidth
-                label="เบอร์ Support"
-                value={form.supportPhone}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, supportPhone: event.target.value }))
-                }
-              />
-              <TextField
-                fullWidth
-                label="LINE Official Account"
-                placeholder="@example"
-                value={form.lineOaId}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, lineOaId: event.target.value }))
-                }
-              />
-            </Stack>
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-              <TextField
-                fullWidth
-                type="email"
-                label="อีเมลฝ่ายการเงิน"
-                value={form.financeEmail}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, financeEmail: event.target.value }))
-                }
-              />
-              <TextField
-                fullWidth
-                type="email"
-                label="อีเมล PDPA"
-                value={form.privacyEmail}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, privacyEmail: event.target.value }))
-                }
-              />
-              <TextField
-                fullWidth
-                label="เวลาทำการ"
-                placeholder="จันทร์–ศุกร์ 09:00–17:00 น."
-                value={form.businessHours}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, businessHours: event.target.value }))
-                }
-              />
-            </Stack>
-            <TextField
-              fullWidth
-              label="URL แจ้งปัญหา/ร้องเรียน"
-              value={form.complaintUrl}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, complaintUrl: event.target.value }))
-              }
-            />
-
-            <Divider />
-            <Typography variant="h5">ไฟล์แบรนด์และการแชร์</Typography>
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-              <AssetUploadField
-                label="โลโก้หลัก"
-                assetType="logo"
-                value={form.logoUrl}
-                onChange={(url) => setValue('logoUrl', url, { shouldDirty: true })}
-              />
-              <AssetUploadField
-                label="โลโก้พื้นหลังโปร่งใส"
-                assetType="transparent-logo"
-                value={form.transparentLogoUrl}
-                onChange={(url) => setValue('transparentLogoUrl', url, { shouldDirty: true })}
-              />
-            </Stack>
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-              <AssetUploadField
-                label="Favicon"
-                assetType="favicon"
-                value={form.faviconUrl}
-                onChange={(url) => setValue('faviconUrl', url, { shouldDirty: true })}
-              />
-              <AssetUploadField
-                label="รูป OG สำหรับแชร์"
-                assetType="og-image"
-                value={form.ogImageUrl}
-                onChange={(url) => setValue('ogImageUrl', url, { shouldDirty: true })}
-              />
-            </Stack>
-            <TextField
-              fullWidth
-              multiline
-              minRows={2}
-              label="ข้อความ Footer"
-              value={form.footerText}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, footerText: event.target.value }))
-              }
-            />
-            <TextField
-              fullWidth
-              label="ข้อความ Copyright"
-              value={form.copyrightText}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, copyrightText: event.target.value }))
-              }
-            />
-
-            <Divider />
-            <Typography variant="h5">ค่าระบบ</Typography>
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-              <TextField
-                fullWidth
-                label="เขตเวลา"
-                value={form.timezone}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, timezone: event.target.value }))
-                }
-              />
-              <TextField
-                fullWidth
-                label="สกุลเงิน"
-                value={form.currency}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, currency: event.target.value }))
-                }
-              />
-              <TextField
-                select
-                fullWidth
-                label="ภาษาหลัก"
-                value={form.defaultLanguage}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    defaultLanguage: event.target.value as ProviderForm['defaultLanguage'],
-                  }))
-                }
-              >
-                <MenuItem value="th">ไทย</MenuItem>
-                <MenuItem value="en">English</MenuItem>
-              </TextField>
-              <TextField
-                fullWidth
-                label="ประเทศที่ให้บริการ"
-                value={form.serviceCountry}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, serviceCountry: event.target.value }))
-                }
-              />
-            </Stack>
-
-            {!!form.updatedAt && (
-              <Typography variant="caption" color="text.secondary">
-                แก้ไขล่าสุด {fDateTime(form.updatedAt)}
-              </Typography>
-            )}
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <Button variant="contained" size="large" type="submit" loading={isSubmitting}>
-                บันทึกข้อมูลแพลตฟอร์ม
-              </Button>
-            </Box>
-          </Stack>
-        )}
+          )}
         </Card>
       </Form>
     </Container>

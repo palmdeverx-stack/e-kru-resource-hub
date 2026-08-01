@@ -79,21 +79,32 @@ export async function GET(request: Request) {
         (order.items ?? []).map(async (item: Record<string, unknown>) => {
           const product = item.product as OrderProduct;
           if (!product) return item;
-          const { images } = await withMediaUrls({
+          const media = await withMediaUrls({
             images: product.images ?? [],
             files: [],
+            cover_url: product.cover_url,
+            seller: order.seller,
           });
           if (!isPaid) {
             return {
               ...item,
-              product: { ...product, images, file_url: null, files: [] },
+              product: {
+                ...product,
+                images: media.images,
+                cover_url: media.cover_url,
+                file_url: null,
+                files: [],
+              },
             };
           }
           const files = (product.files ?? []).map((file) => ({
             ...file,
             url: `/api/marketplace/downloads/${String(file.id)}?orderItemId=${String(item.id)}`,
           }));
-          return { ...item, product: { ...product, images, files } };
+          return {
+            ...item,
+            product: { ...product, images: media.images, cover_url: media.cover_url, files },
+          };
         })
       );
       return { ...order, seller: withPublicSystemStoreFlag(order.seller), items };

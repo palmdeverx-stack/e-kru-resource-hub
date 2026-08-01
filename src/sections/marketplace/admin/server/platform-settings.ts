@@ -27,7 +27,7 @@ export const getPublicPlatformSettings = cache(async () => {
     const { data, error } = await supabaseAdmin
       .from('marketplace_provider_settings')
       .select(
-        'platform_name_th, platform_name_en, brand_name, website_url, production_url, logo_url, transparent_logo_url, favicon_url, og_image_url, primary_color'
+        'platform_name_th, platform_name_en, brand_name, website_url, production_url, logo_url, transparent_logo_url, favicon_url, og_image_url, official_product_thumbnail_url, primary_color'
       )
       .eq('id', 'default')
       .maybeSingle();

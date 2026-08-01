@@ -20,7 +20,7 @@ export async function GET(request: Request, { params }: Context) {
   const { data: product, error } = await supabaseAdmin
     .from('marketplace_products')
     .select(
-      `${PRODUCT_MANAGE_SELECT}, seller:marketplace_sellers(id, display_name, display_name_en, seller_type, slug, logo_url, bio, contact_email), media_type:marketplace_media_types(id, name, delivery_mode), sale_type:marketplace_sale_types(id, name, pricing_mode)`
+      `${PRODUCT_MANAGE_SELECT}, seller:marketplace_sellers(id, display_name, display_name_en, seller_type, slug, logo_url, bio, contact_email, owner_role), media_type:marketplace_media_types(id, name, delivery_mode), sale_type:marketplace_sale_types(id, name, pricing_mode)`
     )
     .eq('id', id)
     .maybeSingle();
