@@ -465,7 +465,7 @@ export default function Layout({ children }: Props) {
     if (user?.role === 'super_admin' && section.subheader === 'ผู้ขาย') {
       items = items.filter((item) => item.path !== '/dashboard/seller/settings/line');
     }
-    if (user?.role !== 'super_admin' && section.subheader === 'ตั้งค่าระบบ') {
+    if (!isMarketplaceAdmin(user?.role) && section.subheader === 'ตั้งค่าระบบ') {
       items = items.filter((item) => item.path !== '/dashboard/settings/seller-badges');
     }
     return items === section.items ? section : { ...section, items };

@@ -32,12 +32,15 @@ const INTEGER_CRITERIA = new Set([
 ]);
 
 function authorize(request: Request) {
-  return requireRole(request, ['super_admin']);
+  return requireRole(request, ['master_admin', 'super_admin']);
 }
 
 export async function GET(request: Request) {
   if (!authorize(request)) {
-    return NextResponse.json({ message: 'เฉพาะ Super Admin ที่ตั้งค่ารางวัลผู้ขายได้' }, { status: 403 });
+    return NextResponse.json(
+      { message: 'เฉพาะ Master Admin หรือ Super Admin ที่ตั้งค่ารางวัลผู้ขายได้' },
+      { status: 403 }
+    );
   }
 
   const { data, error } = await supabaseAdmin
@@ -56,7 +59,10 @@ export async function GET(request: Request) {
 export async function PATCH(request: Request) {
   const caller = authorize(request);
   if (!caller) {
-    return NextResponse.json({ message: 'เฉพาะ Super Admin ที่ตั้งค่ารางวัลผู้ขายได้' }, { status: 403 });
+    return NextResponse.json(
+      { message: 'เฉพาะ Master Admin หรือ Super Admin ที่ตั้งค่ารางวัลผู้ขายได้' },
+      { status: 403 }
+    );
   }
 
   const body = await request.json().catch(() => null);
