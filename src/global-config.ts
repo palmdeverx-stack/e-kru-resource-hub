@@ -13,6 +13,7 @@ export type ConfigValue = {
   isStaticExport: boolean;
   auth: {
     redirectPath: string;
+    googleClientId: string;
   };
   supabase: { url: string; key: string };
 };
@@ -31,6 +32,7 @@ export const CONFIG: ConfigValue = {
    */
   auth: {
     redirectPath: paths.marketplace.dashboard,
+    googleClientId: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? '',
   },
   /**
    * Supabase

@@ -96,21 +96,30 @@ export const signInWithPassword = async ({
   return user;
 };
 
-export const signInWithGoogle = async (returnTo?: string | null): Promise<void> => {
+export const signInWithGoogle = async (idToken: string): Promise<AppUser | PinChallenge> => {
+  if (!idToken) throw new Error('ไม่พบ Google ID Token');
+
   const { getSupabaseBrowserClient } = await import('src/lib/supabase-browser');
-  const callbackUrl = new URL('/auth/google/callback', window.location.origin);
-  if (returnTo?.startsWith('/') && !returnTo.startsWith('//')) {
-    callbackUrl.searchParams.set('returnTo', returnTo);
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase.auth.signInWithIdToken({
+    provider: 'google',
+    token: idToken,
+  });
+  if (error || !data.session?.access_token) {
+    throw new Error(error?.message ?? 'สร้าง Google session ไม่สำเร็จ');
   }
 
-  const { error } = await getSupabaseBrowserClient().auth.signInWithOAuth({
-    provider: 'google',
-    options: {
-      redirectTo: callbackUrl.toString(),
-      queryParams: { prompt: 'select_account' },
-    },
+  const response = await fetch('/api/auth/google', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${data.session.access_token}` },
   });
-  if (error) throw error;
+  const result = await response.json();
+  if (!response.ok) {
+    await supabase.auth.signOut();
+    throw new Error(result.message ?? 'เข้าสู่ระบบด้วย Google ไม่สำเร็จ');
+  }
+
+  return result.requiresPin ? (result as PinChallenge) : (result.user as AppUser);
 };
 
 export const verifySignInPin = async ({

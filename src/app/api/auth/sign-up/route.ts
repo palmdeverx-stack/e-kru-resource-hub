@@ -137,7 +137,7 @@ export async function POST(request: Request) {
     await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
     console.error('Failed to send marketplace verification email', emailError);
     return NextResponse.json(
-      { message: 'ไม่สามารถส่งอีเมลยืนยันได้ กรุณาตรวจสอบการตั้งค่า Resend' },
+      { message: 'ไม่สามารถส่งอีเมลยืนยันได้ กรุณาตรวจสอบอีเมลและลองใหม่อีกครั้ง' },
       { status: 503 }
     );
   }

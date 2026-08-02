@@ -27,6 +27,7 @@ import { useAuthContext } from '../../hooks';
 import { FormHead } from '../../components/form-head';
 import { FormDivider } from '../../components/form-divider';
 import { getErrorMessage, getHomePathForRole } from '../../utils';
+import { GoogleIdentityButton } from '../../components/google-identity-button';
 import { MarketplaceAuthBrand } from '../../components/marketplace-auth-brand';
 import { verifySignInPin, signInWithGoogle, signInWithPassword } from '../../context/jwt';
 
@@ -49,7 +50,7 @@ export const SignInSchema = z.object({
 
 export function JwtSignInView() {
   const router = useRouter();
-  const { t } = useTranslate();
+  const { t, currentLang } = useTranslate();
   const searchParams = useSearchParams();
   const requestedReturnTo = searchParams.get('returnTo');
   const returnTo =
@@ -62,6 +63,7 @@ export function JwtSignInView() {
     token: string;
     role: 'master_admin' | 'school_admin';
   } | null>(null);
+  const [googleClientError, setGoogleClientError] = useState<Error | null>(null);
 
   const { setSessionUser } = useAuthContext();
 
@@ -120,7 +122,18 @@ export function JwtSignInView() {
   });
 
   const googleMutation = useMutation({
-    mutationFn: () => signInWithGoogle(returnTo),
+    mutationFn: signInWithGoogle,
+    onSuccess: async (result) => {
+      if ('requiresPin' in result) {
+        setPinChallenge({ token: result.pinChallengeToken, role: result.role });
+        return;
+      }
+
+      const destination = returnTo ?? getHomePathForRole(result.role);
+      setSessionUser?.(result);
+      router.prefetch(destination);
+      router.replace(destination);
+    },
   });
 
   const onSubmit = handleSubmit(async (data) => {
@@ -138,7 +151,7 @@ export function JwtSignInView() {
 
   const error = pinChallenge
     ? verifyPinMutation.error
-    : (googleMutation.error ?? signInMutation.error);
+    : (googleClientError ?? googleMutation.error ?? signInMutation.error);
   const errorMessage = error ? getErrorMessage(error) : null;
 
   const renderForm = () => (
@@ -288,18 +301,16 @@ export function JwtSignInView() {
       {!pinChallenge && (
         <>
           <FormDivider label={t('auth.signIn.divider')} />
-          <Button
-            fullWidth
-            size="large"
-            color="inherit"
-            variant="outlined"
-            loading={googleMutation.isPending}
-            startIcon={<RemixIcon width={22} icon="socials:google" />}
-            onClick={() => googleMutation.mutate()}
-            sx={{ py: 1.35, bgcolor: 'background.paper' }}
-          >
-            {t('auth.signIn.google')}
-          </Button>
+          <GoogleIdentityButton
+            mode="signin"
+            language={currentLang.value === 'en' ? 'en' : 'th'}
+            disabled={googleMutation.isPending}
+            onCredential={(credential) => {
+              setGoogleClientError(null);
+              googleMutation.mutate(credential);
+            }}
+            onError={setGoogleClientError}
+          />
         </>
       )}
     </Box>

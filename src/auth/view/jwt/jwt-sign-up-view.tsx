@@ -1,7 +1,7 @@
 'use client';
 
 import * as z from 'zod';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useBoolean } from 'minimal-shared/hooks';
 import { useMutation } from '@tanstack/react-query';
@@ -23,11 +23,13 @@ import { useTranslate } from 'src/locales';
 import { RemixIcon } from 'src/components/remix-icon';
 import { Form, Field } from 'src/components/hook-form';
 
-import { getErrorMessage } from '../../utils';
+import { useAuthContext } from '../../hooks';
 import { FormHead } from '../../components/form-head';
 import { FormDivider } from '../../components/form-divider';
 import { signUp, signInWithGoogle } from '../../context/jwt';
 import { SignUpTerms } from '../../components/sign-up-terms';
+import { getErrorMessage, getHomePathForRole } from '../../utils';
+import { GoogleIdentityButton } from '../../components/google-identity-button';
 import { MarketplaceAuthBrand } from '../../components/marketplace-auth-brand';
 
 // ----------------------------------------------------------------------
@@ -49,7 +51,9 @@ export const SignUpSchema = z.object({
 
 export function JwtSignUpView() {
   const router = useRouter();
-  const { t } = useTranslate();
+  const { setSessionUser } = useAuthContext();
+  const { t, currentLang } = useTranslate();
+  const [googleClientError, setGoogleClientError] = useState<Error | null>(null);
 
   const showPassword = useBoolean();
 
@@ -91,7 +95,20 @@ export function JwtSignUpView() {
   });
 
   const googleMutation = useMutation({
-    mutationFn: () => signInWithGoogle(),
+    mutationFn: signInWithGoogle,
+    onSuccess: async (result) => {
+      if ('requiresPin' in result) {
+        setGoogleClientError(
+          new Error('บัญชีผู้ดูแลระบบต้องเข้าสู่ระบบผ่านหน้าเข้าสู่ระบบเพื่อยืนยัน PIN')
+        );
+        return;
+      }
+
+      setSessionUser?.(result);
+      const destination = getHomePathForRole(result.role);
+      router.prefetch(destination);
+      router.replace(destination);
+    },
   });
 
   const onSubmit = handleSubmit(async (data) => {
@@ -104,7 +121,7 @@ export function JwtSignUpView() {
     });
   });
 
-  const authError = googleMutation.error ?? signUpMutation.error;
+  const authError = googleClientError ?? googleMutation.error ?? signUpMutation.error;
   const errorMessage = authError ? getErrorMessage(authError) : null;
 
   const renderForm = () => (
@@ -255,18 +272,16 @@ export function JwtSignUpView() {
       </Form>
 
       <FormDivider label={t('auth.signUp.divider')} />
-      <Button
-        fullWidth
-        size="large"
-        color="inherit"
-        variant="outlined"
-        loading={googleMutation.isPending}
-        startIcon={<RemixIcon width={22} icon="socials:google" />}
-        onClick={() => googleMutation.mutate()}
-        sx={{ py: 1.35, bgcolor: 'background.paper' }}
-      >
-        {t('auth.signUp.google')}
-      </Button>
+      <GoogleIdentityButton
+        mode="signup"
+        language={currentLang.value === 'en' ? 'en' : 'th'}
+        disabled={googleMutation.isPending}
+        onCredential={(credential) => {
+          setGoogleClientError(null);
+          googleMutation.mutate(credential);
+        }}
+        onError={setGoogleClientError}
+      />
 
       <SignUpTerms />
     </Box>
