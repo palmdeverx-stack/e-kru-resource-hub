@@ -130,6 +130,7 @@ export function MarketplaceSellerLineSettingsView() {
   const [testing, setTesting] = useState(false);
   const [linking, setLinking] = useState(false);
   const [unlinking, setUnlinking] = useState(false);
+  const [unlinkConfirmOpen, setUnlinkConfirmOpen] = useState(false);
   const [buying, setBuying] = useState(false);
   const [invitation, setInvitation] = useState<LineInvitation | null>(null);
   const [error, setError] = useState('');
@@ -239,6 +240,7 @@ export function MarketplaceSellerLineSettingsView() {
         })
       );
       setInvitation(null);
+      setUnlinkConfirmOpen(false);
       setSuccess('ยกเลิกการผูก LINE แล้ว');
       await load();
     } catch (unlinkError) {
@@ -757,7 +759,7 @@ export function MarketplaceSellerLineSettingsView() {
                     ผูกกับ {data.lineConnection.displayName || 'บัญชี LINE'} แล้ว
                   </Alert>
                   <Stack direction="row" spacing={1} flexWrap="wrap">
-                    <Button color="error" loading={unlinking} onClick={unlinkLine}>
+                    <Button color="error" onClick={() => setUnlinkConfirmOpen(true)}>
                       ยกเลิกการผูก
                     </Button>
                   </Stack>
@@ -825,6 +827,36 @@ export function MarketplaceSellerLineSettingsView() {
           )}
         </Stack>
       </Box>
+
+      <Dialog
+        fullWidth
+        maxWidth="xs"
+        open={unlinkConfirmOpen}
+        onClose={() => {
+          if (!unlinking) setUnlinkConfirmOpen(false);
+        }}
+        aria-labelledby="unlink-line-dialog-title"
+      >
+        <DialogTitle id="unlink-line-dialog-title">ยกเลิกการผูก LINE?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary">
+            บัญชี {data?.lineConnection.displayName || 'LINE'}
+            จะหยุดรับการแจ้งเตือนยอดขายจากร้านนี้ คุณสามารถผูกบัญชีใหม่ได้ภายหลัง
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            color="inherit"
+            disabled={unlinking}
+            onClick={() => setUnlinkConfirmOpen(false)}
+          >
+            กลับ
+          </Button>
+          <Button color="error" variant="contained" loading={unlinking} onClick={unlinkLine}>
+            ยืนยันยกเลิกการผูก
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 }
