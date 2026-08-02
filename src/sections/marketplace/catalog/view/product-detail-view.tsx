@@ -29,6 +29,7 @@ import { useRouter, usePathname } from 'src/routes/hooks';
 import { useTranslate } from 'src/locales';
 import { SCHOOL_FEATURES } from 'src/lib/school-subscription-config';
 
+import { Markdown } from 'src/components/markdown';
 import {
   RiAddLine,
   RiEyeLine,
@@ -61,7 +62,6 @@ import { hasAnalyticsConsent } from '../../legal/cookie-consent';
 import { MarketplaceSellerLink } from '../../shared/seller-link';
 import { MARKETPLACE_SELLER_LINE_FEATURE } from '../../seller/line-feature';
 import {
-  stripHtml,
   getProduct,
   getProducts,
   formatPrice,
@@ -364,8 +364,8 @@ export function MarketplaceProductDetailView({
                 : product.license_billing_cycle === 'contract'
                   ? ` · ตามสัญญา ${product.grant_duration_days ?? 0} วัน`
                   : product.grant_duration_days == null
-              ? ' · ซื้อขาด'
-              : ` · ${t('productDetail.license.days', { count: product.grant_duration_days })}`
+                    ? ' · ซื้อขาด'
+                    : ` · ${t('productDetail.license.days', { count: product.grant_duration_days })}`
           } · ${
             product.license_target_system === 'marketplace'
               ? t('productDetail.license.targetMarketplace')
@@ -826,9 +826,8 @@ export function MarketplaceProductDetailView({
 
           <Box
             sx={{
-              p: { xs: 1.5, sm: 3, md: 5 },
-              minHeight: { xs: 0, md: 640 },
-              aspectRatio: { xs: '4 / 3', md: 'auto' },
+              p: coverUrl ? 0 : { xs: 1.5, sm: 3, md: 5 },
+              minHeight: coverUrl ? 0 : { xs: 280, md: 640 },
               display: 'grid',
               position: 'relative',
               overflow: 'hidden',
@@ -844,11 +843,9 @@ export function MarketplaceProductDetailView({
                 alt={content.title}
                 sx={{
                   width: 1,
-                  height: 1,
-                  maxHeight: 720,
+                  height: 'auto',
+                  display: 'block',
                   objectFit: 'contain',
-                  borderRadius: 1.5,
-                  boxShadow: '0 18px 55px rgba(15, 23, 42, 0.16)',
                 }}
               />
             ) : (
@@ -906,17 +903,18 @@ export function MarketplaceProductDetailView({
                 </Stack>
                 <Box>
                   <Typography variant="h4">{t('productDetail.about')}</Typography>
-                  <Typography
-                    color="text.secondary"
+                  <Markdown
                     sx={{
                       mt: 1.5,
+                      color: 'text.secondary',
                       lineHeight: 1.9,
-                      whiteSpace: 'pre-line',
                       overflowWrap: 'anywhere',
+                      '& > :first-of-type': { mt: 0 },
+                      '& > :last-child': { mb: 0 },
                     }}
                   >
-                    {stripHtml(content.description)}
-                  </Typography>
+                    {content.description}
+                  </Markdown>
                 </Box>
                 {!!purchaseBenefits.length && (
                   <Box
@@ -1421,134 +1419,125 @@ export function MarketplaceProductDetailView({
             )}
           </Box>
 
-          <Box
-            component="section"
-            aria-labelledby="related-products-modal-title"
-            sx={{ pt: { xs: 4, md: 6 }, borderTop: '1px solid', borderColor: 'divider' }}
-          >
-            <Typography id="related-products-modal-title" variant="h4">
-              {t('productDetail.related.title')}
-            </Typography>
-            <Typography color="text.secondary" sx={{ mt: 0.75, mb: 3 }}>
-              {t('productDetail.related.description')}
-            </Typography>
+          {(relatedProductsLoading || visibleRelatedProducts.length > 0) && (
+            <Box
+              component="section"
+              aria-labelledby="related-products-modal-title"
+              sx={{ pt: { xs: 4, md: 6 }, borderTop: '1px solid', borderColor: 'divider' }}
+            >
+              <Typography id="related-products-modal-title" variant="h4">
+                {t('productDetail.related.title')}
+              </Typography>
+              <Typography color="text.secondary" sx={{ mt: 0.75, mb: 3 }}>
+                {t('productDetail.related.description')}
+              </Typography>
 
-            {relatedProductsLoading ? (
-              <Box sx={{ minHeight: 220, display: 'grid', placeItems: 'center' }}>
-                <CircularProgress />
-              </Box>
-            ) : visibleRelatedProducts.length ? (
-              <Grid container spacing={2.5}>
-                {visibleRelatedProducts.map((relatedProduct) => {
-                  const relatedProductCover =
-                    relatedProduct.images?.find((image) => image.is_cover)?.url ??
-                    relatedProduct.images?.[0]?.url ??
-                    relatedProduct.cover_url ??
-                    undefined;
+              {relatedProductsLoading ? (
+                <Box sx={{ minHeight: 220, display: 'grid', placeItems: 'center' }}>
+                  <CircularProgress />
+                </Box>
+              ) : (
+                <Grid container spacing={2.5}>
+                  {visibleRelatedProducts.map((relatedProduct) => {
+                    const relatedProductCover =
+                      relatedProduct.images?.find((image) => image.is_cover)?.url ??
+                      relatedProduct.images?.[0]?.url ??
+                      relatedProduct.cover_url ??
+                      undefined;
 
-                  return (
-                    <Grid key={relatedProduct.id} size={{ xs: 12, sm: 6, md: 3 }}>
-                      <Box
-                        sx={{
-                          p: 0,
-                          width: 1,
-                          textAlign: 'left',
-                          color: 'text.primary',
-                          bgcolor: 'transparent',
-                        }}
-                      >
+                    return (
+                      <Grid key={relatedProduct.id} size={{ xs: 12, sm: 6, md: 3 }}>
                         <Box
-                          component="button"
-                          type="button"
-                          onClick={() => onSelectProduct?.(relatedProduct)}
                           sx={{
                             p: 0,
                             width: 1,
-                            cursor: 'pointer',
-                            display: 'grid',
-                            overflow: 'hidden',
-                            aspectRatio: '4 / 3',
-                            borderRadius: 2,
-                            placeItems: 'center',
-                            bgcolor: 'background.neutral',
-                            border: '1px solid',
-                            borderColor: 'divider',
-                          }}
-                        >
-                          {relatedProductCover ? (
-                            <Box
-                              component="img"
-                              src={relatedProductCover}
-                              alt={relatedProduct.title}
-                              sx={{
-                                width: 1,
-                                height: 1,
-                                objectFit: 'cover',
-                                transition: 'transform 240ms ease',
-                                'button:hover &': { transform: 'scale(1.035)' },
-                              }}
-                            />
-                          ) : (
-                            <RiBookOpenLine size={48} color="#1565F5" />
-                          )}
-                        </Box>
-                        <Typography
-                          component="button"
-                          type="button"
-                          onClick={() => onSelectProduct?.(relatedProduct)}
-                          variant="subtitle2"
-                          sx={{
-                            p: 0,
-                            border: 0,
-                            cursor: 'pointer',
                             textAlign: 'left',
                             color: 'text.primary',
                             bgcolor: 'transparent',
-                            mt: 1.25,
-                            overflow: 'hidden',
-                            display: '-webkit-box',
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: 'vertical',
                           }}
                         >
-                          {getLocalizedProduct(relatedProduct, currentLang.value).title}
-                        </Typography>
-                        <Stack
-                          direction="row"
-                          justifyContent="space-between"
-                          alignItems="center"
-                          spacing={1}
-                          sx={{ mt: 0.5 }}
-                        >
-                          <Typography variant="body2" color="primary.main">
-                            {formatPrice(Number(relatedProduct.price), relatedProduct.currency)}
+                          <Box
+                            component="button"
+                            type="button"
+                            onClick={() => onSelectProduct?.(relatedProduct)}
+                            sx={{
+                              p: 0,
+                              width: 1,
+                              cursor: 'pointer',
+                              display: 'grid',
+                              overflow: 'hidden',
+                              aspectRatio: '4 / 3',
+                              borderRadius: 2,
+                              placeItems: 'center',
+                              bgcolor: 'background.neutral',
+                              border: '1px solid',
+                              borderColor: 'divider',
+                            }}
+                          >
+                            {relatedProductCover ? (
+                              <Box
+                                component="img"
+                                src={relatedProductCover}
+                                alt={relatedProduct.title}
+                                sx={{
+                                  width: 1,
+                                  height: 1,
+                                  objectFit: 'cover',
+                                  transition: 'transform 240ms ease',
+                                  'button:hover &': { transform: 'scale(1.035)' },
+                                }}
+                              />
+                            ) : (
+                              <RiBookOpenLine size={48} color="#1565F5" />
+                            )}
+                          </Box>
+                          <Typography
+                            component="button"
+                            type="button"
+                            onClick={() => onSelectProduct?.(relatedProduct)}
+                            variant="subtitle2"
+                            sx={{
+                              p: 0,
+                              border: 0,
+                              cursor: 'pointer',
+                              textAlign: 'left',
+                              color: 'text.primary',
+                              bgcolor: 'transparent',
+                              mt: 1.25,
+                              overflow: 'hidden',
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical',
+                            }}
+                          >
+                            {getLocalizedProduct(relatedProduct, currentLang.value).title}
                           </Typography>
-                          <MarketplaceSellerLink
-                            seller={relatedProduct.seller}
-                            showAvatar={false}
-                            nameVariant="caption"
-                            fallbackName={t('productDetail.seller.fallback')}
-                            nameSx={{ color: 'text.secondary' }}
-                          />
-                        </Stack>
-                      </Box>
-                    </Grid>
-                  );
-                })}
-              </Grid>
-            ) : (
-              <Box
-                sx={{
-                  py: 7,
-                  textAlign: 'center',
-                  borderRadius: 2,
-                  bgcolor: 'background.neutral',
-                }}
-              >
-                <Typography color="text.secondary">{t('productDetail.related.empty')}</Typography>
-              </Box>
-            )}
-          </Box>
+                          <Stack
+                            direction="row"
+                            justifyContent="space-between"
+                            alignItems="center"
+                            spacing={1}
+                            sx={{ mt: 0.5 }}
+                          >
+                            <Typography variant="body2" color="primary.main">
+                              {formatPrice(Number(relatedProduct.price), relatedProduct.currency)}
+                            </Typography>
+                            <MarketplaceSellerLink
+                              seller={relatedProduct.seller}
+                              showAvatar={false}
+                              nameVariant="caption"
+                              fallbackName={t('productDetail.seller.fallback')}
+                              nameSx={{ color: 'text.secondary' }}
+                            />
+                          </Stack>
+                        </Box>
+                      </Grid>
+                    );
+                  })}
+                </Grid>
+              )}
+            </Box>
+          )}
         </Stack>
       </Container>
     );
@@ -1655,9 +1644,17 @@ export function MarketplaceProductDetailView({
             <Typography variant="h4" sx={{ mb: 1.5 }}>
               {t('productDetail.details')}
             </Typography>
-            <Typography sx={{ whiteSpace: 'pre-line', color: 'text.secondary', lineHeight: 1.9 }}>
-              {stripHtml(content.description)}
-            </Typography>
+            <Markdown
+              sx={{
+                color: 'text.secondary',
+                lineHeight: 1.9,
+                overflowWrap: 'anywhere',
+                '& > :first-of-type': { mt: 0 },
+                '& > :last-child': { mb: 0 },
+              }}
+            >
+              {content.description}
+            </Markdown>
           </Box>
 
           {!!purchaseBenefits.length && (

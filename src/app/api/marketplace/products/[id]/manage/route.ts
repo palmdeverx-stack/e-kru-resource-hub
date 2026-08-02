@@ -417,8 +417,17 @@ export async function PATCH(request: Request, { params }: Context) {
         body.grantsFeatureKeys.map((value: unknown) => String(value).trim()).filter(Boolean)
       ),
     ];
-    if (featureKeys.some((featureKey) => !ALLOWED_FEATURE_KEYS.has(featureKey))) {
-      return NextResponse.json({ message: 'มีฟีเจอร์ในแพ็กเกจที่ไม่ถูกต้อง' }, { status: 400 });
+    const invalidFeatureKeys = featureKeys.filter(
+      (featureKey) => !ALLOWED_FEATURE_KEYS.has(featureKey)
+    );
+    if (invalidFeatureKeys.length) {
+      return NextResponse.json(
+        {
+          message: `มีฟีเจอร์ในแพ็กเกจที่ไม่ถูกต้อง: ${invalidFeatureKeys.join(', ')}`,
+          invalidFeatureKeys,
+        },
+        { status: 400 }
+      );
     }
     const licenseScope = String(body.licenseScope ?? 'school');
     if (

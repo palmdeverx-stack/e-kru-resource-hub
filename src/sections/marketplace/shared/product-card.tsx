@@ -180,8 +180,8 @@ export function MarketplaceProductCard({
                 : product.category
             }
             sx={{
-              top: 12,
-              left: 12,
+              bottom: 8,
+              right: 12,
               fontWeight: 700,
               position: 'absolute',
               boxShadow: '0 6px 16px rgba(21,101,245,0.20)',

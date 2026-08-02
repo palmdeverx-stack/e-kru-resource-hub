@@ -8,6 +8,7 @@ import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
 import { useId, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
+import rehypeSanitize from 'rehype-sanitize';
 import rehypeHighlight from 'rehype-highlight';
 import { mergeClasses, isExternalLink } from 'minimal-shared/utils';
 
@@ -65,6 +66,7 @@ export function Markdown({
  *************************************** */
 const defaultRehypePlugins: NonNullable<Options['rehypePlugins']> = [
   rehypeRaw,
+  rehypeSanitize,
   rehypeHighlight,
   [remarkGfm, { singleTilde: false }],
 ];

@@ -144,6 +144,12 @@ export const SCHOOL_FEATURES = [
     description: 'อนุญาตให้ครูสร้างบัญชีนักเรียนและเพิ่มเข้าห้อง',
   },
   {
+    key: 'teacher.worksheet_ai',
+    group: 'ครู',
+    label: 'Worksheet AI',
+    description: 'ใช้ AI ช่วยสร้างใบงานและสื่อประกอบการเรียนการสอน',
+  },
+  {
     key: 'student.subjects',
     group: 'นักเรียน',
     label: 'วิชาเรียน',

@@ -150,3 +150,13 @@ test('free fixed-term individual trials cannot be purchased more than once', asy
   assert.match(source, /isSingleUseTrial \|\| featureKeys\?\.includes/);
   assert.match(source, /hasPurchasedProduct\(productId, buyerId\)/);
 });
+
+test('E-KRU package feature catalog includes Worksheet AI', async () => {
+  const featureCatalog = await readProjectFile('src/lib/school-subscription-config.ts');
+  const productManagement = await readProjectFile(
+    'src/app/api/marketplace/products/[id]/manage/route.ts'
+  );
+
+  assert.match(featureCatalog, /key: 'teacher\.worksheet_ai'/);
+  assert.match(productManagement, /invalidFeatureKeys/);
+});

@@ -9,7 +9,7 @@ import { merge } from 'es-toolkit';
 import Box from '@mui/material/Box';
 import Alert from '@mui/material/Alert';
 
-import { Logo } from 'src/components/logo';
+import { MarketplaceBrand } from 'src/components/marketplace-brand';
 
 import { SimpleCompactContent } from './content';
 import { MainSection, LayoutSection, HeaderSection } from '../core';
@@ -43,7 +43,7 @@ export function SimpleLayout({
           This is an info Alert.
         </Alert>
       ),
-      leftArea: <Logo />,
+      leftArea: <MarketplaceBrand />,
       rightArea: (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 1.5 } }}>
           {/** @slot Settings button */}
