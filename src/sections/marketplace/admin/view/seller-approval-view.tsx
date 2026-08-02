@@ -97,7 +97,7 @@ export function MarketplaceSellerApprovalView() {
   if (user?.role !== 'master_admin' && user?.role !== 'marketplace_admin') {
     return (
       <Container maxWidth="lg" sx={{ py: 5 }}>
-        <Alert severity="error">หน้านี้สำหรับ Super Admin เท่านั้น</Alert>
+        <Alert severity="error">หน้านี้สำหรับผู้ดูแล Marketplace เท่านั้น</Alert>
       </Container>
     );
   }

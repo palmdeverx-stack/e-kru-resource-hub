@@ -1239,7 +1239,8 @@ export function MarketplacePayoutManagementView({ accessGranted = true }: Props)
                   <Box component="ul" sx={{ pl: 2.5, my: 0.75 }}>
                     <li>
                       <Typography variant="body2">
-                        ผู้โอนคือ Super Admin หรือเจ้าหน้าที่การเงินที่เข้าถึงบัญชีธนาคารของ E-KRU
+                        ผู้โอนคือผู้ดูแล Marketplace หรือเจ้าหน้าที่การเงินที่เข้าถึงบัญชีธนาคารของ
+                        E-KRU
                       </Typography>
                     </li>
                     <li>

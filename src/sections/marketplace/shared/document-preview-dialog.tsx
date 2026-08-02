@@ -23,9 +23,24 @@ type Props = {
   onClose: () => void;
 };
 
+const HASH_LIKE_FILE_NAME = /^[a-f\d]{24,}(?:\s+(?:copy|\(\d+\)))?$/i;
+
+function getReadableFileName(file: DocumentPreviewFile) {
+  if (!file.fileName) return null;
+
+  const extensionIndex = file.fileName.lastIndexOf('.');
+  const extension = extensionIndex >= 0 ? file.fileName.slice(extensionIndex) : '';
+  const baseName = extensionIndex >= 0 ? file.fileName.slice(0, extensionIndex) : file.fileName;
+  if (!HASH_LIKE_FILE_NAME.test(baseName.trim())) return file.fileName;
+
+  const documentName = file.title.replace(/^ตัวอย่าง\s*/, '').trim() || 'เอกสารยืนยัน';
+  return `${documentName}${extension.toLowerCase()}`;
+}
+
 export function DocumentPreviewDialog({ file, onClose }: Props) {
   const isPdf =
     file?.mimeType === 'application/pdf' || Boolean(file?.fileName?.toLowerCase().endsWith('.pdf'));
+  const readableFileName = file ? getReadableFileName(file) : null;
 
   return (
     <Dialog
@@ -45,9 +60,9 @@ export function DocumentPreviewDialog({ file, onClose }: Props) {
     >
       <DialogTitle sx={{ pr: 7 }}>
         <Typography variant="h6">{file?.title ?? 'ดูตัวอย่างเอกสาร'}</Typography>
-        {!!file?.fileName && (
+        {!!readableFileName && (
           <Typography variant="caption" color="text.secondary" noWrap display="block">
-            {file.fileName}
+            ชื่อไฟล์: {readableFileName}
           </Typography>
         )}
         <IconButton

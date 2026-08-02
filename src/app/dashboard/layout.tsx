@@ -54,6 +54,8 @@ import { MarketplaceAccountMenu } from 'src/sections/marketplace/account/compone
 
 import { useAuthContext } from 'src/auth/hooks';
 
+const SELLER_NAV_SUBHEADER = 'ศูนย์ผู้ขาย';
+
 const memberNavData: NavSectionProps['data'] = [
   {
     subheader: 'Marketplace',
@@ -102,27 +104,27 @@ const memberNavData: NavSectionProps['data'] = [
     ],
   },
   {
-    subheader: 'ร้านค้าของฉัน',
+    subheader: SELLER_NAV_SUBHEADER,
     items: [
       {
-        title: 'ร้านค้าของฉัน',
+        title: 'ภาพรวมร้านค้า',
         path: '/dashboard/seller',
         deepMatch: false,
         activePaths: ['/dashboard/seller/products'],
         icon: <RiStore2Line />,
       },
       {
-        title: 'ข้อมูลร้านค้า',
+        title: 'โปรไฟล์ร้านค้า',
         path: '/dashboard/seller/profile',
         icon: <RiIdCardLine />,
       },
       {
-        title: 'สถิติร้านค้า',
+        title: 'สถิติและยอดขาย',
         path: '/dashboard/seller/analytics',
         icon: <RiBarChartBoxLine />,
       },
       {
-        title: 'รายได้และการรับเงิน',
+        title: 'การเงินและรับเงิน',
         path: '/dashboard/seller/finance',
         icon: <RiWallet3Line />,
       },
@@ -213,37 +215,37 @@ const adminNavData: NavSectionProps['data'] = [
     ],
   },
   {
-    subheader: 'ร้านค้าทางการ',
+    subheader: SELLER_NAV_SUBHEADER,
     items: [
       {
-        title: 'ร้านค้าของฉัน',
+        title: 'ภาพรวมร้านค้า',
         path: '/dashboard/seller',
         deepMatch: false,
         activePaths: ['/dashboard/seller/products'],
         icon: <RiStore2Line />,
       },
       {
-        title: 'ข้อมูลร้านค้า',
+        title: 'โปรไฟล์ร้านค้า',
         path: '/dashboard/seller/profile',
         icon: <RiIdCardLine />,
       },
       {
-        title: 'สถิติร้านค้า',
+        title: 'สถิติและยอดขาย',
         path: '/dashboard/seller/analytics',
         icon: <RiBarChartBoxLine />,
       },
       {
-        title: 'รายได้และการรับเงิน',
+        title: 'การเงินและรับเงิน',
         path: '/dashboard/seller/finance',
         icon: <RiWallet3Line />,
       },
       {
-        title: 'ข้อเสนอขายโรงเรียน',
+        title: 'ข้อเสนอสำหรับโรงเรียน',
         path: '/dashboard/seller/deals',
         icon: <RiFilePaper2Line />,
       },
       {
-        title: 'LINE แจ้งเตือนร้านค้า',
+        title: 'แจ้งเตือนยอดขาย LINE',
         path: '/dashboard/seller/settings/line',
         icon: <RiNotification3Line />,
       },
@@ -508,7 +510,7 @@ export default function Layout({ children }: Props) {
   const navData = isMarketplaceAdmin(user?.role)
     ? adminNavigation
     : memberNavData.map((section) => {
-        if (section.subheader === 'ร้านค้าของฉัน') {
+        if (section.subheader === SELLER_NAV_SUBHEADER) {
           const sellerItems = hasSubmittedSeller
             ? section.items
             : section.items.filter(
@@ -521,7 +523,7 @@ export default function Layout({ children }: Props) {
             canUseSellerLine && hasSubmittedSeller
               ? [
                   {
-                    title: 'LINE แจ้งเตือนร้านค้า',
+                    title: 'แจ้งเตือนยอดขาย LINE',
                     path: '/dashboard/seller/settings/line',
                     icon: <RiNotification3Line />,
                   },

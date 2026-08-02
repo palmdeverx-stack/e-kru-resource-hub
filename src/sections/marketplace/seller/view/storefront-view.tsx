@@ -120,21 +120,29 @@ export function MarketplaceStorefrontView({ slug, dashboardMode = false }: Props
         <Grid container spacing={{ xs: 4, lg: 7 }} alignItems="stretch">
           <Grid size={{ xs: 12, lg: 6 }}>
             <Stack sx={{ height: 1 }} justifyContent="center" alignItems="flex-start">
-              <Avatar
-                src={seller.logo_url ?? undefined}
-                alt={storeName}
-                sx={{
-                  width: { xs: 72, md: 88 },
-                  height: { xs: 72, md: 88 },
-                  mb: 2.5,
-                  bgcolor: 'primary.lighter',
-                  color: 'primary.main',
-                  border: '1px solid',
-                  borderColor: 'divider',
-                }}
+              <Stack
+                direction="row"
+                spacing={2}
+                alignItems="center"
+                flexWrap="wrap"
+                useFlexGap
+                sx={{ mb: 2.5 }}
               >
-                <RiStore2Line size={38} />
-              </Avatar>
+                <Avatar
+                  src={seller.logo_url ?? undefined}
+                  alt={storeName}
+                  sx={{
+                    width: { xs: 72, md: 88 },
+                    height: { xs: 72, md: 88 },
+                    bgcolor: 'primary.lighter',
+                    color: 'primary.main',
+                    border: '1px solid',
+                    borderColor: 'divider',
+                  }}
+                >
+                  <RiStore2Line size={38} />
+                </Avatar>
+              </Stack>
 
               <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
                 <Typography component="h1" variant="h3">
@@ -197,7 +205,9 @@ export function MarketplaceStorefrontView({ slug, dashboardMode = false }: Props
                 </Box>
               </Stack>
 
-              <Stack direction="row" spacing={1.25} sx={{ mt: 3.5 }}>
+              <Stack direction="row" alignItems="center" spacing={1.25} sx={{ mt: 3.5 }}>
+                <MarketplaceSellerBadges badges={seller.badges} limit={3} variant="seal" />
+
                 <Chip
                   icon={<RiVerifiedBadgeFill />}
                   color="primary"
@@ -212,10 +222,6 @@ export function MarketplaceStorefrontView({ slug, dashboardMode = false }: Props
                   })}
                 />
               </Stack>
-
-              <Box sx={{ mt: 2 }}>
-                <MarketplaceSellerBadges badges={seller.badges} />
-              </Box>
             </Stack>
           </Grid>
 
@@ -254,9 +260,7 @@ export function MarketplaceStorefrontView({ slug, dashboardMode = false }: Props
                   color: 'common.white',
                 }}
               >
-                <Typography variant="h4">
-                  {t('storefront.banner.title', { storeName })}
-                </Typography>
+                <Typography variant="h4">{t('storefront.banner.title', { storeName })}</Typography>
                 <Typography sx={{ color: 'rgba(255,255,255,0.76)' }}>
                   {t('storefront.banner.description')}
                 </Typography>

@@ -256,12 +256,19 @@ export type MarketplaceSellerBadge = {
   priority: number;
 };
 
+export type MarketplaceSellerBadgeDefinition = Omit<MarketplaceSellerBadge, 'seller_id'> & {
+  evaluation_days: number;
+  criteria: Record<string, number>;
+};
+
 export type MarketplaceSellerDocument = {
   id: string;
   document_type: string;
   file_name: string;
   mime_type: string;
   file_size: number;
+  uploaded_at: string;
+  updated_at: string;
   url: string | null;
 };
 

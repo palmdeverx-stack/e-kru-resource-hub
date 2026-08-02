@@ -27,11 +27,11 @@ import { MarketplaceSellerLink } from './seller-link';
 import { formatPrice, getLocalizedProduct } from './api';
 
 const categoryTranslationKeys: Record<string, string> = {
-  'แผนการสอน': 'lessonPlans',
-  'ใบงาน': 'worksheets',
-  'สื่อประกอบ': 'supplementary',
-  'แบบทดสอบ': 'quizzes',
-  'คอร์สเรียน': 'courses',
+  แผนการสอน: 'lessonPlans',
+  ใบงาน: 'worksheets',
+  สื่อประกอบ: 'supplementary',
+  แบบทดสอบ: 'quizzes',
+  คอร์สเรียน: 'courses',
 };
 
 export function MarketplaceProductCard({
@@ -156,11 +156,29 @@ export function MarketplaceProductCard({
               'linear-gradient(180deg, rgba(15,23,42,0.03), transparent 42%), linear-gradient(0deg, rgba(15,23,42,0.52), transparent 38%)',
           }}
         />
-        {product.resource_type === 'feature_unlock' && (
+        {/* {product.resource_type === 'feature_unlock' && (
           <Chip
             size="small"
             color="primary"
-            label="E-KRU License"
+            label={'s}
+            sx={{
+              top: 12,
+              left: 12,
+              fontWeight: 700,
+              position: 'absolute',
+              boxShadow: '0 6px 16px rgba(21,101,245,0.20)',
+            }}
+          />
+        )} */}
+        {product.category && (
+          <Chip
+            size="small"
+            color="primary"
+            label={
+              categoryTranslationKeys[product.category]
+                ? t(`catalog.categoryLabels.${categoryTranslationKeys[product.category]}`)
+                : product.category
+            }
             sx={{
               top: 12,
               left: 12,
@@ -186,7 +204,11 @@ export function MarketplaceProductCard({
           {[
             { label: t('productCard.views'), value: views, icon: <RiEyeLine size={16} /> },
             { label: t('productCard.likes'), value: likes, icon: <RiHeartLine size={16} /> },
-            { label: t('productCard.orders'), value: purchases, icon: <RiShoppingBag3Line size={16} /> },
+            {
+              label: t('productCard.orders'),
+              value: purchases,
+              icon: <RiShoppingBag3Line size={16} />,
+            },
           ].map((stat) => (
             <Stack
               key={stat.label}
@@ -216,7 +238,7 @@ export function MarketplaceProductCard({
             sx={{ minWidth: 0, flex: 1 }}
             nameSx={{ color: 'text.secondary', fontWeight: 700 }}
           />
-          {product.category && (
+          {/* {product.category && (
             <Chip
               size="small"
               variant="soft"
@@ -236,7 +258,7 @@ export function MarketplaceProductCard({
                 },
               }}
             />
-          )}
+          )} */}
         </Stack>
 
         <Typography

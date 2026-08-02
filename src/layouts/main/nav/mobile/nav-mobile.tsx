@@ -50,7 +50,8 @@ export function NavMobile({ data, open, onClose, slots, sx }: NavMobileProps) {
             {
               display: 'flex',
               flexDirection: 'column',
-              width: 'var(--layout-nav-mobile-width)',
+              width: 'min(var(--layout-nav-mobile-width), 100vw)',
+              maxWidth: '100vw',
             },
             ...(Array.isArray(sx) ? sx : [sx]),
           ],
@@ -60,18 +61,26 @@ export function NavMobile({ data, open, onClose, slots, sx }: NavMobileProps) {
       {slots?.topArea ?? (
         <Box
           sx={{
-            px: 2,
+            px: { xs: 1.5, sm: 2 },
             pt: 2,
             pb: 1.5,
             display: 'flex',
-            minHeight: 72,
+            gap: 1,
+            minHeight: { xs: 72, sm: 76 },
             alignItems: 'center',
             justifyContent: 'space-between',
             borderBottom: '1px solid',
             borderColor: 'divider',
           }}
         >
-          <Logo />
+          <Logo
+            isSingle={false}
+            sx={{
+              width: { xs: 112, sm: 132 },
+              height: { xs: 54, sm: 60 },
+              maxWidth: 'calc(100% - 48px)',
+            }}
+          />
           <IconButton onClick={onClose} aria-label={t('ปิดเมนู')}>
             <RiCloseLine size={24} />
           </IconButton>

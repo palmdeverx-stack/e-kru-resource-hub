@@ -31,6 +31,16 @@ const INTEGER_CRITERIA = new Set([
   'min_units_sold',
   'max_seller_age_days',
 ]);
+const BADGE_ICON_KEYS = new Set([
+  'trophy',
+  'star',
+  'fire',
+  'rocket',
+  'heart',
+  'sparkling',
+  'award',
+]);
+const HEX_COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
 
 function authorize(request: Request) {
   return requireRole(request, ['master_admin', 'marketplace_admin']);
@@ -39,7 +49,7 @@ function authorize(request: Request) {
 export async function GET(request: Request) {
   if (!authorize(request)) {
     return NextResponse.json(
-      { message: 'เฉพาะ Master Admin หรือ Super Admin ที่ตั้งค่ารางวัลผู้ขายได้' },
+      { message: 'เฉพาะผู้ดูแล Marketplace ที่ตั้งค่ารางวัลผู้ขายได้' },
       { status: 403 }
     );
   }
@@ -63,7 +73,7 @@ export async function PATCH(request: Request) {
   const caller = authorize(request);
   if (!caller) {
     return NextResponse.json(
-      { message: 'เฉพาะ Master Admin หรือ Super Admin ที่ตั้งค่ารางวัลผู้ขายได้' },
+      { message: 'เฉพาะผู้ดูแล Marketplace ที่ตั้งค่ารางวัลผู้ขายได้' },
       { status: 403 }
     );
   }
@@ -79,15 +89,39 @@ export async function PATCH(request: Request) {
   if (new Set(submittedBadgeKeys).size !== BADGE_KEYS.length) {
     return NextResponse.json({ message: 'มีรางวัลซ้ำกันหรือขาดหาย' }, { status: 400 });
   }
+  const submittedPriorities = items.map((item: { priority?: unknown }) => Number(item.priority));
+  if (new Set(submittedPriorities).size !== BADGE_KEYS.length) {
+    return NextResponse.json({ message: 'ลำดับแสดงผลของรางวัลต้องไม่ซ้ำกัน' }, { status: 400 });
+  }
 
   const rows: Array<Record<string, unknown>> = [];
   for (const item of items) {
     const badgeKey = String(item?.badge_key ?? '') as (typeof BADGE_KEYS)[number];
     const evaluationDays = Number(item?.evaluation_days);
+    const labelTh = String(item?.label_th ?? '').trim();
+    const labelEn = String(item?.label_en ?? '').trim();
+    const descriptionTh = String(item?.description_th ?? '').trim();
+    const descriptionEn = String(item?.description_en ?? '').trim();
+    const iconKey = String(item?.icon_key ?? '');
+    const color = String(item?.color ?? '').toUpperCase();
+    const priority = Number(item?.priority);
     const criteria = item?.criteria;
     if (
       !BADGE_KEYS.includes(badgeKey) ||
       typeof item?.is_enabled !== 'boolean' ||
+      !labelTh ||
+      labelTh.length > 60 ||
+      !labelEn ||
+      labelEn.length > 60 ||
+      !descriptionTh ||
+      descriptionTh.length > 240 ||
+      !descriptionEn ||
+      descriptionEn.length > 240 ||
+      !BADGE_ICON_KEYS.has(iconKey) ||
+      !HEX_COLOR_PATTERN.test(color) ||
+      !Number.isInteger(priority) ||
+      priority < 0 ||
+      priority > 10_000 ||
       !Number.isInteger(evaluationDays) ||
       evaluationDays < 1 ||
       evaluationDays > 3650 ||
@@ -95,7 +129,10 @@ export async function PATCH(request: Request) {
       typeof criteria !== 'object' ||
       Array.isArray(criteria)
     ) {
-      return NextResponse.json({ message: `ข้อมูล ${badgeKey || 'Badge'} ไม่ถูกต้อง` }, { status: 400 });
+      return NextResponse.json(
+        { message: `ข้อมูล ${badgeKey || 'Badge'} ไม่ถูกต้อง` },
+        { status: 400 }
+      );
     }
 
     const allowedCriteria = CRITERIA_KEYS[badgeKey];
@@ -109,16 +146,26 @@ export async function PATCH(request: Request) {
         value > maximum ||
         (INTEGER_CRITERIA.has(key) && !Number.isInteger(value))
       ) {
-        return NextResponse.json({ message: `เกณฑ์ ${key} ของ ${badgeKey} ไม่ถูกต้อง` }, { status: 400 });
+        return NextResponse.json(
+          { message: `เกณฑ์ ${key} ของ ${badgeKey} ไม่ถูกต้อง` },
+          { status: 400 }
+        );
       }
       normalizedCriteria[key] = value;
     }
 
     rows.push({
       badge_key: badgeKey,
+      label_th: labelTh,
+      label_en: labelEn,
+      description_th: descriptionTh,
+      description_en: descriptionEn,
+      icon_key: iconKey,
+      color,
       is_enabled: item.is_enabled,
       evaluation_days: evaluationDays,
       criteria: normalizedCriteria,
+      priority,
       updated_by: caller.sub,
       updated_at: new Date().toISOString(),
     });
@@ -141,5 +188,8 @@ export async function PATCH(request: Request) {
     result: 'success',
     metadata: { settings: rows },
   });
-  return NextResponse.json({ success: true });
+  return NextResponse.json({
+    success: true,
+    settings: rows.toSorted((a, b) => Number(a.priority) - Number(b.priority)),
+  });
 }

@@ -74,7 +74,7 @@ async function findSeller(caller: Caller) {
 function sellerLineAccessError(access: SellerLineFeatureAccess) {
   if (!access.allowed) {
     return NextResponse.json(
-      { message: 'Super Admin ยังไม่อนุญาตให้ใช้ LINE แจ้งเตือนร้านค้า' },
+      { message: 'ผู้ดูแล Marketplace ยังไม่อนุญาตให้ใช้ LINE แจ้งเตือนร้านค้า' },
       { status: 403 }
     );
   }

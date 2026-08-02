@@ -16,7 +16,10 @@ const DEAL_SELECT =
 export async function GET(request: Request) {
   const caller = requireRole(request, ['master_admin']);
   if (!caller) {
-    return NextResponse.json({ message: 'เมนูนี้สำหรับ Super Admin เท่านั้น' }, { status: 403 });
+    return NextResponse.json(
+      { message: 'เมนูนี้สำหรับผู้ดูแล Marketplace เท่านั้น' },
+      { status: 403 }
+    );
   }
   const seller = await ownedSellerId(caller.sub);
   if (!seller) return NextResponse.json({ message: 'ไม่พบร้านค้า' }, { status: 404 });
@@ -45,7 +48,10 @@ export async function POST(request: Request) {
   if (csrfError) return csrfError;
   const caller = requireRole(request, ['master_admin']);
   if (!caller) {
-    return NextResponse.json({ message: 'เมนูนี้สำหรับ Super Admin เท่านั้น' }, { status: 403 });
+    return NextResponse.json(
+      { message: 'เมนูนี้สำหรับผู้ดูแล Marketplace  เท่านั้น' },
+      { status: 403 }
+    );
   }
   if (
     !(await isActionAllowed({

@@ -32,7 +32,7 @@ const memberMenuItems = [
   { label: 'สินค้าทั้งหมด', href: '/products', icon: RiSearchLine },
   { label: 'ภาพรวม', href: '/dashboard', icon: RiDashboardLine },
   { label: 'รายการซื้อ', href: '/dashboard/purchases', icon: RiShoppingBag3Line },
-  { label: 'ร้านค้าของฉัน', href: '/dashboard/seller', icon: RiStore2Line },
+  { label: 'ศูนย์ผู้ขาย', href: '/dashboard/seller', icon: RiStore2Line },
 ] as const;
 
 export function MarketplaceAccountMenu() {

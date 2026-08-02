@@ -57,13 +57,27 @@ export async function GET(request: Request) {
   const untilExclusive = new Date(today);
   untilExclusive.setDate(untilExclusive.getDate() + 1);
 
-  const { data, error } = await supabaseAdmin.rpc('marketplace_seller_analytics', {
-    target_seller_id: seller.id,
-    since_at: since.toISOString(),
-    until_at: untilExclusive.toISOString(),
-  });
+  const [analyticsResult, reviewsResult] = await Promise.all([
+    supabaseAdmin.rpc('marketplace_seller_analytics', {
+      target_seller_id: seller.id,
+      since_at: since.toISOString(),
+      until_at: untilExclusive.toISOString(),
+    }),
+    supabaseAdmin
+      .from('marketplace_product_reviews')
+      .select(
+        'id, rating, comment, reviewer_name, created_at, updated_at, product:marketplace_products!inner(id, title, seller_id), reply:marketplace_review_replies(id)'
+      )
+      .eq('product.seller_id', seller.id)
+      .order('updated_at', { ascending: false })
+      .limit(5),
+  ]);
+  const { data, error } = analyticsResult;
   if (error && !['42883', 'PGRST202'].includes(error.code)) {
     return NextResponse.json({ message: error.message }, { status: 500 });
+  }
+  if (reviewsResult.error) {
+    return NextResponse.json({ message: reviewsResult.error.message }, { status: 500 });
   }
 
   return NextResponse.json({
@@ -73,5 +87,6 @@ export async function GET(request: Request) {
     generatedAt: new Date().toISOString(),
     setupRequired: Boolean(error),
     analytics: data ?? emptyAnalytics(),
+    recentReviews: reviewsResult.data ?? [],
   });
 }

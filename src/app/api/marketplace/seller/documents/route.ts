@@ -4,6 +4,8 @@ import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { requireAuthenticated } from 'src/lib/auth-token';
 import { rejectCrossSiteMutation } from 'src/lib/request-security';
 import { optimizeUploadedImage } from 'src/lib/server-image-optimizer';
+import { watermarkPdfDocument } from 'src/lib/server-document-watermark';
+import { SELLER_DOCUMENT_WATERMARK_LINES } from 'src/lib/document-watermark-copy';
 
 const TYPES = new Set([
   'store_logo',
@@ -36,7 +38,7 @@ export async function GET(request: Request) {
 
   const { data: document, error } = await supabaseAdmin
     .from('marketplace_seller_documents')
-    .select('id, seller_id, storage_bucket, storage_path')
+    .select('id, seller_id, storage_bucket, storage_path, file_name, mime_type')
     .eq('id', documentId)
     .maybeSingle();
   if (error || !document) {
@@ -53,20 +55,25 @@ export async function GET(request: Request) {
     return NextResponse.json({ message: 'ไม่มีสิทธิ์ดูเอกสารนี้' }, { status: 403 });
   }
 
-  if (document.storage_bucket === 'marketplace-seller-assets') {
-    const publicUrl = supabaseAdmin.storage
-      .from(document.storage_bucket)
-      .getPublicUrl(document.storage_path).data.publicUrl;
-    return NextResponse.redirect(publicUrl, 307);
+  const { data: file, error: downloadError } = await supabaseAdmin.storage
+    .from(document.storage_bucket)
+    .download(document.storage_path);
+  if (downloadError || !file) {
+    return NextResponse.json(
+      { message: downloadError?.message ?? 'ไม่สามารถโหลดเอกสารได้' },
+      { status: 404 }
+    );
   }
 
-  const { data: signed, error: signedError } = await supabaseAdmin.storage
-    .from(document.storage_bucket)
-    .createSignedUrl(document.storage_path, 60);
-  if (signedError || !signed?.signedUrl) {
-    return NextResponse.json({ message: 'สร้างลิงก์ดูเอกสารไม่สำเร็จ' }, { status: 500 });
-  }
-  return NextResponse.redirect(signed.signedUrl, 307);
+  const encodedFileName = encodeURIComponent(document.file_name || 'document');
+  return new Response(file, {
+    headers: {
+      'Content-Type': document.mime_type || file.type || 'application/octet-stream',
+      'Content-Disposition': `inline; filename="document"; filename*=UTF-8''${encodedFileName}`,
+      'Cache-Control': 'private, no-store',
+      'X-Content-Type-Options': 'nosniff',
+    },
+  });
 }
 
 export async function POST(request: Request) {
@@ -117,17 +124,34 @@ export async function POST(request: Request) {
   }
 
   const bucket = isAsset ? 'marketplace-seller-assets' : 'marketplace-seller-documents';
-  const optimizedImage =
-    file.type === 'application/pdf'
-      ? null
-      : await optimizeUploadedImage(file, {
-          preset: isAsset ? 'content' : 'document',
-          output: isAsset ? 'webp' : 'original',
-        });
-  const uploadData = optimizedImage?.data ?? fileBytes;
-  const storedContentType = optimizedImage?.contentType ?? file.type;
-  const storedSize = optimizedImage?.size ?? file.size;
-  const extension = optimizedImage?.extension ?? 'pdf';
+  const shouldWatermark = !isAsset && !isReceiptSignature;
+
+  let uploadData: Uint8Array | Buffer = fileBytes;
+  let storedContentType = file.type;
+  let storedSize = file.size;
+  let extension = file.type === 'application/pdf' ? 'pdf' : 'jpg';
+  try {
+    if (file.type === 'application/pdf') {
+      if (shouldWatermark) {
+        uploadData = await watermarkPdfDocument(fileBytes, SELLER_DOCUMENT_WATERMARK_LINES);
+      }
+    } else {
+      const optimizedImage = await optimizeUploadedImage(file, {
+        preset: isAsset ? 'content' : 'document',
+        output: isAsset ? 'webp' : 'original',
+        watermarkLines: shouldWatermark ? SELLER_DOCUMENT_WATERMARK_LINES : undefined,
+      });
+      uploadData = optimizedImage.data;
+      storedContentType = optimizedImage.contentType;
+      extension = optimizedImage.extension;
+    }
+    storedSize = uploadData.byteLength;
+  } catch {
+    return NextResponse.json(
+      { message: 'ไม่สามารถประมวลผลและใส่ลายน้ำในเอกสารนี้ได้ กรุณาเลือกไฟล์ใหม่' },
+      { status: 400 }
+    );
+  }
   const path = `${seller.id}/${documentType}-${Date.now()}.${extension}`;
   const { error: uploadError } = await supabaseAdmin.storage
     .from(bucket)
@@ -140,6 +164,7 @@ export async function POST(request: Request) {
     .eq('seller_id', seller.id)
     .eq('document_type', documentType)
     .maybeSingle();
+  const uploadedAt = new Date().toISOString();
   const { data: document, error } = await supabaseAdmin
     .from('marketplace_seller_documents')
     .upsert(
@@ -151,7 +176,8 @@ export async function POST(request: Request) {
         file_name: file.name.slice(0, 255),
         mime_type: storedContentType,
         file_size: storedSize,
-        updated_at: new Date().toISOString(),
+        uploaded_at: uploadedAt,
+        updated_at: uploadedAt,
       },
       { onConflict: 'seller_id,document_type' }
     )

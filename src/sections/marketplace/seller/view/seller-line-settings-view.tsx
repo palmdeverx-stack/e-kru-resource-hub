@@ -164,7 +164,7 @@ export function MarketplaceSellerLineSettingsView() {
         await fetch('/api/marketplace/seller/line-settings?access=1', { cache: 'no-store' })
       )) as AccessResult;
       if (!access.allowed) {
-        throw new Error('Super Admin ยังไม่อนุญาตให้ใช้ LINE แจ้งเตือนร้านค้า');
+        throw new Error('ผู้ดูแล Marketplace ยังไม่อนุญาตให้ใช้ LINE แจ้งเตือนร้านค้า');
       }
       if (!access.entitled) {
         setPurchaseProductId(access.purchaseProductId);

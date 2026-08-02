@@ -13,8 +13,10 @@ import Stack from '@mui/material/Stack';
 import Avatar from '@mui/material/Avatar';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
+import Tooltip from '@mui/material/Tooltip';
 import Container from '@mui/material/Container';
 import { useTheme } from '@mui/material/styles';
+import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import LinearProgress from '@mui/material/LinearProgress';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -27,6 +29,7 @@ import {
   RiEditLine,
   RiBankLine,
   RiUser3Line,
+  RiEyeOffLine,
   RiStore2Line,
   RiFileTextLine,
   RiShieldStarFill,
@@ -73,11 +76,32 @@ const VERIFICATION_DOCUMENT_TYPES = new Set([
   'vat_certificate',
 ]);
 
+function maskFinancialIdentifier(value: string) {
+  const compactValue = value.replace(/\s+/g, '');
+  if (compactValue.length <= 4) return 'xxx';
+
+  const hiddenGroups = Math.max(1, Math.ceil((compactValue.length - 4) / 3));
+  return `${Array.from({ length: hiddenGroups }, () => 'xxx').join('-')}-${compactValue.slice(-4)}`;
+}
+
+function formatDocumentUploadDate(value: string) {
+  const uploadedAt = new Date(value);
+  if (Number.isNaN(uploadedAt.getTime())) return 'ไม่พบวันที่อัปโหลด';
+
+  return `อัปโหลด ${uploadedAt.toLocaleDateString('th-TH', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'Asia/Bangkok',
+  })}`;
+}
+
 export function MarketplaceSellerProfileView() {
   const theme = useTheme();
   const [seller, setSeller] = useState<MarketplaceSeller | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showPayoutDetails, setShowPayoutDetails] = useState(false);
   const [previewFile, setPreviewFile] = useState<DocumentPreviewFile | null>(null);
 
   useEffect(() => {
@@ -372,17 +396,32 @@ export function MarketplaceSellerProfileView() {
               description="บัญชีที่ระบบใช้โอนรายได้จากการขายสินค้า"
               icon={<RiBankLine />}
               action={
-                seller.payout_account?.is_verified ? (
-                  <Chip
-                    size="small"
-                    color="success"
-                    variant="soft"
-                    icon={<RiCheckboxCircleLine />}
-                    label="ยืนยันแล้ว"
-                  />
-                ) : (
-                  <Chip size="small" color="warning" variant="soft" label="รอตรวจสอบ" />
-                )
+                <Stack direction="row" spacing={0.5} alignItems="center">
+                  {seller.payout_account?.is_verified ? (
+                    <Chip
+                      size="small"
+                      color="success"
+                      variant="soft"
+                      icon={<RiCheckboxCircleLine />}
+                      label="ยืนยันแล้ว"
+                    />
+                  ) : (
+                    <Chip size="small" color="warning" variant="soft" label="รอตรวจสอบ" />
+                  )}
+                  {seller.payout_account && (
+                    <Tooltip title={showPayoutDetails ? 'ซ่อนข้อมูลบัญชี' : 'แสดงข้อมูลบัญชี'}>
+                      <IconButton
+                        size="small"
+                        color="primary"
+                        aria-pressed={showPayoutDetails}
+                        aria-label={showPayoutDetails ? 'ซ่อนข้อมูลบัญชี' : 'แสดงข้อมูลบัญชี'}
+                        onClick={() => setShowPayoutDetails((current) => !current)}
+                      >
+                        {showPayoutDetails ? <RiEyeOffLine /> : <RiEyeLine />}
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                </Stack>
               }
             >
               {seller.payout_account ? (
@@ -426,7 +465,11 @@ export function MarketplaceSellerProfileView() {
                           size="small"
                           variant="soft"
                           color="primary"
-                          label={`PromptPay ${seller.payout_account.promptpay_id}`}
+                          label={`PromptPay ${
+                            showPayoutDetails
+                              ? seller.payout_account.promptpay_id
+                              : maskFinancialIdentifier(seller.payout_account.promptpay_id)
+                          }`}
                           sx={{ alignSelf: { xs: 'flex-start', sm: 'center' } }}
                         />
                       )}
@@ -456,7 +499,9 @@ export function MarketplaceSellerProfileView() {
                           เลขบัญชี
                         </Typography>
                         <Typography variant="subtitle1" sx={{ letterSpacing: 0.6 }}>
-                          {seller.payout_account.account_number}
+                          {showPayoutDetails
+                            ? seller.payout_account.account_number
+                            : maskFinancialIdentifier(seller.payout_account.account_number)}
                         </Typography>
                       </Box>
                     </Box>
@@ -519,10 +564,10 @@ export function MarketplaceSellerProfileView() {
                                 noWrap
                                 variant="caption"
                                 color="text.secondary"
-                                title={document.file_name}
+                                title={formatDocumentUploadDate(document.uploaded_at)}
                                 sx={{ display: 'block' }}
                               >
-                                {document.file_name}
+                                {formatDocumentUploadDate(document.uploaded_at)}
                               </Typography>
                             </Box>
                             <Chip

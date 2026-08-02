@@ -151,7 +151,13 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
     } else {
       setPaymentMethod('');
     }
-  }, [availableMethods.promptpay, hasRecurringLicense, isFree, paymentMethodsLoading, stripeAvailable]);
+  }, [
+    availableMethods.promptpay,
+    hasRecurringLicense,
+    isFree,
+    paymentMethodsLoading,
+    stripeAvailable,
+  ]);
 
   useEffect(() => {
     if (!authenticated || !hasSchoolLicense || salesDealToken) return;
@@ -337,8 +343,8 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
                                     : item.product.license_billing_cycle === 'contract'
                                       ? `ตามสัญญา ${durationDays} วัน`
                                       : durationDays == null
-                                  ? 'ซื้อขาด · ไม่มีวันหมดอายุ'
-                                  : `ใช้งาน ${durationDays} วัน`
+                                        ? 'ซื้อขาด · ไม่มีวันหมดอายุ'
+                                        : `ใช้งาน ${durationDays} วัน`
                               }
                             />
                           )}
@@ -406,7 +412,7 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
                       : user?.role === 'marketplace_user'
                         ? 'ชำระเงินต่อได้ ระบบจะส่งลิงก์สร้างโรงเรียนไปยังอีเมลของบัญชีนี้ และเริ่มนับอายุ License หลังสร้างโรงเรียนสำเร็จ'
                         : user?.role === 'school_admin'
-                          ? 'บัญชีผู้ดูแลนี้ยังไม่ได้เชื่อมกับโรงเรียน กรุณาติดต่อ Super Admin'
+                          ? 'บัญชีผู้ดูแลนี้ยังไม่ได้เชื่อมกับโรงเรียน กรุณาติดต่อผู้ดูแล Marketplace'
                           : 'License โรงเรียนต้องซื้อด้วยบัญชีผู้ดูแลโรงเรียน กรุณาเข้าสู่ระบบด้วยบัญชีที่มีสิทธิ์'}
                   </Typography>
                   {user?.role === 'master_admin' && (
@@ -464,7 +470,8 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
               </Stack>
               {hasRecurringLicense && (
                 <Alert severity="info" sx={{ mt: 2 }}>
-                  ระบบจะผูกบัตรกับ Stripe และตัดเงินอัตโนมัติตามรอบ คุณสามารถยกเลิกการต่ออายุได้ภายหลัง
+                  ระบบจะผูกบัตรกับ Stripe และตัดเงินอัตโนมัติตามรอบ
+                  คุณสามารถยกเลิกการต่ออายุได้ภายหลัง
                 </Alert>
               )}
             </Card>

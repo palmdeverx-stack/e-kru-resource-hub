@@ -87,7 +87,7 @@ export function MarketplaceCategoryManagementView() {
   if (user?.role !== 'master_admin') {
     return (
       <Box sx={{ p: 4 }}>
-        <Alert severity="error">เมนูหมวดหมู่สำหรับ Super Admin เท่านั้น</Alert>
+        <Alert severity="error">เมนูหมวดหมู่สำหรับผู้ดูแล Marketplaceเท่านั้น</Alert>
       </Box>
     );
   }

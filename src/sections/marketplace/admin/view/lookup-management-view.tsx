@@ -25,12 +25,7 @@ import DialogContent from '@mui/material/DialogContent';
 import TableContainer from '@mui/material/TableContainer';
 import CircularProgress from '@mui/material/CircularProgress';
 
-import {
-  RiAddLine,
-  RiEditLine,
-  RiDeleteBinLine,
-  RiSettings3Line,
-} from 'src/components/remix-icon';
+import { RiAddLine, RiEditLine, RiDeleteBinLine, RiSettings3Line } from 'src/components/remix-icon';
 
 import { useAuthContext } from 'src/auth/hooks';
 
@@ -116,7 +111,7 @@ export function MarketplaceLookupManagementView({
   if (user?.role !== 'master_admin') {
     return (
       <Box sx={{ p: 4 }}>
-        <Alert severity="error">เมนูนี้สำหรับ Super Admin เท่านั้น</Alert>
+        <Alert severity="error">เมนูนี้สำหรับผู้ดูแล Marketplace เท่านั้น</Alert>
       </Box>
     );
   }
@@ -294,17 +289,13 @@ export function MarketplaceLookupManagementView({
               label="รหัส"
               placeholder="ใช้ตัวอักษรอังกฤษ เช่น digital"
               value={form.code}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, code: event.target.value }))
-              }
+              onChange={(event) => setForm((current) => ({ ...current, code: event.target.value }))}
             />
             <TextField
               required
               label="ชื่อ"
               value={form.name}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, name: event.target.value }))
-              }
+              onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
             />
             {behaviorKey && (
               <TextField
@@ -344,9 +335,7 @@ export function MarketplaceLookupManagementView({
               <Typography variant="subtitle2">เปิดใช้งาน</Typography>
               <Switch
                 checked={form.isActive}
-                onChange={(_, checked) =>
-                  setForm((current) => ({ ...current, isActive: checked }))
-                }
+                onChange={(_, checked) => setForm((current) => ({ ...current, isActive: checked }))}
               />
             </Stack>
           </Stack>

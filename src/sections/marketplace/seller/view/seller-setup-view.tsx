@@ -24,6 +24,7 @@ import RadioGroup from '@mui/material/RadioGroup';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
+import InputAdornment from '@mui/material/InputAdornment';
 import LinearProgress from '@mui/material/LinearProgress';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -31,6 +32,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import { useRouter, useSearchParams } from 'src/routes/hooks';
 
 import { Editor } from 'src/components/editor';
+import { toast } from 'src/components/snackbar';
 import { editorClasses } from 'src/components/editor/classes';
 import {
   RiEyeLine,
@@ -39,6 +41,7 @@ import {
   RiCloseLine,
   RiImageLine,
   RiUser3Line,
+  RiEyeOffLine,
   RiStore2Line,
   RiArrowLeftLine,
   RiArrowRightLine,
@@ -164,6 +167,8 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
   const [uploading, setUploading] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [showAccountNumber, setShowAccountNumber] = useState(false);
+  const [showPromptPayId, setShowPromptPayId] = useState(false);
   const [openAgreement, setOpenAgreement] = useState<Agreement | null>(null);
   const [agreementRead, setAgreementRead] = useState(initialAgreementRead);
   const [legalDocuments, setLegalDocuments] = useState<MarketplaceLegalDocument[]>([]);
@@ -249,14 +254,18 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
   const update = (name: keyof typeof form, value: string | boolean) =>
     setForm((current) => ({ ...current, [name]: value }));
 
-  const save = async (action: 'save_draft' | 'submit', step = activeStep + 1) => {
+  const save = async (
+    action: 'save_draft' | 'submit',
+    step = activeStep + 1,
+    showSuccessMessage = true
+  ) => {
     setSaving(true);
     setError('');
     setMessage('');
     try {
       const result = await saveSeller({ ...form, action, wizardStep: step });
       setSeller(result.seller);
-      setMessage(result.message);
+      if (showSuccessMessage) setMessage(result.message);
       if (mode === 'edit') router.refresh();
       return result.seller;
     } catch (saveError) {
@@ -276,10 +285,11 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
   const upload = async (documentType: string, file?: File) => {
     if (!file) return false;
     let current = seller;
-    if (!current) current = await save('save_draft', activeStep + 1);
+    if (!current) current = await save('save_draft', activeStep + 1, false);
     if (!current) return false;
     setUploading(documentType);
     setError('');
+    setMessage('');
     try {
       const data = new FormData();
       data.set('documentType', documentType);
@@ -305,6 +315,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
             }
           : value
       );
+      toast.success('อัปโหลดไฟล์เรียบร้อยแล้ว');
       return true;
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : 'อัปโหลดไม่สำเร็จ');
@@ -709,7 +720,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                   label="Slug URL"
                   value={form.slug}
                   onChange={(e) => update('slug', slugify(e.target.value))}
-                  helperText={`e-kru.com/store/${form.slug || 'your-store'}`}
+                  helperText={`https://e-kru-marketplace.com/store/${form.slug || 'your-store'}`}
                 />
                 <TextField
                   multiline
@@ -878,14 +889,48 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                 />
                 <TextField
                   required
+                  type={showAccountNumber ? 'text' : 'password'}
                   label="เลขบัญชี"
                   value={form.accountNumber}
-                  onChange={(e) => update('accountNumber', e.target.value)}
+                  onChange={(e) => update('accountNumber', e.target.value.replace(/\D/g, ''))}
+                  slotProps={{
+                    input: {
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            edge="end"
+                            aria-label={showAccountNumber ? 'ซ่อนเลขบัญชี' : 'แสดงเลขบัญชี'}
+                            onClick={() => setShowAccountNumber((current) => !current)}
+                          >
+                            {showAccountNumber ? <RiEyeOffLine /> : <RiEyeLine />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    },
+                    htmlInput: { inputMode: 'numeric', autoComplete: 'off' },
+                  }}
                 />
                 <TextField
+                  type={showPromptPayId ? 'text' : 'password'}
                   label="PromptPay (ถ้ามี)"
                   value={form.promptpayId}
-                  onChange={(e) => update('promptpayId', e.target.value)}
+                  onChange={(e) => update('promptpayId', e.target.value.replace(/\D/g, ''))}
+                  slotProps={{
+                    input: {
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            edge="end"
+                            aria-label={showPromptPayId ? 'ซ่อน PromptPay' : 'แสดง PromptPay'}
+                            onClick={() => setShowPromptPayId((current) => !current)}
+                          >
+                            {showPromptPayId ? <RiEyeOffLine /> : <RiEyeLine />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    },
+                    htmlInput: { inputMode: 'numeric', autoComplete: 'off' },
+                  }}
                 />
 
                 <Alert severity="info">
@@ -921,7 +966,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
         {activeStep === 3 && (
           <Stack spacing={2.5}>
             <Alert severity="info">
-              เอกสารเก็บแบบ private และเปิดให้เฉพาะผู้ขายกับ Super Admin
+              ข้อมูลนี้เป็นความลับ และเปิดให้เฉพาะผู้ขายและผู้ดูแลระบบ Marketplace เท่านั้น
             </Alert>
             <Box
               sx={{
@@ -933,7 +978,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
             >
               <UploadField
                 required
-                label="บัตรประชาชน"
+                label="บัตรประชาชน หรือสำเนาบัตรประชาชน"
                 done={hasDocument('identity_card')}
                 document={getDocument('identity_card')}
                 loading={uploading === 'identity_card'}
@@ -971,10 +1016,10 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
         )}
         {activeStep === 4 && (
           <Stack spacing={2}>
-            <Alert severity="info">
+            {/* <Alert severity="info">
               ข้อตกลงและนโยบายฉบับล่าสุดที่ระบบเผยแพร่
               เปิดอ่านและเลื่อนจนถึงด้านล่างจึงจะสามารถเลือกยอมรับได้
-            </Alert>
+            </Alert> */}
             {!!missingAgreementTypes.length && (
               <Alert severity="error">
                 ยังไม่มีเอกสารนโยบายฉบับเผยแพร่ครบถ้วน กรุณาให้ผู้ดูแลเผยแพร่เอกสารฉบับสมบูรณ์
@@ -1037,7 +1082,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
             <Alert severity="warning">
               {mode === 'edit'
                 ? 'ตรวจสอบข้อมูลให้ถูกต้องก่อนส่ง ข้อมูลเดิมจะยังแสดงบนหน้าร้านจนกว่าผู้ดูแลจะอนุมัติข้อมูลใหม่'
-                : 'ตรวจสอบข้อมูลและเอกสารให้ถูกต้องก่อนส่ง หลังส่งสถานะจะเป็น Pending Review'}
+                : 'ตรวจสอบข้อมูลและเอกสารให้ถูกต้องก่อนส่ง หลังส่งสถานะจะเป็นกำลังตรวจสอบ'}
             </Alert>
           </Stack>
         )}
@@ -1174,13 +1219,6 @@ function AgreementReadDialog({
               ไม่พบเอกสารฉบับเผยแพร่ กรุณาให้ผู้ดูแลเผยแพร่เอกสารฉบับสมบูรณ์
             </Alert>
           )}
-          <Stack spacing={3}>
-            <Alert severity={reachedEnd ? 'success' : 'info'}>
-              {reachedEnd
-                ? 'คุณอ่านถึงท้ายเอกสารแล้ว กดยืนยันการอ่านเพื่อปลดล็อก Checkbox'
-                : 'เลื่อนอ่านเนื้อหาให้ถึงด้านล่างเพื่อปลดล็อกปุ่มยืนยัน'}
-            </Alert>
-          </Stack>
         </Box>
       </DialogContent>
       <DialogActions>
@@ -1300,7 +1338,7 @@ function UploadField({
             <Stack direction="row" spacing={0.75} alignItems="center">
               <Typography variant="subtitle2">
                 {label}
-                {required ? ' *' : ''}
+                {required ? <span style={{ color: 'red' }}> *</span> : ''}
               </Typography>
               {done && !pendingFile && (
                 <Chip size="small" color="success" variant="soft" label="อัปโหลดแล้ว" />

@@ -16,6 +16,7 @@ import Stack from '@mui/material/Stack';
 import Dialog from '@mui/material/Dialog';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
+import Skeleton from '@mui/material/Skeleton';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import Container from '@mui/material/Container';
@@ -37,6 +38,7 @@ import { RouterLink } from 'src/routes/components';
 import {
   RiAddLine,
   RiEyeLine,
+  RiStarFill,
   RiEditLine,
   RiTimeLine,
   RiMore2Line,
@@ -44,15 +46,19 @@ import {
   RiEyeOffLine,
   RiSearchLine,
   RiStore2Line,
+  RiWallet3Line,
   RiBookOpenLine,
   RiDeleteBinLine,
   RiFileList3Line,
+  RiArrowRightLine,
   RiLayoutGridLine,
   RiShieldStarLine,
   RiShieldStarFill,
+  RiShoppingBag3Line,
   RiErrorWarningLine,
   RiVerifiedBadgeFill,
   RiCheckboxCircleLine,
+  RiMoneyDollarCircleLine,
 } from 'src/components/remix-icon';
 
 import { useAuthContext } from 'src/auth/hooks';
@@ -74,6 +80,49 @@ import {
 type ProductFilter = 'all' | MarketplaceProduct['status'];
 type ProductView = 'list' | 'grid';
 type ProductCounts = Record<ProductFilter, number>;
+
+type DashboardProductStat = {
+  product_id: string;
+  title: string;
+  orders: number;
+  units_sold: number;
+  gross_sales: number;
+  net_revenue: number;
+};
+
+type DashboardReview = {
+  id: string;
+  rating: number;
+  comment: string | null;
+  reviewer_name: string;
+  updated_at: string;
+  product: { id: string; title: string } | Array<{ id: string; title: string }>;
+  reply: { id: string } | Array<{ id: string }> | null;
+};
+
+type DashboardAnalytics = {
+  analytics: {
+    summary: {
+      orders: number;
+      grossSales: number;
+      netRevenue: number;
+      unitsSold: number;
+    };
+    products: DashboardProductStat[];
+  };
+  recentReviews: DashboardReview[];
+};
+
+type DashboardFinance = {
+  balance: {
+    todayIncome: number;
+    monthIncome: number;
+    available: number;
+    pending: number;
+    processing: number;
+  };
+  schedule: { nextPayoutAt: string };
+};
 
 const PAGE_SIZE = 8;
 const EMPTY_PRODUCT_COUNTS: ProductCounts = {
@@ -106,6 +155,10 @@ export function MarketplaceSellerDashboardView() {
   const [productTotal, setProductTotal] = useState(0);
   const [productPageCount, setProductPageCount] = useState(0);
   const [productCounts, setProductCounts] = useState<ProductCounts>(EMPTY_PRODUCT_COUNTS);
+  const [analytics, setAnalytics] = useState<DashboardAnalytics | null>(null);
+  const [finance, setFinance] = useState<DashboardFinance | null>(null);
+  const [overviewLoading, setOverviewLoading] = useState(false);
+  const [overviewError, setOverviewError] = useState('');
   const productRequestRef = useRef(0);
 
   useEffect(() => {
@@ -157,6 +210,42 @@ export function MarketplaceSellerDashboardView() {
   useEffect(() => {
     void loadProducts();
   }, [loadProducts]);
+
+  useEffect(() => {
+    if (!seller || (!isSystemStore && seller.status !== 'active')) return undefined;
+
+    let active = true;
+    setOverviewLoading(true);
+    setOverviewError('');
+    Promise.all([
+      fetch('/api/marketplace/seller/analytics?days=30', { cache: 'no-store' }),
+      fetch('/api/marketplace/seller/finance', { cache: 'no-store' }),
+    ])
+      .then(async ([analyticsResponse, financeResponse]) => {
+        const [analyticsResult, financeResult] = await Promise.all([
+          analyticsResponse.json(),
+          financeResponse.json(),
+        ]);
+        if (!analyticsResponse.ok) throw new Error(analyticsResult.message);
+        if (!financeResponse.ok) throw new Error(financeResult.message);
+        if (!active) return;
+        setAnalytics(analyticsResult);
+        setFinance(financeResult);
+      })
+      .catch((loadError) => {
+        if (!active) return;
+        setOverviewError(
+          loadError instanceof Error ? loadError.message : 'ไม่สามารถโหลดภาพรวมร้านค้าได้'
+        );
+      })
+      .finally(() => {
+        if (active) setOverviewLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [isSystemStore, seller]);
 
   const confirmDelete = async () => {
     if (!deleting) return;
@@ -317,6 +406,14 @@ export function MarketplaceSellerDashboardView() {
             </Stack>
           </Stack>
 
+          <SellerBusinessOverview
+            analytics={analytics}
+            finance={finance}
+            loading={overviewLoading}
+            error={overviewError}
+            productCounts={productCounts}
+          />
+
           <Grid container spacing={2}>
             <Grid size={{ xs: 6, md: 3 }}>
               <ProductMetricCard
@@ -352,7 +449,7 @@ export function MarketplaceSellerDashboardView() {
             </Grid>
           </Grid>
 
-          <Card variant="outlined" sx={{ overflow: 'hidden' }}>
+          <Card id="seller-products" variant="outlined" sx={{ overflow: 'hidden' }}>
             <Stack
               direction={{ xs: 'column', md: 'row' }}
               alignItems={{ md: 'center' }}
@@ -363,7 +460,7 @@ export function MarketplaceSellerDashboardView() {
               <Box>
                 <Typography variant="h4">สินค้าของฉัน</Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                  ค้นหา แก้ไข และติดตามสถานะสินค้าที่ส่งเข้า Marketplace
+                  ค้นหา แก้ไข และติดตามสถานะสินค้าที่ส่งเข้าแพลตฟอร์มซื้อขาย
                 </Typography>
               </Box>
               <Stack
@@ -771,6 +868,338 @@ export function MarketplaceSellerDashboardView() {
         </DialogActions>
       </Dialog>
     </Container>
+  );
+}
+
+function SellerBusinessOverview({
+  analytics,
+  finance,
+  loading,
+  error,
+  productCounts,
+}: {
+  analytics: DashboardAnalytics | null;
+  finance: DashboardFinance | null;
+  loading: boolean;
+  error: string;
+  productCounts: ProductCounts;
+}) {
+  const summary = analytics?.analytics.summary;
+  const topProducts = analytics?.analytics.products.slice(0, 3) ?? [];
+  const reviews = analytics?.recentReviews?.slice(0, 3) ?? [];
+  const pendingPayout = Number(finance?.balance.pending ?? 0) + Number(finance?.balance.processing ?? 0);
+  const nextPayoutAt = finance?.schedule.nextPayoutAt
+    ? new Date(finance.schedule.nextPayoutAt).toLocaleDateString('th-TH', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        timeZone: 'Asia/Bangkok',
+      })
+    : '-';
+  const metrics = [
+    {
+      label: 'ยอดขาย 30 วัน',
+      value: formatPrice(Number(summary?.grossSales ?? 0)),
+      detail: `${Number(summary?.unitsSold ?? 0).toLocaleString('th-TH')} สิทธิ์ที่ขายได้`,
+      icon: <RiMoneyDollarCircleLine size={24} />,
+      color: 'success' as const,
+    },
+    {
+      label: 'ออเดอร์สำเร็จ',
+      value: Number(summary?.orders ?? 0).toLocaleString('th-TH'),
+      detail: 'ในช่วง 30 วันที่ผ่านมา',
+      icon: <RiShoppingBag3Line size={24} />,
+      color: 'info' as const,
+    },
+    {
+      label: 'รายได้เดือนนี้',
+      value: formatPrice(Number(finance?.balance.monthIncome ?? 0)),
+      detail: `วันนี้ ${formatPrice(Number(finance?.balance.todayIncome ?? 0))}`,
+      icon: <RiFileList3Line size={24} />,
+      color: 'primary' as const,
+    },
+    {
+      label: 'ยอดพร้อมจ่าย',
+      value: formatPrice(Number(finance?.balance.available ?? 0)),
+      detail: `รอบถัดไป ${nextPayoutAt}`,
+      icon: <RiWallet3Line size={24} />,
+      color: 'warning' as const,
+    },
+  ];
+
+  return (
+    <Stack spacing={2.5}>
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        justifyContent="space-between"
+        alignItems={{ sm: 'center' }}
+        spacing={1}
+      >
+        <Box>
+          <Typography variant="h4">ภาพรวมธุรกิจ</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            ยอดขาย รายได้ และสิ่งที่ต้องจัดการล่าสุดของร้าน
+          </Typography>
+        </Box>
+        <Stack direction="row" spacing={1}>
+          <Button
+            component={RouterLink}
+            href={paths.marketplace.sellerAnalytics}
+            size="small"
+            endIcon={<RiArrowRightLine />}
+          >
+            ดูสถิติ
+          </Button>
+          <Button
+            component={RouterLink}
+            href={paths.marketplace.sellerFinance}
+            size="small"
+            variant="outlined"
+          >
+            ดูการเงิน
+          </Button>
+        </Stack>
+      </Stack>
+
+      {!!error && <Alert severity="warning">โหลดภาพรวมบางส่วนไม่สำเร็จ: {error}</Alert>}
+
+      <Grid container spacing={2}>
+        {metrics.map((metric) => (
+          <Grid key={metric.label} size={{ xs: 12, sm: 6, lg: 3 }}>
+            <DashboardMetricCard {...metric} loading={loading} />
+          </Grid>
+        ))}
+      </Grid>
+
+      <Grid container spacing={2}>
+        <Grid size={{ xs: 12, lg: 5 }}>
+          <Card variant="outlined" sx={{ p: { xs: 2.25, md: 2.75 }, height: 1 }}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center">
+              <Box>
+                <Typography variant="h6">สินค้าขายดี</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  เรียงจากยอดขายในช่วง 30 วัน
+                </Typography>
+              </Box>
+              <Button
+                component={RouterLink}
+                href={paths.marketplace.sellerAnalytics}
+                size="small"
+              >
+                ดูทั้งหมด
+              </Button>
+            </Stack>
+            <Stack spacing={1.25} sx={{ mt: 2 }}>
+              {loading ? (
+                Array.from({ length: 3 }).map((_, index) => (
+                  <Skeleton key={index} variant="rounded" height={56} />
+                ))
+              ) : topProducts.length ? (
+                topProducts.map((product, index) => (
+                  <Stack
+                    key={product.product_id}
+                    direction="row"
+                    spacing={1.5}
+                    alignItems="center"
+                    sx={{ p: 1.25, borderRadius: 2, bgcolor: 'background.neutral' }}
+                  >
+                    <Box
+                      sx={{
+                        width: 30,
+                        height: 30,
+                        flexShrink: 0,
+                        display: 'grid',
+                        placeItems: 'center',
+                        borderRadius: 1.5,
+                        fontWeight: 800,
+                        color: 'primary.main',
+                        bgcolor: 'primary.lighter',
+                      }}
+                    >
+                      {index + 1}
+                    </Box>
+                    <Box sx={{ minWidth: 0, flexGrow: 1 }}>
+                      <Typography variant="subtitle2" noWrap>
+                        {product.title}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {Number(product.orders).toLocaleString('th-TH')} ออเดอร์ ·{' '}
+                        {Number(product.units_sold).toLocaleString('th-TH')} สิทธิ์
+                      </Typography>
+                    </Box>
+                    <Typography variant="subtitle2" color="success.main" sx={{ flexShrink: 0 }}>
+                      {formatPrice(Number(product.gross_sales))}
+                    </Typography>
+                  </Stack>
+                ))
+              ) : (
+                <Typography variant="body2" color="text.secondary" sx={{ py: 3, textAlign: 'center' }}>
+                  ยังไม่มียอดขายในช่วง 30 วัน
+                </Typography>
+              )}
+            </Stack>
+          </Card>
+        </Grid>
+
+        <Grid size={{ xs: 12, md: 7, lg: 4 }}>
+          <Card variant="outlined" sx={{ p: { xs: 2.25, md: 2.75 }, height: 1 }}>
+            <Typography variant="h6">รีวิวล่าสุด</Typography>
+            <Typography variant="caption" color="text.secondary">
+              เสียงตอบรับล่าสุดจากผู้ซื้อ
+            </Typography>
+            <Stack spacing={1.5} sx={{ mt: 2 }}>
+              {loading ? (
+                Array.from({ length: 3 }).map((_, index) => (
+                  <Skeleton key={index} variant="rounded" height={64} />
+                ))
+              ) : reviews.length ? (
+                reviews.map((review) => {
+                  const product = Array.isArray(review.product) ? review.product[0] : review.product;
+                  const hasReply = Array.isArray(review.reply)
+                    ? review.reply.length > 0
+                    : Boolean(review.reply);
+                  return (
+                    <Box key={review.id} sx={{ pb: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
+                      <Stack direction="row" justifyContent="space-between" spacing={1}>
+                        <Typography variant="subtitle2" noWrap sx={{ minWidth: 0 }}>
+                          {product?.title ?? 'สินค้า'}
+                        </Typography>
+                        <Stack direction="row" spacing={0.25} sx={{ flexShrink: 0 }}>
+                          {Array.from({ length: 5 }).map((_, index) => (
+                            <RiStarFill
+                              key={index}
+                              size={14}
+                              color={index < review.rating ? '#FFAB00' : '#DFE3E8'}
+                            />
+                          ))}
+                        </Stack>
+                      </Stack>
+                      <Typography variant="body2" color="text.secondary" noWrap sx={{ mt: 0.5 }}>
+                        {review.comment || 'ให้คะแนนโดยไม่มีข้อความ'}
+                      </Typography>
+                      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 0.5 }}>
+                        <Typography variant="caption" color="text.secondary">
+                          {review.reviewer_name}
+                        </Typography>
+                        {product && (
+                          <Button
+                            component={RouterLink}
+                            href={paths.marketplace.product(product.id)}
+                            size="small"
+                            color={hasReply ? 'inherit' : 'primary'}
+                            sx={{ minWidth: 0, p: 0.25 }}
+                          >
+                            {hasReply ? 'ตอบแล้ว' : 'ดูและตอบกลับ'}
+                          </Button>
+                        )}
+                      </Stack>
+                    </Box>
+                  );
+                })
+              ) : (
+                <Typography variant="body2" color="text.secondary" sx={{ py: 3, textAlign: 'center' }}>
+                  ยังไม่มีรีวิวจากผู้ซื้อ
+                </Typography>
+              )}
+            </Stack>
+          </Card>
+        </Grid>
+
+        <Grid size={{ xs: 12, md: 5, lg: 3 }}>
+          <Card variant="outlined" sx={{ p: { xs: 2.25, md: 2.75 }, height: 1 }}>
+            <Typography variant="h6">สิ่งที่ต้องจัดการ</Typography>
+            <Typography variant="caption" color="text.secondary">
+              รายการที่อาจกระทบการขาย
+            </Typography>
+            <Stack spacing={1.25} sx={{ mt: 2 }}>
+              <TaskRow label="สินค้าไม่ผ่าน" value={productCounts.rejected} color="error" />
+              <TaskRow label="ฉบับร่างที่ยังไม่เสร็จ" value={productCounts.draft} color="warning" />
+              <TaskRow label="กำลังรอตรวจ" value={productCounts.pending_review} color="info" />
+              <Divider />
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  ยอดกำลังรอรับ
+                </Typography>
+                <Typography variant="h5" sx={{ mt: 0.25 }}>
+                  {loading ? <Skeleton width={100} /> : formatPrice(pendingPayout)}
+                </Typography>
+              </Box>
+              <Button component="a" href="#seller-products" variant="outlined" fullWidth>
+                จัดการสินค้า
+              </Button>
+            </Stack>
+          </Card>
+        </Grid>
+      </Grid>
+    </Stack>
+  );
+}
+
+function DashboardMetricCard({
+  label,
+  value,
+  detail,
+  icon,
+  color,
+  loading,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+  icon: React.ReactNode;
+  color: 'primary' | 'success' | 'warning' | 'info';
+  loading: boolean;
+}) {
+  return (
+    <Card variant="outlined" sx={{ p: 2.5, height: 1 }}>
+      <Stack direction="row" spacing={1.75} alignItems="center">
+        <Box
+          sx={{
+            width: 48,
+            height: 48,
+            flexShrink: 0,
+            display: 'grid',
+            placeItems: 'center',
+            borderRadius: 2,
+            color: `${color}.main`,
+            bgcolor: `${color}.lighter`,
+          }}
+        >
+          {icon}
+        </Box>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography variant="body2" color="text.secondary">
+            {label}
+          </Typography>
+          {loading ? <Skeleton width={110} height={34} /> : <Typography variant="h4">{value}</Typography>}
+          <Typography variant="caption" color="text.secondary" noWrap>
+            {detail}
+          </Typography>
+        </Box>
+      </Stack>
+    </Card>
+  );
+}
+
+function TaskRow({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: number;
+  color: 'error' | 'warning' | 'info';
+}) {
+  return (
+    <Stack
+      direction="row"
+      justifyContent="space-between"
+      alignItems="center"
+      sx={{ p: 1.25, borderRadius: 2, bgcolor: `${color}.lighter` }}
+    >
+      <Typography variant="body2">{label}</Typography>
+      <Chip size="small" color={color} label={value.toLocaleString('th-TH')} />
+    </Stack>
   );
 }
 

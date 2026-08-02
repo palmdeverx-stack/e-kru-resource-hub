@@ -368,7 +368,7 @@ export function MarketplacePlatformSettingsView() {
   if (user?.role !== 'master_admin' && user?.role !== 'marketplace_admin') {
     return (
       <Box sx={{ p: 4 }}>
-        <Alert severity="error">เมนูนี้สำหรับ Super Admin เท่านั้น</Alert>
+        <Alert severity="error">เมนูนี้สำหรับผู้ดูแล Marketplaceเท่านั้น</Alert>
       </Box>
     );
   }
