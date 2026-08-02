@@ -22,6 +22,7 @@ import {
   RiKey2Line,
   RiHome5Line,
   RiFlowChart,
+  RiTruckLine,
   RiRocketLine,
   RiSchoolLine,
   RiIdCardLine,
@@ -128,6 +129,11 @@ const memberNavData: NavSectionProps['data'] = [
         path: '/dashboard/seller/finance',
         icon: <RiWallet3Line />,
       },
+      {
+        title: 'การจัดส่ง',
+        path: '/dashboard/seller/shipping',
+        icon: <RiTruckLine />,
+      },
     ],
   },
 ];
@@ -196,6 +202,11 @@ const adminNavData: NavSectionProps['data'] = [
         path: '/dashboard/settings/finance',
         icon: <RiSecurePaymentLine />,
       },
+      {
+        title: 'ตั้งค่าการจัดส่ง',
+        path: '/dashboard/settings/shipping',
+        icon: <RiTruckLine />,
+      },
     ],
   },
   {
@@ -238,6 +249,11 @@ const adminNavData: NavSectionProps['data'] = [
         title: 'การเงินและรับเงิน',
         path: '/dashboard/seller/finance',
         icon: <RiWallet3Line />,
+      },
+      {
+        title: 'การจัดส่ง',
+        path: '/dashboard/seller/shipping',
+        icon: <RiTruckLine />,
       },
       {
         title: 'ข้อเสนอสำหรับโรงเรียน',
@@ -364,8 +380,10 @@ const MARKETPLACE_ADMIN_NAV_PATHS = new Set([
   '/dashboard/seller/profile',
   '/dashboard/seller/analytics',
   '/dashboard/seller/finance',
+  '/dashboard/seller/shipping',
   '/dashboard/settings/platform',
   '/dashboard/settings/storage',
+  '/dashboard/settings/shipping',
 ]);
 
 type Props = {
@@ -385,6 +403,22 @@ export default function Layout({ children }: Props) {
   const [canUseSellerLine, setCanUseSellerLine] = useState(false);
   const [hasSubmittedSeller, setHasSubmittedSeller] = useState(false);
   const [referralEnabled, setReferralEnabled] = useState(false);
+  const [shippingEnabled, setShippingEnabled] = useState(false);
+  const [officialShippingEnabled, setOfficialShippingEnabled] = useState(false);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch('/api/marketplace/shipping/status', { cache: 'no-store', signal: controller.signal })
+      .then((response) => response.json())
+      .then((result) => {
+        setShippingEnabled(Boolean(result.enabled));
+        setOfficialShippingEnabled(Boolean(result.officialAccessEnabled));
+      })
+      .catch((error) => {
+        if ((error as Error).name !== 'AbortError') setShippingEnabled(false);
+      });
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     if (!user?.role || isMarketplaceAdmin(user.role)) {
@@ -497,7 +531,7 @@ export default function Layout({ children }: Props) {
     return () => controller.abort();
   }, [user?.id, user?.role]);
 
-  const adminNavigation =
+  const roleFilteredAdminNavigation =
     user?.role === 'marketplace_admin'
       ? adminNavData
           .map((section) => ({
@@ -506,18 +540,32 @@ export default function Layout({ children }: Props) {
           }))
           .filter((section) => section.items.length > 0)
       : adminNavData;
+  const adminNavigation = roleFilteredAdminNavigation
+    .map((section) => ({
+      ...section,
+      items: section.items.filter(
+        (item) =>
+          shippingEnabled ||
+          (user?.role === 'master_admin' && officialShippingEnabled) ||
+          item.path !== '/dashboard/seller/shipping'
+      ),
+    }))
+    .filter((section) => section.items.length > 0);
 
   const navData = isMarketplaceAdmin(user?.role)
     ? adminNavigation
     : memberNavData.map((section) => {
         if (section.subheader === SELLER_NAV_SUBHEADER) {
           const sellerItems = hasSubmittedSeller
-            ? section.items
+            ? section.items.filter(
+                (item) => shippingEnabled || item.path !== '/dashboard/seller/shipping'
+              )
             : section.items.filter(
                 (item) =>
                   item.path !== '/dashboard/seller/profile' &&
                   item.path !== '/dashboard/seller/analytics' &&
-                  item.path !== '/dashboard/seller/finance'
+                  item.path !== '/dashboard/seller/finance' &&
+                  item.path !== '/dashboard/seller/shipping'
               );
           const lineItems =
             canUseSellerLine && hasSubmittedSeller

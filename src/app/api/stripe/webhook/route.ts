@@ -8,6 +8,7 @@ import { createNotifications } from 'src/lib/notifications';
 import { handleStripeDispute } from 'src/sections/marketplace/checkout/server/dispute-lifecycle';
 import { getStripe, getStripeWebhookSecret } from 'src/sections/marketplace/checkout/server/stripe';
 import { finalizeMarketplacePayment } from 'src/sections/marketplace/checkout/server/finalize-payment';
+import { recordShippingRefundForOrders } from 'src/sections/marketplace/shipping/server/accounting';
 import { revokeLicensesForPaymentSession } from 'src/sections/marketplace/checkout/server/license-lifecycle';
 import {
   subscriptionPeriod,
@@ -53,9 +54,7 @@ async function getProcessorDetails(paymentIntentId: string | null) {
 }
 
 async function invoicePaymentIntentId(invoice: Stripe.Invoice) {
-  const embedded = invoice.payments?.data
-    .map((item) => item.payment.payment_intent)
-    .find(Boolean);
+  const embedded = invoice.payments?.data.map((item) => item.payment.payment_intent).find(Boolean);
   if (embedded) return typeof embedded === 'string' ? embedded : embedded.id;
   const payments = await getStripe().invoicePayments.list({ invoice: invoice.id, status: 'paid' });
   const intent = payments.data.map((item) => item.payment.payment_intent).find(Boolean);
@@ -111,7 +110,7 @@ async function syncStripeSubscription(subscription: Stripe.Subscription) {
 }
 
 function idOf(value: string | { id: string } | null | undefined) {
-  return typeof value === 'string' ? value : value?.id ?? null;
+  return typeof value === 'string' ? value : (value?.id ?? null);
 }
 
 async function loadLocalSession(stripeSession: Stripe.Checkout.Session) {
@@ -150,11 +149,22 @@ async function markStripePaymentFailed(
     .update({ status, rejection_reason: reason, updated_at: now })
     .eq('id', local.id)
     .eq('status', 'pending_payment');
-  await supabaseAdmin
+  const { data: unavailableOrders } = await supabaseAdmin
     .from('marketplace_orders')
     .update({ status: orderStatus, updated_at: now })
     .eq('payment_session_id', local.id)
-    .eq('status', 'pending_payment');
+    .eq('status', 'pending_payment')
+    .select('id,shipping_amount');
+  const unavailableShippingOrderIds = (unavailableOrders ?? [])
+    .filter((order) => Number(order.shipping_amount ?? 0) > 0)
+    .map((order) => order.id);
+  if (unavailableShippingOrderIds.length) {
+    await supabaseAdmin
+      .from('marketplace_shipments')
+      .update({ status: 'cancelled', updated_at: now })
+      .in('order_id', unavailableShippingOrderIds)
+      .eq('status', 'pending');
+  }
   await createNotifications([
     {
       userId: local.buyer_id,
@@ -174,12 +184,18 @@ async function refundStripePayment(charge: Stripe.Charge) {
   if (!paymentIntentId) throw new Error('Stripe refund ไม่มี Payment Intent');
   const { data: session, error } = await supabaseAdmin
     .from('marketplace_payment_sessions')
-    .select('id,buyer_id')
+    .select('id,buyer_id,orders:marketplace_orders(id,shipping_amount)')
     .eq('stripe_payment_intent_id', paymentIntentId)
     .maybeSingle();
   if (error || !session) throw error ?? new Error('ไม่พบรายการชำระเงินสำหรับ Refund');
 
   await revokeLicensesForPaymentSession(session.id, 'refunded', 'Stripe คืนเงินให้ผู้ซื้อ');
+  await recordShippingRefundForOrders(
+    (session.orders ?? [])
+      .filter((order) => Number(order.shipping_amount ?? 0) > 0)
+      .map((order) => order.id),
+    `stripe-refund:${charge.id}`
+  );
   const now = new Date().toISOString();
   await supabaseAdmin
     .from('marketplace_orders')
@@ -326,14 +342,14 @@ export async function POST(request: Request) {
           });
           if (order && periodEnd) await alignOrderLicensesToPeriod(order.id, periodEnd);
         } else {
-        const processor = await getProcessorDetails(paymentIntentId);
-        await finalizeMarketplacePayment({
-          paymentSessionId: local.id,
-          allowedStatuses: ['pending_payment'],
-          stripePaymentIntentId: paymentIntentId,
-          processorFee: processor.fee,
-          paymentSnapshot: processor.snapshot,
-        });
+          const processor = await getProcessorDetails(paymentIntentId);
+          await finalizeMarketplacePayment({
+            paymentSessionId: local.id,
+            allowedStatuses: ['pending_payment'],
+            stripePaymentIntentId: paymentIntentId,
+            processorFee: processor.fee,
+            paymentSnapshot: processor.snapshot,
+          });
         }
       }
     } else if (event.type === 'invoice.paid') {

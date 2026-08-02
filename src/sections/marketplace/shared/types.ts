@@ -313,6 +313,10 @@ export type MarketplaceProduct = {
   external_links?: MarketplaceProductLink[];
   purchase_benefits?: string[];
   purchase_benefits_html?: string | null;
+  shipping_weight_grams?: number | null;
+  shipping_width_cm?: number | null;
+  shipping_length_cm?: number | null;
+  shipping_height_cm?: number | null;
   status: ProductStatus;
   submitted_at?: string | null;
   reviewed_at?: string | null;
@@ -369,6 +373,25 @@ export type MarketplaceOrder = {
   commission_rate?: number;
   platform_fee?: number;
   seller_net?: number;
+  shipping_amount?: number;
+  shipment?: {
+    id: string;
+    status:
+      | 'pending'
+      | 'ready'
+      | 'booking'
+      | 'shipping'
+      | 'complete'
+      | 'problem'
+      | 'return'
+      | 'cancelled';
+    tracking_code?: string | null;
+    courier_tracking_code?: string | null;
+    courier_name: string;
+    service_name: string;
+    shipping_fee: number;
+    events?: Array<{ id: string; status: string; message?: string | null; occurred_at: string }>;
+  } | null;
   payment_session_id?: string | null;
   license_school_id?: string | null;
   paid_at?: string | null;
@@ -567,6 +590,10 @@ export type ProductInput = {
   externalLinks?: MarketplaceProductLink[];
   purchaseBenefits?: string[];
   purchaseBenefitsHtml?: string;
+  shippingWeightGrams?: number;
+  shippingWidthCm?: number;
+  shippingLengthCm?: number;
+  shippingHeightCm?: number;
   submissionAcceptance?: {
     accepted: boolean;
   };

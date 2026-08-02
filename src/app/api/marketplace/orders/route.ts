@@ -7,10 +7,12 @@ import { rejectCrossSiteMutation } from 'src/lib/request-security';
 
 import { STRIPE_MINIMUM_THB } from 'src/sections/marketplace/shared/payment';
 import { money, getFinanceSettings } from 'src/sections/marketplace/admin/server/finance';
+import { verifyShippingQuote } from 'src/sections/marketplace/shipping/server/quote-token';
 import { captureOrderEvidence } from 'src/sections/marketplace/checkout/server/order-evidence';
 import { getStripe, isStripeConfigured } from 'src/sections/marketplace/checkout/server/stripe';
 import { resolveReferralAttribution } from 'src/sections/marketplace/referrals/server/referrals';
 import { withPublicSystemStoreFlag } from 'src/sections/marketplace/seller/server/public-seller';
+import { recordShippingCustomerCharge } from 'src/sections/marketplace/shipping/server/accounting';
 import { getEligibleLicenseSchools } from 'src/sections/marketplace/checkout/server/school-targets';
 import { createSchoolOnboardingForPaidOrders } from 'src/sections/marketplace/checkout/server/school-onboarding';
 import {
@@ -26,6 +28,10 @@ import {
   hasPurchasedProduct,
   getProductPurchaseAccess,
 } from 'src/sections/marketplace/catalog/server/product-engagement';
+import {
+  getMarketplaceShippingConfig,
+  isMarketplaceShippingEnabledForOfficialSeller,
+} from 'src/sections/marketplace/shipping/server/config';
 
 type RequestedItem = {
   productId: string;
@@ -151,6 +157,10 @@ export async function POST(request: Request) {
   const requestedPaymentMethod = String(body?.paymentMethod ?? '');
   let requestedLicenseSchoolId = String(body?.licenseSchoolId ?? '').trim();
   const salesDealToken = String(body?.salesDealToken ?? '').trim();
+  const shippingAddress = body?.shipping?.address ?? null;
+  const requestedShippingQuotes: string[] = Array.isArray(body?.shipping?.quoteTokens)
+    ? body.shipping.quoteTokens.map(String)
+    : [];
   const requestedItems: RequestedItem[] = Array.isArray(body?.items) ? body.items : [];
   const uniqueProductIds = [...new Set(requestedItems.map((item) => String(item.productId)))];
 
@@ -164,7 +174,7 @@ export async function POST(request: Request) {
   const { data: products, error: productError } = await supabaseAdmin
     .from('marketplace_products')
     .select(
-      'id, seller_id, title, title_en, category, short_description, description, price, list_price, currency, status, resource_type, grants_feature_key, grants_feature_keys, grants_plan_code, grant_duration_days, license_billing_cycle, license_scope, license_seat_count, license_max_teachers, license_max_students, license_max_school_admins, license_line_quota, purchase_benefits, purchase_benefits_html, seller:marketplace_sellers(owner_role, commission_rate_override)'
+      'id, seller_id, title, title_en, category, short_description, description, price, list_price, currency, status, resource_type, shipping_weight_grams, shipping_width_cm, shipping_length_cm, shipping_height_cm, grants_feature_key, grants_feature_keys, grants_plan_code, grant_duration_days, license_billing_cycle, license_scope, license_seat_count, license_max_teachers, license_max_students, license_max_school_admins, license_line_quota, purchase_benefits, purchase_benefits_html, seller:marketplace_sellers(owner_role, commission_rate_override, display_name, shipping_contact_name, shipping_phone, shipping_address_line, shipping_subdistrict, shipping_district, shipping_province, shipping_postal_code)'
     )
     .in('id', uniqueProductIds)
     .eq('status', 'published');
@@ -293,6 +303,9 @@ export async function POST(request: Request) {
           resourceType: product.resource_type,
           licenseScope: product.license_scope,
           featureKeys: product.grants_feature_keys,
+          price: product.price,
+          licenseBillingCycle: product.license_billing_cycle,
+          grantDurationDays: product.grant_duration_days,
         }),
       };
     })
@@ -322,14 +335,70 @@ export async function POST(request: Request) {
     itemsBySeller.set(product.seller_id, group);
   }
 
+  const physicalProducts = products.filter((product) => product.resource_type === 'physical');
+  const shippingQuotes = new Map<string, ReturnType<typeof verifyShippingQuote>>();
+  if (physicalProducts.length) {
+    const shippingConfig = await getMarketplaceShippingConfig();
+    const unavailablePhysicalProduct = physicalProducts.find((product) => {
+      const seller: any = Array.isArray(product.seller) ? product.seller[0] : product.seller;
+      return !isMarketplaceShippingEnabledForOfficialSeller(shippingConfig, seller?.owner_role);
+    });
+    if (unavailablePhysicalProduct) {
+      return NextResponse.json(
+        { message: 'ระบบจัดส่งยังไม่เปิดใช้งานสำหรับร้านนี้' },
+        { status: 409 }
+      );
+    }
+    const addressValues = [
+      shippingAddress?.name,
+      shippingAddress?.phone,
+      shippingAddress?.address,
+      shippingAddress?.subdistrict,
+      shippingAddress?.district,
+      shippingAddress?.province,
+      shippingAddress?.postalCode,
+    ].map((value) => String(value ?? '').trim());
+    if (
+      addressValues.some((value) => !value) ||
+      !/^0\d{8,9}$/.test(String(shippingAddress.phone).replace(/\D/g, '')) ||
+      !/^\d{5}$/.test(String(shippingAddress.postalCode))
+    ) {
+      return NextResponse.json({ message: 'กรุณากรอกที่อยู่จัดส่งให้ครบถ้วน' }, { status: 400 });
+    }
+    try {
+      requestedShippingQuotes.forEach((token) => {
+        const quote = verifyShippingQuote(token);
+        shippingQuotes.set(quote.sellerId, quote);
+      });
+    } catch (error) {
+      return NextResponse.json(
+        { message: error instanceof Error ? error.message : 'ค่าขนส่งไม่ถูกต้อง' },
+        { status: 400 }
+      );
+    }
+    const physicalSellerIds = [...new Set(physicalProducts.map((product) => product.seller_id))];
+    if (
+      physicalSellerIds.some((sellerId) => !shippingQuotes.has(sellerId)) ||
+      shippingQuotes.size !== physicalSellerIds.length
+    ) {
+      return NextResponse.json({ message: 'กรุณาเลือกขนส่งให้ครบทุกร้าน' }, { status: 400 });
+    }
+  } else if (requestedShippingQuotes.length) {
+    return NextResponse.json({ message: 'รายการนี้ไม่มีสินค้าที่ต้องจัดส่ง' }, { status: 400 });
+  }
+
   const finance = await getFinanceSettings();
-  const checkoutTotal = money(
+  const productTotal = money(
     [...itemsBySeller.values()].reduce(
       (sum, items) =>
         sum + items.reduce((subtotal, item) => subtotal + Number(item.price) * item.quantity, 0),
       0
     )
   );
+  const shippingTotal = money(
+    [...shippingQuotes.values()].reduce((sum, quote) => sum + quote.price, 0)
+  );
+  const checkoutTotal = money(productTotal + shippingTotal);
   const isFree = checkoutTotal === 0;
 
   if (!isFree && requestedPaymentMethod === 'stripe' && checkoutTotal < STRIPE_MINIMUM_THB) {
@@ -416,6 +485,8 @@ export async function POST(request: Request) {
         : Number(sellerRecord?.commission_rate_override ?? finance.commission_rate);
     const platformFee = money((grossAmount * commissionRate) / 100);
     const sellerNet = money(grossAmount - platformFee);
+    const shippingQuote = shippingQuotes.get(sellerId);
+    const shippingAmount = money(shippingQuote?.price ?? 0);
     const { data: order, error: orderError } = await supabaseAdmin
       .from('marketplace_orders')
       .insert({
@@ -426,8 +497,11 @@ export async function POST(request: Request) {
         license_school_id:
           hasSchoolLicense && requestedLicenseSchoolId ? requestedLicenseSchoolId : null,
         status: isFree ? 'paid' : 'pending_payment',
-        total: grossAmount,
+        total: money(grossAmount + shippingAmount),
         gross_amount: grossAmount,
+        shipping_amount: shippingAmount,
+        shipping_address_snapshot: shippingQuote ? shippingAddress : null,
+        shipping_quote_snapshot: shippingQuote ?? null,
         discount_amount: discountAmount,
         commission_rate: commissionRate,
         platform_fee: platformFee,
@@ -461,6 +535,88 @@ export async function POST(request: Request) {
     if (itemError) {
       await cleanupCheckout(paymentSession.id);
       return NextResponse.json({ message: itemError.message }, { status: 500 });
+    }
+    if (shippingQuote) {
+      const sellerSnapshot: any = Array.isArray(items[0]?.seller)
+        ? items[0]?.seller[0]
+        : items[0]?.seller;
+      const physicalItems = items.filter((item) => item.resource_type === 'physical');
+      const sender = {
+        name: sellerSnapshot?.shipping_contact_name,
+        phone: sellerSnapshot?.shipping_phone,
+        address: sellerSnapshot?.shipping_address_line,
+        subdistrict: sellerSnapshot?.shipping_subdistrict,
+        district: sellerSnapshot?.shipping_district,
+        province: sellerSnapshot?.shipping_province,
+        postalCode: sellerSnapshot?.shipping_postal_code,
+      };
+      const receiver = {
+        name: String(shippingAddress.name).trim(),
+        phone: String(shippingAddress.phone).replace(/\D/g, ''),
+        address: String(shippingAddress.address).trim(),
+        subdistrict: String(shippingAddress.subdistrict).trim(),
+        district: String(shippingAddress.district).trim(),
+        province: String(shippingAddress.province).trim(),
+        postalCode: String(shippingAddress.postalCode).trim(),
+      };
+      const parcel = {
+        name: physicalItems
+          .map((item) => item.title)
+          .join(', ')
+          .slice(0, 200),
+        weightGrams: physicalItems.reduce(
+          (sum, item) => sum + Number(item.shipping_weight_grams),
+          0
+        ),
+        widthCm: Math.max(...physicalItems.map((item) => Number(item.shipping_width_cm))),
+        lengthCm: Math.max(...physicalItems.map((item) => Number(item.shipping_length_cm))),
+        heightCm: physicalItems.reduce((sum, item) => sum + Number(item.shipping_height_cm), 0),
+      };
+      const { data: shipment, error: shipmentError } = await supabaseAdmin
+        .from('marketplace_shipments')
+        .insert({
+          order_id: order.id,
+          seller_id: sellerId,
+          buyer_id: caller.sub,
+          courier_code: shippingQuote.courierCode,
+          courier_name: shippingQuote.courierName,
+          service_name: shippingQuote.serviceName,
+          shipping_fee: shippingAmount,
+          quote_snapshot: shippingQuote,
+          sender_snapshot: sender,
+          receiver_snapshot: receiver,
+          package_snapshot: parcel,
+          idempotency_key: `order:${order.id}`,
+        })
+        .select('id')
+        .single();
+      if (shipmentError || !shipment) {
+        await cleanupCheckout(paymentSession.id);
+        return NextResponse.json(
+          { message: shipmentError?.message ?? 'บันทึกข้อมูลจัดส่งไม่สำเร็จ' },
+          { status: 500 }
+        );
+      }
+      if (isFree) {
+        try {
+          await recordShippingCustomerCharge({
+            shipmentId: shipment.id,
+            orderId: order.id,
+            amount: shippingAmount,
+          });
+        } catch (accountingError) {
+          await cleanupCheckout(paymentSession.id);
+          return NextResponse.json(
+            {
+              message:
+                accountingError instanceof Error
+                  ? `บันทึกบัญชีค่าจัดส่งไม่สำเร็จ: ${accountingError.message}`
+                  : 'บันทึกบัญชีค่าจัดส่งไม่สำเร็จ',
+            },
+            { status: 500 }
+          );
+        }
+      }
     }
     try {
       await captureOrderEvidence({
@@ -556,22 +712,37 @@ export async function POST(request: Request) {
         ...(stripeCustomerId
           ? { customer: stripeCustomerId }
           : { customer_email: buyerForStripe?.email ?? undefined }),
-        line_items: [...itemsBySeller.values()]
-          .flat()
-          .filter((item) => Number(item.price) > 0)
-          .map((item) => ({
-            quantity: item.quantity,
-            price_data: {
-              currency: 'thb',
-              unit_amount: Math.round(Number(item.price) * 100),
-              ...(recurringProduct && {
-                recurring: {
-                  interval: recurringProduct.license_billing_cycle === 'yearly' ? 'year' : 'month',
-                },
-              }),
-              product_data: { name: item.title.slice(0, 120) },
-            },
-          })),
+        line_items: [
+          ...[...itemsBySeller.values()]
+            .flat()
+            .filter((item) => Number(item.price) > 0)
+            .map((item) => ({
+              quantity: item.quantity,
+              price_data: {
+                currency: 'thb',
+                unit_amount: Math.round(Number(item.price) * 100),
+                ...(recurringProduct && {
+                  recurring: {
+                    interval:
+                      recurringProduct.license_billing_cycle === 'yearly'
+                        ? ('year' as const)
+                        : ('month' as const),
+                  },
+                }),
+                product_data: { name: item.title.slice(0, 120) },
+              },
+            })),
+          ...[...shippingQuotes.values()]
+            .filter((quote) => quote.price > 0)
+            .map((quote) => ({
+              quantity: 1,
+              price_data: {
+                currency: 'thb',
+                unit_amount: Math.round(quote.price * 100),
+                product_data: { name: `ค่าจัดส่ง ${quote.courierName}`.slice(0, 120) },
+              },
+            })),
+        ],
         metadata: {
           marketplace_payment_session_id: paymentSession.id,
           buyer_id: caller.sub,

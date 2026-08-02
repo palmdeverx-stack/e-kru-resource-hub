@@ -7,6 +7,7 @@ import { createNotifications } from 'src/lib/notifications';
 
 import { reconcileFeature } from './license-lifecycle';
 import { recordCustomerCommunication } from './order-evidence';
+import { recordShippingRefundForOrders } from '../../shipping/server/accounting';
 
 type DisputeEventType =
   | 'charge.dispute.created'
@@ -69,7 +70,7 @@ export async function handleStripeDispute(dispute: Stripe.Dispute, eventType: Di
   const { data: session, error: sessionError } = await supabaseAdmin
     .from('marketplace_payment_sessions')
     .select(
-      'id,buyer_id,amount,currency,status,orders:marketplace_orders(id,seller_id,seller_net,status)'
+      'id,buyer_id,amount,currency,status,orders:marketplace_orders(id,seller_id,seller_net,shipping_amount,status)'
     )
     .eq('stripe_payment_intent_id', paymentIntentId)
     .maybeSingle();
@@ -84,32 +85,28 @@ export async function handleStripeDispute(dispute: Stripe.Dispute, eventType: Di
     { data: userLicenses },
     { data: platformLicenses },
     { data: existingDispute },
-  ] =
-    await Promise.all([
-      orderIds.length
-        ? supabaseAdmin
-            .from('marketplace_school_licenses')
-            .select('id,status,school_id,feature_keys')
-            .in('order_id', orderIds)
-        : Promise.resolve({ data: [] }),
-      orderIds.length
-        ? supabaseAdmin
-            .from('marketplace_user_licenses')
-            .select('id,status')
-            .in('order_id', orderIds)
-        : Promise.resolve({ data: [] }),
-      orderIds.length
-        ? supabaseAdmin
-            .from('marketplace_platform_licenses')
-            .select('id,status')
-            .in('order_id', orderIds)
-        : Promise.resolve({ data: [] }),
-      supabaseAdmin
-        .from('marketplace_payment_disputes')
-        .select('id,license_state_snapshot')
-        .eq('stripe_dispute_id', dispute.id)
-        .maybeSingle(),
-    ]);
+  ] = await Promise.all([
+    orderIds.length
+      ? supabaseAdmin
+          .from('marketplace_school_licenses')
+          .select('id,status,school_id,feature_keys')
+          .in('order_id', orderIds)
+      : Promise.resolve({ data: [] }),
+    orderIds.length
+      ? supabaseAdmin.from('marketplace_user_licenses').select('id,status').in('order_id', orderIds)
+      : Promise.resolve({ data: [] }),
+    orderIds.length
+      ? supabaseAdmin
+          .from('marketplace_platform_licenses')
+          .select('id,status')
+          .in('order_id', orderIds)
+      : Promise.resolve({ data: [] }),
+    supabaseAdmin
+      .from('marketplace_payment_disputes')
+      .select('id,license_state_snapshot')
+      .eq('stripe_dispute_id', dispute.id)
+      .maybeSingle(),
+  ]);
   const licenseStateSnapshot = existingDispute?.license_state_snapshot?.length
     ? existingDispute.license_state_snapshot
     : [
@@ -360,6 +357,10 @@ export async function handleStripeDispute(dispute: Stripe.Dispute, eventType: Di
         })
         .in('order_id', orderIds)
         .eq('status', 'disputed');
+      await recordShippingRefundForOrders(
+        orders.filter((order) => Number(order.shipping_amount ?? 0) > 0).map((order) => order.id),
+        dispute.id
+      );
     }
     await reconcileSchoolLicenses(schoolLicenses ?? []);
     await notifyDispute(

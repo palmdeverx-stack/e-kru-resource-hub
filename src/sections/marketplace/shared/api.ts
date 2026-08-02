@@ -344,7 +344,19 @@ export async function createOrder(
   paymentMethod: string,
   licenseSchoolId?: string,
   salesDealToken?: string,
-  acceptedPurchaseTerms = false
+  acceptedPurchaseTerms = false,
+  shipping?: {
+    address: {
+      name: string;
+      phone: string;
+      address: string;
+      subdistrict: string;
+      district: string;
+      province: string;
+      postalCode: string;
+    };
+    quoteTokens: string[];
+  }
 ) {
   const response = await fetch('/api/marketplace/orders', {
     method: 'POST',
@@ -355,6 +367,7 @@ export async function createOrder(
       licenseSchoolId,
       salesDealToken,
       acceptedPurchaseTerms,
+      shipping,
     }),
   });
   return parseResponse<{ orders: MarketplaceOrder[]; paymentSession: MarketplacePaymentSession }>(

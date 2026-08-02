@@ -164,6 +164,10 @@ const initialForm = {
   externalLinks: [] as Array<{ label: string; url: string }>,
   purchaseBenefits: [] as string[],
   purchaseBenefitsHtml: '',
+  shippingWeightGrams: '',
+  shippingWidthCm: '',
+  shippingLengthCm: '',
+  shippingHeightCm: '',
 };
 
 function normalizeNumberInput(value: string) {
@@ -224,6 +228,8 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
   const [subscriptionPlansLoading, setSubscriptionPlansLoading] = useState(false);
   const [subscriptionPlansError, setSubscriptionPlansError] = useState('');
   const [commissionRate, setCommissionRate] = useState(0);
+  const [shippingEnabled, setShippingEnabled] = useState(false);
+  const [officialShippingEnabled, setOfficialShippingEnabled] = useState(false);
   const [images, setImages] = useState<MarketplaceProductImage[]>([]);
   const [pendingCover, setPendingCover] = useState<File | null>(null);
   const [pendingPreviewImages, setPendingPreviewImages] = useState<File[]>([]);
@@ -233,6 +239,16 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
   const [pendingDeletedFileIds, setPendingDeletedFileIds] = useState<string[]>([]);
   const [pendingFilePreview, setPendingFilePreview] = useState<Record<string, boolean>>({});
   const [form, setForm] = useState(initialForm);
+
+  useEffect(() => {
+    fetch('/api/marketplace/shipping/status', { cache: 'no-store' })
+      .then((response) => response.json())
+      .then((result) => {
+        setShippingEnabled(Boolean(result.enabled));
+        setOfficialShippingEnabled(Boolean(result.officialAccessEnabled));
+      })
+      .catch(() => setShippingEnabled(false));
+  }, []);
 
   useEffect(() => {
     Promise.all([
@@ -360,6 +376,10 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
       externalLinks: (product.external_links ?? []).slice(0, MAX_EXTERNAL_LINKS),
       purchaseBenefits: (product.purchase_benefits ?? []).slice(0, MAX_PURCHASE_BENEFITS),
       purchaseBenefitsHtml: product.purchase_benefits_html ?? '',
+      shippingWeightGrams: String(product.shipping_weight_grams ?? ''),
+      shippingWidthCm: String(product.shipping_width_cm ?? ''),
+      shippingLengthCm: String(product.shipping_length_cm ?? ''),
+      shippingHeightCm: String(product.shipping_height_cm ?? ''),
     });
     setImages(product.images ?? []);
     setPendingCover(null);
@@ -395,8 +415,16 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
   );
   const isFileOptional =
     selectedMediaType?.delivery_mode === 'service' ||
+    selectedMediaType?.delivery_mode === 'physical' ||
     selectedMediaType?.delivery_mode === 'feature_unlock';
-  const visibleMediaTypes = mediaTypes.filter((item) => item.delivery_mode !== 'feature_unlock');
+  const visibleMediaTypes = mediaTypes.filter(
+    (item) =>
+      item.delivery_mode !== 'feature_unlock' &&
+      (shippingEnabled ||
+        (user?.role === 'master_admin' && officialShippingEnabled) ||
+        item.delivery_mode !== 'physical')
+  );
+  const isPhysicalProduct = selectedMediaType?.delivery_mode === 'physical';
   const licenseFeatures =
     form.licenseTargetSystem === 'marketplace'
       ? [MARKETPLACE_SELLER_LINE_FEATURE]
@@ -505,6 +533,19 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
             : []),
         ]
       : []),
+    ...(isPhysicalProduct
+      ? [
+          {
+            label: 'ระบุน้ำหนักและขนาดพัสดุให้ครบ',
+            completed: [
+              form.shippingWeightGrams,
+              form.shippingWidthCm,
+              form.shippingLengthCm,
+              form.shippingHeightCm,
+            ].every((value) => Number(value) > 0),
+          },
+        ]
+      : []),
     ...(form.externalLinks.length
       ? [
           {
@@ -579,6 +620,12 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
     })),
     purchaseBenefits: form.purchaseBenefits.map((item) => item.trim()).filter(Boolean),
     purchaseBenefitsHtml: form.purchaseBenefitsHtml,
+    ...(isPhysicalProduct && {
+      shippingWeightGrams: Number(form.shippingWeightGrams),
+      shippingWidthCm: Number(form.shippingWidthCm),
+      shippingLengthCm: Number(form.shippingLengthCm),
+      shippingHeightCm: Number(form.shippingHeightCm),
+    }),
     ...(submit && { submit: true, submissionAcceptance: acceptance }),
   });
 
@@ -1336,6 +1383,45 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                     </Alert>
                   </Grid>
                 )}
+                {isPhysicalProduct && (
+                  <Grid size={12}>
+                    <Alert severity="info" sx={{ mb: 2 }}>
+                      ข้อมูลนี้ใช้เปรียบเทียบค่าขนส่งใน Checkout กรุณาวัดรวมบรรจุภัณฑ์
+                    </Alert>
+                    <Grid container spacing={2}>
+                      {(
+                        [
+                          ['shippingWeightGrams', 'น้ำหนัก (กรัม)'],
+                          ['shippingWidthCm', 'กว้าง (ซม.)'],
+                          ['shippingLengthCm', 'ยาว (ซม.)'],
+                          ['shippingHeightCm', 'สูง (ซม.)'],
+                        ] as const
+                      ).map(([key, label]) => (
+                        <Grid key={key} size={{ xs: 6, md: 3 }}>
+                          <TextField
+                            fullWidth
+                            required
+                            type="number"
+                            label={label}
+                            value={form[key]}
+                            onChange={(event) =>
+                              setForm((current) => ({
+                                ...current,
+                                [key]: normalizeNumberInput(event.target.value),
+                              }))
+                            }
+                            slotProps={{
+                              htmlInput: {
+                                min: 0.01,
+                                step: key === 'shippingWeightGrams' ? 1 : 0.1,
+                              },
+                            }}
+                          />
+                        </Grid>
+                      ))}
+                    </Grid>
+                  </Grid>
+                )}
                 <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
                     fullWidth
@@ -1462,7 +1548,8 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                           setForm((current) => ({
                             ...current,
                             licenseBillingCycle: cycle,
-                            licenseDurationType: cycle === 'one_time' ? current.licenseDurationType : 'days',
+                            licenseDurationType:
+                              cycle === 'one_time' ? current.licenseDurationType : 'days',
                             grantDurationDays:
                               cycle === 'monthly'
                                 ? '30'
@@ -1667,11 +1754,11 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                                 ? `ดึง ${selectedSubscriptionPlan.enabled_features.length} ฟีเจอร์จากแพ็กเกจ ${selectedSubscriptionPlan.name}`
                                 : form.licenseScope === 'teacher'
                                   ? 'License รายครูเลือกได้เฉพาะฟีเจอร์สำหรับครู'
-                                : form.licenseScope === 'individual'
-                                  ? 'สิทธิ์จะเปิดให้บัญชีผู้ซื้อรายบุคคล'
-                                  : form.licenseScope === 'platform'
-                                    ? 'Master Admin เปิดใช้ครั้งเดียว ผู้ใช้ปัจจุบันและผู้ใช้ใหม่ทุกคนจะได้รับสิทธิ์'
-                                    : 'สิทธิ์จะเปิดให้ผู้ใช้ทั้งโรงเรียน'
+                                  : form.licenseScope === 'individual'
+                                    ? 'สิทธิ์จะเปิดให้บัญชีผู้ซื้อรายบุคคล'
+                                    : form.licenseScope === 'platform'
+                                      ? 'Master Admin เปิดใช้ครั้งเดียว ผู้ใช้ปัจจุบันและผู้ใช้ใหม่ทุกคนจะได้รับสิทธิ์'
+                                      : 'สิทธิ์จะเปิดให้ผู้ใช้ทั้งโรงเรียน'
                             }
                           />
                         )}

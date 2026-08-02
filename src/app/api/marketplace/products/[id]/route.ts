@@ -11,6 +11,10 @@ import {
   SELLER_TOOLS_CATEGORY,
 } from 'src/sections/marketplace/seller/server/seller-tools-access';
 import {
+  getMarketplaceShippingConfig,
+  isMarketplaceShippingEnabledForOfficialSeller,
+} from 'src/sections/marketplace/shipping/server/config';
+import {
   hasPurchasedProduct,
   getProductEngagement,
   getProductPurchaseAccess,
@@ -32,6 +36,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   }
   if (!product) {
     return NextResponse.json({ message: 'ไม่พบสินค้า' }, { status: 404 });
+  }
+  if (product.resource_type === 'physical') {
+    const shippingConfig = await getMarketplaceShippingConfig();
+    if (
+      !isMarketplaceShippingEnabledForOfficialSeller(shippingConfig, product.seller?.owner_role)
+    ) {
+      return NextResponse.json({ message: 'ไม่พบสินค้า' }, { status: 404 });
+    }
   }
   const hasArchivedPurchase =
     product.status === 'archived' && caller
@@ -77,6 +89,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       resourceType: product.resource_type,
       licenseScope: product.license_scope,
       featureKeys: product.grants_feature_keys,
+      price: product.price,
+      licenseBillingCycle: product.license_billing_cycle,
+      grantDurationDays: product.grant_duration_days,
     }),
     supabaseAdmin
       .from('marketplace_product_files')

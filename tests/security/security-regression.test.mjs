@@ -6,6 +6,9 @@ import { fileURLToPath } from 'node:url';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const mutationHandlerPattern = /export\s+async\s+function\s+(?:POST|PUT|PATCH|DELETE)\s*\(/;
+const externalWebhookRoutes = new Set([
+  'src/app/api/marketplace/shipping/webhook/shippop/route.ts',
+]);
 
 async function readProjectFile(relativePath) {
   return readFile(path.join(projectRoot, relativePath), 'utf8');
@@ -35,7 +38,9 @@ test('cookie-authenticated mutation routes enforce Same-Origin requests', async 
     const source = await readFile(routePath, 'utf8');
     if (!mutationHandlerPattern.test(source)) continue;
 
-    mutationRoutes.push(path.relative(projectRoot, routePath));
+    const relativeRoute = path.relative(projectRoot, routePath);
+    if (externalWebhookRoutes.has(relativeRoute)) continue;
+    mutationRoutes.push(relativeRoute);
     assert.match(
       source,
       /rejectCrossSiteMutation\(request\)/,
@@ -44,6 +49,43 @@ test('cookie-authenticated mutation routes enforce Same-Origin requests', async 
   }
 
   assert.ok(mutationRoutes.length > 0, 'expected to inspect at least one mutation route');
+});
+
+test('SHIPPOP webhook requires a server-side secret and constant-time comparison', async () => {
+  const source = await readProjectFile('src/app/api/marketplace/shipping/webhook/shippop/route.ts');
+
+  assert.match(source, /process\.env\.SHIPPOP_WEBHOOK_SECRET/);
+  assert.match(source, /crypto\.timingSafeEqual/);
+  assert.match(source, /status: 401/);
+});
+
+test('shipping finance uses idempotent ledger entries and protects manual reconciliation', async () => {
+  const accounting = await readProjectFile(
+    'src/sections/marketplace/shipping/server/accounting.ts'
+  );
+  const reconciliation = await readProjectFile(
+    'src/app/api/marketplace/admin/shipping-finance/[id]/reconcile/route.ts'
+  );
+
+  assert.match(accounting, /onConflict: 'idempotency_key'/);
+  assert.match(accounting, /recordShippingPaymentFee/);
+  assert.match(accounting, /recordShippingRefundForOrders/);
+  assert.match(reconciliation, /requireRole\(request, \['master_admin'\]\)/);
+  assert.match(reconciliation, /hasPayoutAccess\(request, caller\.sub\)/);
+  assert.match(reconciliation, /rejectCrossSiteMutation\(request\)/);
+});
+
+test('official-store shipping bypasses only the regular-seller switch, not provider safety', async () => {
+  const config = await readProjectFile('src/sections/marketplace/shipping/server/config.ts');
+  const sellerPage = await readProjectFile('src/app/dashboard/seller/shipping/page.tsx');
+  const rates = await readProjectFile('src/app/api/marketplace/shipping/rates/route.ts');
+
+  assert.match(config, /const officialEnabled = providerConfigured && !killed/);
+  assert.match(config, /officialAccessEnabled: !killed/);
+  assert.match(config, /ownerRole === 'master_admin'/);
+  assert.match(sellerPage, /caller\?\.role === 'master_admin' && config\.officialAccessEnabled/);
+  assert.match(rates, /isMarketplaceShippingEnabledForOfficialSeller/);
+  assert.match(rates, /seller\?\.owner_role/);
 });
 
 test('Stripe webhook verifies its signature instead of requiring a browser Origin', async () => {
@@ -81,4 +123,17 @@ test('marketplace downloads keep authentication, ownership, payment, scan, and T
   assert.match(source, /\.in\('order\.status', \['paid', 'completed'\]\)/);
   assert.match(source, /file\.scan_status === 'rejected'/);
   assert.match(source, /createSignedUrl\(file\.storage_path, 60,/);
+});
+
+test('free fixed-term individual trials cannot be purchased more than once', async () => {
+  const source = await readProjectFile(
+    'src/sections/marketplace/catalog/server/product-engagement.ts'
+  );
+
+  assert.match(source, /const isSingleUseTrial =/);
+  assert.match(source, /Number\(price\) === 0/);
+  assert.match(source, /licenseBillingCycle === 'contract'/);
+  assert.match(source, /Number\(grantDurationDays\) > 0/);
+  assert.match(source, /isSingleUseTrial \|\| featureKeys\?\.includes/);
+  assert.match(source, /hasPurchasedProduct\(productId, buyerId\)/);
 });

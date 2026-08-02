@@ -33,6 +33,7 @@ import {
   RiBankLine,
   RiCloseLine,
   RiCheckLine,
+  RiTruckLine,
   RiDownloadLine,
   RiBankCardLine,
   RiFileCopyLine,
@@ -340,6 +341,47 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
               </Typography>
             </Box>
           </Stack>
+        </Card>
+      )}
+
+      {order.shipment && (
+        <Card variant="outlined" sx={{ p: 3, mb: 3 }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="space-between">
+            <Stack direction="row" spacing={1.5}>
+              <RiTruckLine size={28} />
+              <Box>
+                <Typography variant="h6">สถานะการจัดส่ง</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {order.shipment.courier_name} · {order.shipment.service_name}
+                </Typography>
+                {order.shipment.tracking_code && (
+                  <Typography variant="subtitle2" sx={{ mt: 0.5 }}>
+                    Tracking: {order.shipment.courier_tracking_code || order.shipment.tracking_code}
+                  </Typography>
+                )}
+              </Box>
+            </Stack>
+            <Chip
+              color={order.shipment.status === 'complete' ? 'success' : 'info'}
+              label={order.shipment.status}
+            />
+          </Stack>
+          {!!order.shipment.events?.length && (
+            <Stack divider={<Divider flexItem />} sx={{ mt: 2 }}>
+              {[...order.shipment.events]
+                .sort(
+                  (a, b) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime()
+                )
+                .map((event) => (
+                  <Box key={event.id} sx={{ py: 1.25 }}>
+                    <Typography variant="subtitle2">{event.message || event.status}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {new Date(event.occurred_at).toLocaleString('th-TH')}
+                    </Typography>
+                  </Box>
+                ))}
+            </Stack>
+          )}
         </Card>
       )}
 

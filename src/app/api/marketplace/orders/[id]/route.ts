@@ -8,6 +8,10 @@ import {
   withMediaUrls,
   withoutFileScanMetadata,
 } from 'src/sections/marketplace/seller/server/product-media';
+import {
+  getMarketplaceShippingConfig,
+  isMarketplaceShippingEnabledForOfficialSeller,
+} from 'src/sections/marketplace/shipping/server/config';
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -38,7 +42,7 @@ export async function GET(request: Request, { params }: Context) {
   const { data: order, error } = await supabaseAdmin
     .from('marketplace_orders')
     .select(
-      '*, seller:marketplace_sellers(id, display_name, slug, logo_url, owner_role), payment_session:marketplace_payment_sessions(id, amount, currency, payment_method, status, account_name_snapshot, submitted_at, reviewed_at, rejection_reason, bank_transaction_reference, stripe_payment_intent_id, stripe_subscription_id, processor_fee, expires_at, created_at), items:marketplace_order_items(*, product:marketplace_products(id, title, title_en, short_description, short_description_en, file_url, cover_url, category, subject_label, resource_type, license_scope, license_seat_count, grants_plan_code, grant_duration_days, license_billing_cycle, external_links, purchase_benefits, purchase_benefits_html, images:marketplace_product_images(*), files:marketplace_product_files(*)))'
+      '*, seller:marketplace_sellers(id, display_name, slug, logo_url, owner_role), shipment:marketplace_shipments(*,events:marketplace_shipment_events(id,status,message,occurred_at)), payment_session:marketplace_payment_sessions(id, amount, currency, payment_method, status, account_name_snapshot, submitted_at, reviewed_at, rejection_reason, bank_transaction_reference, stripe_payment_intent_id, stripe_subscription_id, processor_fee, expires_at, created_at), items:marketplace_order_items(*, product:marketplace_products(id, title, title_en, short_description, short_description_en, file_url, cover_url, category, subject_label, resource_type, license_scope, license_seat_count, grants_plan_code, grant_duration_days, license_billing_cycle, external_links, purchase_benefits, purchase_benefits_html, images:marketplace_product_images(*), files:marketplace_product_files(*)))'
     )
     .eq('id', id)
     .eq('buyer_id', caller.sub)
@@ -88,6 +92,12 @@ export async function GET(request: Request, { params }: Context) {
   ]);
 
   const isPaid = ['paid', 'completed'].includes(order.status);
+  const shippingConfig = await getMarketplaceShippingConfig();
+  const orderSeller: any = Array.isArray(order.seller) ? order.seller[0] : order.seller;
+  const shippingEnabled = isMarketplaceShippingEnabledForOfficialSeller(
+    shippingConfig,
+    orderSeller?.owner_role
+  );
   const items = await Promise.all(
     (order.items ?? []).map(async (item: Record<string, unknown>) => {
       const product = item.product as OrderProduct | null;
@@ -121,6 +131,11 @@ export async function GET(request: Request, { params }: Context) {
   return NextResponse.json({
     order: {
       ...order,
+      shipment: shippingEnabled
+        ? Array.isArray(order.shipment)
+          ? (order.shipment[0] ?? null)
+          : (order.shipment ?? null)
+        : null,
       seller: withPublicSystemStoreFlag(order.seller),
       items,
       receipt: receipt ?? null,

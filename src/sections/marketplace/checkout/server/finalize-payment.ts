@@ -9,6 +9,10 @@ import { createReferralRewards } from '../../referrals/server/referrals';
 import { createSchoolOnboardingForPaidOrders } from './school-onboarding';
 import { grantFeatureEntitlementsForOrders } from './grant-feature-entitlements';
 import { notifySellerPaymentReceived } from '../../seller/server/seller-line-notifications';
+import {
+  recordShippingPaymentFee,
+  recordShippingCustomerChargeForOrder,
+} from '../../shipping/server/accounting';
 
 type FinalizeInput = {
   paymentSessionId: string;
@@ -31,6 +35,14 @@ export async function finalizeMarketplacePayment(input: FinalizeInput) {
   const orders = (session.orders ?? []) as Array<Record<string, unknown>>;
   const orderIds = orders.map((order) => String(order.id));
   if (session.status === 'verified') {
+    await Promise.all(
+      orders.map((order) =>
+        recordShippingCustomerChargeForOrder({
+          orderId: String(order.id),
+          amount: Number(order.shipping_amount ?? 0),
+        })
+      )
+    );
     await createReferralRewards(orders, String(session.buyer_id));
     await grantFeatureEntitlementsForOrders(orderIds);
     await createSchoolOnboardingForPaidOrders({
@@ -53,7 +65,9 @@ export async function finalizeMarketplacePayment(input: FinalizeInput) {
           paymentSessionId: input.paymentSessionId,
           grossAmount: Number(order.gross_amount),
           sellerNet: Number(order.seller_net),
-          availableAt: String(order.available_at ?? session.reviewed_at ?? new Date().toISOString()),
+          availableAt: String(
+            order.available_at ?? session.reviewed_at ?? new Date().toISOString()
+          ),
         })
       )
     );
@@ -68,20 +82,35 @@ export async function finalizeMarketplacePayment(input: FinalizeInput) {
   const availableAt = new Date(
     now.getTime() + Number(finance.hold_days) * 24 * 60 * 60 * 1000
   ).toISOString();
-  const total = orders.reduce((sum, order) => sum + Number(order.gross_amount), 0);
+  const paymentTotal = money(
+    Math.max(
+      Number(session.amount),
+      orders.reduce(
+        (sum, order) => sum + Number(order.gross_amount) + Number(order.shipping_amount ?? 0),
+        0
+      )
+    )
+  );
   const processorFee = money(Math.max(0, Number(input.processorFee) || 0));
   let allocatedFee = 0;
 
   const settlements = orders.map((order, index) => {
     const orderGross = Number(order.gross_amount);
-    const orderFee =
+    const shippingAmount = Number(order.shipping_amount ?? 0);
+    const orderPaymentAmount = money(orderGross + shippingAmount);
+    const orderTotalFee =
       index === orders.length - 1
         ? money(processorFee - allocatedFee)
-        : money(processorFee * (orderGross / total));
-    allocatedFee = money(allocatedFee + orderFee);
+        : money(processorFee * (orderPaymentAmount / paymentTotal));
+    allocatedFee = money(allocatedFee + orderTotalFee);
+    const shippingPaymentFee =
+      shippingAmount > 0 && orderPaymentAmount > 0
+        ? money(orderTotalFee * (shippingAmount / orderPaymentAmount))
+        : 0;
+    const orderFee = money(orderTotalFee - shippingPaymentFee);
     const sellerNet = money(Math.max(0, Number(order.seller_net) - orderFee));
 
-    return { order, orderFee, sellerNet };
+    return { order, orderFee, sellerNet, shippingPaymentFee };
   });
 
   const ledgerRows = settlements.flatMap(({ order, sellerNet }) => [
@@ -113,7 +142,16 @@ export async function finalizeMarketplacePayment(input: FinalizeInput) {
     });
   if (ledgerError) throw ledgerError;
 
-  for (const { order, orderFee, sellerNet } of settlements) {
+  for (const { order, orderFee, sellerNet, shippingPaymentFee } of settlements) {
+    await recordShippingCustomerChargeForOrder({
+      orderId: String(order.id),
+      amount: Number(order.shipping_amount ?? 0),
+    });
+    await recordShippingPaymentFee({
+      orderId: String(order.id),
+      amount: shippingPaymentFee,
+      paymentSessionId: input.paymentSessionId,
+    });
     const { error: orderError } = await supabaseAdmin
       .from('marketplace_orders')
       .update({
@@ -141,6 +179,7 @@ export async function finalizeMarketplacePayment(input: FinalizeInput) {
         payment_method: session.payment_method,
         paid_at: now.toISOString(),
         processor_fee: orderFee,
+        shipping_processor_fee: shippingPaymentFee,
       },
     });
   }

@@ -56,6 +56,37 @@ type SelectedLegalDocument = {
   href: string;
 };
 
+type ShippingAddressForm = {
+  name: string;
+  phone: string;
+  address: string;
+  subdistrict: string;
+  district: string;
+  province: string;
+  postalCode: string;
+};
+type ShippingRateGroup = {
+  sellerId: string;
+  sellerName: string;
+  rates: Array<{
+    id: string;
+    courierName: string;
+    serviceName: string;
+    price: number;
+    duration: string;
+    quoteToken: string;
+  }>;
+};
+const EMPTY_SHIPPING_ADDRESS: ShippingAddressForm = {
+  name: '',
+  phone: '',
+  address: '',
+  subdistrict: '',
+  district: '',
+  province: '',
+  postalCode: '',
+};
+
 const LEGAL_LINK_SX = {
   p: 0,
   border: 0,
@@ -87,14 +118,34 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
   const [schools, setSchools] = useState<Array<{ id: string; name: string }>>([]);
   const [schoolsLoading, setSchoolsLoading] = useState(true);
   const [licenseSchoolId, setLicenseSchoolId] = useState('');
+  const [shippingEnabled, setShippingEnabled] = useState(false);
+  const [shippingAddress, setShippingAddress] = useState(EMPTY_SHIPPING_ADDRESS);
+  const [shippingGroups, setShippingGroups] = useState<ShippingRateGroup[]>([]);
+  const [selectedShipping, setSelectedShipping] = useState<Record<string, string>>({});
+  const [ratesLoading, setRatesLoading] = useState(false);
   const salesDealToken = searchParams.get('dealToken') ?? '';
-  const isFree = subtotal === 0;
+  const physicalProductIds = items
+    .filter((item) => item.product.resource_type === 'physical')
+    .map((item) => item.product.id);
+  const hasPhysicalProducts = physicalProductIds.length > 0;
+  const selectedRates = shippingGroups
+    .flatMap((group) => group.rates)
+    .filter((rate) => Object.values(selectedShipping).includes(rate.quoteToken));
+  const shippingTotal = selectedRates.reduce((sum, rate) => sum + rate.price, 0);
+  const checkoutTotal = subtotal + shippingTotal;
+  const shippingReady =
+    !hasPhysicalProducts ||
+    (shippingEnabled &&
+      shippingGroups.length > 0 &&
+      shippingGroups.every((group) => selectedShipping[group.sellerId]));
+  const isFree = checkoutTotal === 0;
   const hasRecurringLicense = items.some(
     (item) =>
       item.product.resource_type === 'feature_unlock' &&
       ['monthly', 'yearly'].includes(item.product.license_billing_cycle ?? 'one_time')
   );
-  const stripeBelowMinimum = !isFree && availableMethods.stripe && subtotal < STRIPE_MINIMUM_THB;
+  const stripeBelowMinimum =
+    !isFree && availableMethods.stripe && checkoutTotal < STRIPE_MINIMUM_THB;
   const stripeAvailable = availableMethods.stripe && !stripeBelowMinimum;
   const hasConfiguredPaymentMethod = availableMethods.promptpay || availableMethods.stripe;
   const canCreateSchoolAfterPayment =
@@ -119,6 +170,13 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
   const successHref = dashboardMode
     ? paths.marketplace.dashboardCheckoutSuccess
     : '/checkout/success';
+
+  useEffect(() => {
+    fetch('/api/marketplace/shipping/status', { cache: 'no-store' })
+      .then((response) => response.json())
+      .then((result) => setShippingEnabled(Boolean(result.enabled || result.officialEnabled)))
+      .catch(() => setShippingEnabled(false));
+  }, []);
 
   useEffect(() => {
     if (!dashboardMode && !loading && authenticated) {
@@ -189,7 +247,10 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
         isFree ? 'promptpay' : paymentMethod,
         hasSchoolLicense ? licenseSchoolId : undefined,
         salesDealToken || undefined,
-        acceptedPurchaseTerms
+        acceptedPurchaseTerms,
+        hasPhysicalProducts
+          ? { address: shippingAddress, quoteTokens: Object.values(selectedShipping) }
+          : undefined
       );
       clearCart();
       if (result.paymentSession.payment_method === 'free') {
@@ -433,6 +494,145 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
             </Card>
           )}
 
+          {hasPhysicalProducts && shippingEnabled && (
+            <Card sx={{ p: 3 }}>
+              <Typography variant="h5">ที่อยู่และวิธีจัดส่ง</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 2 }}>
+                ระบบจะแยกคำนวณพัสดุตามผู้ขายแต่ละร้าน
+              </Typography>
+              <Stack spacing={2}>
+                {(
+                  [
+                    ['name', 'ชื่อผู้รับ'],
+                    ['phone', 'เบอร์โทร'],
+                    ['address', 'เลขที่ / ถนน'],
+                    ['subdistrict', 'แขวง / ตำบล'],
+                    ['district', 'เขต / อำเภอ'],
+                    ['province', 'จังหวัด'],
+                    ['postalCode', 'รหัสไปรษณีย์'],
+                  ] as const
+                ).map(([key, label]) => (
+                  <TextField
+                    key={key}
+                    label={label}
+                    value={shippingAddress[key]}
+                    onChange={(event) => {
+                      setShippingAddress((value) => ({ ...value, [key]: event.target.value }));
+                      setShippingGroups([]);
+                      setSelectedShipping({});
+                    }}
+                  />
+                ))}
+                <Button
+                  variant="outlined"
+                  disabled={ratesLoading}
+                  onClick={async () => {
+                    setRatesLoading(true);
+                    setError('');
+                    try {
+                      const response = await fetch('/api/marketplace/shipping/rates', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          address: shippingAddress,
+                          productIds: physicalProductIds,
+                        }),
+                      });
+                      const result = await response.json();
+                      if (!response.ok) throw new Error(result.message ?? 'คำนวณค่าขนส่งไม่สำเร็จ');
+                      setShippingGroups(result.groups ?? []);
+                      setSelectedShipping(
+                        Object.fromEntries(
+                          (result.groups ?? [])
+                            .filter((group: ShippingRateGroup) => group.rates[0])
+                            .map((group: ShippingRateGroup) => [
+                              group.sellerId,
+                              group.rates[0].quoteToken,
+                            ])
+                        )
+                      );
+                    } catch (rateError) {
+                      setError(
+                        rateError instanceof Error ? rateError.message : 'คำนวณค่าขนส่งไม่สำเร็จ'
+                      );
+                    } finally {
+                      setRatesLoading(false);
+                    }
+                  }}
+                >
+                  {ratesLoading ? 'กำลังเทียบราคา...' : 'คำนวณและเปรียบเทียบค่าขนส่ง'}
+                </Button>
+                {shippingGroups.map((group) => (
+                  <Box key={group.sellerId}>
+                    <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                      {group.sellerName}
+                    </Typography>
+                    {!group.rates.length ? (
+                      <Alert severity="warning">ไม่พบขนส่งที่ให้บริการ</Alert>
+                    ) : (
+                      <Stack
+                        role="radiogroup"
+                        aria-label={`ขนส่งสำหรับ ${group.sellerName}`}
+                        spacing={1}
+                      >
+                        {group.rates.map((rate) => (
+                          <Card
+                            key={rate.quoteToken}
+                            role="radio"
+                            tabIndex={0}
+                            aria-checked={selectedShipping[group.sellerId] === rate.quoteToken}
+                            variant="outlined"
+                            onClick={() =>
+                              setSelectedShipping((value) => ({
+                                ...value,
+                                [group.sellerId]: rate.quoteToken,
+                              }))
+                            }
+                            onKeyDown={(event) => {
+                              if (event.key !== 'Enter' && event.key !== ' ') return;
+                              event.preventDefault();
+                              setSelectedShipping((value) => ({
+                                ...value,
+                                [group.sellerId]: rate.quoteToken,
+                              }));
+                            }}
+                            sx={{
+                              p: 1.5,
+                              cursor: 'pointer',
+                              borderColor:
+                                selectedShipping[group.sellerId] === rate.quoteToken
+                                  ? 'primary.main'
+                                  : 'divider',
+                            }}
+                          >
+                            <Stack direction="row" alignItems="center" spacing={1}>
+                              <Radio
+                                checked={selectedShipping[group.sellerId] === rate.quoteToken}
+                              />
+                              <Box sx={{ flexGrow: 1 }}>
+                                <Typography variant="subtitle2">{rate.courierName}</Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  {rate.serviceName} · {rate.duration}
+                                </Typography>
+                              </Box>
+                              <Typography variant="subtitle2">{formatPrice(rate.price)}</Typography>
+                            </Stack>
+                          </Card>
+                        ))}
+                      </Stack>
+                    )}
+                  </Box>
+                ))}
+              </Stack>
+            </Card>
+          )}
+
+          {hasPhysicalProducts && !shippingEnabled && (
+            <Alert severity="warning">
+              สินค้าจัดส่งยังไม่เปิดจำหน่าย กรุณานำสินค้าออกจากตะกร้าก่อนชำระเงิน
+            </Alert>
+          )}
+
           {!isFree && hasConfiguredPaymentMethod && (
             <Card sx={{ p: 3 }}>
               <Typography variant="h5">วิธีชำระเงิน</Typography>
@@ -613,10 +813,16 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
               </Stack>
             </Stack>
           )}
+          {shippingTotal > 0 && (
+            <Stack direction="row" justifyContent="space-between" sx={{ mt: 2 }}>
+              <Typography color="text.secondary">ค่าจัดส่ง</Typography>
+              <Typography>{formatPrice(shippingTotal)}</Typography>
+            </Stack>
+          )}
           <Stack direction="row" justifyContent="space-between" sx={{ my: 2.5 }}>
             <Typography variant="h6">ยอดชำระ</Typography>
             <Typography variant="h5" color="primary.main">
-              {formatPrice(subtotal)}
+              {formatPrice(checkoutTotal)}
             </Typography>
           </Stack>
           <FormControlLabel
@@ -720,6 +926,7 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
             loading={submitting}
             disabled={
               (!isFree && paymentMethodsLoading) ||
+              !shippingReady ||
               !acceptedPurchaseTerms ||
               (!isFree &&
                 (!paymentMethod ||

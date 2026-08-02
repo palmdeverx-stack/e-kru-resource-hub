@@ -4,6 +4,7 @@ import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { requireAuthenticated } from 'src/lib/auth-token';
 import { rejectCrossSiteMutation } from 'src/lib/request-security';
 
+import { getMarketplaceShippingConfig } from 'src/sections/marketplace/shipping/server/config';
 import { provisionEkruSystemSeller } from 'src/sections/marketplace/seller/server/system-seller';
 import { withPublicSystemStoreFlag } from 'src/sections/marketplace/seller/server/public-seller';
 import {
@@ -40,9 +41,7 @@ async function recordProductSearch(
       .single();
     if (eventError || !event || !products.length) return;
 
-    const uniqueProducts = [
-      ...new Map(products.map((product) => [product.id, product])).values(),
-    ];
+    const uniqueProducts = [...new Map(products.map((product) => [product.id, product])).values()];
     await supabaseAdmin.from('marketplace_search_event_products').insert(
       uniqueProducts.map((product, index) => ({
         search_event_id: event.id,
@@ -162,6 +161,17 @@ export async function GET(request: Request) {
     }
   }
   const sellerToolsVisible = await canViewSellerTools(caller?.sub);
+  const shippingConfig = await getMarketplaceShippingConfig();
+  const shippingEnabled = shippingConfig.enabled;
+  let shippingOfficialSellerIds: string[] = [];
+  if (!shippingEnabled && shippingConfig.officialEnabled) {
+    const { data: shippingOfficialSellers } = await supabaseAdmin
+      .from('marketplace_sellers')
+      .select('id')
+      .eq('owner_role', 'master_admin')
+      .eq('status', 'active');
+    shippingOfficialSellerIds = (shippingOfficialSellers ?? []).map((seller) => seller.id);
+  }
 
   let officialSellerIds: string[] | null = null;
   if (!mine && official) {
@@ -263,6 +273,11 @@ export async function GET(request: Request) {
   query = mine ? query.eq('seller_id', sellerId) : query.eq('status', 'published');
   if (mine && mineStatus) query = query.eq('status', mineStatus);
   if (!mine && !sellerToolsVisible) query = query.neq('category', SELLER_TOOLS_CATEGORY);
+  if (!mine && !shippingEnabled) {
+    query = shippingOfficialSellerIds.length
+      ? query.or(`resource_type.neq.physical,seller_id.in.(${shippingOfficialSellerIds.join(',')})`)
+      : query.neq('resource_type', 'physical');
+  }
   if (officialSellerIds) query = query.in('seller_id', officialSellerIds);
   if (bestSellingProductIds) {
     query = query.in('id', bestSellingProductIds.slice(0, offset + limit + 1));

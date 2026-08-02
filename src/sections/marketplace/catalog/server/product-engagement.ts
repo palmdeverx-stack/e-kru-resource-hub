@@ -103,6 +103,9 @@ export async function getProductPurchaseAccess({
   resourceType,
   licenseScope,
   featureKeys,
+  price,
+  licenseBillingCycle,
+  grantDurationDays,
 }: {
   productId: string;
   buyerId?: string;
@@ -112,6 +115,9 @@ export async function getProductPurchaseAccess({
   resourceType: string;
   licenseScope?: 'individual' | 'school' | 'teacher' | 'platform' | null;
   featureKeys?: string[] | null;
+  price?: number | null;
+  licenseBillingCycle?: string | null;
+  grantDurationDays?: number | null;
 }): Promise<MarketplaceProductPurchaseAccess> {
   if (resourceType === 'feature_unlock' && licenseScope === 'platform') {
     const { data: licenses } = await supabaseAdmin
@@ -154,6 +160,8 @@ export async function getProductPurchaseAccess({
 
   if (resourceType === 'feature_unlock') {
     if (licenseScope === 'individual') {
+      const isSingleUseTrial =
+        Number(price) === 0 && licenseBillingCycle === 'contract' && Number(grantDurationDays) > 0;
       const [{ data: licenses }, hasPurchased] = await Promise.all([
         supabaseAdmin
           .from('marketplace_user_licenses')
@@ -163,7 +171,7 @@ export async function getProductPurchaseAccess({
           .eq('status', 'active')
           .order('expires_at', { ascending: false })
           .limit(1),
-        featureKeys?.includes(MARKETPLACE_SELLER_LINE_TRIAL_FEATURE_KEY)
+        isSingleUseTrial || featureKeys?.includes(MARKETPLACE_SELLER_LINE_TRIAL_FEATURE_KEY)
           ? hasPurchasedProduct(productId, buyerId)
           : Promise.resolve(false),
       ]);
@@ -172,7 +180,8 @@ export async function getProductPurchaseAccess({
       const isActive =
         isPerpetual || Boolean(expiresAt && new Date(expiresAt).getTime() > Date.now());
       const trialAlreadyUsed =
-        featureKeys?.includes(MARKETPLACE_SELLER_LINE_TRIAL_FEATURE_KEY) && hasPurchased;
+        (isSingleUseTrial || featureKeys?.includes(MARKETPLACE_SELLER_LINE_TRIAL_FEATURE_KEY)) &&
+        hasPurchased;
       return {
         canPurchase: !isActive && !trialAlreadyUsed,
         hasPurchased: Boolean(licenses?.length) || hasPurchased,

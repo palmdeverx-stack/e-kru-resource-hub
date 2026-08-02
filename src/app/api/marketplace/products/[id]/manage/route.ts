@@ -17,6 +17,10 @@ import {
   MARKETPLACE_SELLER_LINE_MANAGED_FEATURE_KEY,
 } from 'src/sections/marketplace/seller/line-feature';
 import {
+  getMarketplaceShippingConfig,
+  isMarketplaceShippingSetupEnabledForOfficialSeller,
+} from 'src/sections/marketplace/shipping/server/config';
+import {
   REQUIRED_PRODUCT_LEGAL_DOCUMENT_TYPES,
   PRODUCT_SUBMISSION_TERMS_DOCUMENT_TYPE,
 } from 'src/sections/marketplace/shared/product-submission-attestation';
@@ -26,7 +30,7 @@ import {
   MAX_PURCHASE_BENEFITS_TEXT_LENGTH,
 } from 'src/sections/marketplace/shared/purchase-benefits';
 
-const FILE_OPTIONAL_RESOURCE_TYPES = new Set(['service', 'feature_unlock']);
+const FILE_OPTIONAL_RESOURCE_TYPES = new Set(['service', 'feature_unlock', 'physical']);
 const MAX_EXTERNAL_LINKS = 3;
 const MAX_PURCHASE_BENEFITS = 8;
 const ALLOWED_FEATURE_KEYS = new Set<string>([
@@ -77,7 +81,7 @@ export async function GET(request: Request, { params }: Context) {
   const caller = requireAuthenticated(request);
   if (!caller) return NextResponse.json({ message: 'กรุณาเข้าสู่ระบบ' }, { status: 401 });
 
-  const seller = await ownedSellerId(caller.sub);
+  const seller = await ownedSellerId(caller.sub, caller.role);
   if (!seller) return NextResponse.json({ message: 'ไม่พบร้านค้า' }, { status: 404 });
 
   const { id } = await params;
@@ -102,7 +106,7 @@ export async function PATCH(request: Request, { params }: Context) {
   const caller = requireAuthenticated(request);
   if (!caller) return NextResponse.json({ message: 'กรุณาเข้าสู่ระบบ' }, { status: 401 });
 
-  const seller = await ownedSellerId(caller.sub);
+  const seller = await ownedSellerId(caller.sub, caller.role);
   if (!seller) return NextResponse.json({ message: 'ไม่พบร้านค้า' }, { status: 404 });
   if (seller.status !== 'active') {
     return NextResponse.json(
@@ -375,6 +379,15 @@ export async function PATCH(request: Request, { params }: Context) {
           { status: 403 }
         );
       }
+      if (
+        mediaType.delivery_mode === 'physical' &&
+        !isMarketplaceShippingSetupEnabledForOfficialSeller(
+          await getMarketplaceShippingConfig(),
+          caller.role
+        )
+      ) {
+        return NextResponse.json({ message: 'ระบบจัดส่งยังไม่เปิดใช้งาน' }, { status: 409 });
+      }
       update.media_type_id = mediaType.id;
       update.resource_type = mediaType.delivery_mode;
       if (mediaType.delivery_mode !== 'feature_unlock') {
@@ -509,6 +522,19 @@ export async function PATCH(request: Request, { params }: Context) {
       }
       update.grant_duration_days = grantDurationDays;
     }
+  }
+  for (const [inputKey, column] of [
+    ['shippingWeightGrams', 'shipping_weight_grams'],
+    ['shippingWidthCm', 'shipping_width_cm'],
+    ['shippingLengthCm', 'shipping_length_cm'],
+    ['shippingHeightCm', 'shipping_height_cm'],
+  ] as const) {
+    if (body[inputKey] === undefined) continue;
+    const value = Number(body[inputKey]);
+    if (!Number.isFinite(value) || value <= 0 || value > 100000) {
+      return NextResponse.json({ message: 'น้ำหนักหรือขนาดพัสดุไม่ถูกต้อง' }, { status: 400 });
+    }
+    update[column] = value;
   }
   if (body.licenseBillingCycle !== undefined) {
     const billingCycle = String(body.licenseBillingCycle);
@@ -864,6 +890,32 @@ export async function PATCH(request: Request, { params }: Context) {
         );
       }
     }
+    if (product.resource_type === 'physical') {
+      if (
+        !isMarketplaceShippingSetupEnabledForOfficialSeller(
+          await getMarketplaceShippingConfig(),
+          caller.role
+        )
+      ) {
+        return NextResponse.json(
+          { message: 'ระบบจัดส่งยังไม่เปิดใช้งาน จึงยังส่งสินค้ากายภาพตรวจไม่ได้' },
+          { status: 409 }
+        );
+      }
+      if (
+        ![
+          product.shipping_weight_grams,
+          product.shipping_width_cm,
+          product.shipping_length_cm,
+          product.shipping_height_cm,
+        ].every((value) => Number(value) > 0)
+      ) {
+        return NextResponse.json(
+          { message: 'กรุณาระบุน้ำหนักและขนาดพัสดุให้ครบ' },
+          { status: 400 }
+        );
+      }
+    }
 
     const now = new Date().toISOString();
     const submissionTerms = legalDocuments?.find(
@@ -939,7 +991,7 @@ export async function DELETE(request: Request, { params }: Context) {
   const caller = requireAuthenticated(request);
   if (!caller) return NextResponse.json({ message: 'กรุณาเข้าสู่ระบบ' }, { status: 401 });
 
-  const seller = await ownedSellerId(caller.sub);
+  const seller = await ownedSellerId(caller.sub, caller.role);
   if (!seller) return NextResponse.json({ message: 'ไม่พบร้านค้า' }, { status: 404 });
 
   const { id } = await params;
