@@ -18,7 +18,7 @@ const payoutAccessSecret = `${secret}:marketplace-payout-access`;
 
 export const ACCESS_TOKEN_COOKIE = 'access_token';
 export const PAYOUT_ACCESS_COOKIE = 'marketplace_payout_access';
-const ACCESS_TOKEN_MAX_AGE_SECONDS = 30 * 60;
+const ACCESS_TOKEN_MAX_AGE_SECONDS = 24 * 60 * 60;
 const PAYOUT_ACCESS_MAX_AGE_SECONDS = 15 * 60;
 
 export const accessTokenCookieOptions = {

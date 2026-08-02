@@ -111,7 +111,7 @@ test('Stripe webhook verifies its signature instead of requiring a browser Origi
 test('access-token cookie and JWT keep their security constraints', async () => {
   const source = await readProjectFile('src/lib/auth-token.ts');
 
-  assert.match(source, /const ACCESS_TOKEN_MAX_AGE_SECONDS = 30 \* 60/);
+  assert.match(source, /const ACCESS_TOKEN_MAX_AGE_SECONDS = 24 \* 60 \* 60/);
   assert.match(source, /httpOnly:\s*true/);
   assert.match(source, /secure:\s*process\.env\.NODE_ENV === 'production'/);
   assert.match(source, /sameSite:\s*'lax'/);
