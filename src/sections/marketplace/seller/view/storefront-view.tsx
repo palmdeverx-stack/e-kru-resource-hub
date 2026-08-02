@@ -28,6 +28,7 @@ import {
   RiVerifiedBadgeFill,
 } from 'src/components/remix-icon';
 
+import { hasAnalyticsConsent } from '../../legal/cookie-consent';
 import { MarketplaceProductCard } from '../../shared/product-card';
 import { MarketplaceSellerBadges } from '../../shared/seller-badges';
 import { MarketplaceProductDetailDialog } from '../../catalog/components/product-detail-dialog';
@@ -37,6 +38,8 @@ type Props = {
   slug: string;
   dashboardMode?: boolean;
 };
+
+const VISITOR_STORAGE_KEY = 'ekru_marketplace_visitor_id';
 
 export function MarketplaceStorefrontView({ slug, dashboardMode = false }: Props) {
   const { t, currentLang } = useTranslate('marketplace');
@@ -48,14 +51,36 @@ export function MarketplaceStorefrontView({ slug, dashboardMode = false }: Props
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    fetch(`/api/marketplace/stores/${encodeURIComponent(slug)}`, { cache: 'no-store' })
+    const controller = new AbortController();
+    setError(false);
+    fetch(`/api/marketplace/stores/${encodeURIComponent(slug)}`, {
+      cache: 'no-store',
+      signal: controller.signal,
+    })
       .then(async (response) => {
         const result = await response.json();
         if (!response.ok) throw new Error(result.message);
+        if (controller.signal.aborted) return;
         setSeller(result.seller);
         setProducts(result.products);
+        if (hasAnalyticsConsent()) {
+          let visitorId = window.localStorage.getItem(VISITOR_STORAGE_KEY);
+          if (!visitorId) {
+            visitorId = window.crypto.randomUUID();
+            window.localStorage.setItem(VISITOR_STORAGE_KEY, visitorId);
+          }
+          fetch(`/api/marketplace/stores/${encodeURIComponent(slug)}/view`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ visitorId }),
+            signal: controller.signal,
+          }).catch(() => undefined);
+        }
       })
-      .catch(() => setError(true));
+      .catch((requestError) => {
+        if ((requestError as Error).name !== 'AbortError') setError(true);
+      });
+    return () => controller.abort();
   }, [slug]);
 
   const categories = useMemo(

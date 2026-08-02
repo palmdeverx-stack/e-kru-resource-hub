@@ -269,6 +269,7 @@
       "defaultBio": "An approved teaching resource store on E-KRU Marketplace.",
       "products": "{{formattedCount}} product",
       "products_other": "{{formattedCount}} products",
+      "visitors": "{{formattedCount}} visitors",
       "viewStore": "View store"
     },
     "pagination": {

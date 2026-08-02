@@ -25,6 +25,7 @@ import { RouterLink } from 'src/routes/components';
 import { useTranslate } from 'src/locales';
 
 import {
+  RiEyeLine,
   RiSearchLine,
   RiStore2Line,
   RiArrowRightLine,
@@ -51,6 +52,7 @@ type PublicStore = Pick<
   | 'badges'
 > & {
   product_count: number;
+  view_count: number;
   review_count: number;
   average_rating: number;
 };
@@ -63,11 +65,10 @@ type StoreResponse = {
 };
 
 export function MarketplaceStoreListView() {
-  const { t, currentLang } = useTranslate('marketplace');
+  const { t } = useTranslate('marketplace');
   const [stores, setStores] = useState<PublicStore[]>([]);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
-  const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(true);
 
@@ -92,13 +93,11 @@ export function MarketplaceStoreListView() {
         })
         .then((result) => {
           setStores(result.stores);
-          setTotal(result.total);
           setTotalPages(result.totalPages);
         })
         .catch((error) => {
           if (error instanceof Error && error.name === 'AbortError') return;
           setStores([]);
-          setTotal(0);
           setTotalPages(0);
         })
         .finally(() => {
@@ -150,14 +149,14 @@ export function MarketplaceStoreListView() {
               },
             }}
           />
-          {!loading && (
+          {/* {!loading && (
             <Typography variant="body2" color="text.secondary">
               {t('stores.approvedCount', {
                 count: total,
                 formattedCount: total.toLocaleString(currentLang.numberFormat.code),
               })}
             </Typography>
-          )}
+          )} */}
         </Stack>
 
         <Grid container spacing={2.5}>
@@ -224,21 +223,40 @@ function StoreCard({ store }: { store: PublicStore }) {
       variant="outlined"
       sx={{
         height: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        position: 'relative',
         overflow: 'hidden',
-        borderRadius: 3,
+        borderRadius: 3.5,
+        borderColor: 'divider',
+        bgcolor: 'background.paper',
         transition: 'transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease',
         '&:hover': {
           transform: 'translateY(-4px)',
           borderColor: 'primary.light',
-          boxShadow: '0 14px 36px rgba(15, 23, 42, 0.10)',
+          boxShadow: '0 18px 44px rgba(15, 23, 42, 0.11)',
         },
       }}
     >
       <Box
+        sx={{
+          top: 14,
+          right: 14,
+          zIndex: 2,
+          maxWidth: 'calc(100% - 28px)',
+          position: 'absolute',
+          '& .MuiStack-root': { justifyContent: 'flex-end' },
+          '& .MuiChip-root': { backdropFilter: 'blur(6px)' },
+        }}
+      >
+        <MarketplaceSellerBadges badges={store.badges} limit={3} variant="seal" />
+      </Box>
+
+      <Box
         component={RouterLink}
         href={paths.marketplace.store(storeIdentifier)}
         sx={{
-          height: 116,
+          height: 132,
           display: 'block',
           position: 'relative',
           textDecoration: 'none',
@@ -254,10 +272,10 @@ function StoreCard({ store }: { store: PublicStore }) {
           src={store.logo_url ?? undefined}
           alt={storeName}
           sx={{
-            left: 22,
-            bottom: -34,
-            width: 72,
-            height: 72,
+            left: 24,
+            bottom: -38,
+            width: 78,
+            height: 78,
             position: 'absolute',
             bgcolor: 'common.white',
             color: 'primary.main',
@@ -269,7 +287,7 @@ function StoreCard({ store }: { store: PublicStore }) {
         </Avatar>
       </Box>
 
-      <Stack spacing={2} sx={{ px: 2.5, pt: 5.5, pb: 2.5 }}>
+      <Stack spacing={1.75} sx={{ px: 3, pt: 6, pb: 3, flex: 1 }}>
         <Box>
           <Stack direction="row" spacing={0.75} alignItems="center">
             <Typography
@@ -306,8 +324,6 @@ function StoreCard({ store }: { store: PublicStore }) {
           />
         </Box>
 
-        <MarketplaceSellerBadges badges={store.badges} limit={3} />
-
         <Typography
           variant="body2"
           color="text.secondary"
@@ -322,19 +338,43 @@ function StoreCard({ store }: { store: PublicStore }) {
           {store.bio || t('stores.card.defaultBio')}
         </Typography>
 
-        <Stack direction="row" spacing={2.5} alignItems="center">
-          <Stack direction="row" spacing={0.75} alignItems="center">
-            <RiShoppingBag3Line size={18} />
-            <Typography variant="body2">
+        <Stack
+          direction="row"
+          spacing={1.5}
+          alignItems="center"
+          flexWrap="wrap"
+          useFlexGap
+          sx={{
+            py: 1.25,
+          }}
+        >
+          <Stack direction="row" spacing={0.65} alignItems="center">
+            <RiShoppingBag3Line size={17} aria-hidden />
+            <Typography variant="body2" fontWeight={600}>
               {t('stores.card.products', {
                 count: store.product_count,
                 formattedCount: store.product_count.toLocaleString(currentLang.numberFormat.code),
               })}
             </Typography>
           </Stack>
+          <Stack direction="row" spacing={0.65} alignItems="center">
+            <RiEyeLine size={17} aria-hidden />
+            <Typography variant="body2" fontWeight={600}>
+              {t('stores.card.visitors', {
+                count: store.view_count,
+                formattedCount: store.view_count.toLocaleString(currentLang.numberFormat.code),
+              })}
+            </Typography>
+          </Stack>
           {store.review_count > 0 && (
             <Stack direction="row" spacing={0.5} alignItems="center">
-              <Rating value={store.average_rating} precision={0.1} readOnly size="small" />
+              <Rating
+                value={store.average_rating}
+                precision={0.1}
+                readOnly
+                size="small"
+                sx={{ '& .MuiRating-icon': { fontSize: 17 } }}
+              />
               <Typography variant="caption" color="text.secondary">
                 ({store.review_count.toLocaleString(currentLang.numberFormat.code)})
               </Typography>
@@ -344,10 +384,11 @@ function StoreCard({ store }: { store: PublicStore }) {
 
         <Button
           fullWidth
-          variant="outlined"
+          variant="contained"
           component={RouterLink}
           href={paths.marketplace.store(storeIdentifier)}
           endIcon={<RiArrowRightLine />}
+          sx={{ mt: 'auto', minHeight: 44, borderRadius: 2 }}
         >
           {t('stores.card.viewStore')}
         </Button>
@@ -358,14 +399,15 @@ function StoreCard({ store }: { store: PublicStore }) {
 
 function StoreCardSkeleton() {
   return (
-    <Card variant="outlined" sx={{ height: 390, overflow: 'hidden', borderRadius: 3 }}>
-      <Skeleton variant="rectangular" height={116} />
-      <Stack spacing={1.5} sx={{ px: 2.5, pt: 5.5 }}>
+    <Card variant="outlined" sx={{ height: 410, overflow: 'hidden', borderRadius: 3.5 }}>
+      <Skeleton variant="rectangular" height={132} />
+      <Stack spacing={1.5} sx={{ px: 3, pt: 6 }}>
         <Skeleton width="62%" height={30} />
         <Skeleton width="30%" height={24} />
         <Skeleton />
         <Skeleton width="82%" />
-        <Skeleton variant="rounded" height={40} sx={{ mt: 2 }} />
+        <Skeleton variant="rounded" height={46} />
+        <Skeleton variant="rounded" height={44} sx={{ mt: 1 }} />
       </Stack>
     </Card>
   );

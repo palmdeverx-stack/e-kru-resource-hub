@@ -254,6 +254,7 @@
       "systemStore": "ร้านค้าระบบ E-KRU",
       "defaultBio": "ร้านค้าสื่อการสอนที่ผ่านการอนุมัติจาก E-KRU Marketplace",
       "products": "{{formattedCount}} สินค้า",
+      "visitors": "ผู้เข้าชม {{formattedCount}}",
       "viewStore": "ดูหน้าร้าน"
     },
     "pagination": {

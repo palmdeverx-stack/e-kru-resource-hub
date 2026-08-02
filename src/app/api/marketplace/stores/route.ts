@@ -10,6 +10,8 @@ type ProductRatingRow = {
   reviews?: Array<{ rating?: number | null }> | null;
 };
 
+type StoreViewCountRow = { seller_id: string; view_count: number | string };
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const search = url.searchParams.get('q')?.trim() ?? '';
@@ -32,9 +34,7 @@ export async function GET(request: Request) {
 
   const safeSearch = search.replace(/[^\p{L}\p{N}\s._-]/gu, '').trim();
   if (safeSearch) {
-    query = query.or(
-      `display_name.ilike.%${safeSearch}%,display_name_en.ilike.%${safeSearch}%`
-    );
+    query = query.or(`display_name.ilike.%${safeSearch}%,display_name_en.ilike.%${safeSearch}%`);
   }
 
   const { data: sellers, error, count } = await query;
@@ -57,7 +57,18 @@ export async function GET(request: Request) {
   if (productError) {
     return NextResponse.json({ message: productError.message }, { status: 500 });
   }
-  const badgesBySeller = await getPublicSellerBadges(sellerIds);
+  const [{ data: viewCountRows }, badgesBySeller] = await Promise.all([
+    sellerIds.length
+      ? supabaseAdmin.rpc('marketplace_public_store_view_counts', { seller_ids: sellerIds })
+      : Promise.resolve({ data: [] }),
+    getPublicSellerBadges(sellerIds),
+  ]);
+  const viewCounts = new Map(
+    ((viewCountRows ?? []) as StoreViewCountRow[]).map((row) => [
+      row.seller_id,
+      Number(row.view_count ?? 0),
+    ])
+  );
 
   const sellerStats = new Map<
     string,
@@ -92,6 +103,7 @@ export async function GET(request: Request) {
         profile_completion: await getSellerProfileCompletionById(seller.id),
         is_system_store: ownerRole === 'master_admin',
         product_count: stats.productCount,
+        view_count: viewCounts.get(seller.id) ?? 0,
         review_count: stats.reviewCount,
         average_rating: stats.reviewCount ? stats.ratingTotal / stats.reviewCount : 0,
         badges: badgesBySeller.get(seller.id) ?? [],

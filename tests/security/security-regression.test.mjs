@@ -88,6 +88,19 @@ test('official-store shipping bypasses only the regular-seller switch, not provi
   assert.match(rates, /seller\?\.owner_role/);
 });
 
+test('storefront views count unique consented visitors and exclude the store owner', async () => {
+  const route = await readProjectFile('src/app/api/marketplace/stores/[slug]/view/route.ts');
+  const storefront = await readProjectFile(
+    'src/sections/marketplace/seller/view/storefront-view.tsx'
+  );
+
+  assert.match(route, /onConflict: 'seller_id,visitor_key'/);
+  assert.match(route, /caller\?\.sub === seller\.owner_id/);
+  assert.match(route, /rejectCrossSiteMutation\(request\)/);
+  assert.match(storefront, /hasAnalyticsConsent\(\)/);
+  assert.match(storefront, /ekru_marketplace_visitor_id/);
+});
+
 test('Stripe webhook verifies its signature instead of requiring a browser Origin', async () => {
   const source = await readProjectFile('src/app/api/stripe/webhook/route.ts');
 
