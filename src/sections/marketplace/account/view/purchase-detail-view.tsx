@@ -484,7 +484,7 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                       <Box
                         sx={{
                           width: { xs: '100%', sm: 120 },
-                          aspectRatio: { xs: '16 / 9', sm: '1 / 1' },
+                          aspectRatio: '1 / 1',
                           flexShrink: 0,
                           borderRadius: 2,
                           bgcolor: 'background.neutral',
