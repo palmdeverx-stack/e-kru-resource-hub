@@ -210,17 +210,16 @@ export async function POST(request: Request) {
   if (isAsset) {
     url = supabaseAdmin.storage.from(bucket).getPublicUrl(path).data.publicUrl;
     const assetField = documentType === 'store_logo' ? 'logo_url' : 'cover_url';
+    const pendingProfile = seller.pending_profile_data as Record<string, unknown> | null;
     const { error: updateSellerError } = await supabaseAdmin
       .from('marketplace_sellers')
       .update(
         seller.status === 'active'
           ? {
-              pending_profile_data: {
-                ...((seller.pending_profile_data ?? {}) as Record<string, unknown>),
-                [assetField]: url,
-              },
-              profile_review_status: 'draft',
-              profile_rejection_reason: null,
+              [assetField]: url,
+              ...(pendingProfile && {
+                pending_profile_data: { ...pendingProfile, [assetField]: url },
+              }),
               updated_at: new Date().toISOString(),
             }
           : { [assetField]: url, updated_at: new Date().toISOString() }
@@ -229,8 +228,17 @@ export async function POST(request: Request) {
     if (updateSellerError) {
       return NextResponse.json({ message: updateSellerError.message }, { status: 500 });
     }
+    if (previous && seller.status === 'active') {
+      await supabaseAdmin.storage.from(previous.storage_bucket).remove([previous.storage_path]);
+    }
   } else {
     url = `/api/marketplace/seller/documents?documentId=${encodeURIComponent(document.id)}`;
   }
-  return NextResponse.json({ document: { ...document, url } });
+  return NextResponse.json({
+    document: { ...document, url },
+    message:
+      isAsset && seller.status === 'active'
+        ? 'อัปโหลดรูปเรียบร้อยและแสดงผลบนหน้าร้านทันทีแล้ว'
+        : 'อัปโหลดไฟล์เรียบร้อยแล้ว',
+  });
 }

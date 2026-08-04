@@ -315,7 +315,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
             }
           : value
       );
-      toast.success('อัปโหลดไฟล์เรียบร้อยแล้ว');
+      toast.success(result.message ?? 'อัปโหลดไฟล์เรียบร้อยแล้ว');
       return true;
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : 'อัปโหลดไม่สำเร็จ');
@@ -736,6 +736,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                   <Typography variant="subtitle1">รูปภาพร้านค้า</Typography>
                   <Typography variant="body2" color="text.secondary">
                     อัปโหลดโลโก้และภาพหน้าปกให้ลูกค้าจดจำร้านของคุณได้ง่าย
+                    {mode === 'edit' && ' รูปใหม่จะแสดงบนหน้าร้านทันทีโดยไม่ต้องรออนุมัติ'}
                   </Typography>
                 </Box>
                 <Box>
@@ -1081,7 +1082,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
             })}
             <Alert severity="warning">
               {mode === 'edit'
-                ? 'ตรวจสอบข้อมูลให้ถูกต้องก่อนส่ง ข้อมูลเดิมจะยังแสดงบนหน้าร้านจนกว่าผู้ดูแลจะอนุมัติข้อมูลใหม่'
+                ? 'ตรวจสอบข้อมูลให้ถูกต้องก่อนส่ง ข้อมูลเดิมจะยังแสดงบนหน้าร้านจนกว่าผู้ดูแลจะอนุมัติข้อมูลใหม่ ยกเว้นโลโก้และภาพหน้าปกซึ่งมีผลทันที'
                 : 'ตรวจสอบข้อมูลและเอกสารให้ถูกต้องก่อนส่ง หลังส่งสถานะจะเป็นกำลังตรวจสอบ'}
             </Alert>
           </Stack>

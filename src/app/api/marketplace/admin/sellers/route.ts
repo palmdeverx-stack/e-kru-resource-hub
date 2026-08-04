@@ -68,14 +68,23 @@ export async function GET(request: Request) {
   return NextResponse.json({
     sellers: (sellersResult.data ?? []).map((seller) => {
       const pendingProfile = seller.pending_profile_data as Record<string, unknown> | null;
-      const reviewStatus = seller.profile_review_status ?? seller.status;
+      const isProfileRevision =
+        seller.status === 'active' &&
+        (seller.profile_review_status === 'pending' ||
+          seller.profile_review_status === 'rejected') &&
+        Boolean(pendingProfile);
+      const reviewStatus = isProfileRevision ? seller.profile_review_status : seller.status;
       return {
         ...seller,
-        ...(reviewStatus === 'pending' && pendingProfile ? pendingProfile : {}),
+        ...(isProfileRevision && pendingProfile ? pendingProfile : {}),
         status: reviewStatus,
-        submitted_at: seller.profile_submitted_at ?? seller.submitted_at,
-        rejection_reason: seller.profile_rejection_reason ?? seller.rejection_reason,
-        is_profile_revision: seller.status === 'active' && Boolean(seller.profile_review_status),
+        submitted_at: isProfileRevision
+          ? (seller.profile_submitted_at ?? seller.submitted_at)
+          : seller.submitted_at,
+        rejection_reason: isProfileRevision
+          ? seller.profile_rejection_reason
+          : seller.rejection_reason,
+        is_profile_revision: isProfileRevision,
       };
     }),
     counts: {

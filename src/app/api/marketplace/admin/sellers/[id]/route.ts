@@ -66,13 +66,16 @@ export async function GET(request: Request, { params }: Context) {
   const pendingProfile = seller.pending_profile_data as Record<string, unknown> | null;
   const proposedPayout = pendingProfile?.payout_account as Record<string, unknown> | undefined;
   const isProfileRevision =
-    seller.status === 'active' && seller.profile_review_status === 'pending';
+    seller.status === 'active' &&
+    (seller.profile_review_status === 'pending' || seller.profile_review_status === 'rejected') &&
+    Boolean(pendingProfile);
+  const profileReviewStatus = isProfileRevision ? seller.profile_review_status : null;
 
   return NextResponse.json({
     seller: {
       ...seller,
       ...(isProfileRevision && pendingProfile ? pendingProfile : {}),
-      status: isProfileRevision ? 'pending' : seller.status,
+      status: profileReviewStatus ?? seller.status,
       submitted_at: isProfileRevision ? seller.profile_submitted_at : seller.submitted_at,
       rejection_reason: isProfileRevision
         ? seller.profile_rejection_reason

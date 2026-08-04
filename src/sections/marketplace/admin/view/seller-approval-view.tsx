@@ -279,5 +279,7 @@ export function MarketplaceSellerApprovalView() {
 function SellerStatusChip({ status }: { status: MarketplaceSeller['status'] }) {
   if (status === 'active') return <Chip size="small" color="success" label="อนุมัติแล้ว" />;
   if (status === 'rejected') return <Chip size="small" color="error" label="ไม่อนุมัติ" />;
-  return <Chip size="small" color="warning" label="รอตรวจสอบ" />;
+  if (status === 'pending') return <Chip size="small" color="warning" label="รอตรวจสอบ" />;
+  if (status === 'suspended') return <Chip size="small" color="error" label="ระงับการใช้งาน" />;
+  return <Chip size="small" color="default" label="แบบร่าง" />;
 }
