@@ -1345,7 +1345,12 @@ function UploadField({
                 <Chip size="small" color="success" variant="soft" label="อัปโหลดแล้ว" />
               )}
               {pendingFile && (
-                <Chip size="small" color="primary" variant="soft" label="รอยืนยันอัปโหลด" />
+                <Chip
+                  size="small"
+                  color="warning"
+                  variant="soft"
+                  label="ยังไม่ได้อัปโหลด"
+                />
               )}
             </Stack>
             <Typography variant="caption" color="text.secondary">
@@ -1476,6 +1481,12 @@ function UploadField({
           <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block' }}>
             {fileError}
           </Typography>
+        )}
+
+        {pendingFile && (
+          <Alert severity="warning" sx={{ mt: 1.5 }}>
+            กด “ยืนยันอัปโหลด” เพื่อบันทึกไฟล์นี้
+          </Alert>
         )}
 
         <Stack direction="row" justifyContent="flex-end" spacing={1} sx={{ mt: 1.5 }}>
