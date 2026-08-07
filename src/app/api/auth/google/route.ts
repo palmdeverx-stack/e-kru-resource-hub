@@ -23,10 +23,12 @@ function googleProfile(authUser: User) {
   const metadata = authUser.user_metadata ?? {};
   const fullName = String(metadata.full_name ?? metadata.name ?? '').trim();
   const [fallbackFirstName = 'Google', ...fallbackLastName] = fullName.split(/\s+/);
+  const avatarUrl = String(metadata.avatar_url ?? metadata.picture ?? '').trim() || null;
 
   return {
     firstName: String(metadata.given_name ?? fallbackFirstName).trim() || 'Google',
     lastName: String(metadata.family_name ?? fallbackLastName.join(' ')).trim() || 'User',
+    avatarUrl,
   };
 }
 
@@ -148,12 +150,21 @@ async function handleGoogleSignIn(request: Request) {
         { status: 403 }
       );
     }
+    const googleAvatarUrl = googleProfile(authUser).avatarUrl;
+    const needsReactivation = marketplaceUserByAuth.is_active === false;
+    const needsAvatarSync =
+      Boolean(googleAvatarUrl) && googleAvatarUrl !== marketplaceUserByAuth.avatar_url;
+
     const marketplaceUser =
-      marketplaceUserByAuth.is_active === false
+      needsReactivation || needsAvatarSync
         ? (
             await supabaseAdmin
               .from('marketplace_users')
-              .update({ is_active: true, updated_at: new Date().toISOString() })
+              .update({
+                ...(needsReactivation ? { is_active: true } : {}),
+                ...(needsAvatarSync ? { avatar_url: googleAvatarUrl } : {}),
+                updated_at: new Date().toISOString(),
+              })
               .eq('id', marketplaceUserByAuth.id)
               .select('*')
               .single()
@@ -195,6 +206,7 @@ async function handleGoogleSignIn(request: Request) {
       display_name: `${profile.firstName} ${profile.lastName}`.trim(),
       first_name: profile.firstName,
       last_name: profile.lastName,
+      avatar_url: profile.avatarUrl,
       is_active: true,
     })
     .select('*')

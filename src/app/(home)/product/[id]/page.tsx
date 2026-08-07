@@ -37,7 +37,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const productTitle = lang === 'en' && product.titleEn?.trim() ? product.titleEn : product.title;
   const productDescription = lang === 'en' ? product.descriptionEn : product.description;
   const shareImage = product.image || settings?.og_image_url || MARKETPLACE_OG_IMAGE_URL;
-  const images = [{ url: shareImage, alt: productTitle }];
+  const images = [{ url: shareImage, width: 1080, height: 1080, alt: productTitle }];
 
   return {
     title: `${productTitle} | ${platformName}`,

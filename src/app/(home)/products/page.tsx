@@ -26,7 +26,9 @@ export async function generateMetadata(): Promise<Metadata> {
       title,
       description,
       url: '/products',
-      images: [{ url: image, alt: t('catalog.seo.imageAlt', { platformName }) }],
+      images: [
+        { url: image, width: 1080, height: 1080, alt: t('catalog.seo.imageAlt', { platformName }) },
+      ],
     },
     twitter: { card: 'summary_large_image', title, description, images: [image] },
   };
