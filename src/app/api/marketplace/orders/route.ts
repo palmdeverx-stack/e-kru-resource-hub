@@ -26,6 +26,7 @@ import {
 } from 'src/sections/marketplace/seller/server/seller-tools-access';
 import {
   hasPurchasedProduct,
+  isLicenseQuotaExhausted,
   getProductPurchaseAccess,
 } from 'src/sections/marketplace/catalog/server/product-engagement';
 import {
@@ -174,7 +175,7 @@ export async function POST(request: Request) {
   const { data: products, error: productError } = await supabaseAdmin
     .from('marketplace_products')
     .select(
-      'id, seller_id, title, title_en, category, short_description, description, price, list_price, currency, status, resource_type, shipping_weight_grams, shipping_width_cm, shipping_length_cm, shipping_height_cm, grants_feature_key, grants_feature_keys, grants_plan_code, grant_duration_days, license_billing_cycle, license_scope, license_seat_count, license_max_teachers, license_max_students, license_max_school_admins, license_line_quota, purchase_benefits, purchase_benefits_html, seller:marketplace_sellers(owner_role, commission_rate_override, display_name, shipping_contact_name, shipping_phone, shipping_address_line, shipping_subdistrict, shipping_district, shipping_province, shipping_postal_code)'
+      'id, seller_id, title, title_en, category, short_description, description, price, list_price, currency, status, resource_type, shipping_weight_grams, shipping_width_cm, shipping_length_cm, shipping_height_cm, grants_feature_key, grants_feature_keys, grants_plan_code, grant_duration_days, license_billing_cycle, license_scope, license_seat_count, license_max_teachers, license_max_students, license_max_school_admins, license_line_quota, license_quota, purchase_benefits, purchase_benefits_html, seller:marketplace_sellers(owner_role, commission_rate_override, display_name, shipping_contact_name, shipping_phone, shipping_address_line, shipping_subdistrict, shipping_district, shipping_province, shipping_postal_code)'
     )
     .in('id', uniqueProductIds)
     .eq('status', 'published');
@@ -282,14 +283,21 @@ export async function POST(request: Request) {
         product.resource_type === 'feature_unlock' &&
         ['school', 'teacher'].includes(product.license_scope)
       ) {
-        const hasPurchased = await hasPurchasedProduct(product.id, caller.sub);
+        const [hasPurchased, quotaExhausted] = await Promise.all([
+          hasPurchasedProduct(product.id, caller.sub),
+          isLicenseQuotaExhausted(product.id, product.license_quota),
+        ]);
         return {
           product,
           access: {
-            canPurchase: !hasPurchased,
+            canPurchase: !hasPurchased && !quotaExhausted,
             hasPurchased,
             accessExpiresAt: null,
-            message: hasPurchased ? 'คุณซื้อ License นี้และกำลังรอสร้างโรงเรียน' : null,
+            message: hasPurchased
+              ? 'คุณซื้อ License นี้และกำลังรอสร้างโรงเรียน'
+              : quotaExhausted
+                ? 'สิทธิ์นี้ถูกใช้ครบตามจำนวนที่กำหนดแล้ว'
+                : null,
           },
         };
       }
@@ -306,6 +314,7 @@ export async function POST(request: Request) {
           price: product.price,
           licenseBillingCycle: product.license_billing_cycle,
           grantDurationDays: product.grant_duration_days,
+          licenseQuota: product.license_quota,
         }),
       };
     })

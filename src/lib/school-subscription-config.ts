@@ -150,6 +150,12 @@ export const SCHOOL_FEATURES = [
     description: 'ใช้ AI ช่วยสร้างใบงานและสื่อประกอบการเรียนการสอน',
   },
   {
+    key: 'teacher.lesson_plans',
+    group: 'ครู',
+    label: 'แผนการสอน',
+    description: 'สร้างและจัดการแผนการสอน',
+  },
+  {
     key: 'student.subjects',
     group: 'นักเรียน',
     label: 'วิชาเรียน',

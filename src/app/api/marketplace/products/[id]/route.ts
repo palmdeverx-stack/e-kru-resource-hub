@@ -92,6 +92,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       price: product.price,
       licenseBillingCycle: product.license_billing_cycle,
       grantDurationDays: product.grant_duration_days,
+      licenseQuota: product.license_quota,
     }),
     supabaseAdmin
       .from('marketplace_product_files')

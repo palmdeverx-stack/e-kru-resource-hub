@@ -94,7 +94,51 @@ export async function hasPurchasedProduct(productId: string, buyerId: string) {
   return !error && Boolean(data?.length);
 }
 
-export async function getProductPurchaseAccess({
+export async function countFeatureLicensePurchases(productId: string) {
+  const { count } = await supabaseAdmin
+    .from('marketplace_order_items')
+    .select('id, order:marketplace_orders!inner(id)', { count: 'exact', head: true })
+    .eq('product_id', productId)
+    .in('order.status', ['paid', 'completed']);
+
+  return count ?? 0;
+}
+
+export async function isLicenseQuotaExhausted(productId: string, licenseQuota?: number | null) {
+  if (licenseQuota == null) return false;
+  return (await countFeatureLicensePurchases(productId)) >= licenseQuota;
+}
+
+const LICENSE_QUOTA_EXHAUSTED_MESSAGE = 'สิทธิ์นี้ถูกใช้ครบตามจำนวนที่กำหนดแล้ว';
+
+export async function getProductPurchaseAccess(
+  params: {
+    productId: string;
+    buyerId?: string;
+    schoolId?: string | null;
+    schoolIds?: string[];
+    buyerRole?: string | null;
+    resourceType: string;
+    licenseScope?: 'individual' | 'school' | 'teacher' | 'platform' | null;
+    featureKeys?: string[] | null;
+    price?: number | null;
+    licenseBillingCycle?: string | null;
+    grantDurationDays?: number | null;
+    licenseQuota?: number | null;
+  }
+): Promise<MarketplaceProductPurchaseAccess> {
+  const access = await resolveProductPurchaseAccess(params);
+  if (
+    access.canPurchase &&
+    params.resourceType === 'feature_unlock' &&
+    (await isLicenseQuotaExhausted(params.productId, params.licenseQuota))
+  ) {
+    return { ...access, canPurchase: false, message: LICENSE_QUOTA_EXHAUSTED_MESSAGE };
+  }
+  return access;
+}
+
+async function resolveProductPurchaseAccess({
   productId,
   buyerId,
   schoolId,

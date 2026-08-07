@@ -576,6 +576,20 @@ export async function PATCH(request: Request, { params }: Context) {
     }
     update[column] = value;
   }
+  if (body.licenseQuota !== undefined) {
+    if (body.licenseQuota === null || body.licenseQuota === '') {
+      update.license_quota = null;
+    } else {
+      const licenseQuota = Number(body.licenseQuota);
+      if (!Number.isInteger(licenseQuota) || licenseQuota < 1) {
+        return NextResponse.json(
+          { message: 'จำนวนสิทธิ์ต้องเป็นเลขจำนวนเต็มตั้งแต่ 1 หรือเว้นว่างไว้หากไม่จำกัด' },
+          { status: 400 }
+        );
+      }
+      update.license_quota = licenseQuota;
+    }
+  }
   if (requestedPlanCode) {
     if (caller.role !== 'master_admin') {
       return NextResponse.json(

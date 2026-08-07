@@ -12,12 +12,19 @@ import {
 export async function syncSellerLineFeatureProducts({
   adminUserId,
   enabled,
+  overwriteStatus = true,
   byoa,
   managed,
   trial,
 }: {
   adminUserId: string;
   enabled: boolean;
+  /**
+   * Set to false for read-path "repair missing product" callers so an
+   * intentionally archived product isn't silently republished — only newly
+   * inserted rows get a status in that case.
+   */
+  overwriteStatus?: boolean;
   byoa: { price: number; description: string };
   managed: { price: number; description: string; quota: number };
   trial: { description: string; durationDays: number; quota: number };
@@ -118,10 +125,13 @@ export async function syncSellerLineFeatureProducts({
           item.durationDays ? 'ใช้ LINE OA ของระบบ E-KRU' : 'เลือกรายการแจ้งเตือนที่ต้องการได้',
         ],
       };
+      if (existing && !overwriteStatus) {
+        delete (product as { status?: string }).status;
+      }
       const query = existing
         ? supabaseAdmin.from('marketplace_products').update(product).eq('id', existing.id)
         : supabaseAdmin.from('marketplace_products').insert(product);
-      const { data, error } = await query.select('id, price, grant_duration_days').single();
+      const { data, error } = await query.select('id, price, grant_duration_days, status').single();
       if (error) throw error;
       return {
         ...data,

@@ -41,6 +41,7 @@ type ProductOptionRow = {
   short_description?: string | null;
   license_line_quota?: number | null;
   grant_duration_days?: number | null;
+  status?: string;
   key?: string;
   description?: string;
   quota?: number | null;
@@ -148,9 +149,10 @@ export async function getSellerLineFeatureAccess(
       .maybeSingle();
     if (adminError) throw adminError;
     if (admin) {
-      products = await syncSellerLineFeatureProducts({
+      const syncedProducts = await syncSellerLineFeatureProducts({
         adminUserId: admin.id,
         enabled: true,
+        overwriteStatus: false,
         byoa: {
           price: Number(settings?.seller_notification_price ?? 99),
           description: settings?.seller_byoa_description ?? 'ใช้ LINE OA ของตัวเอง',
@@ -168,6 +170,7 @@ export async function getSellerLineFeatureAccess(
           quota: expectedTrialQuota,
         },
       });
+      products = syncedProducts.filter((product) => product.status === 'published');
     }
   }
 

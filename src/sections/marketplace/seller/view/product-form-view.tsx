@@ -161,6 +161,7 @@ const initialForm = {
   licenseMaxStudents: '',
   licenseMaxSchoolAdmins: '',
   licenseLineQuota: '',
+  licenseQuota: '',
   externalLinks: [] as Array<{ label: string; url: string }>,
   purchaseBenefits: [] as string[],
   purchaseBenefitsHtml: '',
@@ -373,6 +374,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
       licenseMaxStudents: String(product.license_max_students ?? ''),
       licenseMaxSchoolAdmins: String(product.license_max_school_admins ?? ''),
       licenseLineQuota: String(product.license_line_quota ?? ''),
+      licenseQuota: product.license_quota == null ? '' : String(product.license_quota),
       externalLinks: (product.external_links ?? []).slice(0, MAX_EXTERNAL_LINKS),
       purchaseBenefits: (product.purchase_benefits ?? []).slice(0, MAX_PURCHASE_BENEFITS),
       purchaseBenefitsHtml: product.purchase_benefits_html ?? '',
@@ -614,6 +616,11 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
         : undefined,
     licenseLineQuota:
       isLicenseProduct && form.licenseLineQuota !== '' ? Number(form.licenseLineQuota) : undefined,
+    licenseQuota: isLicenseProduct
+      ? form.licenseQuota === ''
+        ? null
+        : Number(form.licenseQuota)
+      : undefined,
     externalLinks: form.externalLinks.map((link) => ({
       label: link.label.trim(),
       url: link.url.trim(),
@@ -1709,6 +1716,23 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                           }
                         />
                       )}
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <TextField
+                        fullWidth
+                        type="number"
+                        label="จำนวนสิทธิ์สูงสุด"
+                        placeholder="ไม่ระบุ = ไม่จำกัด"
+                        value={form.licenseQuota}
+                        slotProps={{ htmlInput: { min: 1, step: 1 } }}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            licenseQuota: event.target.value,
+                          }))
+                        }
+                        helperText="จำกัดจำนวนครั้งที่ซื้อ/รับสิทธิ์ได้ เช่น เปิดฟรีแค่ 10 สิทธิ์แรก เว้นว่างไว้หากไม่จำกัด"
+                      />
                     </Grid>
                     <Grid size={{ xs: 12 }}>
                       {['school', 'platform'].includes(form.licenseScope) && (

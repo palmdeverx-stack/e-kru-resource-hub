@@ -305,6 +305,7 @@ export type MarketplaceProduct = {
   license_max_students?: number | null;
   license_max_school_admins?: number | null;
   license_line_quota?: number | null;
+  license_quota?: number | null;
   price: number;
   list_price?: number | null;
   currency: string;
@@ -587,6 +588,7 @@ export type ProductInput = {
   licenseMaxStudents?: number;
   licenseMaxSchoolAdmins?: number;
   licenseLineQuota?: number;
+  licenseQuota?: number | null;
   externalLinks?: MarketplaceProductLink[];
   purchaseBenefits?: string[];
   purchaseBenefitsHtml?: string;
