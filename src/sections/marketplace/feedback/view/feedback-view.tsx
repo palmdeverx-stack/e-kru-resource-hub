@@ -197,7 +197,7 @@ export function MarketplaceFeedbackView() {
         }}
       />
 
-      <Stack
+      {/* <Stack
         direction="row"
         justifyContent="space-between"
         alignItems="center"
@@ -212,14 +212,14 @@ export function MarketplaceFeedbackView() {
           </Typography>
         </Box>
         <Chip label={`${feedback.length} รายการ`} variant="soft" color="primary" />
-      </Stack>
+      </Stack> */}
 
       {loading ? (
-        <Box sx={{ py: 8, textAlign: 'center' }}>
+        <Box sx={{ py: 8, textAlign: 'center', mt: 3 }}>
           <CircularProgress />
         </Box>
       ) : feedback.length ? (
-        <Stack spacing={2}>
+        <Stack spacing={2} sx={{ mt: 3 }}>
           {feedback.map((item) => (
             <FeedbackCard
               key={item.id}
@@ -236,9 +236,25 @@ export function MarketplaceFeedbackView() {
           ))}
         </Stack>
       ) : (
-        <Card variant="outlined" sx={{ py: 8, textAlign: 'center', borderStyle: 'dashed' }}>
-          <RiLightbulbLine size={44} />
-          <Typography variant="h6" sx={{ mt: 1.5 }}>
+        <Card
+          variant="outlined"
+          sx={{ py: 7, px: 3, textAlign: 'center', borderRadius: 3, borderStyle: 'dashed', mt: 3 }}
+        >
+          <Box
+            sx={{
+              width: 80,
+              height: 80,
+              mx: 'auto',
+              display: 'grid',
+              borderRadius: 3,
+              placeItems: 'center',
+              color: 'primary.main',
+              bgcolor: 'primary.lighter',
+            }}
+          >
+            <RiLightbulbLine size={44} />
+          </Box>
+          <Typography variant="h6" sx={{ mt: 3 }}>
             ยังไม่มี Feedback
           </Typography>
           <Typography color="text.secondary">
@@ -466,7 +482,7 @@ function FeedbackCard({
                   fullWidth
                   multiline
                   minRows={2}
-                    label="หมายเหตุจากผู้ดูแลแพลตฟอร์ม"
+                  label="หมายเหตุจากผู้ดูแลแพลตฟอร์ม"
                   value={item.admin_note ?? ''}
                   onChange={(event) => onChange({ ...item, admin_note: event.target.value })}
                 />

@@ -58,6 +58,7 @@ const bucketLabels: Record<string, string> = {
   'marketplace-payment-slips': 'หลักฐานการชำระเงิน',
   'marketplace-review-images': 'รูปภาพรีวิว',
   'marketplace-announcement-assets': 'รูปประกาศ',
+  'marketplace-landing-banner-assets': 'แบนเนอร์หน้าหลัก',
   'profile-avatars': 'รูปโปรไฟล์',
   'school-logos': 'โลโก้โรงเรียน',
   'subject-images': 'รูปภาพวิชา',

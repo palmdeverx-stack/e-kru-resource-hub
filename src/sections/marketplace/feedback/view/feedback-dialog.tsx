@@ -56,10 +56,7 @@ const FeedbackSchema = z
       .trim()
       .min(3, { error: 'หัวข้อต้องมีอย่างน้อย 3 ตัวอักษร' })
       .max(150, { error: 'หัวข้อต้องไม่เกิน 150 ตัวอักษร' }),
-    systemArea: z
-      .string()
-      .trim()
-      .max(100, { error: 'ชื่อส่วนของระบบต้องไม่เกิน 100 ตัวอักษร' }),
+    systemArea: z.string().trim().max(100, { error: 'ชื่อส่วนของระบบต้องไม่เกิน 100 ตัวอักษร' }),
     currentBehavior: z
       .string()
       .trim()
@@ -76,9 +73,7 @@ const FeedbackSchema = z
   })
   .superRefine((values, context) => {
     const detailLength =
-      values.currentBehavior.length +
-      values.requestedChange.length +
-      values.blockerDetail.length;
+      values.currentBehavior.length + values.requestedChange.length + values.blockerDetail.length;
     if (detailLength < 10) {
       context.addIssue({
         code: 'custom',
@@ -208,6 +203,7 @@ export function MarketplaceFeedbackDialog({ open, onClose, onSubmitted }: Props)
                 minRows={4}
                 label="ระบบปัจจุบันเป็นอย่างไร"
                 placeholder="อธิบายสิ่งที่เห็น ขั้นตอนที่ทำ และผลลัพธ์ที่เกิดขึ้น"
+                required
               />
               <Field.Text
                 name="requestedChange"
@@ -215,6 +211,7 @@ export function MarketplaceFeedbackDialog({ open, onClose, onSubmitted }: Props)
                 minRows={4}
                 label="อยากให้เพิ่มหรือแก้ไขอย่างไร"
                 placeholder="อธิบายผลลัพธ์หรือรูปแบบที่ต้องการ"
+                required
               />
             </Stack>
 

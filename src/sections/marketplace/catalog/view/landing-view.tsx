@@ -2,8 +2,11 @@
 
 import type { RemixiconComponentType } from '@remixicon/react';
 import type { MarketplaceProduct } from '../../shared/types';
+import type { MarketplaceLandingBanner } from '../../shared/landing-banner-types';
 
-import { useState, useEffect } from 'react';
+import Image from 'next/image';
+import Autoplay from 'embla-carousel-autoplay';
+import { useMemo, useState, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -24,6 +27,12 @@ import { RouterLink } from 'src/routes/components';
 
 import { useTranslate } from 'src/locales';
 
+import {
+  Carousel,
+  useCarousel,
+  CarouselDotButtons,
+  CarouselArrowFloatButtons,
+} from 'src/components/carousel';
 import {
   RiStarLine,
   RiFireFill,
@@ -161,6 +170,56 @@ const audiences = [
 
 const faqKeys = ['freeStore', 'fees', 'payout', 'eligibleSellers', 'fileTypes'] as const;
 
+function LandingBannerSlide({ banner }: { banner: MarketplaceLandingBanner }) {
+  const image = (
+    <Box sx={{ position: 'relative', width: 1, height: 1, minHeight: { xs: 720, sm: 620 } }}>
+      <Box
+        sx={{
+          position: 'absolute',
+          inset: 0,
+          display: banner.mobile_image_url ? { xs: 'none', sm: 'block' } : 'block',
+        }}
+      >
+        <Image
+          fill
+          priority={banner.sort_order === 0}
+          src={banner.desktop_image_url}
+          alt={banner.alt_text || banner.title}
+          sizes="100vw"
+          style={{ objectFit: 'cover' }}
+        />
+      </Box>
+      {!!banner.mobile_image_url && (
+        <Box sx={{ position: 'absolute', inset: 0, display: { xs: 'block', sm: 'none' } }}>
+          <Image
+            fill
+            src={banner.mobile_image_url}
+            alt={banner.alt_text || banner.title}
+            sizes="100vw"
+            style={{ objectFit: 'cover' }}
+          />
+        </Box>
+      )}
+    </Box>
+  );
+
+  if (!banner.link_url) return image;
+
+  const isInternal = banner.link_url.startsWith('/');
+  return (
+    <Box
+      component="a"
+      href={banner.link_url}
+      target={isInternal ? undefined : '_blank'}
+      rel={isInternal ? undefined : 'noopener noreferrer'}
+      aria-label={banner.title}
+      sx={{ display: 'block', width: 1, height: 1 }}
+    >
+      {image}
+    </Box>
+  );
+}
+
 export function MarketplaceLandingView() {
   const theme = useTheme();
   const { t, currentLang } = useTranslate('marketplace');
@@ -171,6 +230,14 @@ export function MarketplaceLandingView() {
   const [officialProductsLoading, setOfficialProductsLoading] = useState(true);
   const [bestSellingProducts, setBestSellingProducts] = useState<MarketplaceProduct[]>([]);
   const [bestSellingProductsLoading, setBestSellingProductsLoading] = useState(true);
+  const [landingBanners, setLandingBanners] = useState<MarketplaceLandingBanner[]>([]);
+  const autoplayPlugin = useMemo(
+    () => Autoplay({ delay: 6000, stopOnInteraction: false, stopOnMouseEnter: true }),
+    []
+  );
+  const heroCarousel = useCarousel({ loop: landingBanners.length > 0, align: 'start' }, [
+    autoplayPlugin,
+  ]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -203,127 +270,187 @@ export function MarketplaceLandingView() {
       .finally(() => setBestSellingProductsLoading(false));
   }, []);
 
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch('/api/marketplace/landing-banners', { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) return { items: [] };
+        return response.json() as Promise<{ items?: MarketplaceLandingBanner[] }>;
+      })
+      .then((result) => setLandingBanners(result.items ?? []))
+      .catch((error) => {
+        if ((error as Error).name !== 'AbortError') setLandingBanners([]);
+      });
+    return () => controller.abort();
+  }, []);
+
   return (
     <>
-      <Box
-        sx={{
-          py: { xs: 8, md: 14 },
-          overflow: 'hidden',
-          background:
-            'radial-gradient(circle at 82% 18%, rgba(21,101,245,0.18), transparent 32%), radial-gradient(circle at 15% 82%, rgba(24,185,160,0.12), transparent 30%), linear-gradient(180deg, #F5F9FF 0%, #FFFFFF 100%)',
-        }}
-      >
-        <Container maxWidth="lg">
-          <Grid container spacing={{ xs: 6, md: 8 }} alignItems="center">
-            <Grid size={{ xs: 12, md: 7 }}>
-              <Stack spacing={3.5} alignItems={{ xs: 'center', md: 'flex-start' }}>
-                <Chip
-                  color="primary"
-                  variant="soft"
-                  icon={<RiGraduationCapLine />}
-                  label="E-KRU Marketplace"
-                />
-                <Typography
-                  component="h1"
-                  variant="h1"
-                  sx={{
-                    maxWidth: 760,
-                    fontSize: { xs: 42, sm: 54, md: 72 },
-                    lineHeight: 1.08,
-                    textAlign: { xs: 'center', md: 'left' },
-                  }}
-                >
-                  {t('hero.title')}
-                  <Box component="span" sx={{ display: 'block', color: 'primary.main', mt: 2 }}>
-                    {t('hero.highlight')}
-                  </Box>
-                </Typography>
-                <Typography
-                  variant="h6"
-                  sx={{
-                    maxWidth: 680,
-                    fontWeight: 400,
-                    color: 'text.secondary',
-                    lineHeight: 1.8,
-                    textAlign: { xs: 'center', md: 'left' },
-                  }}
-                >
-                  {t('hero.description')}
-                </Typography>
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-                  <Button
-                    size="large"
-                    variant="contained"
-                    component={RouterLink}
-                    href={paths.marketplace.products}
-                    startIcon={<RiShoppingBag3Line />}
-                  >
-                    {t('actions.browse')}
-                  </Button>
-                  <Button
-                    size="large"
-                    variant="outlined"
-                    component={RouterLink}
-                    href={paths.marketplace.seller}
-                    startIcon={<RiStore2Line />}
-                  >
-                    {t('actions.startSelling')}
-                  </Button>
-                </Stack>
-              </Stack>
-            </Grid>
+      <Box sx={{ position: 'relative', overflow: 'hidden' }}>
+        <Carousel
+          carousel={heroCarousel}
+          slotProps={{
+            container: { alignItems: 'stretch' },
+            slide: { minWidth: '100%', alignSelf: 'stretch' },
+          }}
+        >
+          <Box
+            key="marketplace-hero"
+            sx={{
+              py: { xs: 8, md: 14 },
+              height: 1,
+              minHeight: { sm: 620 },
+              background:
+                'radial-gradient(circle at 82% 18%, rgba(21,101,245,0.18), transparent 32%), radial-gradient(circle at 15% 82%, rgba(24,185,160,0.12), transparent 30%), linear-gradient(180deg, #F5F9FF 0%, #FFFFFF 100%)',
+            }}
+          >
+            <Container maxWidth="lg">
+              <Grid container spacing={{ xs: 6, md: 8 }} alignItems="center">
+                <Grid size={{ xs: 12, md: 7 }}>
+                  <Stack spacing={3.5} alignItems={{ xs: 'center', md: 'flex-start' }}>
+                    <Chip
+                      color="primary"
+                      variant="soft"
+                      icon={<RiGraduationCapLine />}
+                      label="E-KRU Marketplace"
+                    />
+                    <Typography
+                      component="h1"
+                      variant="h1"
+                      sx={{
+                        maxWidth: 760,
+                        fontSize: { xs: 42, sm: 54, md: 72 },
+                        lineHeight: 1.08,
+                        textAlign: { xs: 'center', md: 'left' },
+                      }}
+                    >
+                      {t('hero.title')}
+                      <Box component="span" sx={{ display: 'block', color: 'primary.main', mt: 2 }}>
+                        {t('hero.highlight')}
+                      </Box>
+                    </Typography>
+                    <Typography
+                      variant="h6"
+                      sx={{
+                        maxWidth: 680,
+                        fontWeight: 400,
+                        color: 'text.secondary',
+                        lineHeight: 1.8,
+                        textAlign: { xs: 'center', md: 'left' },
+                      }}
+                    >
+                      {t('hero.description')}
+                    </Typography>
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+                      <Button
+                        size="large"
+                        variant="contained"
+                        component={RouterLink}
+                        href={paths.marketplace.products}
+                        startIcon={<RiShoppingBag3Line />}
+                      >
+                        {t('actions.browse')}
+                      </Button>
+                      <Button
+                        size="large"
+                        variant="outlined"
+                        component={RouterLink}
+                        href={paths.marketplace.seller}
+                        startIcon={<RiStore2Line />}
+                      >
+                        {t('actions.startSelling')}
+                      </Button>
+                    </Stack>
+                  </Stack>
+                </Grid>
 
-            <Grid size={{ xs: 12, md: 5 }}>
-              <Card
-                sx={{
-                  p: { xs: 3, md: 4 },
-                  borderRadius: 5,
-                  color: 'common.white',
-                  background: 'linear-gradient(145deg, #0B3B91 0%, #1565F5 100%)',
-                  boxShadow: '0 32px 80px rgba(13,63,156,0.28)',
-                }}
-              >
-                <Stack spacing={3}>
-                  <RiShieldCheckLine size={52} />
-                  <Typography variant="h3">{t('hero.trustTitle')}</Typography>
-                  <Typography sx={{ color: 'rgba(255,255,255,0.78)', lineHeight: 1.8 }}>
-                    {t('hero.trustDescription')}
-                  </Typography>
-                  <Grid container spacing={2}>
-                    <Grid size={{ xs: 6 }}>
-                      {publicStats ? (
-                        <Typography variant="h4">
-                          {formatCount(publicStats.activeSellers)}
-                        </Typography>
-                      ) : (
-                        <Skeleton
-                          width={72}
-                          height={40}
-                          sx={{ bgcolor: 'rgba(255,255,255,0.14)' }}
-                        />
-                      )}
-                      <Typography variant="caption">{t('stats.approvedStores')}</Typography>
-                    </Grid>
-                    <Grid size={{ xs: 6 }}>
-                      {publicStats ? (
-                        <Typography variant="h4">
-                          {formatCount(publicStats.completedOrders)}
-                        </Typography>
-                      ) : (
-                        <Skeleton
-                          width={72}
-                          height={40}
-                          sx={{ bgcolor: 'rgba(255,255,255,0.14)' }}
-                        />
-                      )}
-                      <Typography variant="caption">{t('stats.completedOrders')}</Typography>
-                    </Grid>
-                  </Grid>
-                </Stack>
-              </Card>
-            </Grid>
-          </Grid>
-        </Container>
+                <Grid size={{ xs: 12, md: 5 }}>
+                  <Card
+                    sx={{
+                      p: { xs: 3, md: 4 },
+                      borderRadius: 5,
+                      color: 'common.white',
+                      background: 'linear-gradient(145deg, #0B3B91 0%, #1565F5 100%)',
+                      boxShadow: '0 32px 80px rgba(13,63,156,0.28)',
+                    }}
+                  >
+                    <Stack spacing={3}>
+                      <RiShieldCheckLine size={52} />
+                      <Typography variant="h3">{t('hero.trustTitle')}</Typography>
+                      <Typography sx={{ color: 'rgba(255,255,255,0.78)', lineHeight: 1.8 }}>
+                        {t('hero.trustDescription')}
+                      </Typography>
+                      <Grid container spacing={2}>
+                        <Grid size={{ xs: 6 }}>
+                          {publicStats ? (
+                            <Typography variant="h4">
+                              {formatCount(publicStats.activeSellers)}
+                            </Typography>
+                          ) : (
+                            <Skeleton
+                              width={72}
+                              height={40}
+                              sx={{ bgcolor: 'rgba(255,255,255,0.14)' }}
+                            />
+                          )}
+                          <Typography variant="caption">{t('stats.approvedStores')}</Typography>
+                        </Grid>
+                        <Grid size={{ xs: 6 }}>
+                          {publicStats ? (
+                            <Typography variant="h4">
+                              {formatCount(publicStats.completedOrders)}
+                            </Typography>
+                          ) : (
+                            <Skeleton
+                              width={72}
+                              height={40}
+                              sx={{ bgcolor: 'rgba(255,255,255,0.14)' }}
+                            />
+                          )}
+                          <Typography variant="caption">{t('stats.completedOrders')}</Typography>
+                        </Grid>
+                      </Grid>
+                    </Stack>
+                  </Card>
+                </Grid>
+              </Grid>
+            </Container>
+          </Box>
+
+          {landingBanners.map((banner) => (
+            <LandingBannerSlide key={banner.id} banner={banner} />
+          ))}
+        </Carousel>
+
+        {!!landingBanners.length && (
+          <>
+            <CarouselArrowFloatButtons
+              {...heroCarousel.arrows}
+              options={heroCarousel.options}
+              sx={{ display: { xs: 'none', md: 'inline-flex' }, opacity: 0.78 }}
+              slotProps={{
+                prevBtn: { sx: { left: 32, transform: 'translateY(-50%)' } },
+                nextBtn: { sx: { right: 32, transform: 'translateY(-50%)' } },
+              }}
+            />
+            <CarouselDotButtons
+              {...heroCarousel.dots}
+              variant="rounded"
+              aria-label="เลือกสไลด์หน้าหลัก"
+              sx={{
+                position: 'absolute',
+                left: '50%',
+                bottom: 18,
+                transform: 'translateX(-50%)',
+                px: 1,
+                color: 'primary.main',
+                borderRadius: 2,
+                bgcolor: 'rgba(255,255,255,0.86)',
+                boxShadow: '0 4px 18px rgba(15, 23, 42, 0.12)',
+              }}
+            />
+          </>
+        )}
       </Box>
 
       <Box

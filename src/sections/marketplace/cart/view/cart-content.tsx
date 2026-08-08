@@ -47,35 +47,40 @@ export function MarketplaceCartContent({
 
   if (!items.length) {
     return (
-      <Container maxWidth="sm" sx={{ py: 12, textAlign: 'center' }}>
-        <Box
-          sx={{
-            width: 88,
-            height: 88,
-            mx: 'auto',
-            display: 'grid',
-            borderRadius: 3,
-            placeItems: 'center',
-            color: 'primary.main',
-            bgcolor: 'primary.lighter',
-          }}
+      <Container maxWidth={false} sx={{ textAlign: 'center' }}>
+        <Card
+          variant="outlined"
+          sx={{ py: 7, px: 3, textAlign: 'center', borderRadius: 3, borderStyle: 'dashed' }}
         >
-          <RiShoppingBag3Line size={42} />
-        </Box>
-        <Typography variant="h3" sx={{ mt: 3 }}>
-          {t('cart.empty.title')}
-        </Typography>
-        <Typography color="text.secondary" sx={{ mt: 1, mb: 3 }}>
-          {t('cart.empty.description')}
-        </Typography>
-        <Button
-          component={RouterLink}
-          href={productsHref}
-          variant="contained"
-          startIcon={<RiArrowLeftLine />}
-        >
-          {t('cart.actions.browse')}
-        </Button>
+          <Box
+            sx={{
+              width: 88,
+              height: 88,
+              mx: 'auto',
+              display: 'grid',
+              borderRadius: 3,
+              placeItems: 'center',
+              color: 'primary.main',
+              bgcolor: 'primary.lighter',
+            }}
+          >
+            <RiShoppingBag3Line size={42} />
+          </Box>
+          <Typography variant="h3" sx={{ mt: 3 }}>
+            {t('cart.empty.title')}
+          </Typography>
+          <Typography color="text.secondary" sx={{ mt: 1, mb: 3 }}>
+            {t('cart.empty.description')}
+          </Typography>
+          <Button
+            component={RouterLink}
+            href={productsHref}
+            variant="contained"
+            startIcon={<RiArrowLeftLine />}
+          >
+            {t('cart.actions.browse')}
+          </Button>
+        </Card>
       </Container>
     );
   }

@@ -76,6 +76,7 @@ export const paths = {
     legalDocuments: '/dashboard/master/legal-documents',
     platformSettings: '/dashboard/settings/platform',
     popupAnnouncements: '/dashboard/master/popup-announcements',
+    landingBanners: '/dashboard/master/landing-banners',
     lineSettings: '/dashboard/settings/line',
     financeSettings: '/dashboard/settings/finance',
     shippingSettings: '/dashboard/settings/shipping',

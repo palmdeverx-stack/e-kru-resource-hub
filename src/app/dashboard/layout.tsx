@@ -364,6 +364,10 @@ const adminNavData: NavSectionProps['data'] = [
             title: 'ประกาศ',
             path: '/dashboard/master/popup-announcements',
           },
+          {
+            title: 'แบนเนอร์หน้าหลัก',
+            path: '/dashboard/master/landing-banners',
+          },
         ],
       },
     ],

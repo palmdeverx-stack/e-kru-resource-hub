@@ -78,15 +78,20 @@ export function MarketplaceReferralView() {
 
   if (error) {
     return (
-      <Container maxWidth="lg" sx={{ py: 5 }}>
+      <Container maxWidth={false} sx={{ py: 5 }}>
         <Alert severity="error">{error}</Alert>
       </Container>
     );
   }
-  if (!data) return <CircularProgress sx={{ m: 6 }} />;
+  if (!data)
+    return (
+      <Box sx={{ py: 8, textAlign: 'center', mt: 3 }}>
+        <CircularProgress />
+      </Box>
+    );
   if (!data.enabled) {
     return (
-      <Container maxWidth="md" sx={{ py: { xs: 5, md: 8 } }}>
+      <Container maxWidth={false} sx={{ py: { xs: 5, md: 8 } }}>
         <Alert severity="info">
           ขณะนี้ระบบแนะนำเพื่อนยังไม่เปิดใช้งาน เมื่อเปิดอีกครั้ง เมนูนี้จะแสดงอัตโนมัติ
         </Alert>

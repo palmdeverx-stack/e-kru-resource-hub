@@ -85,7 +85,9 @@ export function UserEntitlementsView() {
         )
       );
     } catch (updateError) {
-      setError(updateError instanceof Error ? updateError.message : 'อัปเดต Subscription ไม่สำเร็จ');
+      setError(
+        updateError instanceof Error ? updateError.message : 'อัปเดต Subscription ไม่สำเร็จ'
+      );
     } finally {
       setWorkingId('');
     }
@@ -96,7 +98,8 @@ export function UserEntitlementsView() {
     try {
       const response = await fetch('/api/marketplace/subscriptions/portal', { method: 'POST' });
       const result = await response.json();
-      if (!response.ok || !result.url) throw new Error(result.message ?? 'เปิดหน้าจัดการบัตรไม่สำเร็จ');
+      if (!response.ok || !result.url)
+        throw new Error(result.message ?? 'เปิดหน้าจัดการบัตรไม่สำเร็จ');
       window.location.assign(result.url);
     } catch (portalError) {
       setError(portalError instanceof Error ? portalError.message : 'เปิดหน้าจัดการบัตรไม่สำเร็จ');
@@ -201,10 +204,16 @@ export function UserEntitlementsView() {
                     </Alert>
                     {entitlement.subscription && (
                       <Alert
-                        severity={entitlement.subscription.status === 'past_due' ? 'warning' : 'info'}
+                        severity={
+                          entitlement.subscription.status === 'past_due' ? 'warning' : 'info'
+                        }
                       >
                         <Typography variant="subtitle2">
-                          ต่ออายุอัตโนมัติ{entitlement.subscription.billing_cycle === 'yearly' ? 'รายปี' : 'รายเดือน'} ·{' '}
+                          ต่ออายุอัตโนมัติ
+                          {entitlement.subscription.billing_cycle === 'yearly'
+                            ? 'รายปี'
+                            : 'รายเดือน'}{' '}
+                          ·{' '}
                           {Number(entitlement.subscription.amount).toLocaleString('th-TH', {
                             style: 'currency',
                             currency: entitlement.subscription.currency,
@@ -219,7 +228,9 @@ export function UserEntitlementsView() {
                         </Typography>
                         <Button
                           size="small"
-                          color={entitlement.subscription.cancel_at_period_end ? 'primary' : 'error'}
+                          color={
+                            entitlement.subscription.cancel_at_period_end ? 'primary' : 'error'
+                          }
                           disabled={workingId === entitlement.subscription.id}
                           onClick={() =>
                             updateSubscription(
@@ -257,9 +268,25 @@ export function UserEntitlementsView() {
           })}
         </Grid>
       ) : (
-        <Card variant="outlined" sx={{ mt: 4, py: 9, px: 3, textAlign: 'center' }}>
-          <RiRocketLine size={48} />
-          <Typography variant="h5" sx={{ mt: 2 }}>
+        <Card
+          variant="outlined"
+          sx={{ mt: 3, py: 9, px: 3, textAlign: 'center', borderStyle: 'dashed' }}
+        >
+          <Box
+            sx={{
+              width: 80,
+              height: 80,
+              mx: 'auto',
+              display: 'grid',
+              borderRadius: 3,
+              placeItems: 'center',
+              color: 'primary.main',
+              bgcolor: 'primary.lighter',
+            }}
+          >
+            <RiRocketLine size={48} />
+          </Box>
+          <Typography variant="h5" sx={{ mt: 3 }}>
             ยังไม่มีแพ็กเกจส่วนบุคคล
           </Typography>
           <Typography color="text.secondary" sx={{ mt: 1 }}>

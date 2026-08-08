@@ -566,10 +566,23 @@ export function MarketplacePurchasesView() {
       ) : (
         <Card
           variant="outlined"
-          sx={{ px: 2, py: { xs: 6, md: 9 }, textAlign: 'center', borderStyle: 'dashed' }}
+          sx={{ py: 7, px: 3, textAlign: 'center', borderRadius: 3, borderStyle: 'dashed' }}
         >
-          <RiShoppingBag3Line size={48} />
-          <Typography variant="h5" sx={{ mt: 2 }}>
+          <Box
+            sx={{
+              width: 80,
+              height: 80,
+              mx: 'auto',
+              display: 'grid',
+              borderRadius: 3,
+              placeItems: 'center',
+              color: 'primary.main',
+              bgcolor: 'primary.lighter',
+            }}
+          >
+            <RiShoppingBag3Line size={48} />
+          </Box>
+          <Typography variant="h5" sx={{ mt: 3 }}>
             ยังไม่มีรายการซื้อ
           </Typography>
           <Typography color="text.secondary" sx={{ mt: 0.5, mb: 3 }}>

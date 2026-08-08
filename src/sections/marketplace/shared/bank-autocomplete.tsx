@@ -16,6 +16,7 @@ type Props = {
   label?: string;
   required?: boolean;
   disabled?: boolean;
+  error?: boolean;
   helperText?: string;
 };
 
@@ -25,6 +26,7 @@ export function ThaiBankAutocomplete({
   label = 'ธนาคาร',
   required = false,
   disabled = false,
+  error = false,
   helperText = 'ค้นหาจากชื่อธนาคาร ชื่อย่อ หรือรหัสธนาคาร',
 }: Props) {
   const selectedBank = findThaiBank(value);
@@ -59,6 +61,7 @@ export function ThaiBankAutocomplete({
           {...params}
           required={required}
           label={label}
+          error={error}
           helperText={helperText}
           slotProps={{
             input: {

@@ -17,6 +17,11 @@ const isStaticExport = false;
 
 const isDev = process.env.NODE_ENV !== 'production';
 
+const supabaseStorageUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseStoragePattern = supabaseStorageUrl
+  ? new URL('/storage/v1/object/public/**', supabaseStorageUrl)
+  : undefined;
+
 const contentSecurityPolicy = [
   "default-src 'self'",
   "base-uri 'self'",
@@ -52,6 +57,12 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   trailingSlash: true,
+  images: {
+    remotePatterns: [
+      { protocol: 'https', hostname: '**.supabase.co', pathname: '/storage/v1/object/public/**' },
+      ...(supabaseStoragePattern ? [supabaseStoragePattern] : []),
+    ],
+  },
   // Keep sharp out of the webpack bundle so Next's file tracing can find its
   // native linux-x64 binary in node_modules on Vercel.
   serverExternalPackages: ['sharp'],

@@ -263,12 +263,21 @@ export function MarketplaceDashboardCollectionsSection() {
           variant="outlined"
           sx={{ py: 7, px: 3, textAlign: 'center', borderRadius: 3, borderStyle: 'dashed' }}
         >
-          {activeList === 'favorite' ? (
-            <RiHeart3Line size={46} color="#E53935" />
-          ) : (
-            <RiBookmarkLine size={46} color="#1565F5" />
-          )}
-          <Typography variant="h6" sx={{ mt: 1.5 }}>
+          <Box
+            sx={{
+              width: 80,
+              height: 80,
+              mx: 'auto',
+              display: 'grid',
+              borderRadius: 3,
+              placeItems: 'center',
+              color: 'primary.main',
+              bgcolor: 'primary.lighter',
+            }}
+          >
+            {activeList === 'favorite' ? <RiHeart3Line size={46} /> : <RiBookmarkLine size={46} />}
+          </Box>
+          <Typography variant="h6" sx={{ mt: 3 }}>
             {activeList === 'favorite' ? 'ยังไม่มีสินค้าที่กดหัวใจ' : 'ยังไม่มีสินค้าที่บุ๊กมาร์ก'}
           </Typography>
           <Typography color="text.secondary" sx={{ mt: 0.5, mb: 2.5 }}>

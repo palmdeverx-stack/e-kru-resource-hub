@@ -306,7 +306,10 @@ export function MarketplaceSellerDashboardView() {
       )}
 
       {!seller ? (
-        <Card sx={{ p: { xs: 3, md: 6 }, textAlign: 'center' }}>
+        <Card
+          variant="outlined"
+          sx={{ py: 7, px: 3, textAlign: 'center', borderRadius: 3, borderStyle: 'dashed' }}
+        >
           <Box
             sx={{
               width: 80,
@@ -887,7 +890,8 @@ function SellerBusinessOverview({
   const summary = analytics?.analytics.summary;
   const topProducts = analytics?.analytics.products.slice(0, 3) ?? [];
   const reviews = analytics?.recentReviews?.slice(0, 3) ?? [];
-  const pendingPayout = Number(finance?.balance.pending ?? 0) + Number(finance?.balance.processing ?? 0);
+  const pendingPayout =
+    Number(finance?.balance.pending ?? 0) + Number(finance?.balance.processing ?? 0);
   const nextPayoutAt = finance?.schedule.nextPayoutAt
     ? new Date(finance.schedule.nextPayoutAt).toLocaleDateString('th-TH', {
         day: 'numeric',
@@ -981,11 +985,7 @@ function SellerBusinessOverview({
                   เรียงจากยอดขายในช่วง 30 วัน
                 </Typography>
               </Box>
-              <Button
-                component={RouterLink}
-                href={paths.marketplace.sellerAnalytics}
-                size="small"
-              >
+              <Button component={RouterLink} href={paths.marketplace.sellerAnalytics} size="small">
                 ดูทั้งหมด
               </Button>
             </Stack>
@@ -1033,7 +1033,11 @@ function SellerBusinessOverview({
                   </Stack>
                 ))
               ) : (
-                <Typography variant="body2" color="text.secondary" sx={{ py: 3, textAlign: 'center' }}>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ py: 3, textAlign: 'center' }}
+                >
                   ยังไม่มียอดขายในช่วง 30 วัน
                 </Typography>
               )}
@@ -1054,12 +1058,17 @@ function SellerBusinessOverview({
                 ))
               ) : reviews.length ? (
                 reviews.map((review) => {
-                  const product = Array.isArray(review.product) ? review.product[0] : review.product;
+                  const product = Array.isArray(review.product)
+                    ? review.product[0]
+                    : review.product;
                   const hasReply = Array.isArray(review.reply)
                     ? review.reply.length > 0
                     : Boolean(review.reply);
                   return (
-                    <Box key={review.id} sx={{ pb: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
+                    <Box
+                      key={review.id}
+                      sx={{ pb: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}
+                    >
                       <Stack direction="row" justifyContent="space-between" spacing={1}>
                         <Typography variant="subtitle2" noWrap sx={{ minWidth: 0 }}>
                           {product?.title ?? 'สินค้า'}
@@ -1077,7 +1086,12 @@ function SellerBusinessOverview({
                       <Typography variant="body2" color="text.secondary" noWrap sx={{ mt: 0.5 }}>
                         {review.comment || 'ให้คะแนนโดยไม่มีข้อความ'}
                       </Typography>
-                      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 0.5 }}>
+                      <Stack
+                        direction="row"
+                        justifyContent="space-between"
+                        alignItems="center"
+                        sx={{ mt: 0.5 }}
+                      >
                         <Typography variant="caption" color="text.secondary">
                           {review.reviewer_name}
                         </Typography>
@@ -1097,7 +1111,11 @@ function SellerBusinessOverview({
                   );
                 })
               ) : (
-                <Typography variant="body2" color="text.secondary" sx={{ py: 3, textAlign: 'center' }}>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ py: 3, textAlign: 'center' }}
+                >
                   ยังไม่มีรีวิวจากผู้ซื้อ
                 </Typography>
               )}
@@ -1171,7 +1189,11 @@ function DashboardMetricCard({
           <Typography variant="body2" color="text.secondary">
             {label}
           </Typography>
-          {loading ? <Skeleton width={110} height={34} /> : <Typography variant="h4">{value}</Typography>}
+          {loading ? (
+            <Skeleton width={110} height={34} />
+          ) : (
+            <Typography variant="h4">{value}</Typography>
+          )}
           <Typography variant="caption" color="text.secondary" noWrap>
             {detail}
           </Typography>
