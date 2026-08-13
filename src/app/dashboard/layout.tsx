@@ -25,7 +25,6 @@ import {
   RiFlowChart,
   RiTruckLine,
   RiRocketLine,
-  RiSchoolLine,
   RiIdCardLine,
   RiSearchLine,
   RiStore2Line,
@@ -407,7 +406,6 @@ export default function Layout({ children }: Props) {
   const pathname = usePathname();
   const { itemCount } = useMarketplaceCart();
   const hasCartItems = Number.isInteger(itemCount) && itemCount > 0;
-  const [canViewSchoolEntitlements, setCanViewSchoolEntitlements] = useState(false);
   const [canUseSellerLine, setCanUseSellerLine] = useState(false);
   const [hasSubmittedSeller, setHasSubmittedSeller] = useState(false);
   const [referralEnabled, setReferralEnabled] = useState(false);
@@ -502,38 +500,6 @@ export default function Layout({ children }: Props) {
       .catch((error) => {
         if ((error as Error).name !== 'AbortError') setReferralEnabled(false);
       });
-    return () => controller.abort();
-  }, [user?.id, user?.role]);
-
-  useEffect(() => {
-    if (user?.role !== 'teacher' && user?.role !== 'marketplace_user') {
-      setCanViewSchoolEntitlements(false);
-      return undefined;
-    }
-
-    setCanViewSchoolEntitlements(false);
-    const controller = new AbortController();
-
-    const loadSchoolEntitlementAccess = async () => {
-      try {
-        const response = await fetch('/api/marketplace/school-entitlements?summary=1', {
-          cache: 'no-store',
-          signal: controller.signal,
-        });
-        if (!response.ok) {
-          setCanViewSchoolEntitlements(false);
-          return;
-        }
-        const data = (await response.json()) as { canViewSchoolEntitlements?: boolean };
-        setCanViewSchoolEntitlements(Boolean(data.canViewSchoolEntitlements));
-      } catch (error) {
-        if ((error as Error).name !== 'AbortError') {
-          setCanViewSchoolEntitlements(false);
-        }
-      }
-    };
-
-    void loadSchoolEntitlementAccess();
     return () => controller.abort();
   }, [user?.id, user?.role]);
 
@@ -685,15 +651,7 @@ export default function Layout({ children }: Props) {
                   icon: <RiKey2Line />,
                 },
               ]
-            : canViewSchoolEntitlements
-              ? [
-                  {
-                    title: 'สิทธิ์จากโรงเรียน',
-                    path: '/dashboard/school-entitlements',
-                    icon: <RiSchoolLine />,
-                  },
-                ]
-              : [];
+            : [];
         return { ...section, items: [...visibleAccountItems, ...roleItems] };
       });
 

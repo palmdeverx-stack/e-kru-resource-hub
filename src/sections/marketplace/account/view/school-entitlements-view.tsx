@@ -59,7 +59,11 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
-export function SchoolEntitlementsView() {
+function isPersonalEkruWorkspace(name: string) {
+  return /พื้นที่ส่วนตัวของ\s*e-?kru\s*user/i.test(name.trim());
+}
+
+export function SchoolEntitlementsView({ embedded = false }: { embedded?: boolean }) {
   const { currentLang } = useTranslate();
   const [entitlements, setEntitlements] = useState<Entitlement[]>([]);
   const [loading, setLoading] = useState(true);
@@ -73,7 +77,7 @@ export function SchoolEntitlementsView() {
     })
       .then(async (response) => {
         const result = await response.json();
-        if (!response.ok) throw new Error(result.message ?? 'โหลดสิทธิ์จากโรงเรียนไม่สำเร็จ');
+        if (!response.ok) throw new Error(result.message ?? 'โหลดสิทธิ์การใช้งานไม่สำเร็จ');
         setEntitlements(result.entitlements ?? []);
       })
       .catch((loadError) => {
@@ -94,24 +98,27 @@ export function SchoolEntitlementsView() {
     : null;
 
   return (
-    <Container maxWidth={false} sx={{ py: { xs: 3 } }}>
+    <Container maxWidth={false} disableGutters={embedded} sx={{ py: embedded ? 0 : { xs: 3 } }}>
       <Stack
         direction={{ xs: 'column', md: 'row' }}
         alignItems={{ md: 'center' }}
         justifyContent="space-between"
         spacing={2}
+        sx={{ mt: embedded ? 5 : 0 }}
       >
         <Box>
           <Stack direction="row" spacing={1.5} alignItems="center">
             <Box sx={{ color: 'primary.main' }}>
               <RiKey2Line size={32} />
             </Box>
-            <Typography component="h1" variant="h3">
-              สิทธิ์จากโรงเรียน
+            <Typography component={embedded ? 'h2' : 'h1'} variant={embedded ? 'h4' : 'h3'}>
+              {embedded ? 'สิทธิ์จากโรงเรียน' : 'สิทธิ์การใช้งาน'}
             </Typography>
           </Stack>
           <Typography color="text.secondary" sx={{ mt: 0.75 }}>
-            สินค้าและฟีเจอร์ที่โรงเรียนเปิดสิทธิ์ให้คุณใช้งาน
+            {embedded
+              ? 'แพ็กเกจและแอปที่โรงเรียนซื้อและเปิดสิทธิ์ให้คุณใช้งาน'
+              : 'พื้นที่ส่วนตัวและสิทธิ์ที่โรงเรียนเปิดให้คุณใช้งาน'}
           </Typography>
         </Box>
         {!!primaryDestination?.href && (
@@ -146,6 +153,7 @@ export function SchoolEntitlementsView() {
       ) : entitlements.length ? (
         <Grid container spacing={3} sx={{ mt: 3 }}>
           {entitlements.map((entitlement) => {
+            const personalWorkspace = isPersonalEkruWorkspace(entitlement.school.name);
             const title =
               currentLang.value === 'en' && entitlement.product?.titleEn
                 ? entitlement.product.titleEn
@@ -181,9 +189,20 @@ export function SchoolEntitlementsView() {
                         <Stack direction="row" spacing={1} alignItems="center">
                           <RiSchoolLine size={20} />
                           <Typography variant="subtitle2" color="primary.main">
-                            {entitlement.school.name}
+                            {personalWorkspace
+                              ? currentLang.value === 'en'
+                                ? 'Personal E-KRU workspace'
+                                : 'พื้นที่ส่วนตัว E-KRU'
+                              : entitlement.school.name}
                           </Typography>
                         </Stack>
+                        {personalWorkspace && (
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            {currentLang.value === 'en'
+                              ? 'Buy resources, view purchases, and keep personal access even when a school package expires.'
+                              : 'ซื้อสื่อ ดูรายการซื้อ และใช้สิทธิ์ส่วนตัวได้ แม้แพ็กเกจโรงเรียนหมดอายุ'}
+                          </Typography>
+                        )}
                         <Typography variant="h5" sx={{ mt: 1 }}>
                           {title}
                         </Typography>
@@ -227,11 +246,11 @@ export function SchoolEntitlementsView() {
             );
           })}
         </Grid>
-      ) : (
+      ) : embedded ? null : (
         <Card variant="outlined" sx={{ mt: 4, py: 10, px: 3, textAlign: 'center' }}>
           <RiSchoolLine size={48} />
           <Typography variant="h5" sx={{ mt: 2 }}>
-            ยังไม่มีสิทธิ์จากโรงเรียน
+            ยังไม่มีสิทธิ์การใช้งาน
           </Typography>
           <Typography color="text.secondary" sx={{ mt: 1 }}>
             License ทั้งโรงเรียนจะแสดงอัตโนมัติ ส่วน License รายครูต้องให้ผู้ดูแลโรงเรียนจัดสรร Seat

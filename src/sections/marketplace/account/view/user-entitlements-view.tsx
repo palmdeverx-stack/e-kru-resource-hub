@@ -23,10 +23,14 @@ import {
   RiCalendarCheckLine,
 } from 'src/components/remix-icon';
 
+import { useAuthContext } from 'src/auth/hooks';
+
 import { getLicenseAppDestination } from '../ekru-app-link';
 
 type Entitlement = {
   id: string;
+  accessSource: 'personal' | 'school' | 'platform';
+  school: { id: string; name: string; membershipRole: string } | null;
   featureKeys: string[];
   planCode: string | null;
   startsAt: string;
@@ -52,6 +56,19 @@ type Entitlement = {
   } | null;
 };
 
+type PersonalEntitlement = Omit<Entitlement, 'accessSource' | 'school'>;
+
+type SchoolEntitlement = {
+  id: string;
+  school: NonNullable<Entitlement['school']>;
+  licenseScope: 'school' | 'teacher';
+  featureKeys: string[];
+  planCode: string | null;
+  startsAt: string;
+  expiresAt: string | null;
+  product: Omit<NonNullable<Entitlement['product']>, 'licenseScope'> | null;
+};
+
 function formatDate(value: string | null) {
   if (!value) return '—';
   return new Intl.DateTimeFormat('th-TH', {
@@ -62,6 +79,7 @@ function formatDate(value: string | null) {
 
 export function UserEntitlementsView() {
   const { currentLang } = useTranslate();
+  const { user } = useAuthContext();
   const [entitlements, setEntitlements] = useState<Entitlement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -107,17 +125,66 @@ export function UserEntitlementsView() {
   };
 
   useEffect(() => {
-    fetch('/api/marketplace/user-entitlements', { cache: 'no-store' })
-      .then(async (response) => {
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.message ?? 'โหลดสิทธิ์ส่วนบุคคลไม่สำเร็จ');
-        setEntitlements(result.entitlements ?? []);
-      })
-      .catch((loadError) =>
-        setError(loadError instanceof Error ? loadError.message : 'โหลดสิทธิ์ไม่สำเร็จ')
-      )
-      .finally(() => setLoading(false));
-  }, []);
+    const controller = new AbortController();
+    const canLoadSchool = user?.role === 'teacher' || user?.role === 'marketplace_user';
+
+    const loadEntitlements = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const [personalResponse, schoolResponse] = await Promise.all([
+          fetch('/api/marketplace/user-entitlements', {
+            cache: 'no-store',
+            signal: controller.signal,
+          }),
+          canLoadSchool
+            ? fetch('/api/marketplace/school-entitlements', {
+                cache: 'no-store',
+                signal: controller.signal,
+              })
+            : Promise.resolve(null),
+        ]);
+        const personalResult = await personalResponse.json();
+        if (!personalResponse.ok) {
+          throw new Error(personalResult.message ?? 'โหลดแอปและสิทธิ์ไม่สำเร็จ');
+        }
+        const schoolResult = schoolResponse ? await schoolResponse.json() : { entitlements: [] };
+        if (schoolResponse && !schoolResponse.ok) {
+          throw new Error(schoolResult.message ?? 'โหลดสิทธิ์ที่โรงเรียนจัดให้ไม่สำเร็จ');
+        }
+
+        const personalItems = (personalResult.entitlements ?? []).map(
+          (item: PersonalEntitlement): Entitlement => ({
+            ...item,
+            accessSource: item.product?.licenseScope === 'platform' ? 'platform' : 'personal',
+            school: null,
+          })
+        );
+        const schoolItems = (schoolResult.entitlements ?? []).map(
+          (item: SchoolEntitlement): Entitlement => ({
+            id: `school-${item.id}`,
+            accessSource: 'school',
+            school: item.school,
+            featureKeys: item.featureKeys,
+            planCode: item.planCode,
+            startsAt: item.startsAt,
+            expiresAt: item.expiresAt,
+            subscription: null,
+            product: item.product ? { ...item.product, licenseScope: item.licenseScope } : null,
+          })
+        );
+        setEntitlements([...personalItems, ...schoolItems]);
+      } catch (loadError) {
+        if (loadError instanceof Error && loadError.name === 'AbortError') return;
+        setError(loadError instanceof Error ? loadError.message : 'โหลดแอปและสิทธิ์ไม่สำเร็จ');
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    };
+
+    void loadEntitlements();
+    return () => controller.abort();
+  }, [user?.role]);
 
   return (
     <Container maxWidth={false} sx={{ py: { xs: 3 } }}>
@@ -130,7 +197,7 @@ export function UserEntitlementsView() {
             แอปและสิทธิ์ของฉัน
           </Typography>
           <Typography color="text.secondary">
-            แพ็กเกจ E-KRU ส่วนบุคคลและสิทธิ์ที่เปิดให้ทุกคนในแพลตฟอร์ม
+            รวมแอปที่คุณซื้อเอง และสิทธิ์ที่โรงเรียนซื้อและเปิดให้คุณใช้งาน
           </Typography>
         </Box>
       </Stack>
@@ -146,7 +213,7 @@ export function UserEntitlementsView() {
           <CircularProgress />
         </Box>
       ) : entitlements.length ? (
-        <Grid container spacing={3} sx={{ mt: 1 }}>
+        <Grid container spacing={3} sx={{ mt: 3 }}>
           {entitlements.map((entitlement) => {
             const title =
               currentLang.value === 'en' && entitlement.product?.titleEn
@@ -156,10 +223,9 @@ export function UserEntitlementsView() {
               currentLang.value === 'en' && entitlement.product?.shortDescriptionEn
                 ? entitlement.product.shortDescriptionEn
                 : entitlement.product?.shortDescription;
-            const isSchoolEntitlement = entitlement.product?.licenseScope === 'school';
-            const isPlatformEntitlement = entitlement.product?.licenseScope === 'platform';
             const destination = getLicenseAppDestination({
               baseUrl: CONFIG.ekruUrl,
+              role: entitlement.school?.membershipRole,
               targetSystem: entitlement.product?.licenseTargetSystem,
               featureKeys: entitlement.featureKeys,
             });
@@ -183,17 +249,22 @@ export function UserEntitlementsView() {
                             {description}
                           </Typography>
                         )}
+                        {!!entitlement.school?.name && (
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            {entitlement.school.name}
+                          </Typography>
+                        )}
                       </Box>
                       <Chip
                         color="success"
                         variant="soft"
                         icon={<RiShieldCheckLine />}
                         label={
-                          isPlatformEntitlement
+                          entitlement.accessSource === 'platform'
                             ? 'สิทธิ์ทุกคนในแพลตฟอร์ม'
-                            : isSchoolEntitlement
-                              ? 'สิทธิ์จากโรงเรียน'
-                              : 'สิทธิ์บุคคล'
+                            : entitlement.accessSource === 'school'
+                              ? 'โรงเรียนจัดให้'
+                              : 'ซื้อเอง'
                         }
                       />
                     </Stack>
@@ -287,10 +358,10 @@ export function UserEntitlementsView() {
             <RiRocketLine size={48} />
           </Box>
           <Typography variant="h5" sx={{ mt: 3 }}>
-            ยังไม่มีแพ็กเกจส่วนบุคคล
+            ยังไม่มีแอปหรือสิทธิ์ใช้งาน
           </Typography>
           <Typography color="text.secondary" sx={{ mt: 1 }}>
-            เมื่อซื้อแอปหรือระบบย่อยของ E-KRU สิทธิ์จะแสดงที่หน้านี้อัตโนมัติ
+            เมื่อคุณซื้อเองหรือโรงเรียนเปิดสิทธิ์ให้ รายการจะแสดงที่หน้านี้อัตโนมัติ
           </Typography>
         </Card>
       )}
