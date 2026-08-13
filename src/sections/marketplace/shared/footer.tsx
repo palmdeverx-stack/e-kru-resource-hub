@@ -49,6 +49,7 @@ type MarketplaceContact = {
 
 const marketplaceLinks: FooterLink[] = [
   { labelKey: 'home', href: paths.marketplace.root },
+  { labelKey: 'about', href: paths.marketplace.about },
   { labelKey: 'products', href: paths.marketplace.products },
   { labelKey: 'stores', href: paths.marketplace.stores },
   { labelKey: 'cart', href: paths.marketplace.cart },
@@ -63,6 +64,7 @@ const sellerLinks: FooterLink[] = [
 ];
 
 const supportLinks: FooterLink[] = [
+  { labelKey: 'contact', href: paths.marketplace.contact },
   { labelKey: 'signIn', href: paths.auth.jwt.signIn },
   { labelKey: 'legal', href: paths.legal.center },
   { labelKey: 'terms', href: paths.legal.termsOfService },
@@ -208,7 +210,7 @@ export function MarketplaceFooter() {
                 `© ${year} ${contact?.platformName ?? 'E-KRU Marketplace'}. All rights reserved.`}
             </Typography>
             <Typography variant="caption" sx={{ color: '#8492A6' }}>
-              Developed by CODE FOR CAT.
+              Developed by EKRU
             </Typography>
           </Stack>
 

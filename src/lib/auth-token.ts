@@ -50,6 +50,7 @@ export type AppTokenPayload = {
   username: string;
   role: AppRole;
   schoolId: string | null;
+  accessScope?: 'full' | 'marketplace_only';
   sessionVersion?: number;
 };
 

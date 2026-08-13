@@ -55,6 +55,7 @@ async function handleVerifyPin(request: Request) {
   }
 
   let expectedPin: string;
+  let accessScope: 'full' | 'marketplace_only' = 'full';
 
   if (user.role === 'master_admin') {
     expectedPin = process.env.MASTER_ADMIN_PIN ?? '';
@@ -82,10 +83,7 @@ async function handleVerifyPin(request: Request) {
       );
     }
     if (!isSubscriptionUsable(subscription)) {
-      return NextResponse.json(
-        { message: 'แพ็กเกจโรงเรียนหมดอายุหรือถูกระงับ กรุณาติดต่อผู้ดูแลระบบ' },
-        { status: 403 }
-      );
+      accessScope = 'marketplace_only';
     }
     expectedPin = school.code;
   } else {
@@ -101,10 +99,13 @@ async function handleVerifyPin(request: Request) {
     username: user.username,
     role: user.role,
     schoolId: user.school_id,
+    accessScope,
     sessionVersion: Number(user.session_version ?? 0),
   });
 
-  const response = NextResponse.json({ user: toPublicUser(user) });
+  const response = NextResponse.json({
+    user: { ...toPublicUser(user), access_scope: accessScope },
+  });
   response.cookies.set(ACCESS_TOKEN_COOKIE, accessToken, accessTokenCookieOptions);
   return response;
 }

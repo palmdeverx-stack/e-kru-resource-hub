@@ -1605,6 +1605,7 @@ export function MarketplaceProductDetailView({
                   height: { xs: 360, md: 560 },
                   display: 'grid',
                   overflow: 'hidden',
+                  position: 'relative',
                   borderRadius: 2.5,
                   placeItems: 'center',
                   bgcolor: 'grey.50',
@@ -1612,6 +1613,153 @@ export function MarketplaceProductDetailView({
                   borderColor: 'divider',
                 }}
               >
+                <Stack
+                  direction="row"
+                  spacing={0.75}
+                  sx={{ top: 12, right: 12, zIndex: 2, position: 'absolute' }}
+                >
+                  <IconButton
+                    aria-label={
+                      favorite
+                        ? t('productDetail.actions.unfavorite')
+                        : t('productDetail.actions.favorite')
+                    }
+                    disabled={collectionSaving}
+                    onClick={() => handleCollectionChange('favorite', favorite)}
+                    sx={{
+                      width: 42,
+                      height: 42,
+                      color: favorite ? 'primary.main' : 'text.primary',
+                      bgcolor: 'rgba(255,255,255,0.94)',
+                      border: '1px solid',
+                      borderColor: favorite ? 'primary.main' : 'divider',
+                      boxShadow: '0 6px 18px rgba(15,23,42,0.12)',
+                      '&:hover': { bgcolor: 'common.white' },
+                    }}
+                  >
+                    {favorite ? <RiHeartFill /> : <RiHeartLine />}
+                  </IconButton>
+                  <IconButton
+                    aria-label={
+                      saved ? t('productDetail.actions.unsave') : t('productDetail.actions.save')
+                    }
+                    disabled={collectionSaving}
+                    onClick={() => handleCollectionChange('bookmark', saved)}
+                    sx={{
+                      width: 42,
+                      height: 42,
+                      color: saved ? 'primary.main' : 'text.primary',
+                      bgcolor: 'rgba(255,255,255,0.94)',
+                      border: '1px solid',
+                      borderColor: saved ? 'primary.main' : 'divider',
+                      boxShadow: '0 6px 18px rgba(15,23,42,0.12)',
+                      '&:hover': { bgcolor: 'common.white' },
+                    }}
+                  >
+                    {saved ? <RiBookmarkFill /> : <RiBookmarkLine />}
+                  </IconButton>
+                  <IconButton
+                    aria-label={t('productDetail.share.title')}
+                    aria-haspopup="dialog"
+                    aria-expanded={Boolean(shareAnchorEl)}
+                    onClick={(event) => setShareAnchorEl(event.currentTarget)}
+                    sx={{
+                      width: 42,
+                      height: 42,
+                      color: 'text.primary',
+                      bgcolor: 'rgba(255,255,255,0.94)',
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      boxShadow: '0 6px 18px rgba(15,23,42,0.12)',
+                      '&:hover': { bgcolor: 'common.white' },
+                    }}
+                  >
+                    <RiShareForwardLine />
+                  </IconButton>
+                </Stack>
+                <Popover
+                  open={Boolean(shareAnchorEl)}
+                  anchorEl={shareAnchorEl}
+                  onClose={() => setShareAnchorEl(null)}
+                  anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                  transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                  slotProps={{
+                    paper: {
+                      sx: {
+                        p: 2,
+                        mt: 1,
+                        borderRadius: 2,
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        boxShadow: 8,
+                      },
+                    },
+                  }}
+                >
+                  <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
+                    {t('productDetail.share.title')}
+                  </Typography>
+                  <Stack direction="row" spacing={2}>
+                    {[
+                      {
+                        label: 'LINE',
+                        button: (
+                          <LineShareButton
+                            url={shareUrl}
+                            title={content.title}
+                            disabled={!shareUrl}
+                            aria-label={t('productDetail.share.line')}
+                          >
+                            <LineIcon size={40} round aria-hidden="true" />
+                          </LineShareButton>
+                        ),
+                      },
+                      {
+                        label: 'Facebook',
+                        button: (
+                          <IconButton
+                            type="button"
+                            disabled={!shareUrl}
+                            onClick={handleFacebookShare}
+                            aria-label={t('productDetail.share.facebook')}
+                            sx={{ p: 0 }}
+                          >
+                            <FacebookIcon size={40} round aria-hidden="true" />
+                          </IconButton>
+                        ),
+                      },
+                      {
+                        label: t('productDetail.share.emailLabel'),
+                        button: (
+                          <EmailShareButton
+                            url={shareUrl}
+                            subject={content.title}
+                            body={t('productDetail.share.emailBody', { title: content.title })}
+                            disabled={!shareUrl}
+                            aria-label={t('productDetail.share.email')}
+                          >
+                            <EmailIcon size={40} round aria-hidden="true" />
+                          </EmailShareButton>
+                        ),
+                      },
+                    ].map((option) => (
+                      <Box
+                        key={option.label}
+                        onClick={() => setShareAnchorEl(null)}
+                        sx={{ minWidth: 52, textAlign: 'center' }}
+                      >
+                        {option.button}
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{ mt: 0.25, display: 'block' }}
+                        >
+                          {option.label}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Stack>
+                </Popover>
                 {coverUrl ? (
                   <Box
                     component="img"

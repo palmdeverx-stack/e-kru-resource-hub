@@ -11,6 +11,7 @@ type OptimizeImageOptions = {
   preset?: ImagePreset;
   output?: 'webp' | 'original';
   resize?: boolean;
+  maxBytes?: number;
   watermarkLines?: readonly string[];
 };
 
@@ -44,6 +45,57 @@ function extensionFor(contentType: string): OptimizedImage['extension'] {
   if (contentType === 'image/png') return 'png';
   if (contentType === 'image/webp') return 'webp';
   return 'jpg';
+}
+
+async function constrainImageSize(data: Buffer, contentType: string, maxBytes: number) {
+  if (data.length <= maxBytes) return data;
+
+  const attempts = [
+    { dimension: 2400, quality: 84 },
+    { dimension: 2000, quality: 78 },
+    { dimension: 1700, quality: 72 },
+    { dimension: 1400, quality: 66 },
+    { dimension: 1150, quality: 58 },
+    { dimension: 900, quality: 50 },
+    { dimension: 700, quality: 42 },
+    { dimension: 520, quality: 34 },
+  ];
+
+  for (const attempt of attempts) {
+    let pipeline = sharp(data, { failOn: 'warning' }).resize({
+      width: attempt.dimension,
+      height: attempt.dimension,
+      fit: 'inside',
+      withoutEnlargement: true,
+    });
+
+    if (contentType === 'image/webp') {
+      pipeline = pipeline.webp({
+        quality: attempt.quality,
+        effort: 6,
+        smartSubsample: true,
+      });
+    } else if (contentType === 'image/png') {
+      pipeline = pipeline.png({
+        compressionLevel: 9,
+        adaptiveFiltering: true,
+        palette: true,
+        quality: attempt.quality,
+        effort: 10,
+      });
+    } else {
+      pipeline = pipeline.jpeg({
+        quality: attempt.quality,
+        mozjpeg: true,
+        chromaSubsampling: '4:4:4',
+      });
+    }
+
+    const constrained = await pipeline.toBuffer();
+    if (constrained.length <= maxBytes) return constrained;
+  }
+
+  throw new Error('ไม่สามารถลดขนาดรูปภาพให้อยู่ในขนาดที่กำหนดได้');
 }
 
 function escapeXml(value: string) {
@@ -99,6 +151,7 @@ export async function optimizeUploadedImage(
     preset = 'content',
     output = 'webp',
     resize = true,
+    maxBytes,
     watermarkLines,
   }: OptimizeImageOptions = {}
 ): Promise<OptimizedImage> {
@@ -144,8 +197,12 @@ export async function optimizeUploadedImage(
     pipeline = pipeline.jpeg({ quality: 92, mozjpeg: true, chromaSubsampling: '4:4:4' });
   }
 
-  const optimized = await pipeline.toBuffer();
-  if (!watermarkLines?.length && optimized.length >= original.length) {
+  let optimized: Buffer = await pipeline.toBuffer();
+  if (
+    !watermarkLines?.length &&
+    optimized.length >= original.length &&
+    (!maxBytes || original.length <= maxBytes)
+  ) {
     return {
       data: original,
       contentType: file.type,
@@ -154,6 +211,10 @@ export async function optimizeUploadedImage(
       originalSize: original.length,
       optimized: false,
     };
+  }
+
+  if (maxBytes) {
+    optimized = await constrainImageSize(optimized, contentType, maxBytes);
   }
 
   return {

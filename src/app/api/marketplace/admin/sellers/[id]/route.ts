@@ -9,6 +9,22 @@ import { getFinanceSettings } from 'src/sections/marketplace/admin/server/financ
 
 type Context = { params: Promise<{ id: string }> };
 
+function maskIdentifier(value: unknown) {
+  if (typeof value !== 'string' || !value) return value;
+  const normalized = value.trim();
+  if (normalized.length <= 8) return '*'.repeat(normalized.length);
+  return `${normalized.slice(0, 4)}${'*'.repeat(normalized.length - 8)}${normalized.slice(-4)}`;
+}
+
+function maskSellerIdentifiers<T extends Record<string, unknown>>(profile: T) {
+  return {
+    ...profile,
+    national_tax_id: maskIdentifier(profile.national_tax_id),
+    company_tax_id: maskIdentifier(profile.company_tax_id),
+    pending_profile_data: undefined,
+  };
+}
+
 export async function GET(request: Request, { params }: Context) {
   if (!requireRole(request, ['master_admin', 'marketplace_admin'])) {
     return NextResponse.json({ message: 'ไม่มีสิทธิ์ดูข้อมูลร้านค้า' }, { status: 403 });
@@ -70,11 +86,14 @@ export async function GET(request: Request, { params }: Context) {
     (seller.profile_review_status === 'pending' || seller.profile_review_status === 'rejected') &&
     Boolean(pendingProfile);
   const profileReviewStatus = isProfileRevision ? seller.profile_review_status : null;
+  const effectiveSeller = maskSellerIdentifiers({
+    ...seller,
+    ...(isProfileRevision && pendingProfile ? pendingProfile : {}),
+  });
 
   return NextResponse.json({
     seller: {
-      ...seller,
-      ...(isProfileRevision && pendingProfile ? pendingProfile : {}),
+      ...effectiveSeller,
       status: profileReviewStatus ?? seller.status,
       submitted_at: isProfileRevision ? seller.profile_submitted_at : seller.submitted_at,
       rejection_reason: isProfileRevision
@@ -86,11 +105,10 @@ export async function GET(request: Request, { params }: Context) {
       ),
       is_profile_revision: isProfileRevision,
       approved_profile: isProfileRevision
-        ? {
+        ? maskSellerIdentifiers({
             ...seller,
             payout_account: revealPayoutAccount(payoutAccount),
-            pending_profile_data: undefined,
-          }
+          })
         : null,
     },
     defaultCommissionRate: Number(financeSettings.commission_rate),
@@ -144,5 +162,10 @@ export async function PATCH(request: Request, { params }: Context) {
     );
   }
 
-  return NextResponse.json({ seller });
+  return NextResponse.json({
+    seller: {
+      id: seller.id,
+      commission_rate_override: seller.commission_rate_override,
+    },
+  });
 }

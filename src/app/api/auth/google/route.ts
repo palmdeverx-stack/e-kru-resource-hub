@@ -61,35 +61,55 @@ async function validateSchoolUser(user: Record<string, any>) {
   const studentCannotAccess =
     user.role === 'student' && (user.student_status ?? 'studying') !== 'studying';
   if (user.is_suspended === true || user.is_active === false || studentCannotAccess) {
-    return studentCannotAccess
-      ? 'สถานะนักเรียนไม่สามารถเข้าใช้งานระบบได้ กรุณาติดต่อผู้ดูแลโรงเรียน'
-      : user.is_suspended
-        ? 'บัญชีนี้ถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ'
-        : 'บัญชีนี้ถูกปิดใช้งาน กรุณาติดต่อผู้ดูแลระบบ';
+    return {
+      error: studentCannotAccess
+        ? 'สถานะนักเรียนไม่สามารถเข้าใช้งานระบบได้ กรุณาติดต่อผู้ดูแลโรงเรียน'
+        : user.is_suspended
+          ? 'บัญชีนี้ถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ'
+          : 'บัญชีนี้ถูกปิดใช้งาน กรุณาติดต่อผู้ดูแลระบบ',
+      accessScope: 'full' as const,
+    };
   }
-  if (user.role === 'master_admin') return null;
-  if (!user.school_id) return 'บัญชีนี้ยังไม่ได้เชื่อมกับโรงเรียน';
+  if (user.role === 'master_admin' || user.role === 'marketplace_admin') {
+    return { error: null, accessScope: 'full' as const };
+  }
+  if (!user.school_id) {
+    return { error: 'บัญชีนี้ยังไม่ได้เชื่อมกับโรงเรียน', accessScope: 'full' as const };
+  }
 
   const [{ data: school }, subscription] = await Promise.all([
     supabaseAdmin.from('schools').select('is_active').eq('id', user.school_id).maybeSingle(),
     loadSchoolSubscription(user.school_id),
   ]);
-  if (!school?.is_active) return 'โรงเรียนถูกปิดใช้งาน กรุณาติดต่อผู้ดูแลระบบ';
-  if (!isSubscriptionUsable(subscription)) {
-    return 'แพ็กเกจโรงเรียนหมดอายุหรือถูกระงับ กรุณาติดต่อผู้ดูแลระบบ';
+  if (!school?.is_active) {
+    return {
+      error: 'โรงเรียนถูกปิดใช้งาน กรุณาติดต่อผู้ดูแลระบบ',
+      accessScope: 'full' as const,
+    };
   }
-  return null;
+  return {
+    error: null,
+    accessScope: isSubscriptionUsable(subscription)
+      ? ('full' as const)
+      : ('marketplace_only' as const),
+  };
 }
 
-function authenticatedResponse(user: Parameters<typeof toPublicUser>[0]) {
+function authenticatedResponse(
+  user: Parameters<typeof toPublicUser>[0],
+  accessScope: 'full' | 'marketplace_only' = 'full'
+) {
   const accessToken = signAppToken({
     sub: user.id,
     username: user.username,
     role: user.role,
     schoolId: user.school_id ?? null,
+    accessScope,
     sessionVersion: Number(user.session_version ?? 0),
   });
-  const response = NextResponse.json({ user: toPublicUser(user) });
+  const response = NextResponse.json({
+    user: { ...toPublicUser(user), access_scope: accessScope },
+  });
   response.cookies.set(ACCESS_TOKEN_COOKIE, accessToken, accessTokenCookieOptions);
   return response;
 }
@@ -126,8 +146,8 @@ async function handleGoogleSignIn(request: Request) {
   ]);
 
   if (appUserByAuth) {
-    const accessError = await validateSchoolUser(appUserByAuth);
-    if (accessError) return NextResponse.json({ message: accessError }, { status: 403 });
+    const access = await validateSchoolUser(appUserByAuth);
+    if (access.error) return NextResponse.json({ message: access.error }, { status: 403 });
 
     await supabaseAdmin.auth.admin.updateUserById(authUser.id, {
       app_metadata: { ...authUser.app_metadata, role: appUserByAuth.role },
@@ -140,7 +160,7 @@ async function handleGoogleSignIn(request: Request) {
         role: appUserByAuth.role,
       });
     }
-    return authenticatedResponse(appUserByAuth);
+    return authenticatedResponse(appUserByAuth, access.accessScope);
   }
 
   if (marketplaceUserByAuth) {

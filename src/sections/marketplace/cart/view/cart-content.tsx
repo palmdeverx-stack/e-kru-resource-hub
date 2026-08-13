@@ -10,7 +10,6 @@ import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
-import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
 
 import { RouterLink } from 'src/routes/components';
@@ -47,7 +46,7 @@ export function MarketplaceCartContent({
 
   if (!items.length) {
     return (
-      <Container maxWidth={false} sx={{ textAlign: 'center' }}>
+      <Stack sx={{ textAlign: 'center' }}>
         <Card
           variant="outlined"
           sx={{ py: 7, px: 3, textAlign: 'center', borderRadius: 3, borderStyle: 'dashed' }}
@@ -81,7 +80,7 @@ export function MarketplaceCartContent({
             {t('cart.actions.browse')}
           </Button>
         </Card>
-      </Container>
+      </Stack>
     );
   }
 

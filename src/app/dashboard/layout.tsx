@@ -10,6 +10,7 @@ import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 
 import { paths } from 'src/routes/paths';
+import { usePathname } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 
 import { DashboardLayout } from 'src/layouts/dashboard';
@@ -56,6 +57,8 @@ import { MarketplaceAccountMenu } from 'src/sections/marketplace/account/compone
 import { useAuthContext } from 'src/auth/hooks';
 
 const SELLER_NAV_SUBHEADER = 'ศูนย์ผู้ขาย';
+const SELLER_APPROVALS_PATH = '/dashboard/seller-approvals';
+const SELLER_APPROVALS_SEEN_AT_KEY = 'marketplace-seller-approvals-seen-at';
 
 const memberNavData: NavSectionProps['data'] = [
   {
@@ -401,6 +404,7 @@ function isMarketplaceAdmin(role?: string | null) {
 export default function Layout({ children }: Props) {
   const { t } = useTranslate('navbar');
   const { user } = useAuthContext();
+  const pathname = usePathname();
   const { itemCount } = useMarketplaceCart();
   const hasCartItems = Number.isInteger(itemCount) && itemCount > 0;
   const [canViewSchoolEntitlements, setCanViewSchoolEntitlements] = useState(false);
@@ -409,6 +413,62 @@ export default function Layout({ children }: Props) {
   const [referralEnabled, setReferralEnabled] = useState(false);
   const [shippingEnabled, setShippingEnabled] = useState(false);
   const [officialShippingEnabled, setOfficialShippingEnabled] = useState(false);
+  const [sellerApprovalNotificationCount, setSellerApprovalNotificationCount] = useState(0);
+
+  useEffect(() => {
+    if (!user?.id || !isMarketplaceAdmin(user.role)) {
+      setSellerApprovalNotificationCount(0);
+      return undefined;
+    }
+
+    const storageKey = `${SELLER_APPROVALS_SEEN_AT_KEY}:${user.id}`;
+    const approvalsOpen = pathname.startsWith(SELLER_APPROVALS_PATH);
+    if (approvalsOpen) {
+      window.localStorage.setItem(storageKey, String(Date.now()));
+      setSellerApprovalNotificationCount(0);
+      return undefined;
+    }
+
+    const controller = new AbortController();
+
+    const loadPendingSellerApprovals = async () => {
+      try {
+        const response = await fetch(
+          '/api/marketplace/admin/sellers?status=pending&page=1&pageSize=50',
+          { cache: 'no-store', signal: controller.signal }
+        );
+        if (!response.ok) return;
+        const result = (await response.json()) as {
+          sellers?: Array<{ submitted_at?: string | null }>;
+          pagination?: { total?: number };
+        };
+
+        const seenAt = Number(window.localStorage.getItem(storageKey) ?? 0);
+        const sellers = result.sellers ?? [];
+        const unreadCount = seenAt
+          ? sellers.filter((seller) => {
+              const submittedAt = seller.submitted_at ? new Date(seller.submitted_at).getTime() : 0;
+              return submittedAt > seenAt;
+            }).length
+          : Number(result.pagination?.total ?? sellers.length);
+        setSellerApprovalNotificationCount(unreadCount);
+      } catch (loadError) {
+        if ((loadError as Error).name !== 'AbortError') {
+          setSellerApprovalNotificationCount(0);
+        }
+      }
+    };
+
+    void loadPendingSellerApprovals();
+    const intervalId = window.setInterval(loadPendingSellerApprovals, 60_000);
+    window.addEventListener('focus', loadPendingSellerApprovals);
+
+    return () => {
+      controller.abort();
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', loadPendingSellerApprovals);
+    };
+  }, [pathname, user?.id, user?.role]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -547,12 +607,41 @@ export default function Layout({ children }: Props) {
   const adminNavigation = roleFilteredAdminNavigation
     .map((section) => ({
       ...section,
-      items: section.items.filter(
-        (item) =>
-          shippingEnabled ||
-          (user?.role === 'master_admin' && officialShippingEnabled) ||
-          item.path !== '/dashboard/seller/shipping'
-      ),
+      items: section.items
+        .filter(
+          (item) =>
+            shippingEnabled ||
+            (user?.role === 'master_admin' && officialShippingEnabled) ||
+            item.path !== '/dashboard/seller/shipping'
+        )
+        .map((item) =>
+          item.path === SELLER_APPROVALS_PATH && sellerApprovalNotificationCount > 0
+            ? {
+                ...item,
+                info: (
+                  <Box
+                    component="span"
+                    sx={{
+                      px: 0.75,
+                      minWidth: 20,
+                      height: 20,
+                      color: 'common.white',
+                      bgcolor: 'error.main',
+                      borderRadius: 10,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 11,
+                      fontWeight: 700,
+                      lineHeight: 1,
+                    }}
+                  >
+                    {sellerApprovalNotificationCount > 99 ? '99+' : sellerApprovalNotificationCount}
+                  </Box>
+                ),
+              }
+            : item
+        ),
     }))
     .filter((section) => section.items.length > 0);
 
@@ -675,6 +764,13 @@ export default function Layout({ children }: Props) {
         },
       }}
     >
+      {/* {user?.access_scope === 'marketplace_only' && (
+        <Alert severity="info" sx={{ mb: 2, borderRadius: 2 }}>
+          {t(
+            'แพ็กเกจโรงเรียนหมดอายุ ฟีเจอร์โรงเรียนถูกพักชั่วคราว แต่คุณยังซื้อสื่อ ดูรายการซื้อ และจัดการพื้นที่ส่วนตัวได้ตามปกติ'
+          )}
+        </Alert>
+      )} */}
       {children}
       {hasCartItems && (
         <Box

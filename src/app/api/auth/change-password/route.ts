@@ -149,6 +149,7 @@ export async function POST(request: Request) {
       username: user.username,
       role: user.role,
       schoolId: user.school_id,
+      accessScope: payload.accessScope,
       sessionVersion: Number(user.session_version ?? 0),
     }),
     accessTokenCookieOptions

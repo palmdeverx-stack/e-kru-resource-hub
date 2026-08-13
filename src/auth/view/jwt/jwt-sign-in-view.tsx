@@ -20,8 +20,8 @@ import { useRouter, useSearchParams } from 'src/routes/hooks';
 
 import { useTranslate } from 'src/locales';
 
-import { RemixIcon } from 'src/components/remix-icon';
 import { Form, Field } from 'src/components/hook-form';
+import { RiEyeLine, RemixIcon, RiEyeOffLine } from 'src/components/remix-icon';
 
 import { useAuthContext } from '../../hooks';
 import { FormHead } from '../../components/form-head';
@@ -199,9 +199,11 @@ export function JwtSignInView() {
                             : t('auth.accessibility.showPassword')
                         }
                       >
-                        <RemixIcon
-                          icon={showPassword.value ? 'solar:eye-bold' : 'solar:eye-closed-bold'}
-                        />
+                        {showPassword.value ? (
+                          <RiEyeOffLine size={22} aria-hidden="true" />
+                        ) : (
+                          <RiEyeLine size={22} aria-hidden="true" />
+                        )}
                       </IconButton>
                     </InputAdornment>
                   ),

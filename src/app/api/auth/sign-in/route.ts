@@ -161,6 +161,7 @@ async function handleSignIn(request: Request) {
     );
   }
 
+  let accessScope: 'full' | 'marketplace_only' = 'full';
   if (user.role !== 'master_admin' && user.role !== 'marketplace_admin') {
     const [{ data: school }, subscription] = await Promise.all([
       supabaseAdmin.from('schools').select('is_active').eq('id', user.school_id).maybeSingle(),
@@ -173,10 +174,7 @@ async function handleSignIn(request: Request) {
       );
     }
     if (!isSubscriptionUsable(subscription)) {
-      return NextResponse.json(
-        { message: 'แพ็กเกจโรงเรียนหมดอายุหรือถูกระงับ กรุณาติดต่อผู้ดูแลระบบ' },
-        { status: 403 }
-      );
+      accessScope = 'marketplace_only';
     }
   }
 
@@ -193,10 +191,13 @@ async function handleSignIn(request: Request) {
     username: user.username,
     role: user.role,
     schoolId: user.school_id,
+    accessScope,
     sessionVersion: Number(user.session_version ?? 0),
   });
 
-  const response = NextResponse.json({ user: toPublicUser(user) });
+  const response = NextResponse.json({
+    user: { ...toPublicUser(user), access_scope: accessScope },
+  });
   response.cookies.set(ACCESS_TOKEN_COOKIE, accessToken, accessTokenCookieOptions);
   return response;
 }

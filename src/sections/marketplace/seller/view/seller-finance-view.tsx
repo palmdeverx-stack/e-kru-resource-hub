@@ -32,6 +32,7 @@ import {
   RiTimeLine,
   RiBankLine,
   RiCloseLine,
+  RiUser3Line,
   RiWallet3Line,
   RiCalendarLine,
   RiFileList3Line,
@@ -48,6 +49,7 @@ import { ThaiBankLogo } from '../../shared/bank-logo';
 
 type FinanceOrder = {
   id: string;
+  buyer_id: string | null;
   payment_session_id?: string | null;
   currency: string;
   gross_amount: number;
@@ -65,12 +67,20 @@ type FinanceOrder = {
     bank_transaction_reference: string | null;
     stripe_payment_intent_id: string | null;
   } | null;
+  buyer?: {
+    id: string;
+    name: string;
+    email: string | null;
+    avatar_url: string | null;
+    school: { id: string; name: string } | null;
+  } | null;
   items?: Array<{
     id: string;
     title: string;
     quantity: number;
     unit_price: number;
     product?: {
+      id: string;
       title: string;
       title_en: string | null;
     } | null;
@@ -110,6 +120,7 @@ type FinanceResult = {
   seller: { id: string; display_name: string; status: string };
   canViewPaymentTransactions: boolean;
   canViewPayoutHistory: boolean;
+  canViewBuyerDetails: boolean;
   balance: {
     grossSales: number;
     underReview: number;
@@ -213,10 +224,16 @@ function getMoneyStatus(
   return { label: 'กำลังเคลียร์ยอด', color: 'warning' };
 }
 
-export function MarketplaceSellerFinanceView() {
+export function MarketplaceSellerFinanceView({
+  initialTab = 'income',
+  productId,
+}: {
+  initialTab?: FinanceTab;
+  productId?: string;
+}) {
   const { user } = useAuthContext();
   const [data, setData] = useState<FinanceResult | null>(null);
-  const [activeTab, setActiveTab] = useState<FinanceTab>('income');
+  const [activeTab, setActiveTab] = useState<FinanceTab>(initialTab);
   const [selectedOrder, setSelectedOrder] = useState<FinanceOrder | null>(null);
   const [selectedPayout, setSelectedPayout] = useState<Payout | null>(null);
   const [salesPage, setSalesPage] = useState(0);
@@ -287,6 +304,13 @@ export function MarketplaceSellerFinanceView() {
   const canViewPayoutHistory =
     Boolean(data?.canViewPayoutHistory) &&
     (user?.role === 'marketplace_admin' || user?.role === 'master_admin');
+  const canViewBuyerDetails = Boolean(data?.canViewBuyerDetails) && user?.role === 'master_admin';
+  const buyerProductId = canViewBuyerDetails ? productId : undefined;
+  const salesOrders = buyerProductId
+    ? (data?.orders ?? []).filter((order) =>
+        order.items?.some((item) => item.product?.id === buyerProductId)
+      )
+    : (data?.orders ?? []);
 
   const summaryCards = [
     {
@@ -471,8 +495,7 @@ export function MarketplaceSellerFinanceView() {
                 แล้วนำยอดที่ถึงขั้นต่ำไปรวมในรอบวัน
                 {payoutDayNames[data?.schedule.payoutDay ?? 5]} โดยทั่วไปจึงใช้เวลาประมาณ{' '}
                 {(data?.schedule.holdDays ?? 0).toLocaleString('th-TH')}–
-                {((data?.schedule.holdDays ?? 0) + 7).toLocaleString('th-TH')} วัน
-                หลังชำระสำเร็จ
+                {((data?.schedule.holdDays ?? 0) + 7).toLocaleString('th-TH')} วัน หลังชำระสำเร็จ
               </Typography>
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
                 เป็นวันที่โดยประมาณ วันหยุด การตรวจสอบการชำระ การคืนเงิน หรือการดำเนินการของธนาคาร
@@ -556,12 +579,18 @@ export function MarketplaceSellerFinanceView() {
               sx={{ mb: 2.5 }}
             >
               <Box>
-                <Typography variant="h5">รายการขายทั้งหมด</Typography>
+                <Typography variant="h5">
+                  {buyerProductId ? 'ผู้ซื้อสินค้านี้' : 'รายการขายทั้งหมด'}
+                </Typography>
                 <Typography variant="body2" color="text.secondary">
                   แสดงยอดที่ผู้ซื้อชำระ ผู้รับค่าธรรมเนียม และยอดที่ผู้ขายจะได้รับ
                 </Typography>
               </Box>
-              <Chip label={`${data?.orders.length ?? 0} รายการ`} variant="outlined" />
+              <Chip
+                label={`${salesOrders.length} รายการ`}
+                color={buyerProductId ? 'primary' : 'default'}
+                variant={buyerProductId ? 'soft' : 'outlined'}
+              />
             </Stack>
 
             <TableContainer>
@@ -581,14 +610,18 @@ export function MarketplaceSellerFinanceView() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {data?.orders.length ? (
-                    data.orders
+                  {salesOrders.length ? (
+                    salesOrders
                       .slice(
                         salesPage * salesRowsPerPage,
                         salesPage * salesRowsPerPage + salesRowsPerPage
                       )
                       .map((order) => {
-                        const status = getMoneyStatus(order, data.ledger, data.payouts);
+                        const status = getMoneyStatus(
+                          order,
+                          data?.ledger ?? [],
+                          data?.payouts ?? []
+                        );
                         const transaction = canViewPaymentTransactions
                           ? paymentTransaction(order)
                           : null;
@@ -687,7 +720,7 @@ export function MarketplaceSellerFinanceView() {
                       >
                         <RiShoppingBag3Line size={42} />
                         <Typography variant="h6" sx={{ mt: 1 }}>
-                          ยังไม่มีรายการขาย
+                          {buyerProductId ? 'ยังไม่มีผู้ซื้อสินค้านี้' : 'ยังไม่มีรายการขาย'}
                         </Typography>
                       </TableCell>
                     </TableRow>
@@ -697,7 +730,7 @@ export function MarketplaceSellerFinanceView() {
             </TableContainer>
             <TablePagination
               component="div"
-              count={data?.orders.length ?? 0}
+              count={salesOrders.length}
               page={salesPage}
               rowsPerPage={salesRowsPerPage}
               rowsPerPageOptions={[10, 25, 50]}
@@ -972,8 +1005,7 @@ export function MarketplaceSellerFinanceView() {
               พักยอด {(data?.schedule.holdDays ?? 0).toLocaleString('th-TH')} วัน · จ่ายเป็นรอบทุก
               {payoutDayNames[data?.schedule.payoutDay ?? 5]} · ยอดขั้นต่ำ{' '}
               {formatPrice(Number(data?.schedule.minimumPayout ?? 0))} · วันรอบโอนเป็นวันประมาณการ
-              ไม่ใช่วันรับประกันเงินเข้าบัญชี{' '}
-              หากต้องการแก้ไขบัญชีรับเงิน ให้ไปที่เมนูข้อมูลร้านค้า
+              ไม่ใช่วันรับประกันเงินเข้าบัญชี หากต้องการแก้ไขบัญชีรับเงิน ให้ไปที่เมนูข้อมูลร้านค้า
             </Alert>
           </Box>
         )}
@@ -988,7 +1020,7 @@ export function MarketplaceSellerFinanceView() {
       >
         {selectedOrder && (
           <>
-            <DialogTitle sx={{ pr: 7 }}>
+            <DialogTitle component="div" sx={{ pr: 7 }}>
               <Typography variant="h5">รายละเอียดรายได้คำสั่งซื้อ</Typography>
               <Typography variant="body2" color="text.secondary">
                 ORD-{selectedOrder.id.slice(0, 8).toUpperCase()}
@@ -1004,6 +1036,42 @@ export function MarketplaceSellerFinanceView() {
             <Divider />
             <DialogContent sx={{ py: 3 }}>
               <Stack spacing={3}>
+                {canViewBuyerDetails && (
+                  <Card variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      ผู้ซื้อ
+                    </Typography>
+                    <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mt: 1 }}>
+                      <Avatar
+                        src={selectedOrder.buyer?.avatar_url || undefined}
+                        sx={{
+                          width: 42,
+                          height: 42,
+                          color: 'primary.main',
+                          bgcolor: 'primary.lighter',
+                        }}
+                      >
+                        <RiUser3Line size={22} />
+                      </Avatar>
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography variant="subtitle2" noWrap>
+                          {selectedOrder.buyer?.name ||
+                            (selectedOrder.buyer_id
+                              ? `ผู้ซื้อ #${selectedOrder.buyer_id.slice(0, 8)}`
+                              : 'ไม่พบข้อมูลผู้ซื้อ')}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" noWrap>
+                          {selectedOrder.buyer?.email || 'ไม่มีข้อมูลอีเมล'}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" noWrap>
+                          {selectedOrder.buyer?.school?.name
+                            ? `สังกัด ${selectedOrder.buyer.school.name}`
+                            : 'บัญชีส่วนตัว / ไม่ได้ระบุโรงเรียน'}
+                        </Typography>
+                      </Box>
+                    </Stack>
+                  </Card>
+                )}
                 {canViewPaymentTransactions && (
                   <Card variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
                     <Typography variant="caption" color="text.secondary">
@@ -1100,7 +1168,7 @@ export function MarketplaceSellerFinanceView() {
       >
         {selectedPayout && (
           <>
-            <DialogTitle sx={{ pr: 7 }}>
+            <DialogTitle component="div" sx={{ pr: 7 }}>
               <Typography variant="h5">รายละเอียดการรับเงิน</Typography>
               <Typography variant="body2" color="text.secondary">
                 #{selectedPayout.id.slice(0, 12).toUpperCase()}

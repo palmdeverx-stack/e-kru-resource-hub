@@ -23,6 +23,7 @@ import { detectSettings } from 'src/components/settings/server';
 import { MarketplaceBrandProvider } from 'src/components/marketplace-brand';
 import { defaultSettings, SettingsProvider, LazySettingsDrawer } from 'src/components/settings';
 
+import { MARKETPLACE_SEO_KEYWORDS } from 'src/sections/marketplace/seo/keywords';
 import { MarketplaceCartProvider } from 'src/sections/marketplace/cart/cart-context';
 import { getPublicPlatformSettings } from 'src/sections/marketplace/admin/server/platform-settings';
 import { MarketplaceCookieConsentBanner } from 'src/sections/marketplace/legal/cookie-consent-banner';
@@ -60,24 +61,21 @@ export async function generateMetadata(): Promise<Metadata> {
     applicationName: siteName,
     title: siteName,
     description: SITE_DESCRIPTION,
-    keywords: [
-      'สื่อการสอน',
-      'แผนการสอน',
-      'ใบงาน',
-      'แบบทดสอบ',
-      'สื่อครู',
-      'Marketplace การศึกษา',
-      brandName,
-    ],
+    keywords: [...MARKETPLACE_SEO_KEYWORDS, brandName],
     authors: [{ name: brandName }],
     creator: brandName,
     publisher: brandName,
     category: 'education',
     manifest: '/favicon/site.webmanifest',
-    icons: [
-      { rel: 'icon', url: settings?.favicon_url || `${CONFIG.assetsDir}/favicon.ico` },
-      { rel: 'apple-touch-icon', url: '/favicon/apple-touch-icon.png' },
-    ],
+    icons: {
+      icon: [
+        { url: '/logo/logo-single-primary.svg?v=2', type: 'image/svg+xml' },
+        { url: '/favicon/favicon-32x32.png?v=2', sizes: '32x32', type: 'image/png' },
+        { url: '/favicon/favicon-16x16.png?v=2', sizes: '16x16', type: 'image/png' },
+      ],
+      shortcut: [{ url: '/favicon.ico?v=2', type: 'image/x-icon' }],
+      apple: [{ url: '/favicon/apple-touch-icon.png?v=2', sizes: '180x180', type: 'image/png' }],
+    },
     openGraph: {
       type: 'website',
       locale: 'th_TH',

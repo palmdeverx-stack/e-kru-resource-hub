@@ -293,7 +293,7 @@ function AdminFeedbackList({
   const pendingCount = feedback.filter((item) => ['new', 'reviewing'].includes(item.status)).length;
 
   return (
-    <Container maxWidth="lg" sx={{ py: { xs: 3 } }}>
+    <Container maxWidth={false} sx={{ py: { xs: 3 } }}>
       <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2}>
         <Stack direction="row" spacing={2} alignItems="center">
           <Box

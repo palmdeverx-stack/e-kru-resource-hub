@@ -582,6 +582,7 @@ export function MarketplaceSellerDashboardView() {
                           <SellerProductActions
                             compact
                             product={product}
+                            canViewBuyers={isSystemStore}
                             visibilityBusy={visibilityBusyId === product.id}
                             onHide={() => setHiding(product)}
                             onRestore={() => void changeProductVisibility(product, false)}
@@ -737,6 +738,7 @@ export function MarketplaceSellerDashboardView() {
                       >
                         <SellerProductActions
                           product={product}
+                          canViewBuyers={isSystemStore}
                           visibilityBusy={visibilityBusyId === product.id}
                           onHide={() => setHiding(product)}
                           onRestore={() => void changeProductVisibility(product, false)}
@@ -1228,6 +1230,7 @@ function TaskRow({
 function SellerProductActions({
   product,
   compact = false,
+  canViewBuyers,
   visibilityBusy,
   onHide,
   onRestore,
@@ -1235,6 +1238,7 @@ function SellerProductActions({
 }: {
   product: MarketplaceProduct;
   compact?: boolean;
+  canViewBuyers: boolean;
   visibilityBusy: boolean;
   onHide: () => void;
   onRestore: () => void;
@@ -1272,6 +1276,18 @@ function SellerProductActions({
             startIcon={<RiEyeLine />}
           >
             ดูสินค้า
+          </Button>
+        )}
+        {canViewBuyers && (product.purchase_count ?? 0) > 0 && (
+          <Button
+            component={RouterLink}
+            href={`${paths.marketplace.sellerFinance}?tab=sales&productId=${encodeURIComponent(product.id)}`}
+            size="small"
+            color="primary"
+            variant="outlined"
+            startIcon={<RiShoppingBag3Line />}
+          >
+            ดูผู้ซื้อ
           </Button>
         )}
         <Button
@@ -1414,7 +1430,7 @@ function SellerReviewState({ seller }: { seller: MarketplaceSeller }) {
       </Typography>
       <Typography color="text.secondary" sx={{ maxWidth: 620, mx: 'auto', mt: 1 }}>
         {isDraft
-          ? 'ข้อมูลยังไม่ถูกส่งให้ผู้ดูแล กรุณากรอก Wizard ให้ครบแล้วส่งคำขอ'
+          ? 'ข้อมูลยังไม่ได้ถูกส่งให้ผู้ดูแลตรวจสอบ กรุณากรอกข้อมูลให้ครบถ้วน แล้วส่งคำขอ'
           : isRejected
             ? seller.rejection_reason || 'กรุณาตรวจสอบและแก้ไขข้อมูลร้านก่อนส่งคำขอใหม่'
             : isSuspended

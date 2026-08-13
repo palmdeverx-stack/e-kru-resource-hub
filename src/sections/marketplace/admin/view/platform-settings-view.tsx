@@ -23,6 +23,7 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import { fDateTime } from 'src/utils/format-time';
 
 import { Upload } from 'src/components/upload';
+import { toast } from 'src/components/snackbar';
 import { Form } from 'src/components/hook-form';
 
 import { useAuthContext } from 'src/auth/hooks';
@@ -281,7 +282,6 @@ export function MarketplacePlatformSettingsView() {
   const { user } = useAuthContext();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [message, setMessage] = useState('');
   const [clamavTest, setClamavTest] = useState<{
     status: 'idle' | 'testing' | 'success' | 'error';
     message: string;
@@ -323,7 +323,6 @@ export function MarketplacePlatformSettingsView() {
 
   const save = async (values: ProviderForm) => {
     setError('');
-    setMessage('');
     try {
       await parseResponse(
         await fetch('/api/marketplace/admin/provider-settings', {
@@ -336,9 +335,11 @@ export function MarketplacePlatformSettingsView() {
         await fetch('/api/marketplace/admin/provider-settings', { cache: 'no-store' })
       );
       reset(result.settings);
-      setMessage('บันทึกข้อมูลแพลตฟอร์มและปรับเอกสารทุกฉบับแล้ว');
+      toast.success('บันทึกข้อมูลแพลตฟอร์มและปรับเอกสารทุกฉบับแล้ว');
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'บันทึกข้อมูลแพลตฟอร์มไม่สำเร็จ');
+      toast.error(
+        saveError instanceof Error ? saveError.message : 'บันทึกข้อมูลแพลตฟอร์มไม่สำเร็จ'
+      );
     }
   };
 
@@ -406,11 +407,6 @@ export function MarketplacePlatformSettingsView() {
       {!!error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
           {error}
-        </Alert>
-      )}
-      {!!message && (
-        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setMessage('')}>
-          {message}
         </Alert>
       )}
       {!!validationMessage && (

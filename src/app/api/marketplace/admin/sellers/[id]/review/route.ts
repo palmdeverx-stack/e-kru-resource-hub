@@ -207,5 +207,11 @@ export async function PATCH(request: Request, { params }: Context) {
     },
   });
 
-  return NextResponse.json({ seller });
+  return NextResponse.json({
+    seller: {
+      id: seller.id,
+      status: seller.status,
+      profile_review_status: seller.profile_review_status,
+    },
+  });
 }

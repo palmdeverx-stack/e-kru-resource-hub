@@ -116,6 +116,12 @@ export async function POST(request: Request) {
     const companyName = String(body?.companyName ?? '').trim();
     const companyTaxId = String(body?.companyTaxId ?? '').replace(/\D/g, '');
     const businessAddress = String(body?.businessAddress ?? '').trim();
+    const requestedBankCode = String(body?.bankCode ?? '').trim();
+    const requestedBankName = String(body?.bankName ?? '').trim();
+    const selectedBank = findThaiBank(requestedBankCode) ?? findThaiBank(requestedBankName);
+    const accountNumber = String(body?.accountNumber ?? '').replace(/\D/g, '');
+    const accountName = String(body?.accountName ?? '').trim();
+    const promptpayId = String(body?.promptpayId ?? '').replace(/\D/g, '') || null;
     if (displayName.length < 2 || displayName.length > 120) {
       return NextResponse.json(
         { message: 'ชื่อร้านทางการต้องมีความยาว 2–120 ตัวอักษร' },
@@ -127,6 +133,12 @@ export async function POST(request: Request) {
         {
           message: 'ชื่อผู้ออกต้องมีอย่างน้อย 2 ตัวอักษร และเลขประจำตัวผู้เสียภาษีต้องมี 13 หลัก',
         },
+        { status: 400 }
+      );
+    }
+    if (!selectedBank || accountNumber.length < 6 || accountName.length < 2) {
+      return NextResponse.json(
+        { message: 'กรุณากรอกธนาคาร ชื่อบัญชี และเลขบัญชีรับเงินของร้านระบบให้ครบถ้วน' },
         { status: 400 }
       );
     }
@@ -142,9 +154,25 @@ export async function POST(request: Request) {
     if (result.error || !result.data) {
       return NextResponse.json({ message: result.error?.message }, { status: 500 });
     }
+    const { error: payoutError } = await supabaseAdmin
+      .from('marketplace_seller_payout_accounts')
+      .upsert(
+        {
+          seller_id: result.data.id,
+          bank_code: selectedBank.code,
+          bank_name: selectedBank.name,
+          account_name: accountName,
+          ...encryptPayoutAccountFields(accountNumber, promptpayId),
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'seller_id' }
+      );
+    if (payoutError) {
+      return NextResponse.json({ message: payoutError.message }, { status: 500 });
+    }
     return NextResponse.json({
       seller: await withSellerRelations(result.data),
-      message: 'บันทึกข้อมูลร้านแล้ว',
+      message: 'บันทึกข้อมูลร้านและบัญชีรับเงินแล้ว',
     });
   }
 
@@ -170,11 +198,18 @@ export async function POST(request: Request) {
   const accountName = String(body?.accountName ?? '').trim();
   const now = new Date().toISOString();
 
-  const { data: existing, error: findError } = await supabaseAdmin
-    .from('marketplace_sellers')
-    .select('*')
-    .eq('owner_id', caller.sub)
-    .maybeSingle();
+  const [{ data: existing, error: findError }, { data: ownerProfile }] = await Promise.all([
+    supabaseAdmin
+      .from('marketplace_sellers')
+      .select('*')
+      .eq('owner_id', caller.sub)
+      .maybeSingle(),
+    supabaseAdmin
+      .from(caller.role === 'marketplace_user' ? 'marketplace_users' : 'app_users')
+      .select('avatar_url')
+      .eq('id', caller.sub)
+      .maybeSingle(),
+  ]);
   if (findError) return NextResponse.json({ message: findError.message }, { status: 500 });
   if (existing?.status === 'suspended') {
     return NextResponse.json({ message: 'ร้านถูกระงับ กรุณาติดต่อผู้ดูแลระบบ' }, { status: 403 });
@@ -221,7 +256,7 @@ export async function POST(request: Request) {
       accountNumber.length < 6 ||
       accountName.length < 2 ||
       !companyValid ||
-      !documentTypes.has('store_logo') ||
+      (!documentTypes.has('store_logo') && !existing?.logo_url && !ownerProfile?.avatar_url) ||
       !documentTypes.has('identity_card') ||
       !documentTypes.has('bank_book') ||
       !['seller_agreement', 'copyright_takedown', 'payment_payout_policy', 'privacy_policy'].every(
@@ -263,7 +298,7 @@ export async function POST(request: Request) {
     company_tax_id: String(body?.companyTaxId ?? '').replace(/\D/g, '') || null,
     business_address: String(body?.businessAddress ?? '').trim() || null,
     wizard_step: Math.min(5, Math.max(1, Number(body?.wizardStep) || 1)),
-    logo_url: existingPending.logo_url ?? existing?.logo_url ?? null,
+    logo_url: existingPending.logo_url ?? existing?.logo_url ?? ownerProfile?.avatar_url ?? null,
     cover_url: existingPending.cover_url ?? existing?.cover_url ?? null,
     seller_agreement_accepted_at:
       action === 'submit' && body.sellerAgreement ? now : existing?.seller_agreement_accepted_at,

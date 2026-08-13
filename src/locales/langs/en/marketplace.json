@@ -1,6 +1,6 @@
 {
   "seo": {
-    "title": "E-KRU Marketplace | Teaching resources by teachers, for teachers",
+    "title": "E-KRU (EKRU) Marketplace | Teaching resources by teachers, for teachers",
     "description": "Discover, buy, and sell quality teaching resources from educators and creators nationwide."
   },
   "actions": {
@@ -15,14 +15,16 @@
     "contact": "Unable to load contact information"
   },
   "hero": {
+    "eyebrow": "Hello, educators 👋 Come find your next resource",
     "title": "A marketplace for teaching resources",
     "highlight": "Created by teachers, for teachers",
-    "description": "Discover, buy, and share lesson plans, worksheets, quizzes, and quality resources from teachers and creators nationwide.",
-    "trustTitle": "A marketplace built for education",
-    "trustDescription": "Every product is reviewed before publication, payments are secure, and your files are available from your account at any time."
+    "description": "Come explore lesson plans, worksheets, quizzes, and practical ideas from fellow educators and creators nationwide.",
+    "trustBadge": "Choose with confidence",
+    "trustTitle": "A marketplace that understands educators",
+    "trustDescription": "We review resources before publication, look after payments, and keep purchases in your account so they are always ready to download."
   },
   "stats": {
-    "eyebrow": "Trusted by our community",
+    "eyebrow": "Our growing educator community",
     "approvedStores": "Approved stores",
     "completedOrders": "Completed orders",
     "teachers": "Teachers",
@@ -63,11 +65,21 @@
   "categories": {
     "heading": "Choose the resource format you need",
     "description": "Browse teaching resources to discover and compare work from Marketplace sellers.",
+    "itemCount": "{{count}} resources",
+    "cardFallback": "Ready-to-use ideas and resources that make teaching easier and more engaging.",
     "items": {
       "lessonPlans": "Lesson plans",
       "worksheets": "Worksheets",
       "supplementary": "Supplementary materials",
-      "quizzes": "Quizzes and assessments"
+      "quizzes": "Quizzes and assessments",
+      "courses": "Courses"
+    },
+    "itemDescriptions": {
+      "lessonPlans": "Plan lessons faster with practical resources you can adapt.",
+      "worksheets": "Affordable, ready-to-use worksheets for every classroom.",
+      "supplementary": "Slides, games, and materials that make learning more colorful.",
+      "quizzes": "Assessments and review activities ready for your next class.",
+      "courses": "Learn new techniques from educators and resource creators."
     }
   },
   "process": {
@@ -140,6 +152,37 @@
       }
     }
   },
+  "community": {
+    "eyebrow": "SMALL RESOURCES MATTER",
+    "heading": "You do not need a big bundle. A practical classroom resource is enough to start",
+    "description": "A worksheet set, a quick review game, lesson-summary slides, or a quiz you already use could save another educator valuable time. Pricing a resource at THB 30–40 is welcome—start one item at a time and grow with the community.",
+    "helper": "Open a store for free · THB 30–40 resources are welcome · No large catalog required",
+    "actions": {
+      "sell": "Try opening my store",
+      "explore": "Explore educator resources"
+    },
+    "ideas": {
+      "worksheet": "Ready-to-use worksheet",
+      "reviewGame": "10-minute review game",
+      "lessonSlides": "Lesson-summary slides",
+      "miniQuiz": "Short classroom quiz"
+    },
+    "card": {
+      "eyebrow": "START WITH WHAT YOU HAVE",
+      "title": "Small resources with real classroom value",
+      "noteTitle": "It does not need to be big—just clear and useful",
+      "noteDescription": "Explain who it is for, what files are included, and how to use it. You can then submit one resource at a time for review."
+    }
+  },
+  "reviews": {
+    "heading": "Voices from the classroom",
+    "description": "Real experiences from buyers who used these resources. Every review comes from a successfully paid order.",
+    "verified": "Verified purchase",
+    "buyerLabel": "E-KRU resource buyer",
+    "reviewing": "Reviewing",
+    "viewProduct": "View this resource",
+    "closing": "Your work does not need to be big. Helping one classroom run more smoothly already has value."
+  },
   "faq": {
     "heading": "Frequently asked questions",
     "description": "Important information before buying resources or opening a store on E-KRU Marketplace.",
@@ -150,11 +193,11 @@
       },
       "fees": {
         "question": "What are the selling fees?",
-        "answer": "E-KRU Marketplace deducts fees from sales at the applicable rate. Sellers can review the fee rate and estimated net amount before accepting the agreement and from their store finance page."
+        "answer": "E-KRU's standard commission is 10% of the product amount actually paid after discounts, excluding shipping. Payment-processing fees may also apply: 0% for the platform's PromptPay flow, 3.65% + THB 10 for domestic cards through Stripe, 4.75% + THB 10 for international cards, plus 2% when currency conversion is required. A THB 100 PromptPay sale nets THB 90, while a domestic-card sale nets approximately THB 76.35 before tax, refunds, or adjustments. A store-specific rate shown on the seller finance page replaces the standard 10%."
       },
       "payout": {
         "question": "When will sellers receive their money?",
-        "answer": "Completed sales first enter a review period. Once the holding period has passed and a payout cycle is available, the amount ready for payout appears on the store finance page."
+        "answer": "After payment is verified, the default holding period is 7 days. Cleared balances of at least THB 100 enter the Friday payout cycle; smaller balances roll over to the next cycle. Bank holidays, risk reviews, or incorrect payout details may delay receipt. The seller finance page shows the current settings and next payout date."
       },
       "eligibleSellers": {
         "question": "Who can sell teaching resources?",
@@ -190,6 +233,8 @@
     },
     "links": {
       "home": "Marketplace home",
+      "about": "About us",
+      "contact": "Contact us",
       "products": "All teaching resources",
       "stores": "Marketplace stores",
       "cart": "Shopping cart",
@@ -208,6 +253,88 @@
       "cookie": "Cookie Policy",
       "cookieSettings": "Cookie settings"
     }
+  },
+  "aboutPage": {
+    "seo": {
+      "title": "About us | E-KRU Marketplace",
+      "description": "Meet E-KRU Marketplace, a trusted place to discover, buy, and share quality teaching resources from educators and creators nationwide."
+    },
+    "eyebrow": "ABOUT E-KRU MARKETPLACE",
+    "title": "Where educators and creators grow alongside learning",
+    "description": "E-KRU Marketplace connects quality teaching-resource creators with teachers, schools, and learners, making discovery, purchasing, selling, and classroom use simple, transparent, and trustworthy.",
+    "missionLabel": "Our mission",
+    "missionTitle": "Make quality teaching resources easier to access",
+    "missionDescription": "We want educators to spend more time teaching and creators to receive fair value for their work. Our Marketplace supports the journey from discovery and review through payment and seller earnings.",
+    "valuesTitle": "What matters to us",
+    "values": {
+      "quality": {
+        "title": "Verifiable quality",
+        "description": "Products include clear details, previews, and license terms, and go through a review process before publication."
+      },
+      "trust": {
+        "title": "Safety and trust",
+        "description": "Sellers verify their identity and payout account, while payments and transaction histories remain traceable."
+      },
+      "fairness": {
+        "title": "Transparency and fairness",
+        "description": "Prices, fees, licenses, earnings, and order statuses are presented clearly."
+      }
+    },
+    "audienceTitle": "Who the Marketplace is for",
+    "audienceDescription": "One place that helps everyone in education connect more easily.",
+    "audiences": {
+      "buyers": {
+        "title": "Educators and learners",
+        "description": "Find resources by subject, grade, and teaching style, with the details needed to choose confidently."
+      },
+      "sellers": {
+        "title": "Teachers and creators",
+        "description": "Open a store, showcase work, manage products, and track earnings in one system."
+      },
+      "schools": {
+        "title": "Schools and education organizations",
+        "description": "Purchase suitable licenses and manage access for staff in a structured way."
+      }
+    },
+    "promiseTitle": "From teachers, for better learning",
+    "promiseDescription": "We will continue developing the Marketplace around learner outcomes, the value of educators' work, and the trust of everyone involved."
+  },
+  "contactPage": {
+    "seo": {
+      "title": "Contact us | E-KRU Marketplace",
+      "description": "Contact E-KRU Marketplace for help with purchases, opening a store, payments, or using the platform."
+    },
+    "eyebrow": "CONTACT E-KRU MARKETPLACE",
+    "title": "Questions or need a hand?",
+    "description": "Our team can help with purchases, opening a store, payments, and Marketplace use. Choose the channel that works best for you.",
+    "line": {
+      "title": "LINE Official Account",
+      "description": "Best for general questions and following up on a support request.",
+      "action": "Chat on LINE"
+    },
+    "email": {
+      "title": "Support email",
+      "description": "Best when you need to include details, evidence, or an order number.",
+      "action": "Send an email"
+    },
+    "phone": {
+      "title": "Phone",
+      "description": "Call our team during the listed business hours.",
+      "action": "Call us"
+    },
+    "hours": {
+      "title": "Business hours",
+      "fallback": "Please email us and the team will respond in order."
+    },
+    "prepareTitle": "What to prepare before contacting us",
+    "prepareDescription": "Complete information helps our team investigate and respond faster.",
+    "prepare": {
+      "order": "Order number or payment reference for purchase-related questions.",
+      "account": "Your registered email and store name for seller-account questions.",
+      "detail": "A description, steps to reproduce, and screenshots that do not contain passwords or OTPs.",
+      "security": "E-KRU will never ask for your password, OTP, PIN, CVV, or a transfer to verify your account."
+    },
+    "responseNote": "Our team reviews requests by urgency. Never send a full card number, password, or OTP through any support channel."
   },
   "cart": {
     "seo": { "title": "Cart | E-KRU Marketplace" },

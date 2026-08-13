@@ -17,6 +17,15 @@ const TYPES = new Set([
   'receipt_signature',
 ]);
 
+const VERIFICATION_TYPES = new Set([
+  'identity_card',
+  'bank_book',
+  'company_certificate',
+  'vat_certificate',
+]);
+const VERIFICATION_SOURCE_MAX_BYTES = 5 * 1024 * 1024;
+const VERIFICATION_STORED_MAX_BYTES = 1 * 1024 * 1024;
+
 function hasValidSignatureHeader(bytes: Uint8Array, mimeType: string) {
   if (mimeType === 'image/png') {
     return (
@@ -89,13 +98,16 @@ export async function POST(request: Request) {
   }
   const isAsset = ['store_logo', 'store_cover'].includes(documentType);
   const isReceiptSignature = documentType === 'receipt_signature';
+  const isVerificationDocument = VERIFICATION_TYPES.has(documentType);
   const accepted = isReceiptSignature
     ? ['image/jpeg', 'image/png']
     : isAsset
       ? ['image/jpeg', 'image/png', 'image/webp']
       : ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
-  const maxSizeMb = isReceiptSignature || isAsset || documentType === 'bank_book' ? 2 : 10;
-  const maxSize = maxSizeMb * 1024 * 1024;
+  const maxSizeMb = isVerificationDocument ? 5 : isReceiptSignature || isAsset ? 2 : 5;
+  const maxSize = isVerificationDocument
+    ? VERIFICATION_SOURCE_MAX_BYTES
+    : maxSizeMb * 1024 * 1024;
   if (!accepted.includes(file.type) || file.size > maxSize) {
     return NextResponse.json(
       {
@@ -138,7 +150,8 @@ export async function POST(request: Request) {
     } else {
       const optimizedImage = await optimizeUploadedImage(file, {
         preset: isAsset ? 'content' : 'document',
-        output: isAsset ? 'webp' : 'original',
+        output: isAsset || isVerificationDocument ? 'webp' : 'original',
+        maxBytes: isVerificationDocument ? VERIFICATION_STORED_MAX_BYTES : undefined,
         watermarkLines: shouldWatermark ? SELLER_DOCUMENT_WATERMARK_LINES : undefined,
       });
       uploadData = optimizedImage.data;
@@ -146,6 +159,15 @@ export async function POST(request: Request) {
       extension = optimizedImage.extension;
     }
     storedSize = uploadData.byteLength;
+    if (isVerificationDocument && storedSize > VERIFICATION_STORED_MAX_BYTES) {
+      return NextResponse.json(
+        {
+          message:
+            'ไฟล์ PDF หลังประมวลผลต้องมีขนาดไม่เกิน 1 MB กรุณาบีบอัด PDF แล้วอัปโหลดใหม่ หรืออัปโหลดเป็นรูปภาพเพื่อให้ระบบย่อให้อัตโนมัติ',
+        },
+        { status: 400 }
+      );
+    }
   } catch {
     return NextResponse.json(
       { message: 'ไม่สามารถประมวลผลและใส่ลายน้ำในเอกสารนี้ได้ กรุณาเลือกไฟล์ใหม่' },

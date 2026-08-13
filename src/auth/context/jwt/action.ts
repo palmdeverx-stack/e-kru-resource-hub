@@ -33,8 +33,15 @@ export type AppUser = {
   email: string | null;
   first_name: string | null;
   last_name: string | null;
-  role: 'master_admin' | 'school_admin' | 'teacher' | 'student' | 'marketplace_user';
+  role:
+    | 'master_admin'
+    | 'marketplace_admin'
+    | 'school_admin'
+    | 'teacher'
+    | 'student'
+    | 'marketplace_user';
   school_id: string | null;
+  access_scope?: 'full' | 'marketplace_only';
   created_at: string;
   must_change_password: boolean;
   accepted_legal_at: string | null;

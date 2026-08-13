@@ -4,6 +4,17 @@ import { MarketplaceSellerFinanceView } from 'src/sections/marketplace/seller/vi
 
 export const metadata: Metadata = { title: 'รายได้ของร้าน | E-KRU Marketplace' };
 
-export default function Page() {
-  return <MarketplaceSellerFinanceView />;
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string; productId?: string }>;
+}) {
+  const params = await searchParams;
+
+  return (
+    <MarketplaceSellerFinanceView
+      initialTab={params.tab === 'sales' || params.tab === 'payouts' ? params.tab : 'income'}
+      productId={params.productId?.trim() || undefined}
+    />
+  );
 }

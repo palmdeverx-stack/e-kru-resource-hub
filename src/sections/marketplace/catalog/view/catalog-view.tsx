@@ -150,11 +150,11 @@ const teachingGoals = [
 ] as const;
 
 const categoryTranslationKeys: Record<string, string> = {
-  'แผนการสอน': 'lessonPlans',
-  'ใบงาน': 'worksheets',
-  'สื่อประกอบ': 'supplementary',
-  'แบบทดสอบ': 'quizzes',
-  'คอร์สเรียน': 'courses',
+  แผนการสอน: 'lessonPlans',
+  ใบงาน: 'worksheets',
+  สื่อประกอบ: 'supplementary',
+  แบบทดสอบ: 'quizzes',
+  คอร์สเรียน: 'courses',
 };
 
 export function MarketplaceCatalogView() {
@@ -165,12 +165,13 @@ export function MarketplaceCatalogView() {
   const searchParams = useSearchParams();
   const requestedCategory = searchParams.get('category') || 'all';
   const requestedGradeGroup = normalizeGradeGroup(searchParams.get('grade'));
+  const requestedSearch = searchParams.get('q')?.trim() || '';
   const [products, setProducts] = useState<MarketplaceProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [productPage, setProductPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(requestedSearch);
   const [category, setCategory] = useState(requestedCategory);
   const [gradeGroup, setGradeGroup] = useState<GradeGroup>(requestedGradeGroup);
   const [sort, setSort] = useState('popular');
@@ -192,6 +193,10 @@ export function MarketplaceCatalogView() {
   useEffect(() => {
     setGradeGroup(requestedGradeGroup);
   }, [requestedGradeGroup]);
+
+  useEffect(() => {
+    setSearch(requestedSearch);
+  }, [requestedSearch]);
 
   useEffect(() => {
     getCategories()
@@ -342,10 +347,15 @@ export function MarketplaceCatalogView() {
     });
   }, [displayedProducts, sort]);
 
-  const updateCatalogUrl = (nextCategory: string, nextGradeGroup: GradeGroup) => {
+  const updateCatalogUrl = (
+    nextCategory: string,
+    nextGradeGroup: GradeGroup,
+    nextSearch = search
+  ) => {
     const params = new URLSearchParams();
     if (nextCategory !== 'all') params.set('category', nextCategory);
     if (nextGradeGroup !== 'all') params.set('grade', nextGradeGroup);
+    if (nextSearch.trim()) params.set('q', nextSearch.trim());
     const query = params.toString();
 
     router.replace(query ? `${paths.marketplace.products}?${query}` : paths.marketplace.products, {
@@ -381,7 +391,7 @@ export function MarketplaceCatalogView() {
     setCategory('all');
     setPriceFilter('all');
     setGradeGroup(nextGradeGroup);
-    updateCatalogUrl('all', nextGradeGroup);
+    updateCatalogUrl('all', nextGradeGroup, '');
   };
 
   const scrollNewProducts = (direction: -1 | 1) => {

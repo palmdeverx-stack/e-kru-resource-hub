@@ -262,11 +262,11 @@ export function MarketplaceSellerProfileView() {
           <Avatar
             src={seller.logo_url ?? undefined}
             alt={seller.display_name}
-            variant="rounded"
+            variant="circular"
             sx={{
               width: { xs: 88, md: 112 },
               height: { xs: 88, md: 112 },
-              mt: { xs: -5, md: -7 },
+              mt: { xs: -5, md: -15 },
               bgcolor: 'background.paper',
               color: 'primary.main',
               border: '5px solid',

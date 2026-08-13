@@ -93,7 +93,7 @@ export function LandingBannerManagementView() {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ py: 3 }}>
+    <Container maxWidth={false} sx={{ py: 3 }}>
       <Stack
         direction={{ xs: 'column', md: 'row' }}
         justifyContent="space-between"

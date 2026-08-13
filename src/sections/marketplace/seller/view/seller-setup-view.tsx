@@ -17,15 +17,18 @@ import Alert from '@mui/material/Alert';
 import Stack from '@mui/material/Stack';
 import Avatar from '@mui/material/Avatar';
 import Button from '@mui/material/Button';
-import Divider from '@mui/material/Divider';
+import Accordion from '@mui/material/Accordion';
 import TextField from '@mui/material/TextField';
 import Container from '@mui/material/Container';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import InputAdornment from '@mui/material/InputAdornment';
 import LinearProgress from '@mui/material/LinearProgress';
+import AccordionDetails from '@mui/material/AccordionDetails';
+import AccordionSummary from '@mui/material/AccordionSummary';
 import CircularProgress from '@mui/material/CircularProgress';
 
+import { RouterLink } from 'src/routes/components';
 import { useRouter, useSearchParams } from 'src/routes/hooks';
 
 import { toast } from 'src/components/snackbar';
@@ -41,6 +44,7 @@ import {
   RiArrowRightLine,
   RiFileShield2Line,
   RiShieldCheckLine,
+  RiLockPasswordLine,
   RiUploadCloud2Line,
   RiCheckboxCircleLine,
 } from 'src/components/remix-icon';
@@ -256,6 +260,18 @@ function slugify(value: string) {
     .replace(/^-+|-+$/g, '');
 }
 
+function isGoogleAvatarUrl(value: string | null | undefined) {
+  if (!value) return false;
+  try {
+    const hostname = new URL(value).hostname;
+    return ['googleusercontent.com', 'ggpht.com'].some(
+      (domain) => hostname === domain || hostname.endsWith(`.${domain}`)
+    );
+  } catch {
+    return false;
+  }
+}
+
 function DigitsField({
   name,
   control,
@@ -299,8 +315,9 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState('');
-  const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [showPhone, setShowPhone] = useState(false);
+  const [showNationalTaxId, setShowNationalTaxId] = useState(false);
   const [showAccountNumber, setShowAccountNumber] = useState(false);
   const [showPromptPayId, setShowPromptPayId] = useState(false);
   const [openAgreement, setOpenAgreement] = useState<Agreement | null>(null);
@@ -351,7 +368,6 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
         if (!current) {
           reset({
             ...initialForm,
-            contactEmail: user?.email ?? '',
             sellerType: user?.role === 'teacher' ? 'teacher' : 'individual',
           });
           resetDocuments(initialDocuments);
@@ -396,7 +412,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
       })
       .catch((loadError) => setError(loadError.message))
       .finally(() => setLoading(false));
-  }, [mode, searchParams, user?.email, user?.role, reset]);
+  }, [mode, searchParams, user?.email, user?.role, reset, resetDocuments]);
 
   const save = async (
     action: 'save_draft' | 'submit',
@@ -405,15 +421,17 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
   ) => {
     setSaving(true);
     setError('');
-    setMessage('');
     try {
       const result = await saveSeller({ ...getValues(), action, wizardStep: step });
       setSeller(result.seller);
-      if (showSuccessMessage) setMessage(result.message);
+      if (showSuccessMessage) toast.success(result.message);
       if (mode === 'edit') router.refresh();
       return result.seller;
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'บันทึกข้อมูลไม่สำเร็จ');
+      const saveErrorMessage =
+        saveError instanceof Error ? saveError.message : 'บันทึกข้อมูลไม่สำเร็จ';
+      setError(saveErrorMessage);
+      toast.error(saveErrorMessage);
       return null;
     } finally {
       setSaving(false);
@@ -442,7 +460,6 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
     if (!current) return false;
     setUploading(documentType);
     setError('');
-    setMessage('');
     try {
       const data = new FormData();
       data.set('documentType', documentType);
@@ -481,12 +498,16 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
   const getDocument = (type: string) =>
     seller?.documents?.find((document) => document.document_type === type);
   const hasDocument = (type: string) => Boolean(getDocument(type));
+  const googleAvatarUrl = isSystemStore ? null : user?.photoURL || user?.avatar_url || null;
+  const defaultStoreLogoUrl = seller?.logo_url || googleAvatarUrl;
+  const defaultStoreLogoPreviewUrl = isGoogleAvatarUrl(defaultStoreLogoUrl)
+    ? '/api/marketplace/account/avatar'
+    : defaultStoreLogoUrl;
+  const hasStoreLogo = Boolean(hasDocument('store_logo') || defaultStoreLogoUrl);
 
   const isStepComplete = (step: number) => {
     if (step === 0) {
-      return (
-        form.displayName.trim().length >= 2 && form.slug.length >= 3 && hasDocument('store_logo')
-      );
+      return form.displayName.trim().length >= 2 && form.slug.length >= 3 && hasStoreLogo;
     }
     if (step === 1) {
       return (
@@ -544,137 +565,404 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
 
   if (isSystemStore) {
     return (
-      <Container maxWidth={false} sx={{ py: 4 }}>
-        <Typography variant="h3">ข้อมูลร้านค้าทางการ</Typography>
-        <Card sx={{ p: 4, mt: 3 }}>
-          <Stack spacing={3}>
-            <Alert severity="info">ร้านเจ้าของระบบไม่ต้องผ่านขั้นตอนสมัครผู้ขาย</Alert>
-            <Controller
-              name="displayName"
-              control={control}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  required
-                  fullWidth
-                  label="ชื่อร้านค้าทางการ"
-                  slotProps={{ htmlInput: { maxLength: 120 } }}
-                  helperText="ชื่อนี้จะแสดงบนสินค้า หน้าโปรไฟล์ร้าน และรายการคำสั่งซื้อ"
-                />
-              )}
-            />
-            <Controller
-              name="displayNameEn"
-              control={control}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  fullWidth
-                  label="ชื่อร้านค้าทางการ (ภาษาอังกฤษ)"
-                  slotProps={{ htmlInput: { maxLength: 120 } }}
-                />
-              )}
-            />
-            <Controller
-              name="contactEmail"
-              control={control}
-              render={({ field }) => <TextField {...field} fullWidth label="อีเมลติดต่อ" />}
-            />
-            <Divider />
+      <Container maxWidth={false} sx={{ py: { xs: 3, md: 4 } }}>
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          alignItems={{ xs: 'flex-start', sm: 'center' }}
+          justifyContent="space-between"
+          spacing={2}
+          sx={{ mb: 3 }}
+        >
+          <Stack direction="row" spacing={2} alignItems="center">
+            <Avatar
+              src={defaultStoreLogoPreviewUrl || undefined}
+              variant="rounded"
+              sx={{ width: 64, height: 64, bgcolor: 'primary.lighter', color: 'primary.main' }}
+            >
+              <RiStore2Line size={30} />
+            </Avatar>
             <Box>
-              <Typography variant="h6">รูปภาพร้านค้าทางการ</Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                รูปที่อัปโหลดจะแสดงบนหน้าร้าน สินค้า และส่วนต่าง ๆ ของ Marketplace
+              <Typography component="h1" variant="h3">
+                ข้อมูลร้านค้าทางการ
+              </Typography>
+              <Typography color="text.secondary" sx={{ mt: 0.5 }}>
+                จัดการข้อมูลแบรนด์ บัญชีรับเงิน และข้อมูลสำหรับออกใบเสร็จ
               </Typography>
             </Box>
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-              <Box sx={{ width: { xs: 1, md: '34%' } }}>
-                <DocumentUploadField
-                  required
-                  methods={documentsMethods}
-                  name="storeLogo"
-                  label="รูปโปรไฟล์ร้าน (โลโก้)"
-                  done={Boolean(seller?.logo_url || hasDocument('store_logo'))}
-                  document={getDocument('store_logo')}
-                  currentUrl={seller?.logo_url}
-                  loading={uploading === 'store_logo'}
-                  accept="image/*"
-                  maxSizeMb={5}
-                  onFile={(file) => upload('store_logo', file)}
-                />
-              </Box>
-              <Box sx={{ flex: 1 }}>
-                <DocumentUploadField
-                  methods={documentsMethods}
-                  name="storeCover"
-                  label="ภาพปกร้าน"
-                  done={Boolean(seller?.cover_url || hasDocument('store_cover'))}
-                  document={getDocument('store_cover')}
-                  currentUrl={seller?.cover_url}
-                  loading={uploading === 'store_cover'}
-                  accept="image/*"
-                  maxSizeMb={5}
-                  onFile={(file) => upload('store_cover', file)}
-                />
-              </Box>
-            </Stack>
-            <Divider />
-            <Typography variant="h6">ข้อมูลผู้ออกใบเสร็จรับเงิน</Typography>
-            <Controller
-              name="companyName"
-              control={control}
-              render={({ field }) => (
-                <TextField {...field} required fullWidth label="ชื่อผู้ออกใบเสร็จ / ชื่อบริษัท" />
-              )}
-            />
-            <DigitsField
-              required
-              name="companyTaxId"
-              control={control}
-              label="เลขประจำตัวผู้เสียภาษี"
-              slotProps={{ htmlInput: { inputMode: 'numeric', maxLength: 13 } }}
-            />
-            <Controller
-              name="businessAddress"
-              control={control}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  required
-                  fullWidth
-                  multiline
-                  minRows={3}
-                  label="ที่อยู่ผู้ออกใบเสร็จ"
-                />
-              )}
-            />
-            <DocumentUploadField
-              methods={documentsMethods}
-              name="receiptSignature"
-              label="ลายเซ็นอิเล็กทรอนิกส์สำหรับใบเสร็จ"
-              done={hasDocument('receipt_signature')}
-              document={getDocument('receipt_signature')}
-              loading={uploading === 'receipt_signature'}
-              accept="image/png,image/jpeg"
-              maxSizeMb={2}
-              onFile={(file) => upload('receipt_signature', file)}
-            />
-            <Alert severity="warning">
-              ลายเซ็นนี้จะแสดงในช่องผู้รับเงินของใบเสร็จรับเงิน
-              กรุณาอัปโหลดเฉพาะลายเซ็นของผู้มีอำนาจ แนะนำไฟล์ PNG พื้นหลังโปร่งใส
-            </Alert>
-            <Controller
-              name="bio"
-              control={control}
-              render={({ field }) => (
-                <TextField {...field} fullWidth multiline minRows={4} label="คำอธิบายร้าน" />
-              )}
-            />
-            <Button variant="contained" loading={saving} onClick={() => save('save_draft')}>
-              บันทึกข้อมูลร้าน
-            </Button>
           </Stack>
-        </Card>
+          <Chip color="primary" variant="soft" label="ร้านระบบ E-KRU" />
+        </Stack>
+
+        <Alert severity="info" sx={{ mb: 3 }}>
+          ร้านเจ้าของระบบเปิดใช้งานอัตโนมัติและไม่ต้องผ่านขั้นตอนสมัครผู้ขาย
+        </Alert>
+
+        <Box
+          sx={{
+            display: 'grid',
+            gap: 3,
+            alignItems: 'start',
+            gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1.35fr) minmax(380px, 0.65fr)' },
+          }}
+        >
+          <Stack spacing={3}>
+            <Card sx={{ p: { xs: 2.5, md: 3.5 } }}>
+              <Stack spacing={2.5}>
+                <Stack direction="row" spacing={1.5} alignItems="center">
+                  <Avatar
+                    variant="rounded"
+                    sx={{
+                      width: 40,
+                      height: 40,
+                      bgcolor: 'primary.lighter',
+                      color: 'primary.main',
+                    }}
+                  >
+                    <RiStore2Line size={22} />
+                  </Avatar>
+                  <Box>
+                    <Typography variant="h6">ข้อมูลพื้นฐาน</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      ข้อมูลที่ลูกค้าจะเห็นบนหน้าร้านและสินค้า
+                    </Typography>
+                  </Box>
+                </Stack>
+                <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                  <Controller
+                    name="displayName"
+                    control={control}
+                    render={({ field }) => (
+                      <TextField
+                        {...field}
+                        required
+                        fullWidth
+                        label="ชื่อร้านค้าทางการ"
+                        autoComplete="off"
+                        slotProps={{ htmlInput: { maxLength: 120 } }}
+                      />
+                    )}
+                  />
+                  <Controller
+                    name="displayNameEn"
+                    control={control}
+                    render={({ field }) => (
+                      <TextField
+                        {...field}
+                        fullWidth
+                        label="ชื่อร้านค้า (ภาษาอังกฤษ)"
+                        autoComplete="off"
+                        slotProps={{ htmlInput: { maxLength: 120 } }}
+                      />
+                    )}
+                  />
+                </Stack>
+                <Controller
+                  name="contactEmail"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      fullWidth
+                      type="email"
+                      label="อีเมลติดต่อ"
+                      autoComplete="off"
+                    />
+                  )}
+                />
+                <Controller
+                  name="bio"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      fullWidth
+                      multiline
+                      minRows={4}
+                      label="คำอธิบายร้าน"
+                      autoComplete="off"
+                    />
+                  )}
+                />
+              </Stack>
+            </Card>
+
+            <Card sx={{ p: { xs: 2.5, md: 3.5 } }}>
+              <Stack spacing={2.5}>
+                <Stack direction="row" spacing={1.5} alignItems="center">
+                  <Avatar
+                    variant="rounded"
+                    sx={{ width: 40, height: 40, bgcolor: 'info.lighter', color: 'info.main' }}
+                  >
+                    <RiImageLine size={22} />
+                  </Avatar>
+                  <Box>
+                    <Typography variant="h6">รูปภาพและแบรนด์</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      โลโก้และภาพปกที่แสดงในส่วนต่าง ๆ ของ Marketplace
+                    </Typography>
+                  </Box>
+                </Stack>
+                <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="flex-start">
+                  <Box sx={{ width: { xs: 1, md: '36%' } }}>
+                    <DocumentUploadField
+                      required
+                      methods={documentsMethods}
+                      name="storeLogo"
+                      label="รูปโปรไฟล์ร้าน (โลโก้)"
+                      done={hasStoreLogo}
+                      document={getDocument('store_logo')}
+                      currentUrl={defaultStoreLogoPreviewUrl}
+                      loading={uploading === 'store_logo'}
+                      accept="image/*"
+                      previewAspectRatio="1 / 1"
+                      maxSizeMb={5}
+                      onFile={(file) => upload('store_logo', file)}
+                    />
+                  </Box>
+                  <Box sx={{ flex: 1, width: 1 }}>
+                    <DocumentUploadField
+                      methods={documentsMethods}
+                      name="storeCover"
+                      label="ภาพปกร้าน"
+                      done={Boolean(seller?.cover_url || hasDocument('store_cover'))}
+                      document={getDocument('store_cover')}
+                      currentUrl={seller?.cover_url}
+                      loading={uploading === 'store_cover'}
+                      accept="image/*"
+                      previewAspectRatio="16 / 6"
+                      maxSizeMb={5}
+                      onFile={(file) => upload('store_cover', file)}
+                    />
+                  </Box>
+                </Stack>
+              </Stack>
+            </Card>
+          </Stack>
+
+          <Stack spacing={3}>
+            <Card sx={{ p: { xs: 2.5, md: 3.5 } }}>
+              <Stack spacing={2.5}>
+                <Stack direction="row" spacing={1.5} alignItems="center">
+                  <Avatar
+                    variant="rounded"
+                    sx={{
+                      width: 40,
+                      height: 40,
+                      bgcolor: 'success.lighter',
+                      color: 'success.main',
+                    }}
+                  >
+                    <RiBankLine size={22} />
+                  </Avatar>
+                  <Box>
+                    <Typography variant="h6">บัญชีรับเงิน</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      บัญชีปลายทางสำหรับรับยอดขายร้าน E-KRU
+                    </Typography>
+                  </Box>
+                </Stack>
+                <Alert severity="warning">กรุณาตรวจสอบข้อมูลบัญชีให้ถูกต้องก่อนบันทึก</Alert>
+                <Controller
+                  name="accountName"
+                  control={control}
+                  render={({ field, fieldState: { error: fieldError } }) => (
+                    <TextField
+                      {...field}
+                      required
+                      fullWidth
+                      label="ชื่อบัญชีรับเงิน"
+                      autoComplete="off"
+                      error={!!fieldError}
+                      helperText={fieldError?.message}
+                    />
+                  )}
+                />
+                <Controller
+                  name="bankCode"
+                  control={control}
+                  render={({ field, fieldState: { error: fieldError } }) => (
+                    <ThaiBankAutocomplete
+                      required
+                      value={field.value || form.bankName}
+                      error={!!fieldError}
+                      helperText={fieldError?.message ?? 'เลือกธนาคารสำหรับรับยอดขายของร้านระบบ'}
+                      onChange={(bank) => {
+                        field.onChange(bank?.code ?? '');
+                        setValue('bankName', bank?.name ?? '', { shouldValidate: true });
+                      }}
+                    />
+                  )}
+                />
+                <DigitsField
+                  required
+                  name="accountNumber"
+                  control={control}
+                  type={showAccountNumber ? 'text' : 'password'}
+                  label="เลขบัญชีรับเงิน"
+                  slotProps={{
+                    input: {
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            edge="end"
+                            aria-label={showAccountNumber ? 'ซ่อนเลขบัญชี' : 'แสดงเลขบัญชี'}
+                            onClick={() => setShowAccountNumber((current) => !current)}
+                          >
+                            {showAccountNumber ? <RiEyeOffLine /> : <RiEyeLine />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    },
+                    htmlInput: { inputMode: 'numeric', autoComplete: 'new-password' },
+                  }}
+                />
+                <DigitsField
+                  name="promptpayId"
+                  control={control}
+                  type={showPromptPayId ? 'text' : 'password'}
+                  label="PromptPay (ถ้ามี)"
+                  slotProps={{
+                    input: {
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            edge="end"
+                            aria-label={showPromptPayId ? 'ซ่อน PromptPay' : 'แสดง PromptPay'}
+                            onClick={() => setShowPromptPayId((current) => !current)}
+                          >
+                            {showPromptPayId ? <RiEyeOffLine /> : <RiEyeLine />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    },
+                    htmlInput: { inputMode: 'numeric', autoComplete: 'new-password' },
+                  }}
+                />
+                <Box
+                  sx={{
+                    p: 2,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 2,
+                    bgcolor: 'background.neutral',
+                  }}
+                >
+                  <Typography variant="subtitle2">ตัวอย่างข้อมูลที่ผู้ดูแลจะตรวจสอบ</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                    ชื่อธนาคาร · ชื่อเจ้าของบัญชี · เลขบัญชี และความตรงกันกับหน้าสมุดบัญชี
+                  </Typography>
+                  <Typography
+                    variant="caption"
+                    color="primary.main"
+                    sx={{ mt: 1, display: 'block' }}
+                  >
+                    หลังอัปโหลด สามารถกด “ดูตัวอย่าง” เพื่อตรวจเอกสารก่อนบันทึกได้
+                  </Typography>
+                </Box>
+                <DocumentUploadField
+                  required
+                  methods={documentsMethods}
+                  name="bankBook"
+                  label="หน้าสมุดบัญชี"
+                  recommendation="อัปโหลดหน้าที่เห็นชื่อธนาคาร ชื่อบัญชี และเลขบัญชีชัดเจน ผู้ดูแลจะใช้เอกสารนี้ตรวจสอบบัญชีรับเงิน"
+                  done={hasDocument('bank_book')}
+                  document={getDocument('bank_book')}
+                  loading={uploading === 'bank_book'}
+                  maxSizeMb={5}
+                  storedMaxSizeMb={1}
+                  onFile={(file) => upload('bank_book', file)}
+                />
+              </Stack>
+            </Card>
+
+            <Card sx={{ p: { xs: 2.5, md: 3.5 } }}>
+              <Stack spacing={2.5}>
+                <Stack direction="row" spacing={1.5} alignItems="center">
+                  <Avatar
+                    variant="rounded"
+                    sx={{
+                      width: 40,
+                      height: 40,
+                      bgcolor: 'warning.lighter',
+                      color: 'warning.main',
+                    }}
+                  >
+                    <RiFileShield2Line size={22} />
+                  </Avatar>
+                  <Box>
+                    <Typography variant="h6">ข้อมูลออกใบเสร็จ</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      ข้อมูลผู้รับเงินที่แสดงบนเอกสารของระบบ
+                    </Typography>
+                  </Box>
+                </Stack>
+                <Controller
+                  name="companyName"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      required
+                      fullWidth
+                      label="ชื่อผู้ออกใบเสร็จ / ชื่อบริษัท"
+                      autoComplete="off"
+                    />
+                  )}
+                />
+                <DigitsField
+                  required
+                  name="companyTaxId"
+                  control={control}
+                  label="เลขประจำตัวผู้เสียภาษี"
+                  slotProps={{
+                    htmlInput: { inputMode: 'numeric', maxLength: 13, autoComplete: 'off' },
+                  }}
+                />
+                <Controller
+                  name="businessAddress"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      required
+                      fullWidth
+                      multiline
+                      minRows={3}
+                      label="ที่อยู่ผู้ออกใบเสร็จ"
+                      autoComplete="off"
+                    />
+                  )}
+                />
+                <DocumentUploadField
+                  methods={documentsMethods}
+                  name="receiptSignature"
+                  label="ลายเซ็นอิเล็กทรอนิกส์"
+                  done={hasDocument('receipt_signature')}
+                  document={getDocument('receipt_signature')}
+                  loading={uploading === 'receipt_signature'}
+                  accept="image/png,image/jpeg"
+                  maxSizeMb={2}
+                  onFile={(file) => upload('receipt_signature', file)}
+                />
+                <Typography variant="caption" color="text.secondary">
+                  ลายเซ็นจะแสดงในช่องผู้รับเงิน แนะนำไฟล์ PNG พื้นหลังโปร่งใส
+                </Typography>
+              </Stack>
+            </Card>
+          </Stack>
+        </Box>
+
+        <Stack direction="row" justifyContent="flex-end" sx={{ mt: 3 }}>
+          <Button
+            size="large"
+            variant="contained"
+            loading={saving}
+            onClick={() => save('save_draft')}
+            sx={{ minWidth: { xs: 1, sm: 220 } }}
+          >
+            บันทึกข้อมูลร้าน
+          </Button>
+        </Stack>
       </Container>
     );
   }
@@ -686,6 +974,14 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
     Math.max(0, Math.min(STEPS.length - 1, (seller?.wizard_step ?? 1) - 1))
   );
   const completedCount = STEPS.filter((_, index) => isStepComplete(index)).length;
+  const storeReadiness =
+    seller?.status === 'active'
+      ? { label: 'พร้อมขาย', color: 'success' as const }
+      : seller?.status === 'rejected'
+        ? { label: 'ต้องแก้ไขข้อมูล', color: 'error' as const }
+        : seller?.status === 'pending' || completedCount === STEPS.length
+          ? { label: 'รอตรวจสอบ', color: 'warning' as const }
+          : { label: 'ข้อมูลไม่ครบ', color: 'default' as const };
 
   return (
     <FormProvider {...methods}>
@@ -708,22 +1004,142 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
             </Typography>
           </Box>
           <Box sx={{ minWidth: { xs: 1, md: 240 } }}>
-            <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.75 }}>
+            <Stack
+              direction="row"
+              justifyContent="space-between"
+              alignItems="center"
+              sx={{ mb: 1 }}
+            >
               <Typography variant="caption" color="text.secondary">
                 ความคืบหน้า
+              </Typography>
+              <Chip
+                size="small"
+                variant="soft"
+                color={storeReadiness.color}
+                label={storeReadiness.label}
+              />
+            </Stack>
+            <LinearProgress
+              variant="determinate"
+              color={storeReadiness.color === 'default' ? 'primary' : storeReadiness.color}
+              value={(completedCount / STEPS.length) * 100}
+              sx={{ height: 8, borderRadius: 8 }}
+            />
+            <Stack direction="row" justifyContent="space-between" sx={{ mt: 0.75 }}>
+              <Typography variant="caption" color="text.secondary">
+                {storeReadiness.label === 'ข้อมูลไม่ครบ'
+                  ? 'กรุณากรอกข้อมูลให้ครบทุกขั้นตอน'
+                  : 'สถานะร้านค้า'}
               </Typography>
               <Typography variant="caption" sx={{ fontWeight: 700 }}>
                 {completedCount}/{STEPS.length} ขั้นตอน
               </Typography>
             </Stack>
-            <LinearProgress
-              variant="determinate"
-              color="success"
-              value={(completedCount / STEPS.length) * 100}
-              sx={{ height: 8, borderRadius: 8 }}
-            />
           </Box>
         </Stack>
+
+        <Accordion
+          disableGutters
+          sx={{
+            mb: 3,
+            boxShadow: 'none',
+            borderRadius: 3,
+            border: '1px solid',
+            borderColor: 'primary.light',
+            bgcolor: 'primary.lighter',
+            overflow: 'hidden',
+            px: 2,
+            '&::before': { display: 'none' },
+            '&.Mui-expanded': { m: 0, mb: 3 },
+          }}
+        >
+          <AccordionSummary
+            expandIcon={<RiArrowRightLine size={20} />}
+            aria-controls="seller-data-protection-content"
+            id="seller-data-protection-header"
+            sx={{
+              px: { xs: 2, md: 2.5 },
+              minHeight: 84,
+              '&.Mui-expanded': { minHeight: 84 },
+              '& .MuiAccordionSummary-content': { my: 1.5 },
+              '& .MuiAccordionSummary-content.Mui-expanded': { my: 1.5 },
+            }}
+          >
+            <Stack direction="row" spacing={1.5} alignItems="center">
+              <Avatar
+                variant="rounded"
+                sx={{ color: 'primary.main', bgcolor: 'background.paper', flexShrink: 0 }}
+              >
+                <RiShieldCheckLine size={24} />
+              </Avatar>
+              <Box>
+                <Typography variant="h6">ข้อมูลของคุณได้รับการปกป้อง</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                  เราขอเฉพาะข้อมูลที่จำเป็นสำหรับยืนยันผู้ขาย ออกเอกสาร และโอนรายได้ให้ถูกบัญชี
+                </Typography>
+              </Box>
+            </Stack>
+          </AccordionSummary>
+
+          <AccordionDetails
+            id="seller-data-protection-content"
+            sx={{ px: { xs: 2, md: 2.5 }, pt: 0, pb: 2.5 }}
+          >
+            <Stack spacing={2.5}>
+              <Box
+                sx={{
+                  gap: 2,
+                  display: 'grid',
+                  gridTemplateColumns: { xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' },
+                }}
+              >
+                <TrustItem
+                  icon={<RiFileShield2Line size={20} />}
+                  title="จำกัดผู้เข้าถึง"
+                  description="เอกสารเปิดได้เฉพาะเจ้าของร้านและผู้ดูแล Marketplace ที่ได้รับสิทธิ"
+                />
+                <TrustItem
+                  icon={<RiLockPasswordLine size={20} />}
+                  title="ปกป้องข้อมูลสำคัญ"
+                  description="ข้อมูลบัญชีรับเงินถูกเข้ารหัส และเลขผู้เสียภาษีที่ผู้ดูแลเห็นจะถูกปิดบัง"
+                />
+                <TrustItem
+                  icon={<RiBankLine size={20} />}
+                  title="ใช้ตามวัตถุประสงค์"
+                  description="ใช้เพื่อตรวจสอบร้าน ออกใบเสร็จ และจ่ายรายได้จากยอดขายเท่านั้น"
+                />
+              </Box>
+
+              <Alert severity="warning">
+                <Typography variant="subtitle2">E-KRU จะไม่ขอข้อมูลลับของธนาคาร</Typography>
+                <Typography variant="body2">
+                  เราจะไม่ขอ OTP, รหัสผ่าน, PIN, CVV หรือให้โอนเงินเพื่อยืนยันตัวตน หากมีผู้ร้องขอ
+                  กรุณาหยุดดำเนินการและติดต่อทีมงาน
+                </Typography>
+              </Alert>
+
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  component={RouterLink}
+                  href="/privacy-policy"
+                >
+                  อ่านนโยบายความเป็นส่วนตัว
+                </Button>
+                <Button
+                  size="small"
+                  color="inherit"
+                  component={RouterLink}
+                  href="/seller-agreement"
+                >
+                  อ่านข้อตกลงผู้ขาย
+                </Button>
+              </Stack>
+            </Stack>
+          </AccordionDetails>
+        </Accordion>
 
         <Card
           variant="outlined"
@@ -749,7 +1165,6 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                   disabled={!canOpen}
                   onClick={() => {
                     setError('');
-                    setMessage('');
                     setShowStepErrors(false);
                     setActiveStep(index);
                   }}
@@ -806,16 +1221,11 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
             })}
           </Stack>
         </Card>
-        {/* {!!error && (
+        {!!error && (
           <Alert severity="error" sx={{ mb: 2 }}>
             {error}
           </Alert>
-        )} */}
-        {/* {!!message && (
-          <Alert severity="success" sx={{ mb: 2 }}>
-            {message}
-          </Alert>
-        )} */}
+        )}
         {seller?.status === 'rejected' && (
           <Alert severity="error" sx={{ mb: 2 }}>
             คำขอไม่ผ่าน: {seller.rejection_reason}
@@ -860,7 +1270,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                   display: 'grid',
                   gap: { xs: 2.5, md: 3 },
                   alignItems: 'start',
-                  gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) minmax(400px, 0.5fr)' },
+                  gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) minmax(500px, 0.5fr)' },
                 }}
               >
                 <Stack spacing={2.5}>
@@ -879,6 +1289,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                         required
                         fullWidth
                         label="ชื่อร้าน"
+                        autoComplete="off"
                         error={!!fieldError}
                         helperText={fieldError?.message}
                         onChange={(event) => {
@@ -901,6 +1312,24 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                     helperText={`https://e-kru-marketplace.com/store/${form.slug || 'your-store'}`}
                   />
                   <Field.Text name="bio" label="คำอธิบายร้าน" multiline minRows={4} />
+
+                  <Stack spacing={2.5}>
+                    <Box>
+                      <DocumentUploadField
+                        methods={documentsMethods}
+                        name="storeCover"
+                        label="ภาพหน้าปกร้าน"
+                        recommendation="แนะนำภาพแนวนอน อัตราส่วน 16:6 เช่น 1600 × 600 px"
+                        done={hasDocument('store_cover')}
+                        document={getDocument('store_cover')}
+                        loading={uploading === 'store_cover'}
+                        accept="image/*"
+                        previewAspectRatio="16 / 6"
+                        maxSizeMb={2}
+                        onFile={(file) => upload('store_cover', file)}
+                      />
+                    </Box>
+                  </Stack>
                 </Stack>
 
                 <Stack spacing={2.5}>
@@ -918,56 +1347,117 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                       name="storeLogo"
                       label="โลโก้ร้าน"
                       recommendation="แนะนำภาพสี่เหลี่ยมจัตุรัส อัตราส่วน 1:1 เช่น 800 x 800 px"
-                      done={hasDocument('store_logo')}
-                      error={showStepErrors && !hasDocument('store_logo')}
+                      done={hasStoreLogo}
+                      error={showStepErrors && !hasStoreLogo}
                       document={getDocument('store_logo')}
+                      currentUrl={defaultStoreLogoPreviewUrl}
                       loading={uploading === 'store_logo'}
                       accept="image/*"
+                      previewAspectRatio="1 / 1"
                       maxSizeMb={2}
                       onFile={(file) => upload('store_logo', file)}
                     />
                   </Box>
                 </Stack>
               </Box>
-
-              <Stack spacing={2.5} mt={2}>
-                <Box>
-                  <Typography variant="subtitle1">รูปภาพร้านค้า</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    อัปโหลดโลโก้และภาพหน้าปกให้ลูกค้าจดจำร้านของคุณได้ง่าย
-                  </Typography>
-                </Box>
-                <Box>
-                  <DocumentUploadField
-                    methods={documentsMethods}
-                    name="storeCover"
-                    label="ภาพหน้าปกร้าน"
-                    recommendation="แนะนำภาพแนวนอน อัตราส่วน 16:6 เช่น 1600 × 600 px"
-                    done={hasDocument('store_cover')}
-                    document={getDocument('store_cover')}
-                    loading={uploading === 'store_cover'}
-                    accept="image/*"
-                    maxSizeMb={2}
-                    onFile={(file) => upload('store_cover', file)}
-                  />
-                </Box>
-              </Stack>
             </Stack>
           )}
           {activeStep === 1 && (
             <Stack spacing={2.5}>
               <Field.RadioGroup row name="sellerType" options={SELLER_TYPE_OPTIONS} />
-              <Field.Text required name="sellerName" label="ชื่อ-นามสกุล" />
+              <Field.Text required name="sellerName" label="ชื่อ-นามสกุล" autoComplete="off" />
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                <Field.Text required name="phone" label="เบอร์โทร" />
-                <Field.Text required type="email" name="contactEmail" label="Email" />
+                <Controller
+                  name="phone"
+                  control={control}
+                  render={({ field, fieldState: { error: fieldError } }) => (
+                    <TextField
+                      {...field}
+                      required
+                      fullWidth
+                      type={showPhone ? 'text' : 'password'}
+                      label="เบอร์โทร"
+                      error={!!fieldError}
+                      helperText={fieldError?.message}
+                      slotProps={{
+                        input: {
+                          endAdornment: (
+                            <InputAdornment position="end">
+                              <IconButton
+                                edge="end"
+                                aria-label={showPhone ? 'ซ่อนเบอร์โทร' : 'แสดงเบอร์โทร'}
+                                onClick={() => setShowPhone((current) => !current)}
+                              >
+                                {showPhone ? <RiEyeOffLine /> : <RiEyeLine />}
+                              </IconButton>
+                            </InputAdornment>
+                          ),
+                        },
+                        htmlInput: { inputMode: 'tel', autoComplete: 'off' },
+                      }}
+                    />
+                  )}
+                />
+                <Field.Text
+                  required
+                  type="email"
+                  name="contactEmail"
+                  label="Email"
+                  autoComplete="off"
+                />
               </Stack>
-              <Field.Text name="nationalTaxId" label="เลขบัตรประชาชน หรือเลขผู้เสียภาษี" />
+              <Controller
+                name="nationalTaxId"
+                control={control}
+                render={({ field, fieldState: { error: fieldError } }) => (
+                  <TextField
+                    {...field}
+                    fullWidth
+                    type={showNationalTaxId ? 'text' : 'password'}
+                    label="เลขบัตรประชาชน หรือเลขผู้เสียภาษี"
+                    error={!!fieldError}
+                    helperText={
+                      fieldError?.message ??
+                      'ผู้ดูแลจะเห็นเฉพาะ 4 ตัวหน้าและ 4 ตัวท้าย เช่น 1234*****6789'
+                    }
+                    onChange={(event) => field.onChange(event.target.value.replace(/\D/g, ''))}
+                    slotProps={{
+                      input: {
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <IconButton
+                              edge="end"
+                              aria-label={
+                                showNationalTaxId
+                                  ? 'ซ่อนเลขบัตรประชาชนหรือผู้เสียภาษี'
+                                  : 'แสดงเลขบัตรประชาชนหรือผู้เสียภาษี'
+                              }
+                              onClick={() => setShowNationalTaxId((current) => !current)}
+                            >
+                              {showNationalTaxId ? <RiEyeOffLine /> : <RiEyeLine />}
+                            </IconButton>
+                          </InputAdornment>
+                        ),
+                      },
+                      htmlInput: {
+                        inputMode: 'numeric',
+                        maxLength: 13,
+                        autoComplete: 'off',
+                      },
+                    }}
+                  />
+                )}
+              />
               {form.sellerType === 'company' && (
                 <>
-                  <Field.Text required name="companyName" label="ชื่อบริษัท" />
-                  <Field.Text required name="companyRegistrationNo" label="เลขนิติบุคคล" />
-                  <Field.Text name="companyTaxId" label="เลขผู้เสียภาษี" />
+                  <Field.Text required name="companyName" label="ชื่อบริษัท" autoComplete="off" />
+                  <Field.Text
+                    required
+                    name="companyRegistrationNo"
+                    label="เลขนิติบุคคล"
+                    autoComplete="off"
+                  />
+                  <Field.Text name="companyTaxId" label="เลขผู้เสียภาษี" autoComplete="off" />
                 </>
               )}
             </Stack>
@@ -1088,11 +1578,13 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                     methods={documentsMethods}
                     name="bankBook"
                     label="หน้าสมุดบัญชี"
+                    recommendation="ผู้ดูแลจะเห็นชื่อธนาคาร ชื่อบัญชี และเลขบัญชีเพื่อเปรียบเทียบกับข้อมูลรับเงิน กดดูตัวอย่างเพื่อตรวจก่อนส่งได้"
                     done={hasDocument('bank_book')}
                     error={showStepErrors && !hasDocument('bank_book')}
                     document={getDocument('bank_book')}
                     loading={uploading === 'bank_book'}
-                    maxSizeMb={2}
+                    maxSizeMb={5}
+                    storedMaxSizeMb={1}
                     onFile={(file) => upload('bank_book', file)}
                   />
                 </Stack>
@@ -1101,9 +1593,6 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
           )}
           {activeStep === 3 && (
             <Stack spacing={2.5}>
-              <Alert severity="info">
-                ข้อมูลนี้เป็นความลับ และเปิดให้เฉพาะผู้ขายและผู้ดูแลระบบ Marketplace เท่านั้น
-              </Alert>
               <Box
                 sx={{
                   display: 'grid',
@@ -1121,6 +1610,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                   error={showStepErrors && !hasDocument('identity_card')}
                   document={getDocument('identity_card')}
                   loading={uploading === 'identity_card'}
+                  storedMaxSizeMb={1}
                   onFile={(file) => upload('identity_card', file)}
                 />
                 <DocumentUploadField
@@ -1128,29 +1618,35 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                   methods={documentsMethods}
                   name="bankBook"
                   label="หน้าสมุดบัญชี"
+                  recommendation="ผู้ดูแลจะเห็นชื่อธนาคาร ชื่อบัญชี และเลขบัญชีเพื่อเปรียบเทียบกับข้อมูลรับเงิน กดดูตัวอย่างเพื่อตรวจก่อนส่งได้"
                   done={hasDocument('bank_book')}
                   error={showStepErrors && !hasDocument('bank_book')}
                   document={getDocument('bank_book')}
                   loading={uploading === 'bank_book'}
-                  maxSizeMb={2}
+                  maxSizeMb={5}
+                  storedMaxSizeMb={1}
                   onFile={(file) => upload('bank_book', file)}
                 />
                 <DocumentUploadField
                   methods={documentsMethods}
                   name="companyCertificate"
                   label="หนังสือรับรองบริษัท (ถ้ามี)"
+                  recommendation="เอกสารนี้ไม่จำเป็น สามารถเว้นว่างได้"
                   done={hasDocument('company_certificate')}
                   document={getDocument('company_certificate')}
                   loading={uploading === 'company_certificate'}
+                  storedMaxSizeMb={1}
                   onFile={(file) => upload('company_certificate', file)}
                 />
                 <DocumentUploadField
                   methods={documentsMethods}
                   name="vatCertificate"
                   label="ภ.พ.20 (ถ้ามี)"
+                  recommendation="เอกสารนี้ไม่จำเป็น สามารถเว้นว่างได้"
                   done={hasDocument('vat_certificate')}
                   document={getDocument('vat_certificate')}
                   loading={uploading === 'vat_certificate'}
+                  storedMaxSizeMb={1}
                   onFile={(file) => upload('vat_certificate', file)}
                 />
               </Box>
@@ -1291,6 +1787,38 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
   );
 }
 
+function TrustItem({
+  icon,
+  title,
+  description,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+}) {
+  return (
+    <Stack
+      direction="row"
+      spacing={1.25}
+      alignItems="flex-start"
+      sx={{ p: 1.75, borderRadius: 2, bgcolor: 'background.paper' }}
+    >
+      <Avatar
+        variant="rounded"
+        sx={{ width: 34, height: 34, color: 'primary.main', bgcolor: 'primary.lighter' }}
+      >
+        {icon}
+      </Avatar>
+      <Box sx={{ minWidth: 0 }}>
+        <Typography variant="subtitle2">{title}</Typography>
+        <Typography variant="caption" color="text.secondary">
+          {description}
+        </Typography>
+      </Box>
+    </Stack>
+  );
+}
+
 function DocumentUploadField({
   methods,
   name,
@@ -1302,9 +1830,11 @@ function DocumentUploadField({
   loading,
   onFile,
   accept = 'image/*,application/pdf',
+  previewAspectRatio,
   required = false,
   error = false,
-  maxSizeMb = 10,
+  maxSizeMb = 5,
+  storedMaxSizeMb,
 }: {
   methods: UseFormReturn<SellerDocumentsSchemaType>;
   name: FieldPath<SellerDocumentsSchemaType>;
@@ -1316,9 +1846,11 @@ function DocumentUploadField({
   loading: boolean;
   onFile: (file: File) => Promise<boolean>;
   accept?: string;
+  previewAspectRatio?: string;
   required?: boolean;
   error?: boolean;
   maxSizeMb?: number;
+  storedMaxSizeMb?: number;
 }) {
   const { control, setValue } = methods;
   const value = useWatch({ control, name });
@@ -1377,6 +1909,12 @@ function DocumentUploadField({
               : 'JPG, PNG หรือ WebP'}{' '}
           ขนาดไม่เกิน {maxSizeMb} MB
         </Typography>
+        {storedMaxSizeMb && (
+          <Typography variant="caption" color="success.main" sx={{ display: 'block' }}>
+            ระบบจะย่อไฟล์รูปก่อนบันทึกให้ไม่เกิน {storedMaxSizeMb} MB ส่วน PDF
+            จะตรวจขนาดอีกครั้งหลังประมวลผล
+          </Typography>
+        )}
         {recommendation && (
           <Typography variant="caption" color="primary.main" sx={{ display: 'block', mb: 1 }}>
             {recommendation}
@@ -1392,8 +1930,12 @@ function DocumentUploadField({
             loading={loading}
             error={showRequiredError}
             helperText={showRequiredError ? 'กรุณาอัปโหลดไฟล์นี้' : undefined}
-            onDelete={() => setValue(name, uploadedUrl)}
-            sx={{ mt: 1, minHeight: 160 }}
+            onDelete={() => setValue(name, null, { shouldValidate: true })}
+            sx={{
+              mt: 1,
+              minHeight: 160,
+              ...(previewAspectRatio && value ? { aspectRatio: previewAspectRatio } : {}),
+            }}
             placeholder={
               <Stack alignItems="center" spacing={1}>
                 <Avatar

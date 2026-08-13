@@ -23,7 +23,9 @@ export function SingleFilePreview({ sx, file, className, ...other }: SingleFileP
       sx={sx}
       {...other}
     >
-      {previewUrl && <PreviewImage alt={fileMeta.name} src={previewUrl} />}
+      {previewUrl && (
+        <PreviewImage alt={fileMeta.name} src={previewUrl} referrerPolicy="no-referrer" />
+      )}
     </PreviewRoot>
   );
 }

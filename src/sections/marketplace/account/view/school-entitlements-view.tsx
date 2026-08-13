@@ -9,14 +9,12 @@ import Grid from '@mui/material/Grid';
 import Alert from '@mui/material/Alert';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
-import Divider from '@mui/material/Divider';
 import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
 
 import { CONFIG } from 'src/global-config';
 import { useTranslate } from 'src/locales';
-import { SCHOOL_FEATURES } from 'src/lib/school-subscription-config';
 
 import {
   RiKey2Line,
@@ -53,8 +51,6 @@ type Entitlement = {
     licenseTargetSystem: 'marketplace' | 'ekru' | null;
   } | null;
 };
-
-const featureMap = new Map(SCHOOL_FEATURES.map((feature) => [feature.key, feature]));
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat('th-TH', {
@@ -148,7 +144,7 @@ export function SchoolEntitlementsView() {
           <CircularProgress />
         </Box>
       ) : entitlements.length ? (
-        <Grid container spacing={3} sx={{ mt: 1 }}>
+        <Grid container spacing={3} sx={{ mt: 3 }}>
           {entitlements.map((entitlement) => {
             const title =
               currentLang.value === 'en' && entitlement.product?.titleEn
@@ -158,21 +154,14 @@ export function SchoolEntitlementsView() {
               currentLang.value === 'en' && entitlement.product?.shortDescriptionEn
                 ? entitlement.product.shortDescriptionEn
                 : entitlement.product?.shortDescription;
-            const groups = new Map<string, string[]>();
             const destination = getLicenseAppDestination({
               baseUrl: CONFIG.ekruUrl,
               role: entitlement.school.membershipRole,
               targetSystem: entitlement.product?.licenseTargetSystem,
               featureKeys: entitlement.featureKeys,
             });
-            for (const featureKey of entitlement.featureKeys) {
-              const feature = featureMap.get(featureKey as (typeof SCHOOL_FEATURES)[number]['key']);
-              const group = feature?.group ?? 'ฟีเจอร์อื่น';
-              groups.set(group, [...(groups.get(group) ?? []), feature?.label ?? featureKey]);
-            }
-
             return (
-              <Grid key={entitlement.id} size={{ xs: 12, lg: 6 }}>
+              <Grid key={entitlement.id} size={{ xs: 12, lg: 3 }}>
                 <Card variant="outlined" sx={{ height: 1, overflow: 'hidden', borderRadius: 3.5 }}>
                   {entitlement.product?.coverUrl && (
                     <Box
@@ -218,27 +207,6 @@ export function SchoolEntitlementsView() {
                     <Alert severity="success" icon={<RiCalendarCheckLine />}>
                       ใช้งานได้ถึง {formatDate(entitlement.expiresAt)}
                     </Alert>
-
-                    <Divider />
-
-                    <Stack spacing={2}>
-                      {[...groups].map(([group, labels]) => (
-                        <Box key={group}>
-                          <Typography variant="subtitle2">{group}</Typography>
-                          <Stack
-                            direction="row"
-                            spacing={0.75}
-                            flexWrap="wrap"
-                            useFlexGap
-                            sx={{ mt: 1 }}
-                          >
-                            {labels.map((label) => (
-                              <Chip key={label} size="small" variant="soft" label={label} />
-                            ))}
-                          </Stack>
-                        </Box>
-                      ))}
-                    </Stack>
 
                     {!!destination.href && (
                       <Button

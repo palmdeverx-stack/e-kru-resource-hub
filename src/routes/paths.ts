@@ -45,6 +45,8 @@ export const paths = {
   },
   marketplace: {
     root: '/',
+    about: '/about',
+    contact: '/contact',
     products: '/products',
     officialProducts: '/official-products',
     stores: '/stores',

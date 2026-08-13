@@ -57,6 +57,7 @@ export async function GET(request: Request) {
     user: {
       ...toPublicUser(user),
       school_id: user.school_id ?? null,
+      access_scope: payload.accessScope ?? 'full',
       departments,
       department_permissions: departmentPermissions,
       manage_permissions: managePermissions,

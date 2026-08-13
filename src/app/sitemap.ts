@@ -14,6 +14,8 @@ const staticRoutes: Array<{
   { path: '/official-products', changeFrequency: 'daily', priority: 0.9 },
   { path: '/products', changeFrequency: 'daily', priority: 0.9 },
   { path: '/stores', changeFrequency: 'daily', priority: 0.8 },
+  { path: '/about', changeFrequency: 'monthly', priority: 0.6 },
+  { path: '/contact', changeFrequency: 'monthly', priority: 0.5 },
   { path: '/terms-of-service', changeFrequency: 'monthly', priority: 0.3 },
   { path: '/privacy-policy', changeFrequency: 'monthly', priority: 0.3 },
   { path: '/seller-agreement', changeFrequency: 'monthly', priority: 0.3 },

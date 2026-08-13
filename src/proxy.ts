@@ -67,6 +67,15 @@ const AREA_ROLES: Array<{ prefix: string; roles: AppRole[] }> = [
   { prefix: '/student', roles: ['student'] },
 ];
 
+const MARKETPLACE_ONLY_API_PREFIXES = [
+  '/api/auth',
+  '/api/marketplace',
+  '/api/notifications',
+  '/api/subscription-plans',
+];
+
+const SCHOOL_APP_PREFIXES = ['/master', '/admin', '/teacher', '/student'];
+
 function homeForRole() {
   return paths.marketplace.dashboard;
 }
@@ -87,6 +96,7 @@ function nextWithSlidingSession(caller: ReturnType<typeof verifyAppToken>) {
         username: caller.username,
         role: caller.role,
         schoolId: caller.schoolId,
+        accessScope: caller.accessScope,
         sessionVersion: caller.sessionVersion,
       }),
       accessTokenCookieOptions
@@ -110,6 +120,33 @@ export async function proxy(request: NextRequest) {
 
   if (isAuthPage && caller) {
     return noIndex(NextResponse.redirect(new URL(homeForRole(), request.url)));
+  }
+
+  if (caller?.accessScope === 'marketplace_only') {
+    const isSchoolAppPath = SCHOOL_APP_PREFIXES.some(
+      (prefix) =>
+        request.nextUrl.pathname === prefix || request.nextUrl.pathname.startsWith(`${prefix}/`)
+    );
+    if (isSchoolAppPath) {
+      return noIndex(NextResponse.redirect(new URL(paths.marketplace.dashboard, request.url)));
+    }
+
+    const isApiPath = request.nextUrl.pathname.startsWith('/api/');
+    const isAllowedMarketplaceApi = MARKETPLACE_ONLY_API_PREFIXES.some(
+      (prefix) =>
+        request.nextUrl.pathname === prefix || request.nextUrl.pathname.startsWith(`${prefix}/`)
+    );
+    if (isApiPath && !isAllowedMarketplaceApi) {
+      return noIndex(
+        NextResponse.json(
+          {
+            message:
+              'แพ็กเกจโรงเรียนหมดอายุ ฟีเจอร์โรงเรียนถูกระงับชั่วคราว แต่ยังใช้พื้นที่ส่วนตัวและ Marketplace ได้',
+          },
+          { status: 403 }
+        )
+      );
+    }
   }
 
   const area = AREA_ROLES.find(

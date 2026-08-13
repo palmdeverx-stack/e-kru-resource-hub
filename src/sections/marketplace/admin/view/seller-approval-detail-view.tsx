@@ -60,6 +60,12 @@ const documentLabel: Record<string, string> = {
   vat_certificate: 'ภ.พ.20',
 };
 
+function maskIdentifier(value: string | null | undefined) {
+  if (!value) return value;
+  if (value.length <= 8) return '*'.repeat(value.length);
+  return `${value.slice(0, 4)}${'*'.repeat(value.length - 8)}${value.slice(-4)}`;
+}
+
 const agreementFields: Array<{
   key:
     | 'seller_agreement_accepted_at'
@@ -331,10 +337,10 @@ export function MarketplaceSellerApprovalDetailView({
                 ['ชื่อ-นามสกุล', seller.seller_name],
                 ['เบอร์โทร', seller.phone],
                 ['อีเมล', seller.contact_email],
-                ['เลขบัตรประชาชน/ผู้เสียภาษี', seller.national_tax_id],
+                ['เลขบัตรประชาชน/ผู้เสียภาษี', maskIdentifier(seller.national_tax_id)],
                 ['ชื่อบริษัท', seller.company_name],
                 ['เลขนิติบุคคล', seller.company_registration_no],
-                ['เลขผู้เสียภาษีบริษัท', seller.company_tax_id],
+                ['เลขผู้เสียภาษีบริษัท', maskIdentifier(seller.company_tax_id)],
               ]}
             />
           </DetailCard>
