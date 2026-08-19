@@ -70,6 +70,11 @@ export async function generateMetadata(): Promise<Metadata> {
     icons: {
       icon: [
         { url: '/logo/logo-single-primary.svg?v=2', type: 'image/svg+xml' },
+        {
+          url: '/favicon/android-chrome-192x192.png?v=2',
+          sizes: '192x192',
+          type: 'image/png',
+        },
         { url: '/favicon/favicon-32x32.png?v=2', sizes: '32x32', type: 'image/png' },
         { url: '/favicon/favicon-16x16.png?v=2', sizes: '16x16', type: 'image/png' },
       ],
@@ -147,6 +152,9 @@ export default async function RootLayout({ children }: RootLayoutProps) {
 
   return (
     <html lang={appConfig.lang} dir={appConfig.dir} suppressHydrationWarning>
+      <head>
+        <link rel="icon" href="/logo/logo-single-primary.svg?v=2" type="image/svg+xml" />
+      </head>
       <body>
         <InitColorSchemeScript
           modeStorageKey={themeConfig.modeStorageKey}
