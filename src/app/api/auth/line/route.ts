@@ -31,32 +31,68 @@ export async function POST(request: Request) {
     ) {
       return fail('กรุณารอสักครู่ก่อนลองใหม่', 429);
     }
-    const { idToken, action } = await request.json();
-    if (
-      typeof idToken !== 'string' ||
-      idToken.length > 10000 ||
-      !['login', 'link'].includes(action)
-    ) {
+    const { idToken, accessToken, action } = await request.json();
+    const validToken = (value: unknown): value is string =>
+      typeof value === 'string' && value.length > 0 && value.length <= 10000;
+    if (!['login', 'link'].includes(action) || (!validToken(idToken) && !validToken(accessToken))) {
       return fail('ข้อมูลคำขอไม่ถูกต้อง', 400);
     }
-    // Use only the identity returned by LINE's verification endpoint, never client profile data.
-    const verified = await fetch('https://api.line.me/oauth2/v2.1/verify', {
-      method: 'POST',
-      body: new URLSearchParams({ id_token: idToken, client_id: channelId }),
-      cache: 'no-store',
-      signal: AbortSignal.timeout(10000),
-    });
-    if (!verified.ok) return fail('ยืนยันบัญชี LINE ไม่สำเร็จ กรุณาเข้าสู่ LINE ใหม่', 401);
-    const identity = await verified.json();
-    if (
-      identity.iss !== 'https://access.line.me' ||
-      identity.aud !== channelId ||
-      typeof identity.sub !== 'string' ||
-      !identity.sub ||
-      typeof identity.exp !== 'number' ||
-      identity.exp <= Date.now() / 1000
-    )
-      return fail('ข้อมูลยืนยัน LINE ไม่ถูกต้อง', 401);
+    let subject: string;
+    if (idToken != null) {
+      if (!validToken(idToken)) return fail('ข้อมูลคำขอไม่ถูกต้อง', 400);
+      const verified = await fetch('https://api.line.me/oauth2/v2.1/verify', {
+        method: 'POST',
+        body: new URLSearchParams({ id_token: idToken, client_id: channelId }),
+        cache: 'no-store',
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!verified.ok) return fail('ยืนยันบัญชี LINE ไม่สำเร็จ กรุณาเข้าสู่ LINE ใหม่', 401);
+      const identity = await verified.json();
+      if (
+        identity.iss !== 'https://access.line.me' ||
+        identity.aud !== channelId ||
+        typeof identity.sub !== 'string' ||
+        !identity.sub ||
+        typeof identity.exp !== 'number' ||
+        identity.exp <= Date.now() / 1000
+      ) {
+        return fail('ข้อมูลยืนยัน LINE ไม่ถูกต้อง', 401);
+      }
+      subject = identity.sub;
+    } else {
+      // LIFF / MINI Apps can provide an access token without an OpenID token.
+      // Verify its issuing channel and expiry before requesting identity from LINE.
+      const verified = await fetch(
+        `https://api.line.me/oauth2/v2.1/verify?${new URLSearchParams({ access_token: accessToken })}`,
+        {
+          cache: 'no-store',
+          signal: AbortSignal.timeout(10000),
+        }
+      );
+      if (!verified.ok) return fail('ยืนยันบัญชี LINE ไม่สำเร็จ กรุณาเข้าสู่ LINE ใหม่', 401);
+      const token = await verified.json();
+      if (
+        token.client_id !== channelId ||
+        typeof token.expires_in !== 'number' ||
+        token.expires_in <= 0
+      ) {
+        return fail('ข้อมูลยืนยัน LINE ไม่ถูกต้อง', 401);
+      }
+      const profileResponse = await fetch('https://api.line.me/v2/profile', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        cache: 'no-store',
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!profileResponse.ok)
+        return fail(
+          'อ่านข้อมูล LINE ไม่สำเร็จ กรุณาอนุญาตสิทธิ์ profile แล้วเข้าสู่ LINE ใหม่',
+          401
+        );
+      const profile = await profileResponse.json();
+      if (typeof profile.userId !== 'string' || !profile.userId)
+        return fail('ไม่พบข้อมูลบัญชี LINE', 401);
+      subject = profile.userId;
+    }
 
     if (action === 'link') {
       const caller = requireAuthenticated(request);
@@ -67,7 +103,7 @@ export async function POST(request: Request) {
       const { error } = await supabaseAdmin.from('marketplace_line_identities').insert({
         user_id: caller.sub,
         channel_id: channelId,
-        line_subject: identity.sub,
+        line_subject: subject,
       });
       if (error)
         return fail(
@@ -90,7 +126,7 @@ export async function POST(request: Request) {
       .from('marketplace_line_identities')
       .select('user_id')
       .eq('channel_id', channelId)
-      .eq('line_subject', identity.sub)
+      .eq('line_subject', subject)
       .maybeSingle();
     if (linkError) return fail('ระบบ LINE ยังไม่พร้อมใช้งาน', 503);
     if (!link)

@@ -46,3 +46,7 @@ For older MINI App configurations that use `/` as the endpoint, the home layout 
 After deployment, check that `POST /api/auth/line` succeeds and sets the HttpOnly `access_token` cookie, followed by `GET /api/auth/me` returning 200. A 409 with `needsLink` means the LINE identity has not yet been linked; it does not mean login succeeded. Session responses now explicitly disable caching.
 
 The LINE sign-in button now starts authorization automatically through `/auth/line`. This route is a processing/callback screen; users do not need to press Continue. Only first-time account linking requires explicit confirmation.
+
+## No ID token
+
+The client prefers `liff.getIDToken()`. When it is absent, it sends `liff.getAccessToken()` instead. The server verifies the access token with LINE, requires the configured channel ID and a positive expiry, then retrieves `/v2/profile` from LINE. No client-supplied profile is trusted. This fallback requires `profile` permission. For ID-token authentication, enable `openid` for the selected LIFF app and obtain a fresh LINE session after changing permissions.

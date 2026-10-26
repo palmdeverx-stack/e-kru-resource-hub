@@ -69,13 +69,16 @@ export function JwtLineView() {
         return;
       }
       const idToken = liff.getIDToken();
-      if (!idToken)
-        throw new Error('ไม่พบ ID token กรุณาเปิด scope openid ใน LIFF แล้วเข้าสู่ LINE ใหม่');
+      const accessToken = idToken ? undefined : liff.getAccessToken();
+      if (!idToken && !accessToken)
+        throw new Error(
+          'ไม่พบ token จาก LINE กรุณาปิดแล้วเปิด LIFF ใหม่และอนุญาตการเข้าถึงโปรไฟล์'
+        );
       const response = await fetch('/api/auth/line', {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken, action: user ? 'link' : 'login' }),
+        body: JSON.stringify({ idToken, accessToken, action: user ? 'link' : 'login' }),
       });
       const result = await response.json();
       if (!response.ok) {

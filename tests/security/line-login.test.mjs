@@ -6,7 +6,7 @@ import ts from 'typescript';
 
 const source = readFileSync(new URL('../../src/app/api/auth/line/route.ts', import.meta.url), 'utf8');
 
-function handler({ identity = {}, caller = null, active = true, csrf = null, linkedUser } = {}) {
+function handler({ identity = {}, caller = null, active = true, csrf = null, linkedUser, fetchImpl } = {}) {
   const calls = [];
   const mocks = {
     'next/server': {
@@ -35,7 +35,7 @@ function handler({ identity = {}, caller = null, active = true, csrf = null, lin
     require: (name) => { assert.ok(mocks[name], `Unknown dependency ${name}`); return mocks[name]; },
     process: { env: { LINE_LOGIN_CHANNEL_ID: '123' } },
     URLSearchParams, AbortSignal,
-    fetch: async () => ({ ok: true, json: async () => identity }),
+    fetch: fetchImpl ?? (async () => ({ ok: true, json: async () => identity })),
   });
   return { post: exports.POST, calls };
 }
@@ -80,4 +80,29 @@ test('linked LINE login issues the E-KRU session cookie; disabled accounts recei
     assert.equal((await run.post(request())).status, 403);
     assert.deepEqual(run.calls, []);
   }
+});
+
+
+test('access token fallback verifies channel and expiry before reading LINE profile', async () => {
+  for (const token of [{ client_id: 'attacker', expires_in: 100 }, { client_id: '123', expires_in: 0 }]) {
+    let requests = 0;
+    const run = handler({ fetchImpl: async () => { requests++; return { ok: true, json: async () => token }; } });
+    assert.equal((await run.post({ json: async () => ({ accessToken: 'access', action: 'login' }) })).status, 401);
+    assert.equal(requests, 1);
+    assert.deepEqual(run.calls, []);
+  }
+  const urls = [];
+  const run = handler({
+    linkedUser: { id: 'member', username: 'member', is_active: true },
+    fetchImpl: async (url, options) => {
+      urls.push(url);
+      if (url.includes('/verify?')) return { ok: true, json: async () => ({ client_id: '123', expires_in: 300 }) };
+      assert.equal(options.headers.Authorization, 'Bearer access');
+      return { ok: true, json: async () => ({ userId: 'U123' }) };
+    },
+  });
+  const result = await run.post({ json: async () => ({ idToken: null, accessToken: 'access', action: 'login' }) });
+  assert.equal(result.status, 200);
+  assert.equal(urls[1], 'https://api.line.me/v2/profile');
+  assert.equal(run.calls[0][0], 'access_token');
 });
