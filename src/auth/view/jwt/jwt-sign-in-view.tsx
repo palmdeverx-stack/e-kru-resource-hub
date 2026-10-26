@@ -303,7 +303,6 @@ export function JwtSignInView() {
 
       {!pinChallenge && (
         <>
-          <LineLoginButton returnTo={returnTo} />
           <FormDivider label={t('auth.signIn.divider')} />
           <GoogleIdentityButton
             mode="signin"
@@ -315,6 +314,7 @@ export function JwtSignInView() {
             }}
             onError={setGoogleClientError}
           />
+          <LineLoginButton returnTo={returnTo} />
         </>
       )}
     </Box>
