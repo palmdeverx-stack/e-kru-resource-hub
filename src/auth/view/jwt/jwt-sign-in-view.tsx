@@ -27,6 +27,7 @@ import { useAuthContext } from '../../hooks';
 import { FormHead } from '../../components/form-head';
 import { FormDivider } from '../../components/form-divider';
 import { getErrorMessage, getHomePathForRole } from '../../utils';
+import { LineLoginButton } from '../../components/line-login-button';
 import { GoogleIdentityButton } from '../../components/google-identity-button';
 import { MarketplaceAuthBrand } from '../../components/marketplace-auth-brand';
 import { verifySignInPin, signInWithGoogle, signInWithPassword } from '../../context/jwt';
@@ -302,6 +303,7 @@ export function JwtSignInView() {
 
       {!pinChallenge && (
         <>
+          <LineLoginButton returnTo={returnTo} />
           <FormDivider label={t('auth.signIn.divider')} />
           <GoogleIdentityButton
             mode="signin"

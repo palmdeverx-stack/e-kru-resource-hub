@@ -49,6 +49,7 @@
     "@fullcalendar/react": "^6.1.19",
     "@fullcalendar/timegrid": "^6.1.19",
     "@hookform/resolvers": "^5.2.2",
+    "@line/liff": "^2.31.2",
     "@mui/lab": "7.0.1-beta.20",
     "@mui/material": "^7.3.6",
     "@mui/material-nextjs": "^7.3.6",

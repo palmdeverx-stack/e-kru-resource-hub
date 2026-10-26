@@ -1,0 +1,38 @@
+# LINE Login / LIFF
+
+This integration connects LINE to an existing active Marketplace member. It does not create or merge accounts based on LINE email or display name. School and administrator accounts are not supported.
+
+## Setup
+
+1. Apply `supabase/migrations/202610260001_marketplace_line_identities.sql` to your Supabase project.
+2. Set these variables in local and hosting environments, then rebuild:
+
+   ```env
+   NEXT_PUBLIC_LIFF_ID=your-liff-id
+   LINE_LOGIN_CHANNEL_ID=your-line-login-channel-id
+   ```
+
+3. In LINE Developers, configure the LIFF app endpoint as `https://e-kru-marketplace.com/auth/line` and enable `openid` and `profile` scopes. The channel ID must belong to the channel hosting this LIFF app, not the Messaging API channel used for notifications.
+4. Open `/auth/line` or the LINE button on the sign-in page. For first-time linking, sign in to E-KRU, return to `/auth/line`, and explicitly confirm the account link. New users register through the existing E-KRU registration flow first.
+5. Sign out of E-KRU and open the LIFF URL in LINE. Press Continue with LINE and confirm that the same Marketplace account is restored.
+6. Test suspended/inactive accounts, a LINE identity already linked to another account, and purchasing/subscription flows in the LINE browser before release.
+
+The server verifies the raw ID token with LINE before issuing the existing HttpOnly session cookie. Unique constraints prevent duplicate or overwritten account links. The identity table is restricted to the service role. No LINE tokens are stored or logged.
+
+Reference: https://developers.line.biz/en/docs/liff/using-user-profile/
+
+MINI App submission/review and LINE Developers configuration are external steps; this code does not submit a MINI App for review.
+
+## Troubleshooting: LINE 400 invalid url
+
+`liff.login()` requires its redirect URL to be the configured LIFF Endpoint URL or a URL below that path. Query parameters such as `returnTo=%2F` are allowed; they are not the cause of this error.
+
+For example, a LIFF app configured with `https://e-kru-marketplace.com/auth/line` cannot log in from `http://localhost:8800/auth/line`. Setting only the LINE Login callback URL does not change the LIFF Endpoint URL.
+
+- Production: open `https://e-kru-marketplace.com/auth/line` and configure that exact endpoint in LINE Developers → your channel → LIFF → your app.
+- Local development: expose port 8800 using an HTTPS tunnel (for example, `ngrok http 8800`). Create a separate development LIFF app, set its Endpoint URL to `https://YOUR-TUNNEL-HOST/auth/line`, and set `NEXT_PUBLIC_LIFF_ID` to that development app's ID. Set `LINE_LOGIN_CHANNEL_ID` to the channel hosting it. Restart Next.js and open the HTTPS tunnel URL, including for E-KRU sign-in and linking.
+- If the tunnel hostname changes, update the development LIFF Endpoint URL before testing again.
+
+Keep the complete sign-in/link flow on the same origin so the E-KRU session cookie remains available. Do not redirect local linking to the production host to bypass this error.
+
+Reference: https://developers.line.biz/en/reference/liff/#login

@@ -118,7 +118,8 @@ export async function proxy(request: NextRequest) {
   const isAuthPage =
     request.nextUrl.pathname === '/auth' || request.nextUrl.pathname.startsWith('/auth/');
 
-  if (isAuthPage && caller) {
+  // LINE linking requires an authenticated user to visit this page.
+  if (isAuthPage && caller && request.nextUrl.pathname !== '/auth/line') {
     return noIndex(NextResponse.redirect(new URL(homeForRole(), request.url)));
   }
 
