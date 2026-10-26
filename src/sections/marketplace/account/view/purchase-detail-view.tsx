@@ -46,6 +46,7 @@ import {
 } from 'src/components/remix-icon';
 
 import { getMyOrder, formatPrice } from '../../shared/api';
+import { PurchasedAppButton } from '../purchased-app-button';
 import { hasPurchaseBenefitsContent } from '../../shared/purchase-benefits';
 import { PurchaseBenefitsContent } from '../../shared/purchase-benefits-content';
 
@@ -604,6 +605,11 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                               </Box>
                             </Stack>
                           )}
+                        {product?.resource_type === 'feature_unlock' && isPaid && (
+                          <Box sx={{ mt: 2 }}>
+                            <PurchasedAppButton product={product} />
+                          </Box>
+                        )}
                         {product?.resource_type === 'feature_unlock' &&
                           isPaid &&
                           (license ? (
@@ -991,9 +997,9 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                 <RiFileTextLine size={22} />
                 <Typography variant="h6">ใบเสร็จรับเงิน</Typography>
               </Stack>
-              <Alert severity="info" sx={{ mt: 2 }}>
+              {/* <Alert severity="info" sx={{ mt: 2 }}>
                 รายการนี้ชำระเงินแล้ว คุณสามารถออกใบเสร็จและเปิดดูได้ทันที
-              </Alert>
+              </Alert> */}
               {receiptIssueError && (
                 <Alert severity="error" sx={{ mt: 1.5 }}>
                   {receiptIssueError}

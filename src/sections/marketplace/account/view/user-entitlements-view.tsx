@@ -230,7 +230,7 @@ export function UserEntitlementsView() {
               featureKeys: entitlement.featureKeys,
             });
             return (
-              <Grid key={entitlement.id} size={{ xs: 12, md: 6 }}>
+              <Grid key={entitlement.id} size={{ xs: 12, md: 6, lg: 3 }}>
                 <Card variant="outlined" sx={{ height: 1, overflow: 'hidden', borderRadius: 3 }}>
                   {entitlement.product?.coverUrl && (
                     <Box

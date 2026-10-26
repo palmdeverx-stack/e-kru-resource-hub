@@ -60,6 +60,7 @@ import { useMarketplaceCart } from '../../cart/cart-context';
 import { getMarketplacePricing } from '../../shared/pricing';
 import { hasAnalyticsConsent } from '../../legal/cookie-consent';
 import { MarketplaceSellerLink } from '../../shared/seller-link';
+import { PurchasedAppButton } from '../../account/purchased-app-button';
 import { MARKETPLACE_SELLER_LINE_FEATURE } from '../../seller/line-feature';
 import {
   getProduct,
@@ -1978,6 +1979,9 @@ export function MarketplaceProductDetailView({
               </Button>
             </Stack>
 
+            {product.resource_type === 'feature_unlock' && purchaseAccess?.hasPurchased && (
+              <PurchasedAppButton product={product} fullWidth />
+            )}
             {purchaseUnavailable && purchaseAccess?.message && (
               <Alert severity="info">{purchaseAccess.message}</Alert>
             )}

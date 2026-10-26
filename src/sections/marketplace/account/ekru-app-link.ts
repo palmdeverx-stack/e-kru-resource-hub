@@ -45,9 +45,14 @@ export function getLicenseAppDestination({
     path = '/admin/';
   }
 
+  const entryPath =
+    process.env.NEXT_PUBLIC_EKRU_SSO_ENABLED === 'true'
+      ? `/auth/marketplace/start?returnTo=${encodeURIComponent(`${path}?source=marketplace`)}`
+      : `${path}?source=marketplace`;
+
   return {
-    href: `${baseUrl.replace(/\/+$/, '')}${path}?source=marketplace`,
-    label: 'เปิดใช้งานใน E-KRU',
+    href: `${baseUrl.replace(/\/+$/, '')}${entryPath}`,
+    label: 'เปิดใช้งาน E-KRU',
     external: true,
   };
 }

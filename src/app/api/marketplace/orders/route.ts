@@ -25,14 +25,14 @@ import {
   SELLER_TOOLS_CATEGORY,
 } from 'src/sections/marketplace/seller/server/seller-tools-access';
 import {
+  getMarketplaceShippingConfig,
+  isMarketplaceShippingEnabledForOfficialSeller,
+} from 'src/sections/marketplace/shipping/server/config';
+import {
   hasPurchasedProduct,
   isLicenseQuotaExhausted,
   getProductPurchaseAccess,
 } from 'src/sections/marketplace/catalog/server/product-engagement';
-import {
-  getMarketplaceShippingConfig,
-  isMarketplaceShippingEnabledForOfficialSeller,
-} from 'src/sections/marketplace/shipping/server/config';
 
 type RequestedItem = {
   productId: string;
@@ -77,7 +77,7 @@ export async function GET(request: Request) {
   const { data: orders, error } = await supabaseAdmin
     .from('marketplace_orders')
     .select(
-      '*, seller:marketplace_sellers(id, display_name, slug, logo_url, owner_role), items:marketplace_order_items(*, product:marketplace_products(id, title, title_en, short_description, short_description_en, file_url, cover_url, resource_type, license_scope, images:marketplace_product_images(*), files:marketplace_product_files(*)))'
+      '*, seller:marketplace_sellers(id, display_name, slug, logo_url, owner_role), items:marketplace_order_items(*, product:marketplace_products(id, title, title_en, short_description, short_description_en, file_url, cover_url, resource_type, license_target_system, grants_feature_key, grants_feature_keys, license_scope, images:marketplace_product_images(*), files:marketplace_product_files(*)))'
     )
     .eq('buyer_id', caller.sub)
     .order('created_at', { ascending: false });

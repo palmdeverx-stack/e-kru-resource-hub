@@ -5,9 +5,9 @@ import type { MarketplaceOrder } from '../../shared/types';
 import { useMemo, useState, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
-import Grid from '@mui/material/Grid';
 import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
+import Grid from '@mui/material/Grid';
 import Alert from '@mui/material/Alert';
 import Stack from '@mui/material/Stack';
 import Avatar from '@mui/material/Avatar';
@@ -29,14 +29,15 @@ import {
   RiEyeLine,
   RiTimeLine,
   RiSearchLine,
-  RiDownloadLine,
   RiBankCardLine,
+  RiDownloadLine,
   RiShoppingBag3Line,
   RiCheckboxCircleLine,
   RiMoneyDollarCircleLine,
 } from 'src/components/remix-icon';
 
-import { getMyOrders, formatPrice } from '../../shared/api';
+import { formatPrice, getMyOrders } from '../../shared/api';
+import { PurchasedAppButton } from '../purchased-app-button';
 import { MarketplaceSellerLink } from '../../shared/seller-link';
 
 type PurchaseFilter = 'all' | 'ready' | 'pending' | 'closed';
@@ -509,7 +510,10 @@ export function MarketplacePurchasesView() {
                     >
                       ดูรายละเอียด
                     </Button>
-                    {isReady && (
+                    {isReady && product?.resource_type === 'feature_unlock' && (
+                      <PurchasedAppButton product={product} fullWidth />
+                    )}
+                    {isReady && product?.resource_type !== 'feature_unlock' && (
                       <Button
                         component={RouterLink}
                         href={detailHref}
