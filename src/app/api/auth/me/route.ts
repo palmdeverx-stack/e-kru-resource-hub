@@ -7,6 +7,9 @@ import {
   getEffectiveDepartmentPermissions,
 } from 'src/lib/department-permission-access';
 
+// Session responses must never be shared or reused by a CDN.
+export const dynamic = 'force-dynamic';
+
 // ----------------------------------------------------------------------
 
 export async function GET(request: Request) {
@@ -14,7 +17,10 @@ export async function GET(request: Request) {
   const payload = token ? verifyAppToken(token) : null;
 
   if (!payload) {
-    return NextResponse.json({ message: 'กรุณาเข้าสู่ระบบ' }, { status: 401 });
+    return NextResponse.json(
+      { message: 'กรุณาเข้าสู่ระบบ' },
+      { status: 401, headers: { 'Cache-Control': 'private, no-store' } }
+    );
   }
 
   const userQuery =
@@ -27,7 +33,10 @@ export async function GET(request: Request) {
     user?.role === 'student' && (user.student_status ?? 'studying') !== 'studying';
 
   if (!user || user.is_suspended === true || user.is_active === false || studentCannotAccess) {
-    return NextResponse.json({ message: 'กรุณาเข้าสู่ระบบ' }, { status: 401 });
+    return NextResponse.json(
+      { message: 'กรุณาเข้าสู่ระบบ' },
+      { status: 401, headers: { 'Cache-Control': 'private, no-store' } }
+    );
   }
 
   let departments: { id: string; name: string; role_in_department: 'head' | 'member' }[] = [];
@@ -53,14 +62,17 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.json({
-    user: {
-      ...toPublicUser(user),
-      school_id: user.school_id ?? null,
-      access_scope: payload.accessScope ?? 'full',
-      departments,
-      department_permissions: departmentPermissions,
-      manage_permissions: managePermissions,
+  return NextResponse.json(
+    {
+      user: {
+        ...toPublicUser(user),
+        school_id: user.school_id ?? null,
+        access_scope: payload.accessScope ?? 'full',
+        departments,
+        department_permissions: departmentPermissions,
+        manage_permissions: managePermissions,
+      },
     },
-  });
+    { headers: { 'Cache-Control': 'private, no-store' } }
+  );
 }

@@ -5,6 +5,8 @@ import { MarketplaceBrand } from 'src/components/marketplace-brand';
 import { MarketplaceFooter } from 'src/sections/marketplace/shared/footer';
 import { MarketplaceHeaderActions } from 'src/sections/marketplace/shared/header-actions';
 
+import { LineEntryBridge } from 'src/auth/components/line-entry-bridge';
+
 type Props = {
   children: React.ReactNode;
 };
@@ -35,6 +37,7 @@ export default function Layout({ children }: Props) {
         footerContent: <MarketplaceFooter />,
       }}
     >
+      <LineEntryBridge />
       {children}
     </MainLayout>
   );

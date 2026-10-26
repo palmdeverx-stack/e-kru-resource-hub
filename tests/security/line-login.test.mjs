@@ -6,18 +6,28 @@ import ts from 'typescript';
 
 const source = readFileSync(new URL('../../src/app/api/auth/line/route.ts', import.meta.url), 'utf8');
 
-function handler({ identity = {}, caller = null, active = true, csrf = null } = {}) {
+function handler({ identity = {}, caller = null, active = true, csrf = null, linkedUser } = {}) {
   const calls = [];
   const mocks = {
     'next/server': {
       after: () => {},
-      NextResponse: { json: (body, options = {}) => ({ body, status: options.status ?? 200 }) },
+      NextResponse: { json: (body, options = {}) => ({ body, status: options.status ?? 200, cookies: { set: (...args) => calls.push(args) }, headers: new Headers() }) },
     },
-    'src/lib/supabase-admin': { supabaseAdmin: { from: () => { calls.push('database'); throw new Error('Unexpected database access'); } } },
+    'src/lib/supabase-admin': { supabaseAdmin: { from: (table) => {
+      if (!linkedUser) { calls.push('database'); throw new Error('Unexpected database access'); }
+      const query = {
+        select: () => query, eq: () => query,
+        maybeSingle: async () => ({ data: { user_id: linkedUser.id } }),
+        single: async () => ({ data: linkedUser }),
+      };
+      assert.ok(['marketplace_line_identities', 'marketplace_users'].includes(table));
+      return query;
+    } } },
     'src/lib/auth-rate-limit': { isActionAllowed: async () => true },
     'src/lib/request-security': { rejectCrossSiteMutation: () => csrf },
     'src/lib/security-audit': { writeSecurityAudit: () => {} },
-    'src/lib/auth-token': { requireAuthenticated: () => caller, isActiveTokenAccount: async () => active },
+    'src/lib/auth-token': { ACCESS_TOKEN_COOKIE: 'access_token', accessTokenCookieOptions: { httpOnly: true, secure: true, sameSite: 'lax', path: '/' },
+      signAppToken: () => 'signed-app-token', toPublicUser: (user) => user, requireAuthenticated: () => caller, isActiveTokenAccount: async () => active },
   };
   const exports = {};
   vm.runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, {
@@ -52,4 +62,22 @@ test('LINE blocks cross-site login requests before token verification', async ()
   const { post, calls } = handler({ csrf: { status: 403 } });
   assert.equal((await post(request())).status, 403);
   assert.deepEqual(calls, []);
+});
+
+
+test('linked LINE login issues the E-KRU session cookie; disabled accounts receive none', async () => {
+  const user = { id: 'member-1', username: 'member', is_active: true, is_suspended: false };
+  const { post, calls } = handler({ identity: valid, linkedUser: user });
+  const response = await post(request());
+  assert.equal(response.status, 200);
+  assert.equal(response.body.user.id, user.id);
+  assert.equal(response.headers.get('Cache-Control'), 'no-store');
+  assert.equal(calls[0][0], 'access_token');
+  assert.equal(calls[0][1], 'signed-app-token');
+  assert.equal(calls[0][2].httpOnly, true);
+  for (const blocked of [{ ...user, is_active: false }, { ...user, is_suspended: true }]) {
+    const run = handler({ identity: valid, linkedUser: blocked });
+    assert.equal((await run.post(request())).status, 403);
+    assert.deepEqual(run.calls, []);
+  }
 });

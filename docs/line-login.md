@@ -36,3 +36,13 @@ For example, a LIFF app configured with `https://e-kru-marketplace.com/auth/line
 Keep the complete sign-in/link flow on the same origin so the E-KRU session cookie remains available. Do not redirect local linking to the production host to bypass this error.
 
 Reference: https://developers.line.biz/en/reference/liff/#login
+
+## LINE is logged in but the website still shows Sign in
+
+LINE identity and the E-KRU session are separate. `/auth/line` now automatically submits a logged-in LINE identity to `/api/auth/line`, then verifies `/api/auth/me` before returning to the website. First-time users must still sign in to E-KRU and explicitly link their existing Marketplace account.
+
+For older MINI App configurations that use `/` as the endpoint, the home layout initializes LIFF on detected LINE entries before forwarding to `/auth/line`. Prefer `/auth/line` as the endpoint for reliable entry in external browsers too.
+
+After deployment, check that `POST /api/auth/line` succeeds and sets the HttpOnly `access_token` cookie, followed by `GET /api/auth/me` returning 200. A 409 with `needsLink` means the LINE identity has not yet been linked; it does not mean login succeeded. Session responses now explicitly disable caching.
+
+The LINE sign-in button now starts authorization automatically through `/auth/line`. This route is a processing/callback screen; users do not need to press Continue. Only first-time account linking requires explicit confirmation.
