@@ -29,6 +29,7 @@ import { FormDivider } from '../../components/form-divider';
 import { signUp, signInWithGoogle } from '../../context/jwt';
 import { SignUpTerms } from '../../components/sign-up-terms';
 import { getErrorMessage, getHomePathForRole } from '../../utils';
+import { LineLoginButton } from '../../components/line-login-button';
 import { GoogleIdentityButton } from '../../components/google-identity-button';
 import { MarketplaceAuthBrand } from '../../components/marketplace-auth-brand';
 
@@ -283,6 +284,7 @@ export function JwtSignUpView() {
         onError={setGoogleClientError}
       />
 
+      <LineLoginButton />
       <SignUpTerms />
     </Box>
   );

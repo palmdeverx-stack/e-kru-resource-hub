@@ -5,12 +5,16 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 import Box from '@mui/material/Box';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
+import Checkbox from '@mui/material/Checkbox';
+import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import CircularProgress from '@mui/material/CircularProgress';
 
 import { useSearchParams } from 'src/routes/hooks';
 
 import { useAuthContext } from '../../hooks';
+import { SignUpTerms } from '../../components/sign-up-terms';
 
 export function JwtLineView() {
   const { user, loading, setSessionUser } = useAuthContext();
@@ -20,6 +24,9 @@ export function JwtLineView() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [needsLink, setNeedsLink] = useState(false);
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const requested = searchParams.get('returnTo');
   const returnTo =
     requested?.startsWith('/') && !requested.startsWith('//') && !requested.includes('\\')
@@ -59,52 +66,64 @@ export function JwtLineView() {
     };
   }, []);
 
-  const continueWithLine = useCallback(async () => {
-    setBusy(true);
-    setError('');
-    try {
-      const { default: liff } = await import('@line/liff');
-      if (!liff.isLoggedIn()) {
-        liff.login({ redirectUri: `${window.location.origin}${resume}` });
-        return;
+  const continueWithLine = useCallback(
+    async (register = false) => {
+      setBusy(true);
+      setError('');
+      try {
+        const { default: liff } = await import('@line/liff');
+        if (!liff.isLoggedIn()) {
+          liff.login({ redirectUri: `${window.location.origin}${resume}` });
+          return;
+        }
+        const idToken = liff.getIDToken();
+        const accessToken = idToken ? undefined : liff.getAccessToken();
+        if (!idToken && !accessToken)
+          throw new Error(
+            'ไม่พบ token จาก LINE กรุณาปิดแล้วเปิด LIFF ใหม่และอนุญาตการเข้าถึงโปรไฟล์'
+          );
+        const response = await fetch('/api/auth/line', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            idToken,
+            accessToken,
+            action: register ? 'register' : user ? 'link' : 'login',
+            ...(register && { firstName, lastName, acceptedTerms }),
+          }),
+        });
+        const result = await response.json();
+        if (!response.ok) {
+          if (result.needsRegistration || result.needsLink) {
+            setNeedsLink(true);
+            setError('');
+            return;
+          }
+          throw new Error(result.message ?? 'เข้าสู่ระบบด้วย LINE ไม่สำเร็จ');
+        }
+        // Confirm the browser accepted the session cookie before navigating away.
+        const sessionResponse = await fetch('/api/auth/me', {
+          cache: 'no-store',
+          credentials: 'same-origin',
+        });
+        if (!sessionResponse.ok) {
+          throw new Error(
+            'LINE ยืนยันสำเร็จ แต่ไม่สามารถสร้าง session ของ E-KRU ได้ กรุณาเปิดเว็บบนโดเมนเดิมและลองใหม่'
+          );
+        }
+        const session = await sessionResponse.json();
+        if (!session.user) throw new Error('ไม่พบ session ของ E-KRU กรุณาลองใหม่');
+        setSessionUser?.(session.user);
+        window.location.assign(returnTo);
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : 'เชื่อมต่อ LINE ไม่สำเร็จ');
+      } finally {
+        setBusy(false);
       }
-      const idToken = liff.getIDToken();
-      const accessToken = idToken ? undefined : liff.getAccessToken();
-      if (!idToken && !accessToken)
-        throw new Error(
-          'ไม่พบ token จาก LINE กรุณาปิดแล้วเปิด LIFF ใหม่และอนุญาตการเข้าถึงโปรไฟล์'
-        );
-      const response = await fetch('/api/auth/line', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken, accessToken, action: user ? 'link' : 'login' }),
-      });
-      const result = await response.json();
-      if (!response.ok) {
-        setNeedsLink(Boolean(result.needsLink));
-        throw new Error(result.message ?? 'เข้าสู่ระบบด้วย LINE ไม่สำเร็จ');
-      }
-      // Confirm the browser accepted the session cookie before navigating away.
-      const sessionResponse = await fetch('/api/auth/me', {
-        cache: 'no-store',
-        credentials: 'same-origin',
-      });
-      if (!sessionResponse.ok) {
-        throw new Error(
-          'LINE ยืนยันสำเร็จ แต่ไม่สามารถสร้าง session ของ E-KRU ได้ กรุณาเปิดเว็บบนโดเมนเดิมและลองใหม่'
-        );
-      }
-      const session = await sessionResponse.json();
-      if (!session.user) throw new Error('ไม่พบ session ของ E-KRU กรุณาลองใหม่');
-      setSessionUser?.(session.user);
-      window.location.assign(returnTo);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'เชื่อมต่อ LINE ไม่สำเร็จ');
-    } finally {
-      setBusy(false);
-    }
-  }, [resume, returnTo, setSessionUser, user]);
+    },
+    [resume, returnTo, setSessionUser, user, firstName, lastName, acceptedTerms]
+  );
 
   useEffect(() => {
     // Login may continue automatically; linking always requires explicit confirmation.
@@ -119,28 +138,73 @@ export function JwtLineView() {
       <Typography>
         {user
           ? `เชื่อม LINE กับบัญชี ${user.username}`
-          : error
-            ? 'เข้าสู่ระบบด้วย LINE ไม่สำเร็จ'
-            : 'กำลังเชื่อมต่อ LINE กรุณารอสักครู่…'}
+          : needsLink
+            ? 'สมัครสมาชิกใหม่ด้วย LINE หรือเชื่อมบัญชี E-KRU เดิม'
+            : error
+              ? 'เข้าสู่ระบบด้วย LINE ไม่สำเร็จ'
+              : 'กำลังเชื่อมต่อ LINE กรุณารอสักครู่…'}
       </Typography>
       {error && <Alert severity="error">{error}</Alert>}
-      {!user && !error && <CircularProgress size={28} sx={{ mx: 'auto' }} />}
+      {!user && !error && !needsLink && <CircularProgress size={28} sx={{ mx: 'auto' }} />}
       {(user || (error && !needsLink)) && (
         <Button
           variant="contained"
           disabled={!ready || loading}
           loading={busy}
-          onClick={continueWithLine}
+          onClick={() => void continueWithLine()}
         >
           {user ? 'ยืนยันเชื่อมบัญชี LINE' : 'ลองอีกครั้ง'}
         </Button>
       )}
       {needsLink && !user && (
         <>
+          <Box
+            component="form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (!busy) void continueWithLine(true);
+            }}
+            sx={{ display: 'grid', gap: 2 }}
+          >
+            <TextField
+              required
+              label="ชื่อ"
+              autoComplete="given-name"
+              value={firstName}
+              onChange={(event) => setFirstName(event.target.value)}
+              slotProps={{ htmlInput: { maxLength: 100 } }}
+            />
+            <TextField
+              required
+              label="นามสกุล"
+              autoComplete="family-name"
+              value={lastName}
+              onChange={(event) => setLastName(event.target.value)}
+              slotProps={{ htmlInput: { maxLength: 100 } }}
+            />
+            <SignUpTerms sx={{ mt: 0 }} />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  required
+                  checked={acceptedTerms}
+                  onChange={(event) => setAcceptedTerms(event.target.checked)}
+                />
+              }
+              label="ฉันยอมรับเงื่อนไขการใช้งานและนโยบายความเป็นส่วนตัว"
+            />
+            <Button
+              type="submit"
+              variant="contained"
+              loading={busy}
+              disabled={!acceptedTerms || !firstName.trim() || !lastName.trim()}
+            >
+              สมัครสมาชิกด้วย LINE
+            </Button>
+          </Box>
           <Button href={`/auth/sign-in?returnTo=${encodeURIComponent(resume)}`}>
             เข้าสู่ระบบ E-KRU เพื่อเชื่อมบัญชี
           </Button>
-          <Button href="/auth/sign-up">สมัครสมาชิก E-KRU</Button>
         </>
       )}
     </Box>

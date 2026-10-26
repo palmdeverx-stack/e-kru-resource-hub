@@ -6,18 +6,18 @@ import ts from 'typescript';
 
 const source = readFileSync(new URL('../../src/app/api/auth/line/route.ts', import.meta.url), 'utf8');
 
-function handler({ identity = {}, caller = null, active = true, csrf = null, linkedUser, fetchImpl } = {}) {
+function handler({ identity = {}, caller = null, active = true, csrf = null, linkedUser, fetchImpl, unlinked = false, rpcImpl } = {}) {
   const calls = [];
   const mocks = {
     'next/server': {
       after: () => {},
       NextResponse: { json: (body, options = {}) => ({ body, status: options.status ?? 200, cookies: { set: (...args) => calls.push(args) }, headers: new Headers() }) },
     },
-    'src/lib/supabase-admin': { supabaseAdmin: { from: (table) => {
+    'src/lib/supabase-admin': { supabaseAdmin: { rpc: (...args) => { calls.push('register'); return rpcImpl(...args); }, from: (table) => {
       if (!linkedUser) { calls.push('database'); throw new Error('Unexpected database access'); }
       const query = {
         select: () => query, eq: () => query,
-        maybeSingle: async () => ({ data: { user_id: linkedUser.id } }),
+        maybeSingle: async () => ({ data: unlinked ? null : { user_id: linkedUser.id } }),
         single: async () => ({ data: linkedUser }),
       };
       assert.ok(['marketplace_line_identities', 'marketplace_users'].includes(table));
@@ -105,4 +105,45 @@ test('access token fallback verifies channel and expiry before reading LINE prof
   assert.equal(result.status, 200);
   assert.equal(urls[1], 'https://api.line.me/v2/profile');
   assert.equal(run.calls[0][0], 'access_token');
+});
+
+
+test('new LINE member must explicitly accept terms before atomic registration', async () => {
+  const body = { idToken: 'signed-token', action: 'register', firstName: 'New', lastName: 'Member', acceptedTerms: true };
+  const member = { id: 'new-member', username: 'line_new', is_active: true };
+  for (const invalid of [{ acceptedTerms: false }, { firstName: '' }, { lastName: 'x'.repeat(101) }]) {
+    const run = handler({ identity: valid, linkedUser: member, unlinked: true });
+    assert.equal((await run.post({ json: async () => ({ ...body, ...invalid }) })).status, 400);
+    assert.deepEqual(run.calls, []);
+  }
+  const run = handler({ identity: valid, linkedUser: member, unlinked: true,
+    rpcImpl: async (name, args) => {
+      assert.equal(name, 'register_marketplace_line_member');
+      assert.equal(args.p_subject, valid.sub);
+      assert.equal(args.p_channel_id, valid.aud);
+      assert.equal(args.p_first_name, 'New');
+      return { data: member.id };
+    },
+  });
+  const result = await run.post({ json: async () => body });
+  assert.equal(result.status, 200);
+  assert.equal(result.body.user.id, member.id);
+  assert.equal(run.calls[0], 'register');
+  assert.equal(run.calls[1][0], 'access_token');
+});
+
+test('existing LINE member is reused without registering a duplicate', async () => {
+  const run = handler({ identity: valid, linkedUser: { id: 'existing', username: 'member', is_active: true } });
+  const result = await run.post({ json: async () => ({ idToken: 'signed-token', action: 'register' }) });
+  assert.equal(result.status, 200);
+  assert.equal(result.body.user.id, 'existing');
+  assert.ok(!run.calls.includes('register'));
+});
+
+test('new LINE identity prompts registration without silently creating an account', async () => {
+  const run = handler({ identity: valid, linkedUser: { id: 'unused' }, unlinked: true });
+  const result = await run.post(request());
+  assert.equal(result.status, 409);
+  assert.equal(result.body.needsRegistration, true);
+  assert.deepEqual(run.calls, []);
 });

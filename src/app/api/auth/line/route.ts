@@ -31,10 +31,14 @@ export async function POST(request: Request) {
     ) {
       return fail('กรุณารอสักครู่ก่อนลองใหม่', 429);
     }
-    const { idToken, accessToken, action } = await request.json();
+    const { idToken, accessToken, action, firstName, lastName, acceptedTerms } =
+      await request.json();
     const validToken = (value: unknown): value is string =>
       typeof value === 'string' && value.length > 0 && value.length <= 10000;
-    if (!['login', 'link'].includes(action) || (!validToken(idToken) && !validToken(accessToken))) {
+    if (
+      !['login', 'link', 'register'].includes(action) ||
+      (!validToken(idToken) && !validToken(accessToken))
+    ) {
       return fail('ข้อมูลคำขอไม่ถูกต้อง', 400);
     }
     let subject: string;
@@ -129,18 +133,66 @@ export async function POST(request: Request) {
       .eq('line_subject', subject)
       .maybeSingle();
     if (linkError) return fail('ระบบ LINE ยังไม่พร้อมใช้งาน', 503);
-    if (!link)
+    let userId = link?.user_id;
+    if (!userId && action === 'register') {
+      if (requireAuthenticated(request))
+        return fail('กรุณาใช้การเชื่อม LINE กับบัญชีที่เข้าสู่ระบบอยู่', 409);
+      if (
+        acceptedTerms !== true ||
+        typeof firstName !== 'string' ||
+        typeof lastName !== 'string' ||
+        !firstName.trim() ||
+        !lastName.trim() ||
+        firstName.trim().length > 100 ||
+        lastName.trim().length > 100
+      ) {
+        return fail('กรุณากรอกชื่อ นามสกุล และยอมรับเงื่อนไขการใช้งาน', 400);
+      }
+      if (
+        !(await isActionAllowed({
+          request,
+          action: 'line_register',
+          subject,
+          maxAttempts: 5,
+          windowSeconds: 3600,
+        }))
+      ) {
+        return fail('สมัครสมาชิกบ่อยเกินไป กรุณาลองใหม่ภายหลัง', 429);
+      }
+      const { data: registeredId, error: registrationError } = await supabaseAdmin.rpc(
+        'register_marketplace_line_member',
+        {
+          p_channel_id: channelId,
+          p_subject: subject,
+          p_first_name: firstName.trim(),
+          p_last_name: lastName.trim(),
+        }
+      );
+      if (registrationError || !registeredId)
+        return fail('สมัครด้วย LINE ไม่สำเร็จ กรุณาตรวจสอบว่าได้รัน migration ล่าสุดแล้ว', 503);
+      userId = registeredId;
+      after(() =>
+        writeSecurityAudit({
+          request,
+          actorId: userId,
+          category: 'authentication',
+          action: 'auth.line_register',
+          result: 'success',
+        })
+      );
+    }
+    if (!userId)
       return NextResponse.json(
         {
-          needsLink: true,
-          message: 'กรุณาเข้าสู่ระบบหรือสมัครสมาชิก E-KRU ก่อน แล้วกลับมาเชื่อม LINE',
+          needsRegistration: true,
+          message: 'LINE นี้ยังไม่มีบัญชี E-KRU สมัครด้วย LINE หรือเชื่อมบัญชีเดิมได้เลย',
         },
         { status: 409 }
       );
     const { data: user, error } = await supabaseAdmin
       .from('marketplace_users')
       .select('*')
-      .eq('id', link.user_id)
+      .eq('id', userId)
       .single();
     if (error || !user) return fail('ไม่พบบัญชีสมาชิก', 401);
     if (user.is_suspended === true || user.is_active !== true)

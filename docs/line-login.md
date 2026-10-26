@@ -1,10 +1,10 @@
 # LINE Login / LIFF
 
-This integration connects LINE to an existing active Marketplace member. It does not create or merge accounts based on LINE email or display name. School and administrator accounts are not supported.
+This integration supports signing up with LINE and connecting an existing active Marketplace member. It never merges accounts based on LINE email or display name. School and administrator accounts are not supported.
 
 ## Setup
 
-1. Apply `supabase/migrations/202610260001_marketplace_line_identities.sql` to your Supabase project.
+1. Apply `supabase/migrations/202610260001_marketplace_line_identities.sql`, then `supabase/migrations/202610260002_marketplace_line_signup.sql` to your Supabase project.
 2. Set these variables in local and hosting environments, then rebuild:
 
    ```env
@@ -13,8 +13,8 @@ This integration connects LINE to an existing active Marketplace member. It does
    ```
 
 3. In LINE Developers, configure the LIFF app endpoint as `https://e-kru-marketplace.com/auth/line` and enable `openid` and `profile` scopes. The channel ID must belong to the channel hosting this LIFF app, not the Messaging API channel used for notifications.
-4. Open `/auth/line` or the LINE button on the sign-in page. For first-time linking, sign in to E-KRU, return to `/auth/line`, and explicitly confirm the account link. New users register through the existing E-KRU registration flow first.
-5. Sign out of E-KRU and open the LIFF URL in LINE. Press Continue with LINE and confirm that the same Marketplace account is restored.
+4. Open `/auth/line` or the LINE button on the sign-in page. For first-time linking, sign in to E-KRU, return to `/auth/line`, and explicitly confirm the account link. New users can enter their first/last name and accept the terms on the LINE callback page to create a LINE-only member directly.
+5. Sign out of E-KRU and open the LIFF URL in LINE. Confirm that the same Marketplace account is restored automatically.
 6. Test suspended/inactive accounts, a LINE identity already linked to another account, and purchasing/subscription flows in the LINE browser before release.
 
 The server verifies the raw ID token with LINE before issuing the existing HttpOnly session cookie. Unique constraints prevent duplicate or overwritten account links. The identity table is restricted to the service role. No LINE tokens are stored or logged.
@@ -39,14 +39,20 @@ Reference: https://developers.line.biz/en/reference/liff/#login
 
 ## LINE is logged in but the website still shows Sign in
 
-LINE identity and the E-KRU session are separate. `/auth/line` now automatically submits a logged-in LINE identity to `/api/auth/line`, then verifies `/api/auth/me` before returning to the website. First-time users must still sign in to E-KRU and explicitly link their existing Marketplace account.
+LINE identity and the E-KRU session are separate. `/auth/line` now automatically submits a logged-in LINE identity to `/api/auth/line`, then verifies `/api/auth/me` before returning to the website. Existing members can sign in to E-KRU and explicitly link their account. New members can use the LINE signup form.
 
 For older MINI App configurations that use `/` as the endpoint, the home layout initializes LIFF on detected LINE entries before forwarding to `/auth/line`. Prefer `/auth/line` as the endpoint for reliable entry in external browsers too.
 
-After deployment, check that `POST /api/auth/line` succeeds and sets the HttpOnly `access_token` cookie, followed by `GET /api/auth/me` returning 200. A 409 with `needsLink` means the LINE identity has not yet been linked; it does not mean login succeeded. Session responses now explicitly disable caching.
+After deployment, check that `POST /api/auth/line` succeeds and sets the HttpOnly `access_token` cookie, followed by `GET /api/auth/me` returning 200. A 409 with `needsRegistration` means the LINE identity has no E-KRU account yet; the callback displays signup and existing-account linking options. Session responses now explicitly disable caching.
 
 The LINE sign-in button now starts authorization automatically through `/auth/line`. This route is a processing/callback screen; users do not need to press Continue. Only first-time account linking requires explicit confirmation.
 
 ## No ID token
 
 The client prefers `liff.getIDToken()`. When it is absent, it sends `liff.getAccessToken()` instead. The server verifies the access token with LINE, requires the configured channel ID and a positive expiry, then retrieves `/v2/profile` from LINE. No client-supplied profile is trusted. This fallback requires `profile` permission. For ID-token authentication, enable `openid` for the selected LIFF app and obtain a fresh LINE session after changing permissions.
+
+## LINE signup
+
+New users provide first/last name and explicitly accept the linked terms/privacy policy. The API verifies LINE identity again on registration. A service-role-only Postgres function locks the LINE identity, creates the member and identity link in one transaction, and returns an existing member on repeated requests. Registration is rate-limited. Existing linked members retain suspension checks.
+
+LINE-only members have no password, Supabase Auth ID or email until a separate verified email/account setup flow is added. They sign in through LINE. The migration permits null email/auth IDs and records `accepted_legal_at`. No placeholder email is created and no existing account is merged. Email delivery is unavailable for these members; test checkout and receipt behavior before production release.
