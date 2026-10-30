@@ -1,6 +1,10 @@
 'use client';
 
-export type MarketplaceLineTestEvent = 'new_seller' | 'product_approval' | 'payout_due';
+export type MarketplaceLineTestEvent =
+  | 'new_member'
+  | 'new_seller'
+  | 'product_approval'
+  | 'payout_due';
 
 export type MarketplaceLineSettings = {
   integration: {
@@ -9,6 +13,7 @@ export type MarketplaceLineSettings = {
     isEnabled: boolean;
     hasChannelSecret: boolean;
     hasAccessToken: boolean;
+    notifyNewMember: boolean;
     notifyNewSeller: boolean;
     notifyProductApproval: boolean;
     notifyPayoutDue: boolean;
@@ -39,7 +44,7 @@ export type MarketplaceLineSettings = {
   };
   recentDeliveries: Array<{
     id: string;
-    event_type: 'new_seller' | 'product_approval' | 'payout_due';
+    event_type: 'new_member' | 'new_seller' | 'product_approval' | 'payout_due';
     status: 'processing' | 'sent' | 'failed' | 'skipped';
     last_error: string | null;
     created_at: string;
@@ -54,6 +59,7 @@ export type MarketplaceLineSettingsInput = {
   channelSecret: string;
   accessToken: string;
   isEnabled: boolean;
+  notifyNewMember: boolean;
   notifyNewSeller: boolean;
   notifyProductApproval: boolean;
   notifyPayoutDue: boolean;

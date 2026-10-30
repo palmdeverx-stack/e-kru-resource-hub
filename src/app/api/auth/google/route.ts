@@ -14,6 +14,8 @@ import {
   accessTokenCookieOptions,
 } from 'src/lib/auth-token';
 
+import { notifyMarketplaceMemberRegistered } from 'src/sections/marketplace/admin/server/line-notifications';
+
 function bearerToken(request: Request) {
   const authorization = request.headers.get('authorization') ?? '';
   return authorization.startsWith('Bearer ') ? authorization.slice(7).trim() : '';
@@ -252,6 +254,15 @@ async function handleGoogleSignIn(request: Request) {
       last_name: profile.lastName,
     },
   });
+
+  after(() =>
+    notifyMarketplaceMemberRegistered({
+      userId: newUser.id,
+      name: `${profile.firstName} ${profile.lastName}`,
+      method: 'Google',
+      origin: new URL(request.url).origin,
+    })
+  );
 
   return authenticatedResponse({ ...newUser, school_id: null });
 }

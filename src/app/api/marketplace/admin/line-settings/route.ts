@@ -10,6 +10,7 @@ import { MARKETPLACE_MINIMUM_PAID_PRICE_THB } from 'src/sections/marketplace/sha
 import { syncSellerLineFeatureProducts } from 'src/sections/marketplace/seller/server/seller-line-product';
 
 const TEST_NOTIFICATION_MESSAGES = {
+  new_member: '🧪 ทดสอบ: มีสมาชิกสมัครใหม่\nชื่อ: สมาชิกตัวอย่าง\nสมัครผ่าน: Google',
   new_seller: [
     '🧪 ทดสอบ: มีคำขอเปิดร้านใหม่',
     'ร้านตัวอย่าง: ห้องเรียนสร้างสรรค์',
@@ -114,6 +115,7 @@ export async function GET(request: Request) {
       isEnabled: settings?.is_enabled ?? false,
       hasChannelSecret: Boolean(settings?.channel_secret_encrypted),
       hasAccessToken: Boolean(settings?.channel_access_token_encrypted),
+      notifyNewMember: settings?.notify_new_member ?? true,
       notifyNewSeller: settings?.notify_new_seller ?? true,
       notifyProductApproval: settings?.notify_product_approval ?? true,
       notifyPayoutDue: settings?.notify_payout_due ?? true,
@@ -183,6 +185,7 @@ export async function PATCH(request: Request) {
     parsedWebhook.protocol !== 'https:' ||
     parsedWebhook.pathname.replace(/\/+$/, '') !== expectedPath ||
     Boolean(parsedWebhook.search || parsedWebhook.hash) ||
+    typeof body?.notifyNewMember !== 'boolean' ||
     typeof body?.notifyNewSeller !== 'boolean' ||
     typeof body?.notifyProductApproval !== 'boolean' ||
     typeof body?.notifyPayoutDue !== 'boolean' ||
@@ -227,6 +230,7 @@ export async function PATCH(request: Request) {
       oa_basic_id: oaBasicId || null,
       webhook_url: `${parsedWebhook.origin}${expectedPath}/`,
       is_enabled: isEnabled && !requiresLineLink,
+      notify_new_member: body.notifyNewMember,
       notify_new_seller: body.notifyNewSeller,
       notify_product_approval: body.notifyProductApproval,
       notify_payout_due: body.notifyPayoutDue,
@@ -342,11 +346,13 @@ export async function POST(request: Request) {
   const messageText =
     body.action === 'test_event'
       ? `${TEST_NOTIFICATION_MESSAGES[testEvent]}\n\nเปิดหน้าที่เกี่ยวข้อง: ${
-          testEvent === 'new_seller'
-            ? `${new URL(request.url).origin}/dashboard/seller-approvals`
-            : testEvent === 'product_approval'
-              ? `${new URL(request.url).origin}/dashboard/product-approvals`
-              : `${new URL(request.url).origin}/dashboard/payouts`
+          testEvent === 'new_member'
+            ? `${new URL(request.url).origin}/dashboard`
+            : testEvent === 'new_seller'
+              ? `${new URL(request.url).origin}/dashboard/seller-approvals`
+              : testEvent === 'product_approval'
+                ? `${new URL(request.url).origin}/dashboard/product-approvals`
+                : `${new URL(request.url).origin}/dashboard/payouts`
         }`
       : '✅ ทดสอบแจ้งเตือน E-KRU Marketplace สำเร็จ';
 

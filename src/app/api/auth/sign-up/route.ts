@@ -1,9 +1,10 @@
-import { NextResponse } from 'next/server';
+import { after, NextResponse } from 'next/server';
 
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { isActionAllowed } from 'src/lib/auth-rate-limit';
 import { rejectCrossSiteMutation } from 'src/lib/request-security';
 
+import { notifyMarketplaceMemberRegistered } from 'src/sections/marketplace/admin/server/line-notifications';
 import {
   verificationExpiry,
   hashVerificationCode,
@@ -141,6 +142,15 @@ export async function POST(request: Request) {
       { status: 503 }
     );
   }
+
+  after(() =>
+    notifyMarketplaceMemberRegistered({
+      userId: user.id,
+      name: `${firstName} ${lastName}`,
+      method: 'อีเมล',
+      origin: new URL(request.url).origin,
+    })
+  );
 
   return NextResponse.json({
     requiresVerification: true,

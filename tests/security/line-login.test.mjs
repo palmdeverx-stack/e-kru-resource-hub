@@ -25,6 +25,7 @@ function handler({ identity = {}, caller = null, active = true, csrf = null, lin
     } } },
     'src/lib/auth-rate-limit': { isActionAllowed: async () => true },
     'src/lib/request-security': { rejectCrossSiteMutation: () => csrf },
+    'src/sections/marketplace/admin/server/line-notifications': { notifyMarketplaceMemberRegistered: async () => {} },
     'src/lib/security-audit': { writeSecurityAudit: () => {} },
     'src/lib/auth-token': { ACCESS_TOKEN_COOKIE: 'access_token', accessTokenCookieOptions: { httpOnly: true, secure: true, sameSite: 'lax', path: '/' },
       signAppToken: () => 'signed-app-token', toPublicUser: (user) => user, requireAuthenticated: () => caller, isActiveTokenAccount: async () => active },

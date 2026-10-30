@@ -41,8 +41,8 @@ import {
   unlinkMarketplaceLine,
   getMarketplaceLineSettings,
   saveMarketplaceLineSettings,
-  testMarketplaceLineNotification,
   testMarketplaceLineConnection,
+  testMarketplaceLineNotification,
   createMarketplaceLineInvitation,
 } from '../marketplace-line-settings-actions';
 
@@ -96,6 +96,7 @@ const EMPTY_MARKETPLACE_FORM: MarketplaceLineSettingsInput = {
   channelSecret: '',
   accessToken: '',
   isEnabled: false,
+  notifyNewMember: true,
   notifyNewSeller: true,
   notifyProductApproval: true,
   notifyPayoutDue: true,
@@ -111,11 +112,17 @@ const EMPTY_MARKETPLACE_FORM: MarketplaceLineSettingsInput = {
 };
 
 const MARKETPLACE_NOTIFICATION_ITEMS: Array<{
-  field: 'notifyNewSeller' | 'notifyProductApproval' | 'notifyPayoutDue';
+  field: 'notifyNewMember' | 'notifyNewSeller' | 'notifyProductApproval' | 'notifyPayoutDue';
   event: MarketplaceLineTestEvent;
   label: string;
   description: string;
 }> = [
+  {
+    field: 'notifyNewMember',
+    event: 'new_member',
+    label: 'สมาชิกสมัครใหม่',
+    description: 'แจ้งเมื่อสมัครสมาชิกสำเร็จผ่านอีเมล Google หรือ LINE',
+  },
   {
     field: 'notifyNewSeller',
     event: 'new_seller',
@@ -175,6 +182,7 @@ function MarketplaceLineNotificationSettings() {
       channelSecret: '',
       accessToken: '',
       isEnabled: query.data.integration.isEnabled,
+      notifyNewMember: query.data.integration.notifyNewMember,
       notifyNewSeller: query.data.integration.notifyNewSeller,
       notifyProductApproval: query.data.integration.notifyProductApproval,
       notifyPayoutDue: query.data.integration.notifyPayoutDue,
@@ -282,8 +290,8 @@ function MarketplaceLineNotificationSettings() {
               : testMutation.isSuccess
                 ? 'ส่งข้อความทดสอบไปยัง LINE ที่ผูกไว้แล้ว'
                 : unlinkMutation.isSuccess
-                ? 'ยกเลิกการผูก LINE แล้ว'
-                : saveMutation.data?.message || 'บันทึกการตั้งค่าเรียบร้อยแล้ว')}
+                  ? 'ยกเลิกการผูก LINE แล้ว'
+                  : saveMutation.data?.message || 'บันทึกการตั้งค่าเรียบร้อยแล้ว')}
         </Alert>
       )}
 
@@ -771,11 +779,13 @@ function MarketplaceLineNotificationSettings() {
                 >
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}>
                     <Typography variant="subtitle2">
-                      {delivery.event_type === 'new_seller'
-                        ? 'ผู้ขายสมัครใหม่'
-                        : delivery.event_type === 'product_approval'
-                          ? 'สินค้ารออนุมัติ'
-                          : 'ถึงวันทำรอบโอน'}
+                      {delivery.event_type === 'new_member'
+                        ? 'สมาชิกสมัครใหม่'
+                        : delivery.event_type === 'new_seller'
+                          ? 'ผู้ขายสมัครใหม่'
+                          : delivery.event_type === 'product_approval'
+                            ? 'สินค้ารออนุมัติ'
+                            : 'ถึงวันทำรอบโอน'}
                     </Typography>
                     <Chip
                       size="small"

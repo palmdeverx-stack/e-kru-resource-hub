@@ -13,6 +13,8 @@ import {
   accessTokenCookieOptions,
 } from 'src/lib/auth-token';
 
+import { notifyMarketplaceMemberRegistered } from 'src/sections/marketplace/admin/server/line-notifications';
+
 export async function POST(request: Request) {
   const csrfError = rejectCrossSiteMutation(request);
   if (csrfError) return csrfError;
@@ -171,6 +173,15 @@ export async function POST(request: Request) {
       if (registrationError || !registeredId)
         return fail('สมัครด้วย LINE ไม่สำเร็จ กรุณาตรวจสอบว่าได้รัน migration ล่าสุดแล้ว', 503);
       userId = registeredId;
+      after(() =>
+        notifyMarketplaceMemberRegistered({
+          userId: registeredId,
+          name: `${firstName.trim()} ${lastName.trim()}`,
+          method: 'LINE',
+          origin: new URL(request.url).origin,
+        })
+      );
+
       after(() =>
         writeSecurityAudit({
           request,

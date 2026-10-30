@@ -4,7 +4,7 @@ import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { createNotifications } from 'src/lib/notifications';
 import { decryptLineCredential } from 'src/lib/line-credentials';
 
-export type MarketplaceLineEvent = 'new_seller' | 'product_approval' | 'payout_due';
+export type MarketplaceLineEvent = 'new_member' | 'new_seller' | 'product_approval' | 'payout_due';
 
 type NotificationInput = {
   event: MarketplaceLineEvent;
@@ -16,6 +16,11 @@ type NotificationInput = {
 };
 
 const EVENT_CONFIG = {
+  new_member: {
+    notificationType: 'marketplace_member_registered',
+    defaultTitle: 'มีสมาชิกสมัครใหม่',
+    setting: 'notify_new_member',
+  },
   new_seller: {
     notificationType: 'marketplace_seller_request',
     defaultTitle: 'มีคำขอเปิดร้านใหม่',
@@ -68,10 +73,7 @@ export async function notifyMarketplaceAdmins({
   const { data: admins } = await supabaseAdmin
     .from('app_users')
     .select('id')
-    .in(
-      'role',
-      event === 'payout_due' ? ['master_admin'] : ['master_admin', 'marketplace_admin']
-    )
+    .in('role', event === 'payout_due' ? ['master_admin'] : ['master_admin', 'marketplace_admin'])
     .eq('is_active', true);
 
   await createNotifications(
@@ -88,7 +90,7 @@ export async function notifyMarketplaceAdmins({
   const { data: settings } = await supabaseAdmin
     .from('marketplace_line_settings')
     .select(
-      'is_enabled, notify_new_seller, notify_product_approval, notify_payout_due, channel_access_token_encrypted, line_user_id'
+      'is_enabled, notify_new_member, notify_new_seller, notify_product_approval, notify_payout_due, channel_access_token_encrypted, line_user_id'
     )
     .eq('id', 'default')
     .maybeSingle();
@@ -153,4 +155,24 @@ export async function notifyMarketplaceAdmins({
   }
 
   return { status };
+}
+
+// Run after a successful registration so LINE failures never roll back the account.
+export async function notifyMarketplaceMemberRegistered(input: {
+  userId: string;
+  name: string;
+  method: 'อีเมล' | 'Google' | 'LINE';
+  origin: string;
+}) {
+  try {
+    await notifyMarketplaceAdmins({
+      event: 'new_member',
+      sourceId: input.userId,
+      dedupeKey: `new_member:${input.userId}`,
+      message: `👤 มีสมาชิกสมัครใหม่\nชื่อ: ${input.name}\nสมัครผ่าน: ${input.method}`,
+      actionUrl: `${input.origin}/dashboard`,
+    });
+  } catch {
+    console.error('Failed to notify admins of marketplace registration');
+  }
 }
