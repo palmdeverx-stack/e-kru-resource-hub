@@ -69,17 +69,16 @@ export async function generateMetadata(): Promise<Metadata> {
     manifest: '/favicon/site.webmanifest',
     icons: {
       icon: [
-        { url: '/logo/logo-single-primary.svg?v=2', type: 'image/svg+xml' },
         {
-          url: '/favicon/android-chrome-192x192.png?v=2',
+          url: '/favicon/android-chrome-192x192.png?v=3',
           sizes: '192x192',
           type: 'image/png',
         },
-        { url: '/favicon/favicon-32x32.png?v=2', sizes: '32x32', type: 'image/png' },
-        { url: '/favicon/favicon-16x16.png?v=2', sizes: '16x16', type: 'image/png' },
+        { url: '/favicon/favicon-32x32.png?v=3', sizes: '32x32', type: 'image/png' },
+        { url: '/favicon/favicon-16x16.png?v=3', sizes: '16x16', type: 'image/png' },
       ],
-      shortcut: [{ url: '/favicon.ico?v=2', type: 'image/x-icon' }],
-      apple: [{ url: '/favicon/apple-touch-icon.png?v=2', sizes: '180x180', type: 'image/png' }],
+      shortcut: [{ url: '/favicon.ico?v=3', type: 'image/x-icon' }],
+      apple: [{ url: '/favicon/apple-touch-icon.png?v=3', sizes: '180x180', type: 'image/png' }],
     },
     openGraph: {
       type: 'website',
@@ -152,9 +151,6 @@ export default async function RootLayout({ children }: RootLayoutProps) {
 
   return (
     <html lang={appConfig.lang} dir={appConfig.dir} suppressHydrationWarning>
-      <head>
-        <link rel="icon" href="/logo/logo-single-primary.svg?v=2" type="image/svg+xml" />
-      </head>
       <body>
         <InitColorSchemeScript
           modeStorageKey={themeConfig.modeStorageKey}
