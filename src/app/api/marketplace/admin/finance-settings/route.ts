@@ -9,8 +9,8 @@ import { encryptFinancialValue } from 'src/lib/financial-data-cipher';
 
 import { findThaiBank } from 'src/sections/marketplace/shared/thai-banks';
 import { getFinanceSettings } from 'src/sections/marketplace/admin/server/finance';
-import { isStripeConfigured } from 'src/sections/marketplace/checkout/server/stripe';
 import { normalizePromptPayId } from 'src/sections/marketplace/checkout/server/promptpay';
+import { assertStripeReady, getStripeConfiguration } from 'src/sections/marketplace/checkout/server/stripe';
 
 function authorize(request: Request) {
   return requireRole(request, ['master_admin']);
@@ -25,6 +25,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ message: 'กรุณายืนยัน PIN เพื่อดูข้อมูลการเงิน' }, { status: 401 });
   }
   const settings = await getFinanceSettings();
+  const stripeConfiguration = getStripeConfiguration();
   return NextResponse.json({
     settings: {
       promptpayId: settings.promptpay_id ?? '',
@@ -38,7 +39,10 @@ export async function GET(request: Request) {
       payoutDay: Number(settings.payout_day),
       minimumPayout: Number(settings.minimum_payout),
       stripeEnabled: settings.stripe_enabled,
-      stripeConfigured: isStripeConfigured(),
+      stripeConfigured: stripeConfiguration.configured,
+      stripeMode: stripeConfiguration.mode,
+      stripeAccountId: stripeConfiguration.accountId,
+      stripeConfigurationIssues: stripeConfiguration.issues,
       stripeWebhookUrl: `${new URL(request.url).origin}/api/stripe/webhook`,
       isActive: settings.is_active,
     },
@@ -84,6 +88,17 @@ export async function PATCH(request: Request) {
   const isActive = body?.isActive === true;
   const stripeEnabled = body?.stripeEnabled === true;
 
+  if (stripeEnabled) {
+    try {
+      await assertStripeReady();
+    } catch {
+      return NextResponse.json(
+        { message: 'ตรวจสอบ Stripe ไม่ผ่าน กรุณาตรวจ mode, account, key และ webhook ก่อนเปิดรับชำระ' },
+        { status: 400 }
+      );
+    }
+  }
+
   try {
     if (promptpayId) normalizePromptPayId(promptpayId);
   } catch (error) {
@@ -95,7 +110,6 @@ export async function PATCH(request: Request) {
 
   if (
     (isActive && (!promptpayId || accountName.length < 2)) ||
-    (stripeEnabled && !isStripeConfigured()) ||
     accountName.length > 150 ||
     (Boolean(requestedPayoutBankCode || requestedPayoutBankName) && !payoutBank) ||
     payoutAccountName.length > 150 ||

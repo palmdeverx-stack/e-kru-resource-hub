@@ -558,6 +558,9 @@ export type MarketplaceFinanceSettings = {
   minimumPayout: number;
   stripeEnabled: boolean;
   stripeConfigured: boolean;
+  stripeMode?: 'test' | 'live' | null;
+  stripeAccountId?: string | null;
+  stripeConfigurationIssues?: string[];
   stripeWebhookUrl: string;
   isActive: boolean;
 };

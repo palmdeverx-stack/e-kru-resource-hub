@@ -130,21 +130,13 @@ export async function POST(request: Request) {
   }
   const body = await request.json().catch(() => null);
   const sellerId = String(body?.sellerId ?? '');
-  const [{ data: account }, { data: entries }, finance] = await Promise.all([
-    supabaseAdmin
-      .from('marketplace_seller_payout_accounts')
-      .select('*')
-      .eq('seller_id', sellerId)
-      .maybeSingle(),
-    supabaseAdmin
-      .from('marketplace_ledger_entries')
-      .select('id, amount')
-      .eq('seller_id', sellerId)
-      .eq('account_scope', 'seller')
-      .is('payout_id', null)
-      .lte('available_at', new Date().toISOString()),
-    getFinanceSettings(),
-  ]);
+  const { data: account, error: accountError } = await supabaseAdmin
+    .from('marketplace_seller_payout_accounts')
+    .select('*')
+    .eq('seller_id', sellerId)
+    .maybeSingle();
+  if (accountError)
+    return NextResponse.json({ message: 'ตรวจสอบบัญชีผู้ขายไม่สำเร็จ' }, { status: 500 });
   const revealedAccount = revealPayoutAccount(account);
   if (
     !revealedAccount?.bank_code ||
@@ -157,60 +149,26 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
-  const amount = money((entries ?? []).reduce((sum, entry) => sum + Number(entry.amount), 0));
-  if (amount <= 0 || amount < Number(finance.minimum_payout)) {
-    return NextResponse.json(
-      { message: `ยอดพร้อมโอนต้องไม่น้อยกว่า ${finance.minimum_payout} บาท` },
-      { status: 400 }
-    );
-  }
-
-  const { data: payout, error } = await supabaseAdmin
-    .from('marketplace_payouts')
-    .insert({
-      seller_id: sellerId,
-      amount,
-      bank_code_snapshot: revealedAccount.bank_code,
-      bank_name_snapshot: revealedAccount.bank_name,
-      account_number_snapshot: null,
-      account_number_snapshot_encrypted: encryptFinancialValue(
-        String(revealedAccount.account_number)
-      ),
-      account_name_snapshot: revealedAccount.account_name,
-    })
-    .select('*')
-    .single();
+  const { data: payout, error } = await supabaseAdmin.rpc('create_marketplace_seller_payout', {
+    p_seller_id: sellerId,
+    p_bank_code: revealedAccount.bank_code,
+    p_bank_name: revealedAccount.bank_name,
+    p_account_name: revealedAccount.account_name,
+    p_account_number_encrypted: encryptFinancialValue(String(revealedAccount.account_number)),
+  });
   if (error || !payout) {
+    const insufficient = error?.message?.includes('PAYOUT_BELOW_MINIMUM');
+    const missingMigration = error?.code === 'PGRST202' || error?.code === '42883';
     return NextResponse.json(
-      { message: error?.message ?? 'สร้างรายการโอนไม่สำเร็จ' },
-      { status: 500 }
+      {
+        message: insufficient
+          ? 'ยอดพร้อมโอนไม่ถึงขั้นต่ำหรือถูกจองไปแล้ว'
+          : missingMigration
+            ? 'ยังไม่ได้ติดตั้ง migration ระบบโอนเงินแบบ transaction'
+            : 'สร้างรายการโอนไม่สำเร็จ กรุณาลองใหม่',
+      },
+      { status: insufficient ? 409 : missingMigration ? 503 : 500 }
     );
   }
-
-  const ids = (entries ?? []).map((entry) => entry.id);
-  const { data: reserved, error: reserveError } = await supabaseAdmin
-    .from('marketplace_ledger_entries')
-    .update({ payout_id: payout.id })
-    .in('id', ids)
-    .is('payout_id', null)
-    .select('amount');
-  const reservedAmount = money(
-    (reserved ?? []).reduce((sum, entry) => sum + Number(entry.amount), 0)
-  );
-  if (reserveError || reservedAmount !== amount) {
-    await supabaseAdmin
-      .from('marketplace_ledger_entries')
-      .update({ payout_id: null })
-      .eq('payout_id', payout.id);
-    await supabaseAdmin
-      .from('marketplace_payouts')
-      .update({ status: 'cancelled', failure_reason: 'ยอดถูกจองโดยรายการอื่น' })
-      .eq('id', payout.id);
-    return NextResponse.json(
-      { message: 'ยอดพร้อมโอนมีการเปลี่ยนแปลง กรุณาลองใหม่' },
-      { status: 409 }
-    );
-  }
-
   return NextResponse.json({ payout: revealPayoutSnapshot(payout) }, { status: 201 });
 }

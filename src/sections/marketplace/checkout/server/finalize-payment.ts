@@ -137,7 +137,7 @@ export async function finalizeMarketplacePayment(input: FinalizeInput) {
   const { error: ledgerError } = await supabaseAdmin
     .from('marketplace_ledger_entries')
     .upsert(ledgerRows, {
-      onConflict: 'order_id,account_scope,entry_type',
+      onConflict: 'order_id,account_scope,entry_type,refund_event_key',
       ignoreDuplicates: true,
     });
   if (ledgerError) throw ledgerError;

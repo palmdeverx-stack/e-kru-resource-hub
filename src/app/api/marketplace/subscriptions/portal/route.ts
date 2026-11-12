@@ -4,7 +4,7 @@ import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { requireAuthenticated } from 'src/lib/auth-token';
 import { rejectCrossSiteMutation } from 'src/lib/request-security';
 
-import { getStripe } from 'src/sections/marketplace/checkout/server/stripe';
+import { getStripe, assertStripeReady, resolveStripeCustomerId } from 'src/sections/marketplace/checkout/server/stripe';
 
 export async function POST(request: Request) {
   const csrfError = rejectCrossSiteMutation(request);
@@ -23,6 +23,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: 'ยังไม่พบบัญชีเรียกเก็บเงิน Stripe' }, { status: 404 });
   }
   try {
+    await assertStripeReady();
+    const customerId = await resolveStripeCustomerId(local.stripe_customer_id);
+    if (!customerId) {
+      return NextResponse.json(
+        { message: 'ยังไม่มีบัญชีเรียกเก็บเงินใน Stripe บัญชีและโหมดปัจจุบัน' },
+        { status: 409 }
+      );
+    }
     const origin = new URL(request.url).origin;
     const stripe = getStripe();
     const configurations = await stripe.billingPortal.configurations.list({ active: true, limit: 1 });
@@ -43,7 +51,7 @@ export async function POST(request: Request) {
         },
       }));
     const portal = await stripe.billingPortal.sessions.create({
-      customer: local.stripe_customer_id,
+      customer: customerId,
       configuration: configuration.id,
       return_url: `${origin}/dashboard/my-apps`,
     });

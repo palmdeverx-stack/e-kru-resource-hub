@@ -4,8 +4,8 @@ import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { requireAuthenticated } from 'src/lib/auth-token';
 import { rejectCrossSiteMutation } from 'src/lib/request-security';
 
-import { getStripe } from 'src/sections/marketplace/checkout/server/stripe';
 import { subscriptionPeriod } from 'src/sections/marketplace/checkout/server/license-subscriptions';
+import { getStripe, assertStripeReady, getStripeConfiguration } from 'src/sections/marketplace/checkout/server/stripe';
 
 export async function GET(request: Request) {
   const caller = requireAuthenticated(request);
@@ -40,6 +40,19 @@ export async function PATCH(request: Request) {
     .maybeSingle();
   if (!local?.stripe_subscription_id || local.status === 'canceled') {
     return NextResponse.json({ message: 'Subscription นี้ไม่สามารถเปลี่ยนแปลงได้' }, { status: 409 });
+  }
+  try {
+    await assertStripeReady();
+    const current = await getStripe().subscriptions.retrieve(local.stripe_subscription_id);
+    if (current.livemode !== (getStripeConfiguration().mode === 'live')) {
+      return NextResponse.json({ message: 'Subscription นี้ไม่ใช่โหมด Stripe ปัจจุบัน' }, { status: 409 });
+    }
+  } catch (error) {
+    const missing = error && typeof error === 'object' && 'code' in error && error.code === 'resource_missing';
+    return NextResponse.json(
+      { message: missing ? 'Subscription นี้อยู่ในบัญชีหรือโหมด Stripe เดิม' : 'ตรวจสอบบัญชี Stripe ไม่สำเร็จ กรุณาลองใหม่' },
+      { status: missing ? 409 : 503 }
+    );
   }
   const subscription = await getStripe().subscriptions.update(local.stripe_subscription_id, {
     cancel_at_period_end: action === 'cancel',

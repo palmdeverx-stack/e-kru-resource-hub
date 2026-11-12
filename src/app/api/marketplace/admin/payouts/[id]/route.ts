@@ -12,9 +12,8 @@ export async function PATCH(request: Request, { params }: Context) {
   const csrfError = rejectCrossSiteMutation(request);
   if (csrfError) return csrfError;
   const caller = requireRole(request, ['master_admin']);
-  if (!caller) {
+  if (!caller)
     return NextResponse.json({ message: 'ไม่มีสิทธิ์จัดการการโอนเงิน' }, { status: 403 });
-  }
   if (!hasPayoutAccess(request, caller.sub)) {
     return NextResponse.json({ message: 'กรุณายืนยันรหัสเข้าใช้งานอีกครั้ง' }, { status: 401 });
   }
@@ -25,7 +24,7 @@ export async function PATCH(request: Request, { params }: Context) {
     .trim()
     .toUpperCase();
   const reason = String(body?.failureReason ?? '').trim();
-  if (!['paid', 'failed'].includes(status)) {
+  if (!['processing', 'paid', 'failed'].includes(status)) {
     return NextResponse.json({ message: 'สถานะไม่ถูกต้อง' }, { status: 400 });
   }
   if (status === 'paid' && (reference.length < 4 || reference.length > 100)) {
@@ -34,92 +33,75 @@ export async function PATCH(request: Request, { params }: Context) {
   if (status === 'failed' && reason.length < 3) {
     return NextResponse.json({ message: 'กรุณาระบุสาเหตุที่โอนไม่สำเร็จ' }, { status: 400 });
   }
-
-  const { data: payout } = await supabaseAdmin
-    .from('marketplace_payouts')
-    .select('*, seller:marketplace_sellers(owner_id)')
-    .eq('id', id)
-    .in('status', ['pending', 'processing'])
-    .maybeSingle();
-  if (!payout) {
-    return NextResponse.json({ message: 'รายการนี้ดำเนินการไปแล้ว' }, { status: 409 });
-  }
-  if (status === 'paid') {
-    const { data: duplicateReference, error: referenceError } = await supabaseAdmin
-      .from('marketplace_payouts')
-      .select('id')
-      .ilike('transfer_reference', reference)
-      .neq('id', id)
-      .limit(1)
-      .maybeSingle();
-    if (referenceError) {
-      return NextResponse.json({ message: referenceError.message }, { status: 500 });
-    }
-    if (duplicateReference) {
-      return NextResponse.json(
-        { message: 'เลขอ้างอิงนี้ถูกใช้กับรายการโอนอื่นแล้ว กรุณาตรวจสอบอีกครั้ง' },
-        { status: 409 }
-      );
-    }
-  }
-  const now = new Date().toISOString();
-  const { error } = await supabaseAdmin
-    .from('marketplace_payouts')
-    .update({
-      status,
-      transfer_reference: status === 'paid' ? reference : null,
-      failure_reason: status === 'failed' ? reason : null,
-      processed_at: now,
-      processed_by: caller.sub,
-      updated_at: now,
-    })
-    .eq('id', id);
-  if (error) {
-    if (error.code === '23505') {
-      return NextResponse.json(
-        { message: 'เลขอ้างอิงนี้ถูกใช้กับรายการโอนอื่นแล้ว กรุณาตรวจสอบอีกครั้ง' },
-        { status: 409 }
-      );
-    }
-    return NextResponse.json({ message: error.message }, { status: 500 });
-  }
-
-  if (status === 'failed') {
-    await supabaseAdmin
-      .from('marketplace_ledger_entries')
-      .update({ payout_id: null })
-      .eq('payout_id', id);
-  }
-  const seller = Array.isArray(payout.seller) ? payout.seller[0] : payout.seller;
-  if (seller?.owner_id) {
-    await createNotifications([
-      {
-        userId: seller.owner_id,
-        schoolId: null,
-        type: `marketplace_payout_${status}`,
-        title: status === 'paid' ? 'โอนรายได้ให้คุณแล้ว' : 'การโอนรายได้ไม่สำเร็จ',
-        body:
-          status === 'paid'
-            ? `ยอด ${Number(payout.amount).toLocaleString('th-TH')} บาท อ้างอิง ${reference}`
-            : reason,
-        link: '/dashboard/seller/finance',
-      },
-    ]);
-  }
-  await writeSecurityAudit({
-    request,
-    actorId: caller.sub,
-    actorUsername: caller.username,
-    actorRole: caller.role,
-    category: 'admin',
-    action: `marketplace.payout_${status}`,
-    targetType: 'marketplace_payout',
-    targetId: id,
-    result: 'success',
-    metadata: {
-      amount: Number(payout.amount),
-      ...(status === 'paid' ? { transfer_reference: reference } : { reason }),
-    },
+  const { data: result, error } = await supabaseAdmin.rpc('finish_marketplace_seller_payout', {
+    p_payout_id: id,
+    p_status: status,
+    p_reference: reference,
+    p_reason: reason,
+    p_processed_by: caller.sub,
   });
+  if (error || !result) {
+    const missingMigration = error?.code === 'PGRST202' || error?.code === '42883';
+    const duplicate = error?.code === '23505';
+    return NextResponse.json(
+      {
+        message: duplicate
+          ? 'เลขอ้างอิงนี้ถูกใช้กับรายการโอนอื่นแล้ว'
+          : missingMigration
+            ? 'ยังไม่ได้ติดตั้ง migration ระบบโอนเงินแบบ transaction'
+            : error?.code === 'P0001'
+              ? 'รายการหรือยอดจองเปลี่ยนแปลงแล้ว กรุณาโหลดใหม่และตรวจสอบก่อนโอน'
+              : 'บันทึกผลการโอนไม่สำเร็จ กรุณาลองใหม่',
+      },
+      {
+        status: missingMigration
+          ? 503
+          : duplicate || error?.code === 'P0001'
+            ? 409
+            : error?.code === 'P0002'
+              ? 404
+              : 500,
+      }
+    );
+  }
+  if (result.already_processed) return NextResponse.json({ success: true, alreadyProcessed: true });
+  const payout = result.payout;
+  // Financial changes have committed atomically. Secondary channel failures must
+  // not make the caller believe the bank-result write failed and submit again.
+  const sideEffects: Promise<unknown>[] = [
+    writeSecurityAudit({
+      request,
+      actorId: caller.sub,
+      actorUsername: caller.username,
+      actorRole: caller.role,
+      category: 'admin',
+      action: `marketplace.payout_${status}`,
+      targetType: 'marketplace_payout',
+      targetId: id,
+      result: 'success',
+      metadata: {
+        amount: Number(payout.amount),
+        ...(status === 'paid' ? { transfer_reference: reference } : { reason }),
+      },
+    }),
+  ];
+  if (result.owner_id && status !== 'processing') {
+    sideEffects.push(
+      createNotifications([
+        {
+          userId: result.owner_id,
+          schoolId: null,
+          type: `marketplace_payout_${status}`,
+          title: status === 'paid' ? 'โอนรายได้ให้คุณแล้ว' : 'การโอนรายได้ไม่สำเร็จ',
+          body:
+            status === 'paid'
+              ? `ยอด ${Number(payout.amount).toLocaleString('th-TH')} บาท อ้างอิง ${reference}`
+              : reason,
+          link: '/dashboard/seller/finance',
+        },
+      ])
+    );
+  }
+  await Promise.allSettled(sideEffects);
   return NextResponse.json({ success: true });
 }

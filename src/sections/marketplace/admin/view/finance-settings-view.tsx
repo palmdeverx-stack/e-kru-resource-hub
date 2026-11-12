@@ -344,13 +344,25 @@ export function MarketplaceFinanceSettingsView({ accessGranted = true, onAccessE
                       }
                     />
                   }
-                  label={form.stripeEnabled ? 'เปิดรับชำระแล้ว' : 'ปิดรับชำระอยู่'}
+                  label={
+                    form.stripeEnabled
+                      ? form.stripeMode === 'live'
+                        ? 'เปิดรับชำระเงินจริง — Live mode'
+                        : 'เปิดรับชำระทดสอบ — Test mode'
+                      : 'ปิดรับชำระอยู่'
+                  }
                 />
                 <Alert severity={form.stripeConfigured ? 'success' : 'warning'}>
                   {form.stripeConfigured
-                    ? 'เชื่อมต่อ Secret Key และ Webhook Secret แล้ว'
-                    : 'ตั้งค่า STRIPE_SECRET_KEY และ STRIPE_WEBHOOK_SECRET บน Server ก่อนเปิดใช้'}
+                    ? `ตั้งค่า ${form.stripeMode === 'live' ? 'Live' : 'Test'} key และ Webhook Secret แล้ว ยังต้องตรวจบัญชีเมื่อเปิดรับชำระ`
+                    : form.stripeConfigurationIssues?.join(' · ') ||
+                      'ตั้งค่า STRIPE_SECRET_KEY และ STRIPE_WEBHOOK_SECRET บน Server ก่อนเปิดใช้'}
                 </Alert>
+                {form.stripeAccountId && (
+                  <Typography variant="body2" color="text.secondary">
+                    บัญชี Stripe ที่กำหนด: {form.stripeAccountId}
+                  </Typography>
+                )}
                 <TextField
                   fullWidth
                   label="Stripe Webhook endpoint"

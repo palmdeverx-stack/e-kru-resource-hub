@@ -226,7 +226,7 @@ export async function handleStripeDispute(dispute: Stripe.Dispute, eventType: Di
           available_at: now,
           description: `ระงับยอดจาก Stripe dispute ${dispute.id}`,
         })),
-        { onConflict: 'order_id,account_scope,entry_type', ignoreDuplicates: true }
+        { onConflict: 'order_id,account_scope,entry_type,refund_event_key', ignoreDuplicates: true }
       );
     }
     await reconcileSchoolLicenses(schoolLicenses ?? []);
@@ -308,7 +308,7 @@ export async function handleStripeDispute(dispute: Stripe.Dispute, eventType: Di
           available_at: now,
           description: `คืนยอดหลังชนะ Stripe dispute ${dispute.id}`,
         })),
-        { onConflict: 'order_id,account_scope,entry_type', ignoreDuplicates: true }
+        { onConflict: 'order_id,account_scope,entry_type,refund_event_key', ignoreDuplicates: true }
       );
     }
     await reconcileSchoolLicenses(schoolLicenses ?? []);

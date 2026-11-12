@@ -9,7 +9,6 @@ import { STRIPE_MINIMUM_THB } from 'src/sections/marketplace/shared/payment';
 import { money, getFinanceSettings } from 'src/sections/marketplace/admin/server/finance';
 import { verifyShippingQuote } from 'src/sections/marketplace/shipping/server/quote-token';
 import { captureOrderEvidence } from 'src/sections/marketplace/checkout/server/order-evidence';
-import { getStripe, isStripeConfigured } from 'src/sections/marketplace/checkout/server/stripe';
 import { resolveReferralAttribution } from 'src/sections/marketplace/referrals/server/referrals';
 import { withPublicSystemStoreFlag } from 'src/sections/marketplace/seller/server/public-seller';
 import { recordShippingCustomerCharge } from 'src/sections/marketplace/shipping/server/accounting';
@@ -20,6 +19,7 @@ import {
   canViewSellerTools,
   SELLER_TOOLS_CATEGORY,
 } from 'src/sections/marketplace/seller/server/seller-tools-access';
+import { getStripe, assertStripeReady, isStripeConfigured, resolveStripeCustomerId } from 'src/sections/marketplace/checkout/server/stripe';
 import {
   getMarketplaceShippingConfig,
   isMarketplaceShippingEnabledForOfficialSeller,
@@ -473,6 +473,17 @@ export async function POST(request: Request) {
     );
   }
 
+  if (!isFree && requestedPaymentMethod === 'stripe') {
+    try {
+      await assertStripeReady();
+    } catch {
+      return NextResponse.json(
+        { message: 'บัญชี Stripe ยังไม่พร้อมรับชำระ กรุณาติดต่อผู้ดูแลระบบ' },
+        { status: 503 }
+      );
+    }
+  }
+
   const now = new Date();
   const availableAt = new Date(
     now.getTime() + Number(finance.hold_days) * 24 * 60 * 60 * 1000
@@ -727,7 +738,7 @@ export async function POST(request: Request) {
     try {
       const origin = new URL(request.url).origin;
       const { data: buyerForStripe } = await supabaseAdmin
-        .from('app_users')
+        .from(caller.role === 'marketplace_user' ? 'marketplace_users' : 'app_users')
         .select('email')
         .eq('id', caller.sub)
         .maybeSingle();
@@ -742,7 +753,7 @@ export async function POST(request: Request) {
             .limit(1)
             .maybeSingle()
         : { data: null };
-      const stripeCustomerId = previousSubscription?.stripe_customer_id ?? null;
+      const stripeCustomerId = await resolveStripeCustomerId(previousSubscription?.stripe_customer_id);
       const stripeSession = await getStripe().checkout.sessions.create({
         mode: recurringProduct ? 'subscription' : 'payment',
         client_reference_id: paymentSession.id,

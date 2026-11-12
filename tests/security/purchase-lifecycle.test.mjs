@@ -140,7 +140,10 @@ function setup() {
   const stripe = new Stripe('sk_test_isolated_no_network_calls');
   const secret = 'whsec_isolated_test_only';
   const webhook = load('src/app/api/stripe/webhook/route.ts', { ...common,
-    'src/sections/marketplace/checkout/server/stripe': { getStripe: () => stripe, getStripeWebhookSecret: () => secret },
+    'src/sections/marketplace/checkout/server/stripe': {
+      getStripe: () => stripe, getStripeWebhookSecret: () => secret,
+      assertStripeEventMode: event => { assert.equal(event.livemode, false); },
+    },
     'src/sections/marketplace/checkout/server/finalize-payment': finalize,
     'src/sections/marketplace/shipping/server/accounting': accounting,
     'src/sections/marketplace/checkout/server/license-lifecycle': {},
@@ -167,7 +170,7 @@ function setup() {
     rows('marketplace_product_files').push({ id: 'file', product_id: 'product', storage_bucket: 'marketplace-product-files', storage_path: 'private/uuid.pdf', file_name: 'แบบฝึกหัด.pdf', scan_status: 'safe' });
   }
   async function pay({ id = 'evt_test_paid', amount = 10000, currency = 'thb', sessionId = 'cs_test_fixture', signed = true } = {}) {
-    const payload = JSON.stringify({ id, type: 'checkout.session.completed', data: { object: { id: sessionId, metadata: { marketplace_payment_session_id: 'session' }, amount_total: amount, currency, payment_status: 'paid' } } });
+    const payload = JSON.stringify({ id, livemode: false, type: 'checkout.session.completed', data: { object: { id: sessionId, metadata: { marketplace_payment_session_id: 'session' }, amount_total: amount, currency, payment_status: 'paid' } } });
     const signature = stripe.webhooks.generateTestHeaderString({ payload, secret: signed ? secret : 'wrong-secret' });
     return webhook.POST({ headers: new Headers({ 'stripe-signature': signature }), text: async () => payload });
   }

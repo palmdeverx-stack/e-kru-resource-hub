@@ -389,7 +389,9 @@ export function MarketplacePayoutManagementView({ accessGranted = true }: Props)
     pageEligibleSellers.length > 0 &&
     pageEligibleSellers.every((item) => selectedSellerIds.includes(item.sellerId));
   const readyAmount = eligibleSellers.reduce((sum, item) => sum + item.amount, 0);
-  const pendingPayouts = payouts.filter((payout) => payout.status === 'pending');
+  const pendingPayouts = payouts.filter((payout) =>
+    ['pending', 'processing'].includes(payout.status)
+  );
   const pendingAmount = pendingPayouts.reduce((sum, payout) => sum + Number(payout.amount), 0);
   const needsAttentionCount = available.length - eligibleSellers.length;
   const nextPayoutLabel = payoutPolicy.nextPayoutAt
@@ -511,7 +513,14 @@ export function MarketplacePayoutManagementView({ accessGranted = true }: Props)
         });
         const result = await response.json();
         if (!response.ok) throw new Error(result.message);
-        created.push({ payout: result.payout, source });
+        const started = await fetch(`/api/marketplace/admin/payouts/${result.payout.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'processing' }),
+        });
+        const startedResult = await started.json();
+        if (!started.ok) throw new Error(startedResult.message);
+        created.push({ payout: { ...result.payout, status: 'processing' }, source });
       } catch (submitError) {
         failed.push(
           `${source.seller?.display_name || source.sellerId}: ${
@@ -1587,8 +1596,50 @@ export function MarketplacePayoutManagementView({ accessGranted = true }: Props)
                             </Typography>
                           </Stack>
                         </div>
-                        {payout.status === 'pending' ? (
+                        {['pending', 'processing'].includes(payout.status) ? (
                           <Stack direction="row" spacing={1}>
+                            {payout.status === 'pending' && (
+                              <Button
+                                disabled={saving}
+                                onClick={async () => {
+                                  if (payout.isMock) {
+                                    setPayouts((current) =>
+                                      current.map((item) =>
+                                        item.id === payout.id
+                                          ? { ...item, status: 'processing' }
+                                          : item
+                                      )
+                                    );
+                                    return;
+                                  }
+                                  setSaving(true);
+                                  setError('');
+                                  try {
+                                    const response = await fetch(
+                                      `/api/marketplace/admin/payouts/${payout.id}`,
+                                      {
+                                        method: 'PATCH',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ status: 'processing' }),
+                                      }
+                                    );
+                                    const result = await response.json();
+                                    if (!response.ok) throw new Error(result.message);
+                                    load();
+                                  } catch (startError) {
+                                    setError(
+                                      startError instanceof Error
+                                        ? startError.message
+                                        : 'เริ่มดำเนินการไม่สำเร็จ'
+                                    );
+                                  } finally {
+                                    setSaving(false);
+                                  }
+                                }}
+                              >
+                                เริ่มโอนผ่านธนาคาร
+                              </Button>
+                            )}
                             <Button
                               color="error"
                               onClick={() => {
@@ -1600,6 +1651,7 @@ export function MarketplacePayoutManagementView({ accessGranted = true }: Props)
                             </Button>
                             <Button
                               variant="contained"
+                              disabled={payout.status !== 'processing'}
                               onClick={() => {
                                 setReviewing({ payout, status: 'paid' });
                                 setValue('');
@@ -1611,7 +1663,13 @@ export function MarketplacePayoutManagementView({ accessGranted = true }: Props)
                         ) : (
                           <Chip
                             color={payout.status === 'paid' ? 'success' : 'error'}
-                            label={payout.status === 'paid' ? 'โอนแล้ว' : 'ไม่สำเร็จ'}
+                            label={
+                              payout.status === 'paid'
+                                ? 'โอนแล้ว'
+                                : payout.status === 'cancelled'
+                                  ? 'ยกเลิกแล้ว'
+                                  : 'ไม่สำเร็จ'
+                            }
                           />
                         )}
                       </Stack>

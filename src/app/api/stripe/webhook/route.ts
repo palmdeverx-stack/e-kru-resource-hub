@@ -6,10 +6,13 @@ import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { createNotifications } from 'src/lib/notifications';
 
 import { handleStripeDispute } from 'src/sections/marketplace/checkout/server/dispute-lifecycle';
-import { getStripe, getStripeWebhookSecret } from 'src/sections/marketplace/checkout/server/stripe';
-import { recordShippingRefundForOrders } from 'src/sections/marketplace/shipping/server/accounting';
 import { finalizeMarketplacePayment } from 'src/sections/marketplace/checkout/server/finalize-payment';
 import { revokeLicensesForPaymentSession } from 'src/sections/marketplace/checkout/server/license-lifecycle';
+import {
+  getStripe,
+  assertStripeEventMode,
+  getStripeWebhookSecret,
+} from 'src/sections/marketplace/checkout/server/stripe';
 import {
   subscriptionPeriod,
   stripeSubscriptionId,
@@ -189,29 +192,40 @@ async function refundStripePayment(charge: Stripe.Charge) {
     .maybeSingle();
   if (error || !session) throw error ?? new Error('ไม่พบรายการชำระเงินสำหรับ Refund');
 
-  await revokeLicensesForPaymentSession(session.id, 'refunded', 'Stripe คืนเงินให้ผู้ซื้อ');
-  await recordShippingRefundForOrders(
-    (session.orders ?? [])
-      .filter((order) => Number(order.shipping_amount ?? 0) > 0)
-      .map((order) => order.id),
-    `stripe-refund:${charge.id}`
-  );
-  const now = new Date().toISOString();
-  await supabaseAdmin
-    .from('marketplace_orders')
-    .update({ status: 'refunded', updated_at: now })
-    .eq('payment_session_id', session.id)
-    .in('status', ['paid', 'completed']);
-  await createNotifications([
+  const { data: refund, error: refundError } = await supabaseAdmin.rpc(
+    'reconcile_marketplace_stripe_refund',
     {
-      userId: session.buyer_id,
-      schoolId: null,
-      type: 'marketplace_payment_refunded',
-      title: 'รายการได้รับการคืนเงินแล้ว',
-      body: 'License จากคำสั่งซื้อนี้ถูกยกเลิกและเก็บไว้ในประวัติ',
-      link: '/dashboard/purchases',
-    },
-  ]);
+      p_session_id: session.id,
+      p_charge_id: charge.id,
+      p_charge_amount: charge.amount,
+      p_refunded_amount: charge.amount_refunded,
+    }
+  );
+  if (refundError || !refund) throw refundError ?? new Error('บันทึกยอดคืนเงินไม่สำเร็จ');
+  // Retry fulfillment even when accounting is already recorded, so a failure
+  // between the two operations can recover. Partial refunds keep purchased access.
+  if (refund.full_refund) {
+    await revokeLicensesForPaymentSession(session.id, 'refunded', 'Stripe คืนเงินให้ผู้ซื้อ');
+    const { error: orderUpdateError } = await supabaseAdmin
+      .from('marketplace_orders')
+      .update({ status: 'refunded', updated_at: new Date().toISOString() })
+      .eq('payment_session_id', session.id)
+      .in('status', ['paid', 'completed', 'disputed']);
+    if (orderUpdateError) throw orderUpdateError;
+  }
+  if (!refund.already_processed)
+    await createNotifications([
+      {
+        userId: session.buyer_id,
+        schoolId: null,
+        type: 'marketplace_payment_refunded',
+        title: refund.full_refund ? 'รายการได้รับการคืนเงินแล้ว' : 'รายการได้รับการคืนเงินบางส่วน',
+        body: refund.full_refund
+          ? 'License จากคำสั่งซื้อนี้ถูกยกเลิกและเก็บไว้ในประวัติ'
+          : 'คืนเงินบางส่วนแล้ว สิทธิ์จากคำสั่งซื้อยังใช้งานได้',
+        link: '/dashboard/purchases',
+      },
+    ]);
   return session.id;
 }
 
@@ -259,6 +273,7 @@ export async function POST(request: Request) {
   try {
     const rawBody = await request.text();
     event = getStripe().webhooks.constructEvent(rawBody, signature, getStripeWebhookSecret());
+    assertStripeEventMode(event);
   } catch (error) {
     return NextResponse.json(
       { message: error instanceof Error ? error.message : 'Invalid Stripe signature' },
