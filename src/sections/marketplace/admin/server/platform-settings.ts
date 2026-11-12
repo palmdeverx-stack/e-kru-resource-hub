@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { cache } from 'react';
+import { unstable_cache } from 'next/cache';
 
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 
@@ -22,8 +23,10 @@ function publicStorageReference(url: string | null) {
   return { bucket, path, mimeType };
 }
 
-export const getPublicPlatformSettings = cache(async () => {
-  try {
+export const PUBLIC_PLATFORM_SETTINGS_TAG = 'public-platform-settings';
+
+const loadPublicPlatformSettings = unstable_cache(
+  async () => {
     const { data, error } = await supabaseAdmin
       .from('marketplace_provider_settings')
       .select(
@@ -31,8 +34,18 @@ export const getPublicPlatformSettings = cache(async () => {
       )
       .eq('id', 'default')
       .maybeSingle();
-    if (error) return null;
+    if (error) throw error;
     return data;
+  },
+  ['public-platform-settings-v1'],
+  { revalidate: 60, tags: [PUBLIC_PLATFORM_SETTINGS_TAG] }
+);
+
+// Share public branding across requests; failed reads fall back without caching
+// a transient error. Account state and permissions are never stored here.
+export const getPublicPlatformSettings = cache(async () => {
+  try {
+    return await loadPublicPlatformSettings();
   } catch {
     return null;
   }
@@ -41,8 +54,7 @@ export const getPublicPlatformSettings = cache(async () => {
 export async function getPlatformBrandAssets() {
   const settings = await getPublicPlatformSettings();
   return {
-    platformName:
-      settings?.platform_name_th || settings?.platform_name_en || 'E-KRU Marketplace',
+    platformName: settings?.platform_name_th || settings?.platform_name_en || 'E-KRU Marketplace',
     logo: publicStorageReference(settings?.logo_url || settings?.transparent_logo_url || null),
   };
 }

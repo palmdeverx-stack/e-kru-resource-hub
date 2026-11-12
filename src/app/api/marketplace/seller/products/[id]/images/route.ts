@@ -10,8 +10,8 @@ import { ownedProduct, ownedSellerId } from 'src/sections/marketplace/seller/ser
 
 const BUCKET = 'marketplace-product-covers';
 const ACCEPTED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
-const MAX_SIZE = 5 * 1024 * 1024;
-const MAX_IMAGES = 10;
+const MAX_SIZE = 4 * 1024 * 1024;
+const MAX_IMAGES = 9;
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -29,6 +29,8 @@ export async function POST(request: Request, { params }: Context) {
   if (!product) return NextResponse.json({ message: 'ไม่พบสินค้า' }, { status: 404 });
 
   const formData = await request.formData();
+  const isPreview = formData.get('isPreview') === 'true';
+  const maxSize = isPreview ? 3 * 1024 * 1024 : MAX_SIZE;
   const files = formData
     .getAll('files')
     .filter((file): file is File => file instanceof File && file.size > 0);
@@ -36,21 +38,31 @@ export async function POST(request: Request, { params }: Context) {
     return NextResponse.json({ message: 'กรุณาเลือกไฟล์รูปภาพ' }, { status: 400 });
   }
 
-  const invalid = files.find((file) => !ACCEPTED_TYPES.has(file.type) || file.size > MAX_SIZE);
-  if (invalid) {
+  if (files.length > 1) {
     return NextResponse.json(
-      { message: `ไฟล์ "${invalid.name}" ต้องเป็น JPG, PNG หรือ WebP ขนาดไม่เกิน 5MB` },
+      { message: 'กรุณาอัปโหลดทีละไฟล์ เพื่อให้ขนาด request ไม่เกิน 4.5 MB' },
       { status: 400 }
     );
   }
 
-  const { count: existingCount } = await supabaseAdmin
+  const invalid = files.find((file) => !ACCEPTED_TYPES.has(file.type) || file.size > maxSize);
+  if (invalid) {
+    return NextResponse.json(
+      {
+        message: `ไฟล์ "${invalid.name}" ต้องเป็น JPG, PNG หรือ WebP ขนาดไม่เกิน ${isPreview ? 3 : 4} MB`,
+      },
+      { status: 400 }
+    );
+  }
+
+  const { count: existingCount, error: countError } = await supabaseAdmin
     .from('marketplace_product_images')
     .select('*', { count: 'exact', head: true })
     .eq('product_id', productId);
+  if (countError) return NextResponse.json({ message: countError.message }, { status: 500 });
   if ((existingCount ?? 0) + files.length > MAX_IMAGES) {
     return NextResponse.json(
-      { message: `อัปโหลดรูปปกได้สูงสุด ${MAX_IMAGES} รูปต่อสินค้า` },
+      { message: `อัปโหลดได้รวม ${MAX_IMAGES} รูปต่อสินค้า (ภาพปก 1 รูป และภาพพรีวิว 8 รูป)` },
       { status: 400 }
     );
   }

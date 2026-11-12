@@ -10,16 +10,47 @@ export async function GET(request: Request) {
   const caller = requireAuthenticated(request);
   if (!caller) return NextResponse.json({ message: 'กรุณาเข้าสู่ระบบ' }, { status: 401 });
 
-  let query = supabaseAdmin
-    .from('marketplace_feedback')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(200);
+  const params = new URL(request.url).searchParams;
+  const page = Math.max(1, Number.parseInt(params.get('page') ?? '1', 10) || 1);
+  const pageSize = 20;
+  const status = params.get('status') ?? '';
+  const category = params.get('category') ?? '';
+  const scope = () => {
+    const query = supabaseAdmin.from('marketplace_feedback');
+    return query;
+  };
+  let query = scope().select(
+    'id, reporter_id, reporter_username, reporter_role, category, title, system_area, current_behavior, requested_change, blocker_detail, page_url, status, admin_note, created_at, updated_at',
+    { count: 'exact' }
+  );
   if (caller.role !== 'master_admin') query = query.eq('reporter_id', caller.sub);
-
-  const { data, error } = await query;
+  if (['new', 'reviewing', 'planned', 'resolved', 'closed'].includes(status))
+    query = query.eq('status', status);
+  if (CATEGORIES.has(category)) query = query.eq('category', category);
+  const [result, allResult, pendingResult] = await Promise.all([
+    query
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .range((page - 1) * pageSize, page * pageSize - 1),
+    caller.role === 'master_admin'
+      ? scope().select('id', { count: 'exact', head: true })
+      : Promise.resolve(null),
+    caller.role === 'master_admin'
+      ? scope().select('id', { count: 'exact', head: true }).in('status', ['new', 'reviewing'])
+      : Promise.resolve(null),
+  ]);
+  const error = result.error ?? allResult?.error ?? pendingResult?.error;
   if (error) return NextResponse.json({ message: error.message }, { status: 500 });
-  return NextResponse.json({ feedback: data ?? [] });
+  return NextResponse.json({
+    feedback: result.data ?? [],
+    pagination: {
+      page,
+      pageSize,
+      total: result.count ?? 0,
+      totalPages: Math.ceil((result.count ?? 0) / pageSize),
+    },
+    counts: { all: allResult?.count ?? result.count ?? 0, pending: pendingResult?.count ?? 0 },
+  });
 }
 
 export async function POST(request: Request) {

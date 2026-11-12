@@ -13,6 +13,7 @@ import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
 
 import { useTranslate } from 'src/locales';
+import { apiFetch as fetch } from 'src/lib/api-fetch';
 
 import {
   RiLineFill,
@@ -140,10 +141,7 @@ export function MarketplaceContactView() {
           sx={{ mt: 2.5, p: { xs: 2.5, md: 3 }, borderRadius: 3, borderColor: '#DCE5F1' }}
         >
           <Stack direction="row" spacing={1.5} alignItems="center">
-            <Avatar
-              variant="rounded"
-              sx={{ color: 'primary.main', bgcolor: 'primary.lighter' }}
-            >
+            <Avatar variant="rounded" sx={{ color: 'primary.main', bgcolor: 'primary.lighter' }}>
               <RiTimeLine size={22} />
             </Avatar>
             <Box>
@@ -213,10 +211,7 @@ function ContactCard({
   const external = href.startsWith('http');
 
   return (
-    <Card
-      variant="outlined"
-      sx={{ height: 1, p: 3, borderRadius: 3, borderColor: '#DCE5F1' }}
-    >
+    <Card variant="outlined" sx={{ height: 1, p: 3, borderRadius: 3, borderColor: '#DCE5F1' }}>
       <Avatar variant="rounded" sx={{ color: iconColor, bgcolor: `${iconColor}14` }}>
         {icon}
       </Avatar>

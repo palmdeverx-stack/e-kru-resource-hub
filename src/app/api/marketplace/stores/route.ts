@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 
 import { getPublicSellerBadges } from 'src/sections/marketplace/seller/server/seller-badges';
-import { getSellerProfileCompletionById } from 'src/sections/marketplace/seller/server/seller-completion';
+import { getSellerProfileCompletionsByIds } from 'src/sections/marketplace/seller/server/seller-completion';
 
 type ProductRatingRow = {
   seller_id: string;
@@ -46,23 +46,28 @@ export async function GET(request: Request) {
   }
 
   const sellerIds = (sellers ?? []).map((seller) => seller.id);
-  const { data: productRows, error: productError } = sellerIds.length
-    ? await supabaseAdmin
-        .from('marketplace_products')
-        .select('seller_id, reviews:marketplace_product_reviews(rating)')
-        .in('seller_id', sellerIds)
-        .eq('status', 'published')
-    : { data: [], error: null };
-
-  if (productError) {
-    return NextResponse.json({ message: productError.message }, { status: 500 });
-  }
-  const [{ data: viewCountRows }, badgesBySeller] = await Promise.all([
+  const [
+    { data: productRows, error: productError },
+    { data: viewCountRows },
+    badgesBySeller,
+    completions,
+  ] = await Promise.all([
+    sellerIds.length
+      ? supabaseAdmin
+          .from('marketplace_products')
+          .select('seller_id, reviews:marketplace_product_reviews(rating)')
+          .in('seller_id', sellerIds)
+          .eq('status', 'published')
+      : Promise.resolve({ data: [], error: null }),
     sellerIds.length
       ? supabaseAdmin.rpc('marketplace_public_store_view_counts', { seller_ids: sellerIds })
       : Promise.resolve({ data: [] }),
     getPublicSellerBadges(sellerIds),
+    getSellerProfileCompletionsByIds(sellerIds),
   ]);
+  if (productError) {
+    return NextResponse.json({ message: productError.message }, { status: 500 });
+  }
   const viewCounts = new Map(
     ((viewCountRows ?? []) as StoreViewCountRow[]).map((row) => [
       row.seller_id,
@@ -90,26 +95,24 @@ export async function GET(request: Request) {
     sellerStats.set(product.seller_id, stats);
   });
 
-  const stores = await Promise.all(
-    (sellers ?? []).map(async (seller) => {
-      const stats = sellerStats.get(seller.id) ?? {
-        productCount: 0,
-        reviewCount: 0,
-        ratingTotal: 0,
-      };
-      const { owner_role: ownerRole, ...publicSeller } = seller;
-      return {
-        ...publicSeller,
-        profile_completion: await getSellerProfileCompletionById(seller.id),
-        is_system_store: ownerRole === 'master_admin',
-        product_count: stats.productCount,
-        view_count: viewCounts.get(seller.id) ?? 0,
-        review_count: stats.reviewCount,
-        average_rating: stats.reviewCount ? stats.ratingTotal / stats.reviewCount : 0,
-        badges: badgesBySeller.get(seller.id) ?? [],
-      };
-    })
-  );
+  const stores = (sellers ?? []).map((seller) => {
+    const stats = sellerStats.get(seller.id) ?? {
+      productCount: 0,
+      reviewCount: 0,
+      ratingTotal: 0,
+    };
+    const { owner_role: ownerRole, ...publicSeller } = seller;
+    return {
+      ...publicSeller,
+      profile_completion: completions.get(seller.id) ?? 0,
+      is_system_store: ownerRole === 'master_admin',
+      product_count: stats.productCount,
+      view_count: viewCounts.get(seller.id) ?? 0,
+      review_count: stats.reviewCount,
+      average_rating: stats.reviewCount ? stats.ratingTotal / stats.reviewCount : 0,
+      badges: badgesBySeller.get(seller.id) ?? [],
+    };
+  });
 
   const total = count ?? 0;
   return NextResponse.json({

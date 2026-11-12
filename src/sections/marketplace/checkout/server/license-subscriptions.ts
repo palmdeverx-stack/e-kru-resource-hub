@@ -117,12 +117,13 @@ export async function createRenewalPayment({
     paymentSession = data;
   }
 
-  let { data: order, error: findOrderError } = await supabaseAdmin
+  const { data: existingOrder, error: findOrderError } = await supabaseAdmin
     .from('marketplace_orders')
     .select('*')
     .eq('payment_session_id', paymentSession.id)
     .maybeSingle();
   if (findOrderError) throw findOrderError;
+  let order = existingOrder;
   if (!order) {
     const { data, error: orderError } = await supabaseAdmin
       .from('marketplace_orders')

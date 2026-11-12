@@ -21,6 +21,7 @@ import Typography from '@mui/material/Typography';
 import TableContainer from '@mui/material/TableContainer';
 import CircularProgress from '@mui/material/CircularProgress';
 
+import { apiFetch as fetch } from 'src/lib/api-fetch';
 import { SCHOOL_FEATURES } from 'src/lib/school-subscription-config';
 
 import { RiKey2Line, RiSearchLine, RiShieldCheckLine } from 'src/components/remix-icon';
@@ -461,14 +462,12 @@ export function MarketplaceLicenseAuditView() {
                   {visible.map((license) => {
                     const paid = paymentState(license);
                     const payout = payoutState(license.payout.status);
-                    const expiresAtTime = license.expiresAt
-                      ? Date.parse(license.expiresAt)
-                      : null;
+                    const expiresAtTime = license.expiresAt ? Date.parse(license.expiresAt) : null;
                     const expired = Boolean(
                       currentTime !== null &&
-                        expiresAtTime !== null &&
-                        Number.isFinite(expiresAtTime) &&
-                        expiresAtTime <= currentTime
+                      expiresAtTime !== null &&
+                      Number.isFinite(expiresAtTime) &&
+                      expiresAtTime <= currentTime
                     );
                     return (
                       <TableRow key={license.id} hover>

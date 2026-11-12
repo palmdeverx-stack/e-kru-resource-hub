@@ -49,7 +49,9 @@ export async function GET(request: Request) {
   if (sellerError) return NextResponse.json({ message: sellerError.message }, { status: 500 });
   if (!seller) return NextResponse.json({ message: 'ไม่พบร้านค้าของคุณ' }, { status: 404 });
 
-  const requestedDays = Number(new URL(request.url).searchParams.get('days'));
+  const params = new URL(request.url).searchParams;
+  const summaryOnly = params.get('summary') === '1';
+  const requestedDays = Number(params.get('days'));
   const days = ALLOWED_RANGES.has(requestedDays) ? requestedDays : 30;
   const today = bangkokStartOfToday();
   const since = new Date(today);
@@ -70,7 +72,7 @@ export async function GET(request: Request) {
       )
       .eq('product.seller_id', seller.id)
       .order('updated_at', { ascending: false })
-      .limit(5),
+      .limit(summaryOnly ? 3 : 5),
   ]);
   const { data, error } = analyticsResult;
   if (error && !['42883', 'PGRST202'].includes(error.code)) {
@@ -78,6 +80,15 @@ export async function GET(request: Request) {
   }
   if (reviewsResult.error) {
     return NextResponse.json({ message: reviewsResult.error.message }, { status: 500 });
+  }
+
+  if (summaryOnly) {
+    const analytics = data ?? emptyAnalytics();
+    return NextResponse.json({
+      analytics: { summary: analytics.summary, products: analytics.products.slice(0, 3) },
+      recentReviews: reviewsResult.data ?? [],
+      setupRequired: Boolean(error),
+    });
   }
 
   return NextResponse.json({

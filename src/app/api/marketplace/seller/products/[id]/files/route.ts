@@ -10,11 +10,12 @@ import { optimizeUploadedImage } from 'src/lib/server-image-optimizer';
 import { scanBufferForMalware, MalwareScannerUnavailableError } from 'src/lib/malware-scanner';
 
 import { refreshedFiles } from 'src/sections/marketplace/seller/server/product-media';
+import { removeProductFiles } from 'src/sections/marketplace/seller/server/product-file-storage';
 import { ownedProduct, ownedSellerId } from 'src/sections/marketplace/seller/server/owned-seller';
 
 const BUCKET = 'marketplace-product-files';
-const MAX_SIZE = 50 * 1024 * 1024;
-const MAX_FILES = 20;
+const MAX_SIZE = 4 * 1024 * 1024;
+const MAX_FILES = 5;
 
 class MalwareDetectedError extends Error {}
 
@@ -60,6 +61,9 @@ export async function POST(request: Request, { params }: Context) {
   if (!product) return NextResponse.json({ message: 'ไม่พบสินค้า' }, { status: 404 });
 
   const formData = await request.formData();
+  const isPreview = formData.get('isPreview') === 'true';
+  const maxSize = MAX_SIZE;
+  const maxFiles = isPreview ? 1 : MAX_FILES;
   const files = formData
     .getAll('files')
     .filter((file): file is File => file instanceof File && file.size > 0);
@@ -67,21 +71,32 @@ export async function POST(request: Request, { params }: Context) {
     return NextResponse.json({ message: 'กรุณาเลือกไฟล์' }, { status: 400 });
   }
 
-  const invalid = files.find((file) => !EXTENSION_BY_TYPE[file.type] || file.size > MAX_SIZE);
-  if (invalid) {
+  if (files.length > 1) {
     return NextResponse.json(
-      { message: `ไฟล์ "${invalid.name}" ไม่รองรับหรือมีขนาดเกิน 50MB` },
+      { message: 'กรุณาอัปโหลดทีละไฟล์ เพื่อให้ขนาด request ไม่เกิน 4.5 MB' },
       { status: 400 }
     );
   }
 
-  const { count: existingCount } = await supabaseAdmin
+  const invalid = files.find((file) => !EXTENSION_BY_TYPE[file.type] || file.size > maxSize);
+  if (invalid) {
+    return NextResponse.json(
+      { message: `ไฟล์ "${invalid.name}" ไม่รองรับหรือมีขนาดเกิน 4 MB (ไฟล์ใหญ่ให้ใช้อัปโหลดตรง)` },
+      { status: 400 }
+    );
+  }
+
+  const { count: existingCount, error: countError } = await supabaseAdmin
     .from('marketplace_product_files')
     .select('*', { count: 'exact', head: true })
-    .eq('product_id', productId);
-  if ((existingCount ?? 0) + files.length > MAX_FILES) {
+    .eq('product_id', productId)
+    .eq('is_preview', isPreview);
+  if (countError) return NextResponse.json({ message: countError.message }, { status: 500 });
+  if ((existingCount ?? 0) + files.length > maxFiles) {
     return NextResponse.json(
-      { message: `อัปโหลดไฟล์ได้สูงสุด ${MAX_FILES} ไฟล์ต่อสินค้า` },
+      {
+        message: `อัปโหลดไฟล์${isPreview ? 'ตัวอย่าง' : 'จริง'}ได้สูงสุด ${maxFiles} ไฟล์ต่อสินค้า`,
+      },
       { status: 400 }
     );
   }
@@ -121,9 +136,7 @@ export async function POST(request: Request, { params }: Context) {
       const path = `${productId}/file-${crypto.randomUUID()}.${extension}`;
       const { error: uploadError } = await supabaseAdmin.storage
         .from(BUCKET)
-        .upload(path, fileBuffer, {
-          contentType: image?.contentType ?? file.type,
-        });
+        .upload(path, fileBuffer, { contentType: image?.contentType ?? file.type });
       if (uploadError) throw new Error(uploadError.message);
       uploadedPaths.push(path);
       rows.push({
@@ -134,7 +147,7 @@ export async function POST(request: Request, { params }: Context) {
         mime_type: image?.contentType ?? file.type,
         file_size: image?.size ?? file.size,
         position: nextPosition++,
-        is_preview: false,
+        is_preview: isPreview,
         scan_status: scan?.status ?? 'pending_scan',
         scan_engine: scan?.engine ?? null,
         scan_result: scan?.detail.slice(0, 1000) ?? pendingScanReason?.slice(0, 1000) ?? null,
@@ -146,7 +159,7 @@ export async function POST(request: Request, { params }: Context) {
       .insert(rows);
     if (insertError) throw new Error(insertError.message);
   } catch (uploadError) {
-    if (uploadedPaths.length) await supabaseAdmin.storage.from(BUCKET).remove(uploadedPaths);
+    if (uploadedPaths.length) await removeProductFiles(BUCKET, uploadedPaths);
     if (uploadError instanceof MalwareDetectedError) {
       return NextResponse.json({ message: uploadError.message }, { status: 422 });
     }

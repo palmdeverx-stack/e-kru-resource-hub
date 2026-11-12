@@ -82,36 +82,28 @@ export async function PATCH(request: Request, { params }: Context) {
   const proposedPayout = pendingProfile?.payout_account as Record<string, unknown> | undefined;
 
   if (action === 'approve') {
-    const [{ data: documents }, { data: payoutAccount }] = await Promise.all([
-      supabaseAdmin
-        .from('marketplace_seller_documents')
-        .select('document_type')
-        .eq('seller_id', id),
-      supabaseAdmin
-        .from('marketplace_seller_payout_accounts')
-        .select('seller_id')
-        .eq('seller_id', id)
-        .maybeSingle(),
-    ]);
-    const types = new Set((documents ?? []).map((document) => document.document_type));
+    const { data: payoutAccount } = await supabaseAdmin
+      .from('marketplace_seller_payout_accounts')
+      .select('seller_id')
+      .eq('seller_id', id)
+      .maybeSingle();
     if (
       (existingSeller.status !== 'pending' && !isProfileRevision) ||
-      !sellerForReview.logo_url ||
       !sellerForReview.seller_name ||
       !sellerForReview.phone ||
       !sellerForReview.contact_email ||
-      !(isProfileRevision ? proposedPayout : payoutAccount) ||
-      !types.has('identity_card') ||
-      !types.has('bank_book') ||
+      !(isProfileRevision
+        ? proposedPayout?.bank_code &&
+          proposedPayout.bank_name &&
+          proposedPayout.account_name &&
+          (proposedPayout.account_number_encrypted || proposedPayout.account_number)
+        : payoutAccount) ||
       !sellerForReview.seller_agreement_accepted_at ||
       !sellerForReview.copyright_confirmed_at ||
       !sellerForReview.fee_agreement_accepted_at ||
       !sellerForReview.pdpa_accepted_at
     ) {
-      return NextResponse.json(
-        { message: 'ข้อมูล บัญชี เอกสาร หรือข้อตกลงของผู้ขายยังไม่ครบ' },
-        { status: 400 }
-      );
+      return NextResponse.json({ message: 'ข้อมูลผู้ขายหรือข้อตกลงยังไม่ครบ' }, { status: 400 });
     }
   }
 
@@ -164,7 +156,13 @@ export async function PATCH(request: Request, { params }: Context) {
   }
 
   if (action === 'approve') {
-    if (isProfileRevision && proposedPayout) {
+    if (
+      isProfileRevision &&
+      proposedPayout?.bank_code &&
+      proposedPayout.bank_name &&
+      proposedPayout.account_name &&
+      (proposedPayout.account_number_encrypted || proposedPayout.account_number)
+    ) {
       const { error: payoutError } = await supabaseAdmin
         .from('marketplace_seller_payout_accounts')
         .upsert(
@@ -181,7 +179,7 @@ export async function PATCH(request: Request, { params }: Context) {
       if (payoutError) {
         return NextResponse.json({ message: payoutError.message }, { status: 500 });
       }
-    } else {
+    } else if (!isProfileRevision) {
       await supabaseAdmin
         .from('marketplace_seller_payout_accounts')
         .update({ is_verified: true, verified_at: now, verified_by: reviewer.sub, updated_at: now })

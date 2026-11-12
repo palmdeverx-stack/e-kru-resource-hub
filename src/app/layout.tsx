@@ -66,19 +66,19 @@ export async function generateMetadata(): Promise<Metadata> {
     creator: brandName,
     publisher: brandName,
     category: 'education',
-    manifest: '/favicon/site.webmanifest',
+    manifest: '/favicon/site.webmanifest?v=4',
     icons: {
       icon: [
         {
-          url: '/favicon/android-chrome-192x192.png?v=3',
+          url: '/favicon/android-chrome-192x192.png?v=4',
           sizes: '192x192',
           type: 'image/png',
         },
-        { url: '/favicon/favicon-32x32.png?v=3', sizes: '32x32', type: 'image/png' },
-        { url: '/favicon/favicon-16x16.png?v=3', sizes: '16x16', type: 'image/png' },
+        { url: '/favicon/favicon-32x32.png?v=4', sizes: '32x32', type: 'image/png' },
+        { url: '/favicon/favicon-16x16.png?v=4', sizes: '16x16', type: 'image/png' },
       ],
-      shortcut: [{ url: '/favicon.ico?v=3', type: 'image/x-icon' }],
-      apple: [{ url: '/favicon/apple-touch-icon.png?v=3', sizes: '180x180', type: 'image/png' }],
+      shortcut: [{ url: '/favicon.ico?v=4', type: 'image/x-icon' }],
+      apple: [{ url: '/favicon/apple-touch-icon.png?v=4', sizes: '180x180', type: 'image/png' }],
     },
     openGraph: {
       type: 'website',

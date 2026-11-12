@@ -37,7 +37,7 @@ export async function GET(request: Request, { params }: Context) {
     (previewFiles ?? []).map(async (file) => {
       const { data } = await supabaseAdmin.storage
         .from(file.storage_bucket)
-        .createSignedUrl(file.storage_path, 10 * 60);
+        .createSignedUrl(file.storage_path, 10 * 60, { download: file.file_name });
       return {
         id: file.id,
         file_name: file.file_name,

@@ -3,6 +3,7 @@
 import type { MarketplaceProduct } from '../../shared/types';
 
 import { useState } from 'react';
+import dynamic from 'next/dynamic';
 
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
@@ -21,7 +22,7 @@ import {
   RiFileLine,
   RiDeleteBinLine,
   RiArrowLeftLine,
-  RiShoppingBag3Line,
+  RiShoppingCart2Line,
   RiGraduationCapLine,
 } from 'src/components/remix-icon';
 
@@ -29,7 +30,12 @@ import { useMarketplaceCart } from '../cart-context';
 import { getMarketplacePricing } from '../../shared/pricing';
 import { MarketplaceSellerLink } from '../../shared/seller-link';
 import { formatPrice, getLocalizedProduct } from '../../shared/api';
-import { MarketplaceProductDetailDialog } from '../../catalog/components/product-detail-dialog';
+
+const MarketplaceProductDetailDialog = dynamic(() =>
+  import('../../catalog/components/product-detail-dialog').then(
+    (module) => module.MarketplaceProductDetailDialog
+  )
+);
 
 type MarketplaceCartContentProps = {
   productsHref: string;
@@ -63,7 +69,7 @@ export function MarketplaceCartContent({
               bgcolor: 'primary.lighter',
             }}
           >
-            <RiShoppingBag3Line size={42} />
+            <RiShoppingCart2Line size={42} />
           </Box>
           <Typography variant="h3" sx={{ mt: 3 }}>
             {t('cart.empty.title')}
@@ -171,7 +177,7 @@ export function MarketplaceCartContent({
                         }}
                       />
                     ) : (
-                      <RiShoppingBag3Line size={42} color="#1565F5" />
+                      <RiShoppingCart2Line size={42} color="#1565F5" />
                     )}
                   </Box>
 
@@ -344,10 +350,12 @@ export function MarketplaceCartContent({
         </Card>
       </Stack>
 
-      <MarketplaceProductDetailDialog
-        product={selectedProduct}
-        onClose={() => setSelectedProduct(null)}
-      />
+      {selectedProduct && (
+        <MarketplaceProductDetailDialog
+          product={selectedProduct}
+          onClose={() => setSelectedProduct(null)}
+        />
+      )}
     </>
   );
 }

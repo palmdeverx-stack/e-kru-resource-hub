@@ -24,6 +24,7 @@ export async function sendEmail(params: {
   to: string;
   subject: string;
   html: string;
+  replyTo?: string;
 }): Promise<void> {
   const resend = getResendClient();
   const from = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
@@ -33,6 +34,7 @@ export async function sendEmail(params: {
     to: params.to,
     subject: params.subject,
     html: params.html,
+    ...(params.replyTo && { replyTo: params.replyTo }),
   });
 
   if (error) {

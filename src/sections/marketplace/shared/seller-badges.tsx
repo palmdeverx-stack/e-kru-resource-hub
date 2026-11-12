@@ -17,6 +17,7 @@ import DialogContent from '@mui/material/DialogContent';
 import CircularProgress from '@mui/material/CircularProgress';
 
 import { useTranslate } from 'src/locales';
+import { apiFetch as fetch } from 'src/lib/api-fetch';
 
 import { MarketplaceBrand } from 'src/components/marketplace-brand';
 import {

@@ -24,7 +24,8 @@ const VERIFICATION_TYPES = new Set([
   'vat_certificate',
 ]);
 const VERIFICATION_SOURCE_MAX_BYTES = 5 * 1024 * 1024;
-const VERIFICATION_STORED_MAX_BYTES = 1 * 1024 * 1024;
+const VERIFICATION_STORED_MAX_BYTES = 2 * 1024 * 1024;
+const PDF_STORED_MAX_BYTES = 10 * 1024 * 1024;
 
 function hasValidSignatureHeader(bytes: Uint8Array, mimeType: string) {
   if (mimeType === 'image/png') {
@@ -90,6 +91,7 @@ export async function POST(request: Request) {
   if (csrfError) return csrfError;
   const caller = requireAuthenticated(request);
   if (!caller) return NextResponse.json({ message: 'กรุณาเข้าสู่ระบบ' }, { status: 401 });
+  const previewOnly = new URL(request.url).searchParams.get('preview') === '1';
   const formData = await request.formData();
   const documentType = String(formData.get('documentType') ?? '');
   const file = formData.get('file');
@@ -99,16 +101,19 @@ export async function POST(request: Request) {
   const isAsset = ['store_logo', 'store_cover'].includes(documentType);
   const isReceiptSignature = documentType === 'receipt_signature';
   const isVerificationDocument = VERIFICATION_TYPES.has(documentType);
+  const isPdf =
+    file.type === 'application/pdf' ||
+    (['', 'application/octet-stream', 'application/x-pdf'].includes(file.type) &&
+      /\.pdf$/i.test(file.name));
+  const contentType = isPdf ? 'application/pdf' : file.type;
   const accepted = isReceiptSignature
     ? ['image/jpeg', 'image/png']
     : isAsset
       ? ['image/jpeg', 'image/png', 'image/webp']
       : ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
   const maxSizeMb = isVerificationDocument ? 5 : isReceiptSignature || isAsset ? 2 : 5;
-  const maxSize = isVerificationDocument
-    ? VERIFICATION_SOURCE_MAX_BYTES
-    : maxSizeMb * 1024 * 1024;
-  if (!accepted.includes(file.type) || file.size > maxSize) {
+  const maxSize = isVerificationDocument ? VERIFICATION_SOURCE_MAX_BYTES : maxSizeMb * 1024 * 1024;
+  if (!accepted.includes(contentType) || file.size > maxSize) {
     return NextResponse.json(
       {
         message: `ไฟล์ไม่ถูกต้องหรือมีขนาดเกิน ${maxSizeMb} MB`,
@@ -117,6 +122,12 @@ export async function POST(request: Request) {
     );
   }
   const fileBytes = new Uint8Array(await file.arrayBuffer());
+  if (isPdf && new TextDecoder().decode(fileBytes.subarray(0, 5)) !== '%PDF-') {
+    return NextResponse.json(
+      { message: 'ไฟล์ PDF ไม่ถูกต้อง กรุณาเลือกไฟล์ PDF ใหม่' },
+      { status: 400 }
+    );
+  }
   if (isReceiptSignature && !hasValidSignatureHeader(fileBytes, file.type)) {
     return NextResponse.json(
       { message: 'ไฟล์ลายเซ็นไม่ใช่รูป PNG หรือ JPG ที่ถูกต้อง' },
@@ -128,10 +139,10 @@ export async function POST(request: Request) {
     .select('id, owner_id, status, pending_profile_data')
     .eq('owner_id', caller.sub)
     .maybeSingle();
-  if (!seller) {
+  if (!seller && !previewOnly) {
     return NextResponse.json({ message: 'กรุณาบันทึกข้อมูลร้านก่อนอัปโหลดไฟล์' }, { status: 409 });
   }
-  if (seller.status === 'suspended') {
+  if (seller?.status === 'suspended') {
     return NextResponse.json({ message: 'ร้านถูกระงับการใช้งาน' }, { status: 403 });
   }
 
@@ -139,11 +150,11 @@ export async function POST(request: Request) {
   const shouldWatermark = !isAsset && !isReceiptSignature;
 
   let uploadData: Uint8Array | Buffer = fileBytes;
-  let storedContentType = file.type;
+  let storedContentType = contentType;
   let storedSize = file.size;
-  let extension = file.type === 'application/pdf' ? 'pdf' : 'jpg';
+  let extension = isPdf ? 'pdf' : 'jpg';
   try {
-    if (file.type === 'application/pdf') {
+    if (isPdf) {
       if (shouldWatermark) {
         uploadData = await watermarkPdfDocument(fileBytes, SELLER_DOCUMENT_WATERMARK_LINES);
       }
@@ -159,11 +170,15 @@ export async function POST(request: Request) {
       extension = optimizedImage.extension;
     }
     storedSize = uploadData.byteLength;
-    if (isVerificationDocument && storedSize > VERIFICATION_STORED_MAX_BYTES) {
+    if (
+      isVerificationDocument &&
+      storedSize > (isPdf ? PDF_STORED_MAX_BYTES : VERIFICATION_STORED_MAX_BYTES)
+    ) {
       return NextResponse.json(
         {
-          message:
-            'ไฟล์ PDF หลังประมวลผลต้องมีขนาดไม่เกิน 1 MB กรุณาบีบอัด PDF แล้วอัปโหลดใหม่ หรืออัปโหลดเป็นรูปภาพเพื่อให้ระบบย่อให้อัตโนมัติ',
+          message: isPdf
+            ? 'ไฟล์ PDF หลังใส่ลายน้ำมีขนาดเกิน 10 MB กรุณาบีบอัด PDF แล้วอัปโหลดใหม่'
+            : 'ไฟล์รูปภาพหลังประมวลผลมีขนาดเกิน 2 MB กรุณาลดขนาดรูปภาพแล้วอัปโหลดใหม่',
         },
         { status: 400 }
       );
@@ -174,6 +189,17 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
+  if (previewOnly) {
+    return new Response(new Uint8Array(uploadData), {
+      headers: {
+        'Content-Type': storedContentType,
+        'Cache-Control': 'private, no-store',
+        'X-Content-Type-Options': 'nosniff',
+      },
+    });
+  }
+  if (!seller)
+    return NextResponse.json({ message: 'กรุณาบันทึกข้อมูลร้านก่อนอัปโหลดไฟล์' }, { status: 409 });
   const path = `${seller.id}/${documentType}-${Date.now()}.${extension}`;
   const { error: uploadError } = await supabaseAdmin.storage
     .from(bucket)

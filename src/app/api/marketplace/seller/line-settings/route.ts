@@ -94,6 +94,18 @@ export async function GET(request: Request) {
   const caller = requireAuthenticated(request);
   if (!caller) return NextResponse.json({ message: 'กรุณาเข้าสู่ระบบ' }, { status: 401 });
   const url = new URL(request.url);
+  if (url.searchParams.get('access') === 'menu') {
+    if (['master_admin', 'marketplace_admin'].includes(caller.role))
+      return NextResponse.json({ allowed: true });
+    const { data, error } = await supabaseAdmin
+      .from('marketplace_line_settings')
+      .select('allow_seller_notifications')
+      .eq('id', 'default')
+      .maybeSingle();
+    if (error)
+      return NextResponse.json({ message: 'โหลดการตั้งค่า LINE ไม่สำเร็จ' }, { status: 500 });
+    return NextResponse.json({ allowed: data?.allow_seller_notifications === true });
+  }
   const deliveryPage = Math.max(
     1,
     Number.parseInt(url.searchParams.get('deliveryPage') ?? '1', 10) || 1

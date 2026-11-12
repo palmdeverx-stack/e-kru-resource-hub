@@ -22,6 +22,7 @@ import {
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const caller = requireAuthenticated(request);
+  const cartView = new URL(request.url).searchParams.get('view') === 'cart';
   const { id } = await params;
   const { data: product, error } = await supabaseAdmin
     .from('marketplace_products')
@@ -69,9 +70,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     publicProduct.seller = {
       ...sellerDetails,
       is_system_store: ownerRole === 'master_admin',
-      profile_completion: await getSellerProfileCompletionById(product.seller.id),
+      ...(!cartView && {
+        profile_completion: await getSellerProfileCompletionById(product.seller.id),
+      }),
     };
   }
+  if (cartView) return NextResponse.json({ product: publicProduct });
+
   const eligibleSchools =
     caller &&
     product.resource_type === 'feature_unlock' &&

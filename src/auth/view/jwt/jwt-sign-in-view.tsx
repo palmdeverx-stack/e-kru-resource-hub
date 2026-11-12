@@ -1,5 +1,6 @@
 'use client';
 
+
 import * as z from 'zod';
 import { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -77,16 +78,21 @@ export function JwtSignInView() {
   const localizedSchema = useMemo(
     () =>
       z.object({
-        username: z.string().min(1, { error: t('auth.validation.usernameRequired') }),
-        password: z
-          .string()
-          .min(1, { error: t('auth.validation.passwordRequired') })
-          .min(6, { error: t('auth.validation.passwordMin6') }),
-        pin: z.string().refine((value) => value === '' || /^\d{8}$/.test(value), {
-          error: t('auth.validation.pinInvalid'),
-        }),
+        // Google sign-in reaches the PIN step without username/password values.
+        username: pinChallenge
+          ? z.string()
+          : z.string().min(1, { error: t('auth.validation.usernameRequired') }),
+        password: pinChallenge
+          ? z.string()
+          : z
+              .string()
+              .min(1, { error: t('auth.validation.passwordRequired') })
+              .min(6, { error: t('auth.validation.passwordMin6') }),
+        pin: pinChallenge
+          ? z.string().regex(/^\d{8}$/, { error: t('auth.validation.pinInvalid') })
+          : z.string(),
       }),
-    [t]
+    [t, pinChallenge]
   );
 
   const methods = useForm({

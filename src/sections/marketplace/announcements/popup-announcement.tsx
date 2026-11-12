@@ -6,6 +6,8 @@ import Box from '@mui/material/Box';
 import Dialog from '@mui/material/Dialog';
 import IconButton from '@mui/material/IconButton';
 
+import { apiFetch as fetch } from 'src/lib/api-fetch';
+
 import { RiCloseLine } from 'src/components/remix-icon';
 
 import { useAuthContext } from 'src/auth/hooks';

@@ -29,6 +29,8 @@ import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 
+import { apiFetch as fetch } from 'src/lib/api-fetch';
+
 import {
   RiCloseLine,
   RiTimerLine,
@@ -845,11 +847,7 @@ export function MarketplaceSellerLineSettingsView() {
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button
-            color="inherit"
-            disabled={unlinking}
-            onClick={() => setUnlinkConfirmOpen(false)}
-          >
+          <Button color="inherit" disabled={unlinking} onClick={() => setUnlinkConfirmOpen(false)}>
             กลับ
           </Button>
           <Button color="error" variant="contained" loading={unlinking} onClick={unlinkLine}>

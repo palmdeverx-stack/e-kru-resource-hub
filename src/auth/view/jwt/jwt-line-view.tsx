@@ -13,6 +13,8 @@ import CircularProgress from '@mui/material/CircularProgress';
 
 import { useSearchParams } from 'src/routes/hooks';
 
+import { apiFetch as fetch } from 'src/lib/api-fetch';
+
 import { useAuthContext } from '../../hooks';
 import { SignUpTerms } from '../../components/sign-up-terms';
 

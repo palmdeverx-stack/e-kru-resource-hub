@@ -108,6 +108,15 @@ function nextWithSlidingSession(caller: ReturnType<typeof verifyAppToken>) {
 export async function proxy(request: NextRequest) {
   const token = request.cookies.get(ACCESS_TOKEN_COOKIE)?.value;
   const caller = token ? verifyAppToken(token) : null;
+  // These handlers validate their own session or clear it with Same-Origin
+  // enforcement, so they must not wait for a duplicate account lookup.
+  if (
+    (request.nextUrl.pathname.replace(/\/$/, '') === '/api/auth/sign-out' &&
+      request.method === 'POST') ||
+    (request.nextUrl.pathname.replace(/\/$/, '') === '/api/auth/me' && request.method === 'GET')
+  ) {
+    return noIndex(NextResponse.next());
+  }
   if (caller && !(await isActiveTokenAccount(caller))) {
     const response = request.nextUrl.pathname.startsWith('/api/')
       ? NextResponse.json({ message: 'Session หมดอายุหรือถูกเพิกถอน' }, { status: 401 })

@@ -1,6 +1,6 @@
 import type { ButtonProps } from '@mui/material/Button';
 
-import { useCallback } from 'react';
+import { useState, useCallback } from 'react';
 
 import Button from '@mui/material/Button';
 
@@ -23,23 +23,37 @@ export function SignOutButton({ onClose, sx, ...other }: Props) {
   const router = useRouter();
   const { t } = useTranslate();
 
-  const { checkUserSession } = useAuthContext();
+  const { setSessionUser } = useAuthContext();
+  const [pending, setPending] = useState(false);
 
   const handleLogout = useCallback(async () => {
+    if (pending) return;
+    setPending(true);
     try {
       await signOut();
-      await checkUserSession?.();
+      setSessionUser?.(null);
 
       onClose?.();
-      router.refresh();
+      router.replace('/');
     } catch (error) {
       console.error(error);
       toast.error(t('errors.signOut'));
+    } finally {
+      setPending(false);
     }
-  }, [checkUserSession, onClose, router, t]);
+  }, [pending, setSessionUser, onClose, router, t]);
 
   return (
-    <Button fullWidth variant="soft" size="large" color="error" onClick={handleLogout} sx={sx} {...other}>
+    <Button
+      fullWidth
+      variant="soft"
+      size="large"
+      color="error"
+      onClick={handleLogout}
+      loading={pending}
+      sx={sx}
+      {...other}
+    >
       {t('actions.signOut')}
     </Button>
   );

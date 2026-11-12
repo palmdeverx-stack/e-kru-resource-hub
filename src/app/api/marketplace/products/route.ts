@@ -8,13 +8,14 @@ import { getMarketplaceShippingConfig } from 'src/sections/marketplace/shipping/
 import { provisionEkruSystemSeller } from 'src/sections/marketplace/seller/server/system-seller';
 import { withPublicSystemStoreFlag } from 'src/sections/marketplace/seller/server/public-seller';
 import {
-  withMediaUrls,
-  PRODUCT_MANAGE_SELECT,
-} from 'src/sections/marketplace/seller/server/product-media';
-import {
   canViewSellerTools,
   SELLER_TOOLS_CATEGORY,
 } from 'src/sections/marketplace/seller/server/seller-tools-access';
+import {
+  withMediaUrls,
+  PRODUCT_MANAGE_SELECT,
+  getOfficialProductCoverFallback,
+} from 'src/sections/marketplace/seller/server/product-media';
 
 type ProductEngagementCount = {
   product_id: string;
@@ -90,6 +91,7 @@ export async function GET(request: Request) {
   const caller = requireAuthenticated(request);
   const url = new URL(request.url);
   const mine = url.searchParams.get('mine') === '1';
+  const cards = url.searchParams.get('cards') === '1';
   const official = url.searchParams.get('official') === '1';
   const bestSeller = url.searchParams.get('bestSeller') === '1';
   const priceFilter = url.searchParams.get('price');
@@ -160,8 +162,12 @@ export async function GET(request: Request) {
       });
     }
   }
-  const sellerToolsVisible = await canViewSellerTools(caller?.sub);
-  const shippingConfig = await getMarketplaceShippingConfig();
+  const [sellerToolsVisible, shippingConfig] = await Promise.all([
+    mine ? Promise.resolve(true) : canViewSellerTools(caller?.sub),
+    mine
+      ? Promise.resolve({ enabled: true, officialEnabled: false })
+      : getMarketplaceShippingConfig(),
+  ]);
   const shippingEnabled = shippingConfig.enabled;
   let shippingOfficialSellerIds: string[] = [];
   if (!shippingEnabled && shippingConfig.officialEnabled) {
@@ -262,14 +268,14 @@ export async function GET(request: Request) {
     }
   }
 
+  const columns = cards
+    ? `${mine ? 'rejection_reason,' : ''}id, seller_id, title, title_en, short_description, short_description_en, category, resource_type, price, list_price, currency, cover_url, created_at, status, seller:marketplace_sellers(id, display_name, display_name_en, slug, logo_url, owner_role), media_type:marketplace_media_types(id, name, delivery_mode), sale_type:marketplace_sale_types(id, name, pricing_mode), ${gradeLevelsSelect}, images:marketplace_product_images(id, is_cover, storage_bucket, storage_path), reviews:marketplace_product_reviews(rating)`
+    : `*, seller:marketplace_sellers(id, display_name, display_name_en, seller_type, slug, logo_url, bio, owner_role), media_type:marketplace_media_types(id, name, delivery_mode), sale_type:marketplace_sale_types(id, name, pricing_mode), ${gradeLevelsSelect}, images:marketplace_product_images(*), reviews:marketplace_product_reviews(rating)`;
   let query = supabaseAdmin
     .from('marketplace_products')
-    .select(
-      `*, seller:marketplace_sellers(id, display_name, display_name_en, seller_type, slug, logo_url, bio, owner_role), media_type:marketplace_media_types(id, name, delivery_mode), sale_type:marketplace_sale_types(id, name, pricing_mode), ${gradeLevelsSelect}, images:marketplace_product_images(*), reviews:marketplace_product_reviews(rating)`,
-      { count: mine ? 'exact' : undefined }
-    )
-    .order('created_at', { ascending: false });
-
+    .select(columns, { count: mine ? 'exact' : undefined })
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false });
   query = mine ? query.eq('seller_id', sellerId) : query.eq('status', 'published');
   if (mine && mineStatus) query = query.eq('status', mineStatus);
   if (!mine && !sellerToolsVisible) query = query.neq('category', SELLER_TOOLS_CATEGORY);
@@ -302,7 +308,20 @@ export async function GET(request: Request) {
 
   const [{ data: products, error, count: exactProductCount }, mineCountResults] = await Promise.all(
     [
-      query,
+      query.returns<
+        Array<{
+          id: string;
+          seller_id: string;
+          images: Array<{
+            id: string;
+            storage_bucket: string;
+            storage_path: string;
+            [key: string]: unknown;
+          }>;
+          cover_url: string | null;
+          [key: string]: unknown;
+        }>
+      >(),
       mine
         ? Promise.all(
             ['draft', 'pending_review', 'published', 'rejected', 'archived'].map((status) =>
@@ -345,84 +364,101 @@ export async function GET(request: Request) {
         )
       : Promise.resolve();
   const engagementCounts = new Map<string, ProductEngagementCount>();
-  if (pageRows.length) {
-    const productIds = pageRows.map((product) => product.id);
-    const [{ data: countRows, error: countError }, { data: favoriteRows, error: favoriteError }] =
-      await Promise.all([
-        supabaseAdmin.rpc('marketplace_product_engagement_counts', {
-          product_ids: productIds,
-        }),
-        supabaseAdmin
-          .from('marketplace_product_collections')
-          .select('product_id')
-          .eq('collection_type', 'favorite')
-          .in('product_id', productIds),
-      ]);
-    if (countError || favoriteError) {
-      return NextResponse.json(
-        {
-          message: countError?.message ?? favoriteError?.message,
-          setupRequired:
-            countError?.code === '42883' ||
-            countError?.code === 'PGRST202' ||
-            favoriteError?.code === '42P01',
-        },
-        { status: 500 }
-      );
+  const loadEngagement = async () => {
+    if (pageRows.length) {
+      const productIds = pageRows.map((product) => product.id);
+      const [{ data: countRows, error: countError }, { data: favoriteRows, error: favoriteError }] =
+        await Promise.all([
+          supabaseAdmin.rpc('marketplace_product_engagement_counts', {
+            product_ids: productIds,
+          }),
+          supabaseAdmin
+            .from('marketplace_product_collections')
+            .select('product_id')
+            .eq('collection_type', 'favorite')
+            .in('product_id', productIds),
+        ]);
+      if (countError || favoriteError) {
+        return NextResponse.json(
+          {
+            message: countError?.message ?? favoriteError?.message,
+            setupRequired:
+              countError?.code === '42883' ||
+              countError?.code === 'PGRST202' ||
+              favoriteError?.code === '42P01',
+          },
+          { status: 500 }
+        );
+      }
+      ((countRows ?? []) as ProductEngagementCount[]).forEach((count) => {
+        engagementCounts.set(count.product_id, count);
+      });
+      (favoriteRows ?? []).forEach(({ product_id: productId }) => {
+        const count = engagementCounts.get(productId);
+        if (count) count.likes = Number(count.likes ?? 0) + 1;
+      });
     }
-    ((countRows ?? []) as ProductEngagementCount[]).forEach((count) => {
-      engagementCounts.set(count.product_id, count);
-    });
-    (favoriteRows ?? []).forEach(({ product_id: productId }) => {
-      const count = engagementCounts.get(productId);
-      if (count) count.likes = Number(count.likes ?? 0) + 1;
-    });
-  }
+    return null;
+  };
+  const engagementPromise = loadEngagement();
   const mineUsage = new Map<
     string,
     { purchases: number; hasOrderReferences: boolean; hasDealReferences: boolean }
   >();
-  if (mine && pageRows.length) {
-    const productIds = pageRows.map((product) => product.id);
-    const [{ data: orderItems, error: orderItemsError }, { data: deals, error: dealsError }] =
-      await Promise.all([
-        supabaseAdmin
-          .from('marketplace_order_items')
-          .select('product_id, quantity, order:marketplace_orders!inner(status)')
-          .in('product_id', productIds),
-        supabaseAdmin
-          .from('marketplace_sales_deals')
-          .select('product_id')
-          .in('product_id', productIds),
-      ]);
-    if (orderItemsError || dealsError) {
-      return NextResponse.json(
-        { message: orderItemsError?.message ?? dealsError?.message ?? 'โหลดสถานะสินค้าไม่สำเร็จ' },
-        { status: 500 }
-      );
-    }
-    productIds.forEach((productId) => {
-      mineUsage.set(productId, {
-        purchases: 0,
-        hasOrderReferences: false,
-        hasDealReferences: false,
-      });
-    });
-    (orderItems ?? []).forEach((item) => {
-      const usage = mineUsage.get(item.product_id);
-      if (!usage) return;
-      usage.hasOrderReferences = true;
-      const order = Array.isArray(item.order) ? item.order[0] : item.order;
-      if (order && ['paid', 'completed', 'refunded'].includes(String(order.status))) {
-        usage.purchases += Number(item.quantity || 0);
+  const loadMineUsage = async () => {
+    if (mine && pageRows.length) {
+      const productIds = pageRows.map((product) => product.id);
+      const [{ data: orderItems, error: orderItemsError }, { data: deals, error: dealsError }] =
+        await Promise.all([
+          supabaseAdmin
+            .from('marketplace_order_items')
+            .select('product_id, quantity, order:marketplace_orders!inner(status)')
+            .in('product_id', productIds),
+          supabaseAdmin
+            .from('marketplace_sales_deals')
+            .select('product_id')
+            .in('product_id', productIds),
+        ]);
+      if (orderItemsError || dealsError) {
+        return NextResponse.json(
+          {
+            message: orderItemsError?.message ?? dealsError?.message ?? 'โหลดสถานะสินค้าไม่สำเร็จ',
+          },
+          { status: 500 }
+        );
       }
-    });
-    (deals ?? []).forEach((deal) => {
-      const usage = mineUsage.get(deal.product_id);
-      if (usage) usage.hasDealReferences = true;
-    });
-  }
-  const resolved = await Promise.all(pageRows.map((product) => withMediaUrls(product)));
+      productIds.forEach((productId) => {
+        mineUsage.set(productId, {
+          purchases: 0,
+          hasOrderReferences: false,
+          hasDealReferences: false,
+        });
+      });
+      (orderItems ?? []).forEach((item) => {
+        const usage = mineUsage.get(item.product_id);
+        if (!usage) return;
+        usage.hasOrderReferences = true;
+        const order = Array.isArray(item.order) ? item.order[0] : item.order;
+        if (order && ['paid', 'completed', 'refunded'].includes(String(order.status))) {
+          usage.purchases += Number(item.quantity || 0);
+        }
+      });
+      (deals ?? []).forEach((deal) => {
+        const usage = mineUsage.get(deal.product_id);
+        if (usage) usage.hasDealReferences = true;
+      });
+    }
+    return null;
+  };
+  const [engagementError, usageError] = await Promise.all([engagementPromise, loadMineUsage()]);
+  if (engagementError) return engagementError;
+  if (usageError) return usageError;
+  // Share one lazy fallback lookup across products in this response.
+  let officialCoverPromise: Promise<string | null> | undefined;
+  const officialCoverFallback = () => (officialCoverPromise ??= getOfficialProductCoverFallback());
+  const resolved = await Promise.all(
+    pageRows.map((product) => withMediaUrls(product, { officialCoverFallback }))
+  );
   const safeProducts = resolved.map((resolvedProduct) => {
     const product = withCardRating(
       resolvedProduct,

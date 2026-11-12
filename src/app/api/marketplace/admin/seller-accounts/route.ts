@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 
-import { getFinanceSettings } from 'src/sections/marketplace/admin/server/finance';
+import { DEFAULT_FINANCE_SETTINGS } from 'src/sections/marketplace/admin/server/finance';
 
 const sellerStatuses = ['draft', 'pending', 'active', 'suspended', 'rejected'] as const;
 
@@ -36,7 +36,7 @@ export async function GET(request: Request) {
   let query = supabaseAdmin
     .from('marketplace_sellers')
     .select(
-      'id, seller_type, display_name, slug, logo_url, seller_name, phone, contact_email, status, commission_rate_override, submitted_at, created_at, updated_at',
+      'id, seller_type, display_name, slug, logo_url, seller_name, phone, contact_email, status, wizard_step, draft_wizard_step:pending_profile_data->>wizard_step, commission_rate_override, submitted_at, created_at, updated_at',
       { count: 'exact' }
     )
     .neq('owner_role', 'master_admin');
@@ -50,10 +50,18 @@ export async function GET(request: Request) {
     );
   }
 
-  const [sellersResult, financeSettings] = await Promise.all([
+  const [sellersResult, financeResult] = await Promise.all([
     query.order('created_at', { ascending: false }).range(from, from + pageSize - 1),
-    getFinanceSettings(),
+    supabaseAdmin
+      .from('marketplace_finance_settings')
+      .select('commission_rate')
+      .eq('id', 'default')
+      .maybeSingle(),
   ]);
+
+  if (financeResult.error) {
+    return NextResponse.json({ message: financeResult.error.message }, { status: 500 });
+  }
 
   if (sellersResult.error) {
     return NextResponse.json({ message: sellersResult.error.message }, { status: 500 });
@@ -61,9 +69,10 @@ export async function GET(request: Request) {
 
   const sellers = sellersResult.data ?? [];
   const sellerIds = sellers.map((seller) => seller.id);
-  const { data: stats, error: statsError } = sellerIds.length
-    ? await supabaseAdmin.rpc('marketplace_seller_account_stats', { seller_ids: sellerIds })
-    : { data: [], error: null };
+  const { data: stats, error: statsError } =
+    sellerIds.length && searchParams.get('includeStats') !== 'false'
+      ? await supabaseAdmin.rpc('marketplace_seller_account_stats', { seller_ids: sellerIds })
+      : { data: [], error: null };
   if (statsError) {
     return NextResponse.json(
       {
@@ -80,16 +89,19 @@ export async function GET(request: Request) {
   );
   const total = sellersResult.count ?? 0;
   return NextResponse.json({
-    sellers: sellers.map((seller) => {
+    sellers: sellers.map(({ draft_wizard_step, ...seller }) => {
       const sellerStats = statsBySeller.get(seller.id);
       return {
         ...seller,
+        wizard_step: Math.min(5, Math.max(1, Number(draft_wizard_step ?? seller.wizard_step) || 1)),
         product_count: Number(sellerStats?.product_count ?? 0),
         sold_count: Number(sellerStats?.sold_count ?? 0),
         view_count: Number(sellerStats?.view_count ?? 0),
       };
     }),
-    defaultCommissionRate: Number(financeSettings.commission_rate),
+    defaultCommissionRate: Number(
+      financeResult.data?.commission_rate ?? DEFAULT_FINANCE_SETTINGS.commission_rate
+    ),
     pagination: {
       page,
       pageSize,

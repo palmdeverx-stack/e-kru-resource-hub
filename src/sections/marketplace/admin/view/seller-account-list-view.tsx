@@ -2,6 +2,7 @@
 
 import type { MarketplaceSeller } from '../../shared/types';
 
+import dynamic from 'next/dynamic';
 import { useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
@@ -28,9 +29,15 @@ import CircularProgress from '@mui/material/CircularProgress';
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
+import { apiFetch as fetch } from 'src/lib/api-fetch';
+
 import { RiEyeLine, RiSearchLine, RiStore3Line, RiPercentLine } from 'src/components/remix-icon';
 
 import { useAuthContext } from 'src/auth/hooks';
+
+const SellerReminderDialog = dynamic(() =>
+  import('./seller-reminder-dialog').then((module) => module.SellerReminderDialog)
+);
 
 type SellerAccount = Pick<
   MarketplaceSeller,
@@ -47,11 +54,14 @@ type SellerAccount = Pick<
   | 'submitted_at'
   | 'created_at'
   | 'updated_at'
+  | 'wizard_step'
 > & {
   product_count: number;
   sold_count: number;
   view_count: number;
 };
+
+const sellerSteps = ['ข้อมูลร้านค้า', 'ข้อมูลผู้ขาย', 'บัญชีรับเงิน', 'เอกสารยืนยัน', 'ข้อตกลง'];
 
 const statusOptions = [
   { value: 'all', label: 'ทุกสถานะ' },
@@ -73,6 +83,7 @@ const sellerTypeLabel: Record<MarketplaceSeller['seller_type'], string> = {
 
 export function MarketplaceSellerAccountListView() {
   const { user } = useAuthContext();
+  const [reminderSeller, setReminderSeller] = useState<SellerAccount | null>(null);
   const [sellers, setSellers] = useState<SellerAccount[]>([]);
   const [defaultCommissionRate, setDefaultCommissionRate] = useState(0);
   const [status, setStatus] = useState('all');
@@ -82,35 +93,89 @@ export function MarketplaceSellerAccountListView() {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [statsError, setStatsError] = useState('');
   const [error, setError] = useState('');
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const query = new URLSearchParams({
-        status,
-        search,
-        page: String(page + 1),
-        pageSize: String(rowsPerPage),
-      });
-      const response = await fetch(`/api/marketplace/admin/seller-accounts?${query}`, {
-        cache: 'no-store',
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.message ?? 'โหลดบัญชีร้านค้าไม่สำเร็จ');
-      setSellers(result.sellers ?? []);
-      setDefaultCommissionRate(Number(result.defaultCommissionRate ?? 0));
-      setTotal(Number(result.pagination?.total ?? 0));
-    } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'โหลดบัญชีร้านค้าไม่สำเร็จ');
-    } finally {
-      setLoading(false);
-    }
-  }, [page, rowsPerPage, search, status]);
+  const load = useCallback(
+    async (signal: AbortSignal) => {
+      setLoading(true);
+      setError('');
+      setStatsError('');
+      setStatsLoading(true);
+      try {
+        const query = new URLSearchParams({
+          includeStats: 'false',
+          status,
+          search,
+          page: String(page + 1),
+          pageSize: String(rowsPerPage),
+        });
+        const response = await fetch(`/api/marketplace/admin/seller-accounts?${query}`, {
+          cache: 'no-store',
+          signal,
+        });
+        const result = await response.json();
+        if (signal.aborted) return;
+        if (!response.ok) throw new Error(result.message ?? 'โหลดบัญชีร้านค้าไม่สำเร็จ');
+        setSellers(result.sellers ?? []);
+        setDefaultCommissionRate(Number(result.defaultCommissionRate ?? 0));
+        setTotal(Number(result.pagination?.total ?? 0));
+        setLoading(false);
+        const sellerIds = (result.sellers ?? []).map((seller: SellerAccount) => seller.id);
+        if (sellerIds.length) {
+          try {
+            const statsResponse = await fetch(
+              `/api/marketplace/admin/seller-accounts/stats?ids=${sellerIds.join(',')}`,
+              { cache: 'no-store', signal }
+            );
+            const statsResult = await statsResponse.json();
+            if (signal.aborted) return;
+            if (!statsResponse.ok)
+              throw new Error(statsResult.message ?? 'โหลดสถิติร้านค้าไม่สำเร็จ');
+            const statsById = new Map<string, SellerAccount>(
+              (statsResult.stats ?? []).map((item: SellerAccount & { seller_id: string }) => [
+                item.seller_id,
+                item,
+              ])
+            );
+            setSellers((current) =>
+              current.map((seller) => {
+                const stats = statsById.get(seller.id);
+                return {
+                  ...seller,
+                  product_count: Number(stats?.product_count ?? 0),
+                  sold_count: Number(stats?.sold_count ?? 0),
+                  view_count: Number(stats?.view_count ?? 0),
+                };
+              })
+            );
+          } catch (statsLoadError) {
+            if (!signal.aborted)
+              setStatsError(
+                statsLoadError instanceof Error
+                  ? statsLoadError.message
+                  : 'โหลดสถิติร้านค้าไม่สำเร็จ'
+              );
+          }
+        }
+      } catch (loadError) {
+        if (signal.aborted) return;
+        setError(loadError instanceof Error ? loadError.message : 'โหลดบัญชีร้านค้าไม่สำเร็จ');
+      } finally {
+        if (!signal.aborted) {
+          setLoading(false);
+          setStatsLoading(false);
+        }
+      }
+    },
+    [page, rowsPerPage, search, status]
+  );
 
   useEffect(() => {
-    if (user?.role === 'master_admin') load();
+    const controller = new AbortController();
+    if (user?.role === 'master_admin') load(controller.signal);
+    return () => controller.abort();
   }, [load, user?.role]);
 
   if (user?.role !== 'master_admin') {
@@ -204,6 +269,11 @@ export function MarketplaceSellerAccountListView() {
         </Alert>
       )}
 
+      {!!statsError && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          {statsError}
+        </Alert>
+      )}
       <Card variant="outlined">
         <TableContainer>
           <Table sx={{ minWidth: 1360 }}>
@@ -213,6 +283,7 @@ export function MarketplaceSellerAccountListView() {
                 <TableCell>ผู้ขาย/การติดต่อ</TableCell>
                 <TableCell>ประเภท</TableCell>
                 <TableCell>สถานะ</TableCell>
+                <TableCell>ขั้นตอนล่าสุด</TableCell>
                 <TableCell>ค่าธรรมเนียม</TableCell>
                 <TableCell align="right">สินค้า</TableCell>
                 <TableCell align="right">ขายแล้ว</TableCell>
@@ -224,7 +295,7 @@ export function MarketplaceSellerAccountListView() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={10} align="center" sx={{ py: 10 }}>
+                  <TableCell colSpan={11} align="center" sx={{ py: 10 }}>
                     <CircularProgress size={32} />
                     <Typography color="text.secondary" sx={{ mt: 1 }}>
                       กำลังโหลดบัญชีร้านค้า...
@@ -233,6 +304,7 @@ export function MarketplaceSellerAccountListView() {
                 </TableRow>
               ) : sellers.length ? (
                 sellers.map((seller) => {
+                  const step = Math.min(5, Math.max(1, seller.wizard_step || 1));
                   const isCustomRate = seller.commission_rate_override != null;
                   const effectiveRate = isCustomRate
                     ? Number(seller.commission_rate_override)
@@ -275,6 +347,21 @@ export function MarketplaceSellerAccountListView() {
                       <TableCell>
                         <SellerAccountStatus status={seller.status} />
                       </TableCell>
+                      <TableCell sx={{ minWidth: 160 }}>
+                        <Chip
+                          size="small"
+                          variant="soft"
+                          color="info"
+                          label={`ขั้นตอนที่ ${step}/5`}
+                        />
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{ display: 'block', mt: 0.5 }}
+                        >
+                          {sellerSteps[step - 1]}
+                        </Typography>
+                      </TableCell>
                       <TableCell>
                         <Typography
                           variant="subtitle2"
@@ -288,7 +375,11 @@ export function MarketplaceSellerAccountListView() {
                       </TableCell>
                       <TableCell align="right">
                         <Typography variant="subtitle2">
-                          {seller.product_count.toLocaleString('th-TH')}
+                          {statsLoading
+                            ? '…'
+                            : statsError
+                              ? '—'
+                              : seller.product_count.toLocaleString('th-TH')}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
                           รายการ
@@ -296,7 +387,11 @@ export function MarketplaceSellerAccountListView() {
                       </TableCell>
                       <TableCell align="right">
                         <Typography variant="subtitle2" color="success.main">
-                          {seller.sold_count.toLocaleString('th-TH')}
+                          {statsLoading
+                            ? '…'
+                            : statsError
+                              ? '—'
+                              : seller.sold_count.toLocaleString('th-TH')}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
                           ชิ้น
@@ -304,7 +399,11 @@ export function MarketplaceSellerAccountListView() {
                       </TableCell>
                       <TableCell align="right">
                         <Typography variant="subtitle2">
-                          {seller.view_count.toLocaleString('th-TH')}
+                          {statsLoading
+                            ? '…'
+                            : statsError
+                              ? '—'
+                              : seller.view_count.toLocaleString('th-TH')}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
                           ครั้ง
@@ -328,13 +427,22 @@ export function MarketplaceSellerAccountListView() {
                         >
                           ดูรายละเอียด
                         </Button>
+                        {['draft', 'rejected'].includes(seller.status) && (
+                          <Button
+                            size="small"
+                            onClick={() => setReminderSeller(seller)}
+                            sx={{ mt: 0.5 }}
+                          >
+                            ส่งอีเมลเตือน
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   );
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={10} align="center" sx={{ py: 10 }}>
+                  <TableCell colSpan={11} align="center" sx={{ py: 10 }}>
                     <RiStore3Line size={42} />
                     <Typography variant="h6" sx={{ mt: 1 }}>
                       ไม่พบบัญชีร้านค้า
@@ -360,6 +468,13 @@ export function MarketplaceSellerAccountListView() {
           }}
         />
       </Card>
+      {reminderSeller && (
+        <SellerReminderDialog
+          sellerId={reminderSeller.id}
+          shopName={reminderSeller.display_name}
+          onClose={() => setReminderSeller(null)}
+        />
+      )}
     </Container>
   );
 }

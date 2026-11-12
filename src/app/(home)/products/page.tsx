@@ -7,9 +7,11 @@ import { MarketplaceCatalogView } from 'src/sections/marketplace/catalog/view/ca
 import { getPublicPlatformSettings } from 'src/sections/marketplace/admin/server/platform-settings';
 
 export async function generateMetadata(): Promise<Metadata> {
-  const lang = await detectLanguage();
-  const { t } = await getServerTranslations('marketplace');
-  const settings = await getPublicPlatformSettings();
+  const [lang, { t }, settings] = await Promise.all([
+    detectLanguage(),
+    getServerTranslations('marketplace'),
+    getPublicPlatformSettings(),
+  ]);
   const platformName =
     (lang === 'en' ? settings?.platform_name_en : settings?.platform_name_th) ||
     settings?.platform_name_th ||

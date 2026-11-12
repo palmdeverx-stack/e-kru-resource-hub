@@ -3,16 +3,20 @@
 import type { NavSectionProps } from 'src/components/nav-section';
 
 import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 
 import Box from '@mui/material/Box';
+import Badge from '@mui/material/Badge';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
+import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 
 import { paths } from 'src/routes/paths';
 import { usePathname } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 
+import { apiFetch as fetch } from 'src/lib/api-fetch';
 import { DashboardLayout } from 'src/layouts/dashboard';
 import { useTranslate, languageOptions } from 'src/locales';
 import { LanguagePopover } from 'src/layouts/components/language-popover';
@@ -80,7 +84,7 @@ const memberNavData: NavSectionProps['data'] = [
     subheader: 'บัญชีของฉัน',
     items: [
       {
-        title: 'ภาพรวม',
+        title: 'ภาพรวมบัญชี',
         path: '/dashboard',
         icon: <RiDashboardLine />,
       },
@@ -406,11 +410,30 @@ export default function Layout({ children }: Props) {
   const pathname = usePathname();
   const { itemCount } = useMarketplaceCart();
   const hasCartItems = Number.isInteger(itemCount) && itemCount > 0;
-  const [canUseSellerLine, setCanUseSellerLine] = useState(false);
-  const [hasSubmittedSeller, setHasSubmittedSeller] = useState(false);
-  const [referralEnabled, setReferralEnabled] = useState(false);
-  const [shippingEnabled, setShippingEnabled] = useState(false);
-  const [officialShippingEnabled, setOfficialShippingEnabled] = useState(false);
+
+  const menuFlags = useQuery({
+    queryKey: ['dashboard-menu-flags', user?.id, user?.role],
+    enabled: Boolean(user?.id),
+    staleTime: 60_000,
+    queryFn: async ({ signal }) => {
+      const response = await fetch('/api/marketplace/navigation', { signal });
+      if (!response.ok) throw new Error('โหลดเมนูไม่สำเร็จ');
+      return response.json() as Promise<{
+        hasSubmittedSeller: boolean;
+        shippingEnabled: boolean;
+        officialShippingEnabled: boolean;
+        referralEnabled: boolean;
+        canUseSellerLine: boolean;
+      }>;
+    },
+  });
+  const {
+    hasSubmittedSeller = isMarketplaceAdmin(user?.role),
+    shippingEnabled = false,
+    officialShippingEnabled = false,
+    referralEnabled = false,
+    canUseSellerLine = false,
+  } = menuFlags.data ?? {};
   const [sellerApprovalNotificationCount, setSellerApprovalNotificationCount] = useState(0);
 
   useEffect(() => {
@@ -467,99 +490,6 @@ export default function Layout({ children }: Props) {
       window.removeEventListener('focus', loadPendingSellerApprovals);
     };
   }, [pathname, user?.id, user?.role]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetch('/api/marketplace/shipping/status', { cache: 'no-store', signal: controller.signal })
-      .then((response) => response.json())
-      .then((result) => {
-        setShippingEnabled(Boolean(result.enabled));
-        setOfficialShippingEnabled(Boolean(result.officialAccessEnabled));
-      })
-      .catch((error) => {
-        if ((error as Error).name !== 'AbortError') setShippingEnabled(false);
-      });
-    return () => controller.abort();
-  }, []);
-
-  useEffect(() => {
-    if (!user?.role || isMarketplaceAdmin(user.role)) {
-      setReferralEnabled(false);
-      return undefined;
-    }
-    const controller = new AbortController();
-    fetch('/api/marketplace/referrals/status', {
-      cache: 'no-store',
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        if (!response.ok) return { enabled: false };
-        return response.json() as Promise<{ enabled?: boolean }>;
-      })
-      .then((result) => setReferralEnabled(Boolean(result.enabled)))
-      .catch((error) => {
-        if ((error as Error).name !== 'AbortError') setReferralEnabled(false);
-      });
-    return () => controller.abort();
-  }, [user?.id, user?.role]);
-
-  useEffect(() => {
-    if (!user?.role) {
-      setHasSubmittedSeller(false);
-      return undefined;
-    }
-    if (isMarketplaceAdmin(user.role)) {
-      setHasSubmittedSeller(true);
-      return undefined;
-    }
-
-    setHasSubmittedSeller(false);
-    const controller = new AbortController();
-
-    fetch('/api/marketplace/seller', {
-      cache: 'no-store',
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        if (!response.ok) return { seller: null };
-        return response.json() as Promise<{ seller?: { status?: string } | null }>;
-      })
-      .then((result) => {
-        setHasSubmittedSeller(
-          Boolean(result.seller && result.seller.status && result.seller.status !== 'draft')
-        );
-      })
-      .catch((error) => {
-        if ((error as Error).name !== 'AbortError') setHasSubmittedSeller(false);
-      });
-
-    return () => controller.abort();
-  }, [user?.id, user?.role]);
-
-  useEffect(() => {
-    if (!user?.role || isMarketplaceAdmin(user.role)) {
-      setCanUseSellerLine(isMarketplaceAdmin(user?.role));
-      return undefined;
-    }
-
-    setCanUseSellerLine(false);
-    const controller = new AbortController();
-
-    fetch('/api/marketplace/seller/line-settings?access=1', {
-      cache: 'no-store',
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        if (!response.ok) return { allowed: false };
-        return response.json() as Promise<{ allowed?: boolean }>;
-      })
-      .then((result) => setCanUseSellerLine(Boolean(result.allowed)))
-      .catch((error) => {
-        if ((error as Error).name !== 'AbortError') setCanUseSellerLine(false);
-      });
-
-    return () => controller.abort();
-  }, [user?.id, user?.role]);
 
   const roleFilteredAdminNavigation =
     user?.role === 'marketplace_admin'
@@ -660,6 +590,7 @@ export default function Layout({ children }: Props) {
       slotProps={{
         nav: {
           data: navData,
+          mobileBottom: true,
           headerIdentity: (
             <div style={{ padding: '20px 28px 8px' }}>
               <MarketplaceBrand />
@@ -688,7 +619,22 @@ export default function Layout({ children }: Props) {
                 alignItems="center"
                 sx={{ flexShrink: 0 }}
               >
-                <LanguagePopover showTranslateIcon data={languageOptions} />
+                <IconButton
+                  component={RouterLink}
+                  href={paths.marketplace.dashboardCart}
+                  aria-label={t('ตะกร้าของฉัน')}
+                  color="primary"
+                  sx={{ display: { xs: 'inline-flex', lg: 'none' } }}
+                >
+                  <Badge badgeContent={itemCount} color="primary">
+                    <RiShoppingCart2Line size={24} />
+                  </Badge>
+                </IconButton>
+                <LanguagePopover
+                  showTranslateIcon
+                  data={languageOptions}
+                  sx={{ display: { xs: 'none', lg: 'inline-flex' } }}
+                />
                 <NotificationsMenu scope="marketplace" />
                 <MarketplaceAccountMenu />
               </Stack>

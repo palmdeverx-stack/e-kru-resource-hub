@@ -1,8 +1,11 @@
 'use client';
 
 import type { MarketplaceSeller } from '../../shared/types';
+import type { DocumentPreviewFile } from '../../shared/document-preview-dialog';
 
-import { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
+import { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
@@ -39,17 +42,26 @@ import {
   RiCheckboxCircleLine,
 } from 'src/components/remix-icon';
 
+import { useAuthContext } from 'src/auth/hooks';
+
 import { getSeller } from '../../shared/api';
 import { ThaiBankLogo } from '../../shared/bank-logo';
-import {
-  DocumentPreviewDialog,
-  type DocumentPreviewFile,
-} from '../../shared/document-preview-dialog';
 import {
   isSellerProfileVerified,
   isSystemMarketplaceSeller,
   getSellerProfileCompletion,
 } from '../../shared/seller-completion';
+
+const DocumentPreviewDialog = dynamic(() =>
+  import('../../shared/document-preview-dialog').then((module) => module.DocumentPreviewDialog)
+);
+
+const documentDateFormatter = new Intl.DateTimeFormat('th-TH', {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+  timeZone: 'Asia/Bangkok',
+});
 
 const sellerTypeLabel = {
   individual: 'บุคคลทั่วไป',
@@ -88,30 +100,34 @@ function formatDocumentUploadDate(value: string) {
   const uploadedAt = new Date(value);
   if (Number.isNaN(uploadedAt.getTime())) return 'ไม่พบวันที่อัปโหลด';
 
-  return `อัปโหลด ${uploadedAt.toLocaleDateString('th-TH', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    timeZone: 'Asia/Bangkok',
-  })}`;
+  return `\u0e2d\u0e31\u0e1b\u0e42\u0e2b\u0e25\u0e14 ${documentDateFormatter.format(uploadedAt)}`;
 }
 
 export function MarketplaceSellerProfileView() {
   const theme = useTheme();
-  const [seller, setSeller] = useState<MarketplaceSeller | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const { user } = useAuthContext();
+  const {
+    data,
+    isPending: loading,
+    error: loadError,
+  } = useQuery({
+    queryKey: ['seller-profile', user?.id, user?.role],
+    enabled: Boolean(user?.id),
+    queryFn: ({ signal }) => getSeller({ signal }),
+    staleTime: 30_000,
+  });
+  const seller = data?.seller ?? null;
+  const error = loadError?.message ?? '';
+  const completion = useMemo(() => (seller ? getSellerProfileCompletion(seller) : 0), [seller]);
+  const verificationDocuments = useMemo(
+    () =>
+      seller?.documents?.filter((document) =>
+        VERIFICATION_DOCUMENT_TYPES.has(document.document_type)
+      ) ?? [],
+    [seller?.documents]
+  );
   const [showPayoutDetails, setShowPayoutDetails] = useState(false);
   const [previewFile, setPreviewFile] = useState<DocumentPreviewFile | null>(null);
-
-  useEffect(() => {
-    getSeller()
-      .then((result) => setSeller(result.seller))
-      .catch((loadError) =>
-        setError(loadError instanceof Error ? loadError.message : 'โหลดข้อมูลร้านไม่สำเร็จ')
-      )
-      .finally(() => setLoading(false));
-  }, []);
 
   if (loading) {
     return (
@@ -122,6 +138,13 @@ export function MarketplaceSellerProfileView() {
   }
 
   if (!seller) {
+    if (error) {
+      return (
+        <Container maxWidth={false} sx={{ py: 3 }}>
+          <Alert severity="error">{error}</Alert>
+        </Container>
+      );
+    }
     return (
       <Container maxWidth={false} sx={{ py: 8 }}>
         <Card variant="outlined" sx={{ p: 5, textAlign: 'center', borderRadius: 4 }}>
@@ -157,11 +180,6 @@ export function MarketplaceSellerProfileView() {
   }
 
   const storeHref = `/dashboard/store/${seller.slug || seller.id}`;
-  const completion = getSellerProfileCompletion(seller);
-  const verificationDocuments =
-    seller.documents?.filter((document) =>
-      VERIFICATION_DOCUMENT_TYPES.has(document.document_type)
-    ) ?? [];
 
   return (
     <Container maxWidth={false} sx={{ py: { xs: 3, md: 4 }, pb: { xs: 8, md: 5 } }}>
@@ -630,7 +648,9 @@ export function MarketplaceSellerProfileView() {
           </Stack>
         </Grid>
       </Grid>
-      <DocumentPreviewDialog file={previewFile} onClose={() => setPreviewFile(null)} />
+      {previewFile && (
+        <DocumentPreviewDialog file={previewFile} onClose={() => setPreviewFile(null)} />
+      )}
     </Container>
   );
 }

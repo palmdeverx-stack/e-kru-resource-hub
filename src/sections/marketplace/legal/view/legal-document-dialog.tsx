@@ -18,6 +18,8 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import CircularProgress from '@mui/material/CircularProgress';
 
+import { apiFetch as fetch } from 'src/lib/api-fetch';
+
 import { Editor } from 'src/components/editor';
 import { editorClasses } from 'src/components/editor/classes';
 import { RiCloseLine, RiExternalLinkLine } from 'src/components/remix-icon';

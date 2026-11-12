@@ -19,6 +19,8 @@ import InputAdornment from '@mui/material/InputAdornment';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import CircularProgress from '@mui/material/CircularProgress';
 
+import { apiFetch as fetch } from 'src/lib/api-fetch';
+
 import { RiEyeLine, RiEyeOffLine } from 'src/components/remix-icon';
 
 import { ThaiBankAutocomplete } from '../../shared/bank-autocomplete';
@@ -110,10 +112,7 @@ type Props = {
   onAccessExpired?: () => void;
 };
 
-export function MarketplaceFinanceSettingsView({
-  accessGranted = true,
-  onAccessExpired,
-}: Props) {
+export function MarketplaceFinanceSettingsView({ accessGranted = true, onAccessExpired }: Props) {
   const [form, setForm] = useState(initial);
   const [numericDrafts, setNumericDrafts] = useState(initialNumericDrafts);
   const [showPayoutAccountNumber, setShowPayoutAccountNumber] = useState(false);
@@ -459,12 +458,16 @@ export function MarketplaceFinanceSettingsView({
                         </Typography>
                         <Typography
                           variant="subtitle1"
-                          color={stripeSummary.account.chargesEnabled ? 'success.dark' : 'error.main'}
+                          color={
+                            stripeSummary.account.chargesEnabled ? 'success.dark' : 'error.main'
+                          }
                         >
                           {stripeSummary.account.chargesEnabled ? 'พร้อมรับชำระ' : 'รับชำระไม่ได้'}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          {stripeSummary.account.liveMode ? 'บัญชีจริง (Live)' : 'บัญชีทดสอบ (Test)'}
+                          {stripeSummary.account.liveMode
+                            ? 'บัญชีจริง (Live)'
+                            : 'บัญชีทดสอบ (Test)'}
                         </Typography>
                       </Box>
                       <Box sx={{ p: 2, borderRadius: 2, bgcolor: 'action.hover' }}>
@@ -473,12 +476,17 @@ export function MarketplaceFinanceSettingsView({
                         </Typography>
                         <Typography
                           variant="subtitle1"
-                          color={stripeSummary.account.payoutsEnabled ? 'success.dark' : 'error.main'}
+                          color={
+                            stripeSummary.account.payoutsEnabled ? 'success.dark' : 'error.main'
+                          }
                         >
-                          {stripeSummary.account.payoutsEnabled ? 'เปิดใช้งานแล้ว' : 'ถูกระงับ/ยังไม่พร้อม'}
+                          {stripeSummary.account.payoutsEnabled
+                            ? 'เปิดใช้งานแล้ว'
+                            : 'ถูกระงับ/ยังไม่พร้อม'}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          {stripeSummary.account.businessName ?? `บัญชี ${stripeSummary.account.id}`}
+                          {stripeSummary.account.businessName ??
+                            `บัญชี ${stripeSummary.account.id}`}
                         </Typography>
                       </Box>
                       <Box sx={{ p: 2, borderRadius: 2, bgcolor: 'action.hover' }}>
@@ -491,7 +499,8 @@ export function MarketplaceFinanceSettingsView({
                             : 'ยังไม่พบข้อมูล'}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          {stripeSummary.bankAccount?.accountHolderName ?? 'จะแสดงหลัง Stripe สร้างรายการโอน'}
+                          {stripeSummary.bankAccount?.accountHolderName ??
+                            'จะแสดงหลัง Stripe สร้างรายการโอน'}
                         </Typography>
                       </Box>
                       <Box sx={{ p: 2, borderRadius: 2, bgcolor: 'action.hover' }}>
@@ -510,7 +519,9 @@ export function MarketplaceFinanceSettingsView({
                       !stripeSummary.account.payoutsEnabled ||
                       stripeSummary.account.requirementsDueCount > 0) && (
                       <Alert severity="error">
-                        <Typography variant="subtitle2">บัญชี Stripe ต้องดำเนินการเพิ่มเติม</Typography>
+                        <Typography variant="subtitle2">
+                          บัญชี Stripe ต้องดำเนินการเพิ่มเติม
+                        </Typography>
                         <Typography variant="body2">
                           {stripeSummary.account.requirementsDueCount > 0
                             ? `มีข้อมูลหรือเอกสารที่ต้องส่ง ${stripeSummary.account.requirementsDueCount} รายการ`
@@ -623,7 +634,8 @@ export function MarketplaceFinanceSettingsView({
                 </Box>
                 {stripeSummary.updatedAt && (
                   <Typography variant="caption" color="text.secondary">
-                    อัปเดตล่าสุด {new Intl.DateTimeFormat('th-TH', {
+                    อัปเดตล่าสุด{' '}
+                    {new Intl.DateTimeFormat('th-TH', {
                       dateStyle: 'medium',
                       timeStyle: 'short',
                     }).format(new Date(stripeSummary.updatedAt))}

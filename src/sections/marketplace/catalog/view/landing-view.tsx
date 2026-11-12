@@ -1,12 +1,12 @@
 'use client';
 
 import type { RemixiconComponentType } from '@remixicon/react';
-import type { MarketplaceProduct } from '../../shared/types';
 import type { MarketplaceLandingBanner } from '../../shared/landing-banner-types';
 
 import Image from 'next/image';
+import { useMemo } from 'react';
 import Autoplay from 'embla-carousel-autoplay';
-import { useMemo, useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -28,6 +28,7 @@ import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
 import { useTranslate } from 'src/locales';
+import { apiFetch as fetch } from 'src/lib/api-fetch';
 
 import {
   Carousel,
@@ -66,6 +67,7 @@ import {
 } from 'src/components/remix-icon';
 
 import { getProducts } from '../../shared/api';
+import { useNearViewport } from '../hooks/use-near-viewport';
 import { MarketplaceProductCard } from '../../shared/product-card';
 
 type LandingCategory = {
@@ -290,6 +292,12 @@ const communityIdeas = [
 
 const faqKeys = ['freeStore', 'fees', 'payout', 'eligibleSellers', 'fileTypes'] as const;
 
+async function fetchLandingData<T>(endpoint: string): Promise<T> {
+  const response = await fetch(`/api/marketplace/${endpoint}`);
+  if (!response.ok) throw new Error(`Failed to load ${endpoint}`);
+  return response.json() as Promise<T>;
+}
+
 function LandingBannerSlide({ banner }: { banner: MarketplaceLandingBanner }) {
   const image = (
     <Box sx={{ position: 'relative', width: 1, height: 1, minHeight: { xs: 720, sm: 620 } }}>
@@ -345,14 +353,45 @@ export function MarketplaceLandingView() {
   const { t, currentLang } = useTranslate('marketplace');
   const formatCount = (value: number) =>
     new Intl.NumberFormat(currentLang.numberFormat.code).format(value);
-  const [publicStats, setPublicStats] = useState<PublicStats | null>(null);
-  const [officialProducts, setOfficialProducts] = useState<MarketplaceProduct[]>([]);
-  const [officialProductsLoading, setOfficialProductsLoading] = useState(true);
-  const [bestSellingProducts, setBestSellingProducts] = useState<MarketplaceProduct[]>([]);
-  const [bestSellingProductsLoading, setBestSellingProductsLoading] = useState(true);
-  const [landingBanners, setLandingBanners] = useState<MarketplaceLandingBanner[]>([]);
-  const [communityReviews, setCommunityReviews] = useState<LandingReview[]>([]);
-  const [landingCategories, setLandingCategories] = useState<LandingCategory[]>(fallbackCategories);
+  const categoriesSection = useNearViewport();
+  const reviewsSection = useNearViewport();
+  const { data: publicStats } = useQuery({
+    queryKey: ['landing', 'stats'],
+    queryFn: () => fetchLandingData<PublicStats>('public-stats'),
+    staleTime: 5 * 60_000,
+  });
+  const { data: officialProducts = [], isPending: officialProductsLoading } = useQuery({
+    queryKey: ['landing', 'official-products'],
+    queryFn: async () => (await getProducts({ official: true, page: 1, limit: 4 })).products,
+    staleTime: 60_000,
+  });
+  const { data: bestSellingProducts = [], isPending: bestSellingProductsLoading } = useQuery({
+    queryKey: ['landing', 'best-selling-products'],
+    queryFn: async () => (await getProducts({ bestSeller: true, page: 1, limit: 4 })).products,
+    staleTime: 60_000,
+  });
+  const { data: landingBanners = [] } = useQuery({
+    queryKey: ['landing', 'banners'],
+    queryFn: async () =>
+      (await fetchLandingData<{ items: MarketplaceLandingBanner[] }>('landing-banners')).items,
+    staleTime: 5 * 60_000,
+  });
+  const { data: communityReviews = [] } = useQuery({
+    queryKey: ['landing', 'reviews'],
+    queryFn: async () =>
+      (await fetchLandingData<{ items: LandingReview[] }>('landing-reviews')).items,
+    enabled: reviewsSection.enabled,
+    staleTime: 5 * 60_000,
+  });
+  const { data: landingCategories = fallbackCategories } = useQuery({
+    queryKey: ['landing', 'categories'],
+    queryFn: async () => {
+      const { items } = await fetchLandingData<{ items: LandingCategory[] }>('landing-categories');
+      return items.length ? items : fallbackCategories;
+    },
+    enabled: categoriesSection.enabled,
+    staleTime: 5 * 60_000,
+  });
   const autoplayPlugin = useMemo(
     () => Autoplay({ delay: 6000, stopOnInteraction: false, stopOnMouseEnter: true }),
     []
@@ -360,81 +399,6 @@ export function MarketplaceLandingView() {
   const heroCarousel = useCarousel({ loop: landingBanners.length > 0, align: 'start' }, [
     autoplayPlugin,
   ]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-
-    fetch('/api/marketplace/public-stats', { signal: controller.signal })
-      .then(async (response) => {
-        if (!response.ok) throw new Error(t('errors.stats'));
-        return response.json() as Promise<PublicStats>;
-      })
-      .then(setPublicStats)
-      .catch((error) => {
-        if (error instanceof Error && error.name === 'AbortError') return;
-        setPublicStats(null);
-      });
-
-    return () => controller.abort();
-  }, [t]);
-
-  useEffect(() => {
-    getProducts({ official: true, page: 1, limit: 4 })
-      .then(({ products }) => setOfficialProducts(products))
-      .catch(() => setOfficialProducts([]))
-      .finally(() => setOfficialProductsLoading(false));
-  }, []);
-
-  useEffect(() => {
-    getProducts({ bestSeller: true, page: 1, limit: 4 })
-      .then(({ products }) => setBestSellingProducts(products))
-      .catch(() => setBestSellingProducts([]))
-      .finally(() => setBestSellingProductsLoading(false));
-  }, []);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetch('/api/marketplace/landing-banners', { signal: controller.signal })
-      .then(async (response) => {
-        if (!response.ok) return { items: [] };
-        return response.json() as Promise<{ items?: MarketplaceLandingBanner[] }>;
-      })
-      .then((result) => setLandingBanners(result.items ?? []))
-      .catch((error) => {
-        if ((error as Error).name !== 'AbortError') setLandingBanners([]);
-      });
-    return () => controller.abort();
-  }, []);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetch('/api/marketplace/landing-reviews', { signal: controller.signal })
-      .then(async (response) => {
-        if (!response.ok) return { items: [] };
-        return response.json() as Promise<{ items?: LandingReview[] }>;
-      })
-      .then((result) => setCommunityReviews(result.items ?? []))
-      .catch((error) => {
-        if ((error as Error).name !== 'AbortError') setCommunityReviews([]);
-      });
-    return () => controller.abort();
-  }, []);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetch('/api/marketplace/landing-categories', { signal: controller.signal })
-      .then(async (response) => {
-        if (!response.ok) return { items: [] };
-        return response.json() as Promise<{ items?: LandingCategory[] }>;
-      })
-      .then((result) => {
-        if (result.items?.length) setLandingCategories(result.items);
-      })
-      .catch((error) => {
-        if ((error as Error).name !== 'AbortError') setLandingCategories(fallbackCategories);
-      });
-    return () => controller.abort();
-  }, []);
 
   return (
     <>
@@ -911,7 +875,7 @@ export function MarketplaceLandingView() {
         </Stack>
       </Container>
 
-      <Container maxWidth="lg" sx={{ py: { xs: 7, md: 10 } }}>
+      <Container ref={categoriesSection.ref} maxWidth="lg" sx={{ py: { xs: 7, md: 10 } }}>
         <Stack spacing={4}>
           <Box sx={{ textAlign: 'center' }}>
             <Typography variant="h3">{t('categories.heading')}</Typography>
@@ -1069,6 +1033,8 @@ export function MarketplaceLandingView() {
                             component="img"
                             alt=""
                             src={imageUrl}
+                            loading="lazy"
+                            decoding="async"
                             sx={{ width: 1, height: 1, display: 'block', objectFit: 'cover' }}
                           />
                         </Box>
@@ -1404,6 +1370,7 @@ export function MarketplaceLandingView() {
             </Grid>
           </Box>
 
+          <Box ref={reviewsSection.ref} />
           {communityReviews.length >= 3 && (
             <Box sx={{ pt: { xs: 4, md: 7 } }}>
               <SectionHeading

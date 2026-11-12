@@ -8,6 +8,8 @@ import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
 import Typography from '@mui/material/Typography';
 
+import { apiFetch as fetch } from 'src/lib/api-fetch';
+
 import { MarketplaceBrand } from 'src/components/marketplace-brand';
 
 type Props = {

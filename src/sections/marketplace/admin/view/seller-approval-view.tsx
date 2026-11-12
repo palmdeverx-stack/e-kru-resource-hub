@@ -25,6 +25,8 @@ import CircularProgress from '@mui/material/CircularProgress';
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
+import { apiFetch as fetch } from 'src/lib/api-fetch';
+
 import {
   RiEyeLine,
   RiStore2Line,

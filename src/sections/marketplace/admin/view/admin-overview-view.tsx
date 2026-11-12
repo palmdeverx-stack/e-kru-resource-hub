@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
@@ -17,6 +17,8 @@ import Typography from '@mui/material/Typography';
 
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
+
+import { apiFetch as fetch } from 'src/lib/api-fetch';
 
 import {
   RiBankLine,
@@ -100,33 +102,30 @@ const orderStatus: Record<
 
 export function MarketplaceAdminOverviewView() {
   const { user } = useAuthContext();
-  const [overview, setOverview] = useState<AdminOverview | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState('');
-  const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
-
-  const load = useCallback(async (refresh = false) => {
-    if (refresh) setRefreshing(true);
-    else setLoading(true);
-    setError('');
-    try {
-      const response = await fetch('/api/marketplace/admin/overview', { cache: 'no-store' });
+  const {
+    data: overview,
+    isPending: loading,
+    isFetching,
+    error: loadError,
+    dataUpdatedAt,
+    refetch,
+  } = useQuery<AdminOverview>({
+    queryKey: ['admin-overview', user?.id, user?.role],
+    enabled: Boolean(user?.id) && ['master_admin', 'marketplace_admin'].includes(user?.role),
+    staleTime: 0,
+    queryFn: async ({ signal }) => {
+      const response = await fetch('/api/marketplace/admin/overview', {
+        cache: 'no-store',
+        signal,
+      });
       const result = await response.json();
-      if (!response.ok) throw new Error(result.message ?? 'โหลดข้อมูลไม่สำเร็จ');
-      setOverview(result);
-      setUpdatedAt(new Date());
-    } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'โหลดข้อมูลไม่สำเร็จ');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+      if (!response.ok) throw new Error(result.message);
+      return result;
+    },
+  });
+  const error = loadError?.message ?? '';
+  const refreshing = isFetching && !loading;
+  const updatedAt = dataUpdatedAt ? new Date(dataUpdatedAt) : null;
 
   if (user?.role !== 'master_admin' && user?.role !== 'marketplace_admin') {
     return (
@@ -277,7 +276,7 @@ export function MarketplaceAdminOverviewView() {
               variant="outlined"
               loading={refreshing}
               startIcon={<RiRefreshLine />}
-              onClick={() => load(true)}
+              onClick={() => refetch()}
             >
               รีเฟรช
             </Button>

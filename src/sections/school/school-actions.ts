@@ -1,5 +1,7 @@
 'use client';
 
+import { apiFetch as fetch } from 'src/lib/api-fetch';
+
 // ----------------------------------------------------------------------
 
 export type School = {

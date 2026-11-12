@@ -16,6 +16,8 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import InputAdornment from '@mui/material/InputAdornment';
 
+import { apiFetch as fetch } from 'src/lib/api-fetch';
+
 import { Form, RHFTextField } from 'src/components/hook-form';
 import { RiEyeLine, RiEyeOffLine } from 'src/components/remix-icon';
 

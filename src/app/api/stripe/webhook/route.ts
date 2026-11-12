@@ -7,8 +7,8 @@ import { createNotifications } from 'src/lib/notifications';
 
 import { handleStripeDispute } from 'src/sections/marketplace/checkout/server/dispute-lifecycle';
 import { getStripe, getStripeWebhookSecret } from 'src/sections/marketplace/checkout/server/stripe';
-import { finalizeMarketplacePayment } from 'src/sections/marketplace/checkout/server/finalize-payment';
 import { recordShippingRefundForOrders } from 'src/sections/marketplace/shipping/server/accounting';
+import { finalizeMarketplacePayment } from 'src/sections/marketplace/checkout/server/finalize-payment';
 import { revokeLicensesForPaymentSession } from 'src/sections/marketplace/checkout/server/license-lifecycle';
 import {
   subscriptionPeriod,

@@ -1,9 +1,17 @@
 'use client';
 
+import dynamic from 'next/dynamic';
+
 import { useAuthContext } from 'src/auth/hooks';
 
-import { MarketplaceDashboardOverviewView } from './dashboard-overview-view';
-import { MarketplaceAdminOverviewView } from '../../admin/view/admin-overview-view';
+const MarketplaceDashboardOverviewView = dynamic(() =>
+  import('./dashboard-overview-view').then((module) => module.MarketplaceDashboardOverviewView)
+);
+const MarketplaceAdminOverviewView = dynamic(() =>
+  import('../../admin/view/admin-overview-view').then(
+    (module) => module.MarketplaceAdminOverviewView
+  )
+);
 
 export function MarketplaceDashboardView() {
   const { user, loading } = useAuthContext();

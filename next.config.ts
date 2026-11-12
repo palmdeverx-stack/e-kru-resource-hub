@@ -16,6 +16,7 @@ import type { NextConfig } from 'next';
 const isStaticExport = false;
 
 const isDev = process.env.NODE_ENV !== 'production';
+const enableLocator = isDev && process.env.NEXT_PUBLIC_ENABLE_LOCATOR === 'true';
 
 const supabaseStorageUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseStoragePattern = supabaseStorageUrl
@@ -34,7 +35,7 @@ const contentSecurityPolicy = [
   "img-src 'self' data: blob: https:",
   "font-src 'self' data: https:",
   "connect-src 'self' https://accounts.google.com https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://api.line.me https://vitals.vercel-insights.com",
-  "frame-src 'self' https://accounts.google.com https://js.stripe.com https://hooks.stripe.com https://checkout.stripe.com",
+  "frame-src 'self' blob: https://accounts.google.com https://js.stripe.com https://hooks.stripe.com https://checkout.stripe.com",
   "worker-src 'self' blob:",
   'upgrade-insecure-requests',
 ].join('; ');
@@ -56,6 +57,7 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  experimental: { proxyClientMaxBodySize: 4_500_000 },
   trailingSlash: true,
   images: {
     remotePatterns: [
@@ -66,6 +68,7 @@ const nextConfig: NextConfig = {
   // Keep sharp out of the webpack bundle so Next's file tracing can find its
   // native linux-x64 binary in node_modules on Vercel.
   serverExternalPackages: ['sharp'],
+  outputFileTracingIncludes: { '/*': ['./public/fonts/LINESeedSansTH-Regular.ttf'] },
   // LINE does not follow the 308 redirect returned for POST webhooks.
   // Accept both webhook URL forms instead of redirecting before the route handler.
   skipTrailingSlashRedirect: true,
@@ -74,11 +77,26 @@ const nextConfig: NextConfig = {
     BUILD_STATIC_EXPORT: JSON.stringify(isStaticExport),
   },
   async headers() {
-    return [{ source: '/:path*', headers: securityHeaders }];
+    return [
+      { source: '/:path*', headers: securityHeaders },
+      {
+        source: '/api/marketplace/seller/documents',
+        headers: [
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+          {
+            key: 'Content-Security-Policy',
+            value: contentSecurityPolicy.replace(
+              "frame-ancestors 'none'",
+              "frame-ancestors 'self'"
+            ),
+          },
+        ],
+      },
+    ];
   },
   // Without --turbopack (next dev)
   webpack(config, { isServer }) {
-    if (!isServer) {
+    if (!isServer && enableLocator) {
       config.module.rules.push({
         test: /\.(tsx|ts|jsx|js)$/,
         exclude: /node_modules/,
@@ -103,14 +121,18 @@ const nextConfig: NextConfig = {
     // Keep Next.js scoped to this project even when a parent directory has a lockfile.
     root: process.cwd(),
     rules: {
-      '**/*.{tsx,jsx}': {
-        loaders: [
-          {
-            loader: '@locator/webpack-loader',
-            options: { env: 'development' },
-          },
-        ],
-      },
+      ...(enableLocator
+        ? {
+            '**/*.{tsx,jsx}': {
+              loaders: [
+                {
+                  loader: '@locator/webpack-loader',
+                  options: { env: 'development' },
+                },
+              ],
+            },
+          }
+        : {}),
       '*.svg': {
         loaders: ['@svgr/webpack'],
         as: '*.js',

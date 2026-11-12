@@ -99,7 +99,27 @@ export async function GET(request: Request) {
     );
   }
 
-  const users = (data ?? []).map((account) => ({
+  const rows = data ?? [];
+  const channels = rows.length
+    ? await supabaseAdmin.rpc('system_account_registration_channels', {
+        app_ids: rows.filter((account) => account.source === 'app').map((account) => account.id),
+        marketplace_ids: rows
+          .filter((account) => account.source === 'marketplace')
+          .map((account) => account.id),
+      })
+    : { data: [], error: null };
+  const channelsByAccount = new Map<string, string>(
+    (channels.data ?? []).map((account: { id: string; source: string; signup_channel: string }) => [
+      `${account.source}:${account.id}`,
+      account.signup_channel,
+    ])
+  );
+  const accounts = rows.map((account) => ({
+    ...account,
+    signup_channel: channelsByAccount.get(`${account.source}:${account.id}`) ?? 'unknown',
+  }));
+
+  const users = accounts.map((account) => ({
     ...account,
     suspended: account.is_suspended,
     email_verified: account.source === 'marketplace' ? account.is_active : true,
@@ -107,7 +127,12 @@ export async function GET(request: Request) {
   }));
 
   return NextResponse.json({
-    accounts: data ?? [],
+    accounts,
+    signupChannelsWarning: channels.error
+      ? ['42883', 'PGRST202'].includes(channels.error.code)
+        ? 'กรุณารัน migration ช่องทางสมัคร เพื่อแสดงข้อมูล Email / Google'
+        : 'โหลดช่องทางสมัครไม่สำเร็จ'
+      : null,
     users,
     total: count ?? 0,
     page,
@@ -129,8 +154,12 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json().catch(() => null);
-  const username = String(body?.username ?? '').trim().toLowerCase();
-  const email = String(body?.email ?? '').trim().toLowerCase();
+  const username = String(body?.username ?? '')
+    .trim()
+    .toLowerCase();
+  const email = String(body?.email ?? '')
+    .trim()
+    .toLowerCase();
   const password = String(body?.password ?? '');
   const firstName = String(body?.firstName ?? '').trim();
   const lastName = String(body?.lastName ?? '').trim();
@@ -240,7 +269,9 @@ export async function PATCH(request: Request) {
   const id = String(body?.id ?? '');
   const source = String(body?.source ?? '') as AccountSource;
   const isSuspended = body?.isSuspended;
-  const reason = String(body?.reason ?? '').trim().slice(0, 500);
+  const reason = String(body?.reason ?? '')
+    .trim()
+    .slice(0, 500);
 
   if (
     !/^[0-9a-f-]{36}$/i.test(id) ||

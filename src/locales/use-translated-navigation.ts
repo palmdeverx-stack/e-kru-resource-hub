@@ -10,7 +10,7 @@ import { useTranslate } from './use-locales';
 // ----------------------------------------------------------------------
 
 export function useTranslatedNavSections(data: NavSectionProps['data']) {
-  const { t, currentLang } = useTranslate('navbar');
+  const { t } = useTranslate('navbar');
 
   return useMemo(() => {
     const translateItem = (item: NavItemDataProps): NavItemDataProps => ({
@@ -27,11 +27,11 @@ export function useTranslatedNavSections(data: NavSectionProps['data']) {
         : section.subheader,
       items: section.items.map(translateItem),
     }));
-  }, [currentLang.value, data, t]);
+  }, [data, t]);
 }
 
 export function useTranslatedMainNav(data: NavMainProps['data']) {
-  const { t, currentLang } = useTranslate('navbar');
+  const { t } = useTranslate('navbar');
 
   return useMemo(() => {
     const translateItem = (item: NavMainProps['data'][number]): NavMainProps['data'][number] => ({
@@ -48,5 +48,5 @@ export function useTranslatedMainNav(data: NavMainProps['data']) {
     });
 
     return data.map(translateItem);
-  }, [currentLang.value, data, t]);
+  }, [data, t]);
 }

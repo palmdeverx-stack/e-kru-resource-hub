@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import {
   LineIcon,
   EmailIcon,
@@ -28,6 +28,8 @@ import Typography from '@mui/material/Typography';
 import TableContainer from '@mui/material/TableContainer';
 import CircularProgress from '@mui/material/CircularProgress';
 
+import { apiFetch as fetch } from 'src/lib/api-fetch';
+
 import { RiFileCopyLine, RiMoneyDollarCircleLine } from 'src/components/remix-icon';
 
 type ReferralData = {
@@ -52,12 +54,15 @@ type ReferralData = {
   }>;
 };
 
-const money = (value: number) =>
-  new Intl.NumberFormat('th-TH', {
-    style: 'currency',
-    currency: 'THB',
-    currencyDisplay: 'narrowSymbol',
-  }).format(value);
+const moneyFormatter = new Intl.NumberFormat('th-TH', {
+  style: 'currency',
+  currency: 'THB',
+  currencyDisplay: 'narrowSymbol',
+});
+const money = (value: number, currency = 'THB') =>
+  currency === 'THB'
+    ? moneyFormatter.format(value)
+    : new Intl.NumberFormat('th-TH', { style: 'currency', currency }).format(value);
 
 export function MarketplaceReferralView() {
   const [data, setData] = useState<ReferralData | null>(null);
@@ -65,15 +70,34 @@ export function MarketplaceReferralView() {
   const [copied, setCopied] = useState(false);
   const [actionError, setActionError] = useState('');
 
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    },
+    []
+  );
+
   useEffect(() => {
-    fetch('/api/marketplace/referrals', { cache: 'no-store' })
+    const controller = new AbortController();
+    fetch('/api/marketplace/referrals', { cache: 'no-store', signal: controller.signal })
       .then(async (response) => {
         const result = await response.json();
-        if (!response.ok) throw new Error(result.message);
+        if (!response.ok) throw new Error(result.message || 'โหลดข้อมูลแนะนำเพื่อนไม่สำเร็จ');
         return result as ReferralData;
       })
-      .then(setData)
-      .catch((loadError) => setError(loadError.message));
+      .then((result) => {
+        if (!controller.signal.aborted) setData(result);
+      })
+      .catch((loadError) => {
+        if (!controller.signal.aborted) {
+          setError(
+            loadError instanceof Error ? loadError.message : 'โหลดข้อมูลแนะนำเพื่อนไม่สำเร็จ'
+          );
+        }
+      });
+    return () => controller.abort();
   }, []);
 
   if (error) {
@@ -105,27 +129,10 @@ export function MarketplaceReferralView() {
       await navigator.clipboard.writeText(data.code.link);
       setActionError('');
       setCopied(true);
-      window.setTimeout(() => setCopied(false), 1800);
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+      copyTimerRef.current = setTimeout(() => setCopied(false), 1800);
     } catch {
       setActionError('ไม่สามารถคัดลอกลิงก์ได้ กรุณาคัดลอกจากช่องลิงก์โดยตรง');
-    }
-  };
-  const shareLink = async () => {
-    if (!data.code) return;
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: 'E-KRU Marketplace',
-          text: 'เลือกดูสื่อการสอนคุณภาพจาก E-KRU Marketplace',
-          url: data.code.link,
-        });
-        setActionError('');
-      } catch (shareError) {
-        if (shareError instanceof Error && shareError.name === 'AbortError') return;
-        await copyLink();
-      }
-    } else {
-      await copyLink();
     }
   };
   const shareUrl = data.code?.link ?? '';
@@ -154,6 +161,7 @@ export function MarketplaceReferralView() {
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} sx={{ mt: 2 }}>
           <TextField
             fullWidth
+            label="ลิงก์แนะนำของคุณ"
             value={data.code?.link ?? ''}
             slotProps={{ input: { readOnly: true } }}
           />
@@ -161,18 +169,11 @@ export function MarketplaceReferralView() {
             variant="outlined"
             startIcon={<RiFileCopyLine />}
             onClick={copyLink}
+            disabled={!data.code}
             sx={{ flexShrink: 0 }}
           >
             {copied ? 'คัดลอกแล้ว' : 'คัดลอกลิงก์'}
           </Button>
-          {/* <Button
-            variant="contained"
-            startIcon={<RiShareForwardLine />}
-            onClick={shareLink}
-            sx={{ flexShrink: 0 }}
-          >
-            แชร์ช่องทางอื่น
-          </Button> */}
         </Stack>
         <Typography variant="subtitle2" sx={{ mt: 2.5, mb: 1.25 }}>
           เชิญเพื่อนผ่าน
@@ -263,7 +264,7 @@ export function MarketplaceReferralView() {
         </Stack>
         {data.rewards.length ? (
           <TableContainer>
-            <Table>
+            <Table aria-label="ประวัติรางวัลจากการแนะนำ">
               <TableBody>
                 {data.rewards.map((reward) => (
                   <TableRow key={reward.id}>
@@ -273,12 +274,14 @@ export function MarketplaceReferralView() {
                           `คำสั่งซื้อ ${reward.order_id.slice(0, 8)}`}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {new Date(reward.created_at).toLocaleString('th-TH')}
+                        {new Date(reward.created_at).toLocaleString('th-TH', {
+                          timeZone: 'Asia/Bangkok',
+                        })}
                       </Typography>
                     </TableCell>
                     <TableCell align="right">
                       <Typography variant="subtitle2" color="success.main">
-                        +{money(Number(reward.reward_amount))}
+                        +{money(Number(reward.reward_amount), reward.currency)}
                       </Typography>
                     </TableCell>
                     <TableCell align="right">

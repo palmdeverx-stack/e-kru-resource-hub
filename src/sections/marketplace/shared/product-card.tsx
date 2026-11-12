@@ -129,6 +129,8 @@ export function MarketplaceProductCard({
           <Box
             component="img"
             src={coverUrl}
+            loading="lazy"
+            decoding="async"
             alt={content.title}
             sx={{
               width: 1,

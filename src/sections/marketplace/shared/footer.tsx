@@ -14,6 +14,7 @@ import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
 import { useTranslate } from 'src/locales';
+import { apiFetch as fetch } from 'src/lib/api-fetch';
 
 import { MarketplaceBrand } from 'src/components/marketplace-brand';
 import {

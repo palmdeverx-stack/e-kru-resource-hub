@@ -19,6 +19,8 @@ import DialogContent from '@mui/material/DialogContent';
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
+import { apiFetch as fetch } from 'src/lib/api-fetch';
+
 import { Form, Field } from 'src/components/hook-form';
 import { RiSendPlaneLine } from 'src/components/remix-icon';
 

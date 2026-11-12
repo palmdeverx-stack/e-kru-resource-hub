@@ -26,7 +26,6 @@ import { NavHorizontal } from './nav-horizontal';
 import { _account } from '../nav-config-account';
 import { MainSchoolLogo } from '../main/school-brand';
 import { MenuButton } from '../components/menu-button';
-import { DashboardBottomNav } from './dashboard-bottom-nav';
 import { AccountDrawer } from '../components/account-drawer';
 import { AccountPopover } from '../components/account-popover';
 import { LanguagePopover } from '../components/language-popover';
@@ -34,6 +33,7 @@ import { NotificationsMenu } from '../components/notifications-menu';
 import { navData as dashboardNavData } from '../nav-config-dashboard';
 import { dashboardLayoutVars, dashboardNavColorVars } from './css-vars';
 import { MainSection, layoutClasses, HeaderSection, LayoutSection } from '../core';
+import { DashboardBottomNav, getDashboardMobileNavigation } from './dashboard-bottom-nav';
 
 // ----------------------------------------------------------------------
 
@@ -89,6 +89,10 @@ export function DashboardLayout({
 
   const canDisplayItemByRole = (allowedRoles: NavItemProps['allowedRoles']): boolean =>
     !allowedRoles?.includes(user?.role);
+
+  const settingsNavData = mobileBottom
+    ? getDashboardMobileNavigation(navData, canDisplayItemByRole).settingsData
+    : navData;
 
   const renderHeader = () => {
     const headerSlotProps: HeaderSectionProps['slotProps'] = {
@@ -146,19 +150,18 @@ export function DashboardLayout({
               {mobileHeaderIdentity}
             </Box>
           )}
-          {!mobileBottom && (
-            <NavMobile
-              data={navData}
-              open={open}
-              onClose={onClose}
-              cssVars={navVars.section}
-              checkPermissions={canDisplayItemByRole}
-            />
-          )}
+          <NavMobile
+            data={settingsNavData}
+            anchor={mobileBottom ? 'right' : 'left'}
+            open={open}
+            onClose={onClose}
+            cssVars={navVars.section}
+            checkPermissions={canDisplayItemByRole}
+          />
 
           {mobileBottom && (
             <Box sx={{ display: { xs: 'flex', [mobileNavQuery]: 'none' } }}>
-              <MainSchoolLogo />
+              {mobileHeaderIdentity ?? <MainSchoolLogo />}
             </Box>
           )}
 
@@ -330,7 +333,14 @@ export function DashboardLayout({
       ]}
     >
       {renderMain()}
-      {mobileBottom && <DashboardBottomNav data={navData} layoutQuery={mobileNavQuery} />}
+      {mobileBottom && (
+        <DashboardBottomNav
+          data={navData}
+          layoutQuery={mobileNavQuery}
+          onMore={onOpen}
+          checkPermissions={canDisplayItemByRole}
+        />
+      )}
     </LayoutSection>
   );
 }

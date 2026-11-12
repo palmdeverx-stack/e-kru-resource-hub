@@ -33,10 +33,7 @@ export async function GET(request: Request) {
       .select('*', { count: 'exact', head: true })
       .eq('status', 'published'),
     supabaseAdmin.from('marketplace_users').select('*', { count: 'exact', head: true }),
-    supabaseAdmin
-      .from('marketplace_orders')
-      .select('total, gross_amount, platform_fee, payment_fee, seller_net, status, currency')
-      .order('created_at', { ascending: false }),
+    supabaseAdmin.from('marketplace_orders').select('total, platform_fee, seller_net, status'),
     supabaseAdmin
       .from('marketplace_sellers')
       .select('*', { count: 'exact', head: true })
@@ -110,13 +107,19 @@ export async function GET(request: Request) {
   }
 
   const orders = ordersResult.data ?? [];
-  const completedOrders = orders.filter((order) => ['paid', 'completed'].includes(order.status));
-  const grossSales = completedOrders.reduce((sum, order) => sum + Number(order.total), 0);
-  const platformRevenue = completedOrders.reduce(
-    (sum, order) => sum + Number(order.platform_fee),
-    0
-  );
-  const sellerRevenue = completedOrders.reduce((sum, order) => sum + Number(order.seller_net), 0);
+  let grossSales = 0;
+  let platformRevenue = 0;
+  let sellerRevenue = 0;
+  let pendingOrderCount = 0;
+  for (const order of orders) {
+    if (['paid', 'completed'].includes(order.status)) {
+      grossSales += Number(order.total);
+      platformRevenue += Number(order.platform_fee);
+      sellerRevenue += Number(order.seller_net);
+    }
+    if (['pending', 'pending_payment', 'payment_review'].includes(order.status))
+      pendingOrderCount += 1;
+  }
   const pendingPayouts = pendingPayoutsResult.data ?? [];
 
   return NextResponse.json({
@@ -135,9 +138,7 @@ export async function GET(request: Request) {
       pendingProductCount: pendingProductsResult.count ?? 0,
       pendingPaymentCount: pendingPaymentsResult.count ?? 0,
       pendingPayoutCount: pendingPayouts.length,
-      pendingOrderCount: orders.filter((order) =>
-        ['pending', 'pending_payment', 'payment_review'].includes(order.status)
-      ).length,
+      pendingOrderCount,
     },
     recentSellers: recentSellersResult.data ?? [],
     recentOrders: recentOrdersResult.data ?? [],

@@ -1,13 +1,17 @@
 'use client';
 
+
 import type { MarketplaceProduct } from '../../shared/types';
 
-import { useRef, useMemo, useState, useEffect, useCallback } from 'react';
+import dynamic from 'next/dynamic';
+import { useRef, useMemo, useState, useEffect } from 'react';
+import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Grid from '@mui/material/Grid';
 import Chip from '@mui/material/Chip';
+import Alert from '@mui/material/Alert';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Select from '@mui/material/Select';
@@ -30,116 +34,108 @@ import {
   RiEqualizer2Line,
 } from 'src/components/remix-icon';
 
+import { useAuthContext } from 'src/auth/hooks';
+
+import { MARKETPLACE_CATEGORIES } from '../../shared/constants';
 import { MarketplaceProductCard } from '../../shared/product-card';
-import { SAMPLE_PRODUCTS, MARKETPLACE_CATEGORIES } from '../../shared/constants';
 import { getProducts, getCategories, getLocalizedProduct } from '../../shared/api';
-import { MarketplaceProductDetailDialog } from '../components/product-detail-dialog';
+
+const MarketplaceProductDetailDialog = dynamic(() =>
+  import('../components/product-detail-dialog').then(
+    (module) => module.MarketplaceProductDetailDialog
+  )
+);
 
 type PriceFilter = 'all' | 'free' | 'paid';
 
 export function MarketplaceDashboardProductsView() {
   const { currentLang } = useTranslate();
+  const { user, loading: authLoading } = useAuthContext();
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestedCategory = searchParams.get('category') || 'all';
-  const [products, setProducts] = useState<MarketplaceProduct[]>([]);
-  const [categories, setCategories] = useState<string[]>([...MARKETPLACE_CATEGORIES]);
   const [category, setCategory] = useState(requestedCategory);
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState('popular');
   const [priceFilter, setPriceFilter] = useState<PriceFilter>('all');
   const [selectedProduct, setSelectedProduct] = useState<MarketplaceProduct | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(false);
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
-  const requestVersionRef = useRef(0);
 
   useEffect(() => {
     setCategory(requestedCategory);
   }, [requestedCategory]);
-
   useEffect(() => {
-    getCategories()
-      .then(({ categories: categoryRows }) => {
-        if (categoryRows.length) {
-          setCategories(['all', ...categoryRows.map((item) => item.name)]);
-        }
-      })
-      .catch(() => undefined);
-  }, []);
-
-  useEffect(() => {
-    const requestVersion = ++requestVersionRef.current;
-    const timer = window.setTimeout(async () => {
-      setLoading(true);
-      try {
-        const result = await getProducts({
-          q: search,
+    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 250);
+    return () => window.clearTimeout(timer);
+  }, [search]);
+  const { data: categories = [...MARKETPLACE_CATEGORIES] } = useQuery({
+    queryKey: ['catalog-categories'],
+    queryFn: async () => {
+      const result = await getCategories();
+      return result.categories.length
+        ? ['all', ...result.categories.map((item) => item.name)]
+        : [...MARKETPLACE_CATEGORIES];
+    },
+    staleTime: 5 * 60_000,
+  });
+  const {
+    data,
+    isPending: loading,
+    isFetchingNextPage: loadingMore,
+    hasNextPage: hasMore,
+    fetchNextPage,
+    error,
+    refetch,
+  } = useInfiniteQuery({
+    queryKey: [
+      'dashboard-products',
+      user?.id ?? 'guest',
+      user?.role ?? 'guest',
+      debouncedSearch,
+      category,
+      priceFilter,
+    ],
+    enabled: !authLoading,
+    initialPageParam: 1,
+    queryFn: ({ pageParam, signal }) =>
+      getProducts(
+        {
+          q: debouncedSearch,
           category,
           price: priceFilter,
-          page: 1,
+          page: pageParam,
           limit: 12,
-        });
-        if (requestVersion !== requestVersionRef.current) return;
-        setProducts(result.products);
-        setPage(1);
-        setHasMore(Boolean(result.hasMore));
-      } catch {
-        if (requestVersion !== requestVersionRef.current) return;
-        setProducts(SAMPLE_PRODUCTS);
-        setPage(1);
-        setHasMore(false);
-      } finally {
-        if (requestVersion === requestVersionRef.current) setLoading(false);
-      }
-    }, 250);
-
-    return () => window.clearTimeout(timer);
-  }, [category, priceFilter, search]);
-
-  const loadMoreProducts = useCallback(async () => {
-    if (loading || loadingMore || !hasMore) return;
-    const requestVersion = requestVersionRef.current;
-    const nextPage = page + 1;
-    setLoadingMore(true);
-
-    try {
-      const result = await getProducts({
-        q: search,
-        category,
-        price: priceFilter,
-        page: nextPage,
-        limit: 12,
-      });
-      if (requestVersion !== requestVersionRef.current) return;
-      setProducts((current) => {
-        const currentIds = new Set(current.map((product) => product.id));
-        return [...current, ...result.products.filter((product) => !currentIds.has(product.id))];
-      });
-      setPage(nextPage);
-      setHasMore(Boolean(result.hasMore));
-    } catch {
-      if (requestVersion === requestVersionRef.current) setHasMore(false);
-    } finally {
-      if (requestVersion === requestVersionRef.current) setLoadingMore(false);
-    }
-  }, [category, hasMore, loading, loadingMore, page, priceFilter, search]);
+          cards: true,
+        },
+        { signal }
+      ),
+    getNextPageParam: (lastPage) =>
+      lastPage.hasMore ? (lastPage.nextPage ?? undefined) : undefined,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
+  const products = useMemo(() => {
+    const unique = new Map<string, MarketplaceProduct>();
+    data?.pages.forEach((entry) =>
+      entry.products.forEach((product) => unique.set(product.id, product))
+    );
+    return [...unique.values()];
+  }, [data]);
 
   useEffect(() => {
     const sentinel = loadMoreRef.current;
-    if (!sentinel || loading || loadingMore || !hasMore) return undefined;
+    if (!sentinel || loading || loadingMore || error || !hasMore) return undefined;
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) loadMoreProducts();
+        if (entry.isIntersecting) void fetchNextPage();
       },
       { rootMargin: '320px 0px' }
     );
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [hasMore, loadMoreProducts, loading, loadingMore]);
+  }, [hasMore, fetchNextPage, loading, loadingMore, error]);
 
   const displayedProducts = useMemo(() => {
     const filtered = products.filter(
@@ -180,9 +176,6 @@ export function MarketplaceDashboardProductsView() {
 
   const handleCategoryChange = (nextCategory: string) => {
     if (nextCategory === category) return;
-    requestVersionRef.current += 1;
-    setLoading(true);
-    setHasMore(false);
     setCategory(nextCategory);
     router.replace(
       nextCategory === 'all'
@@ -195,6 +188,18 @@ export function MarketplaceDashboardProductsView() {
   return (
     <Container maxWidth={false} sx={{ py: { xs: 3 } }}>
       <Stack spacing={3.5}>
+        {!!error && (
+          <Alert
+            severity="error"
+            action={
+              <Button color="inherit" onClick={() => void refetch()}>
+                ลองอีกครั้ง
+              </Button>
+            }
+          >
+            โหลดสินค้าไม่สำเร็จ กรุณาลองอีกครั้ง
+          </Alert>
+        )}
         <Stack
           direction={{ xs: 'column', md: 'row' }}
           justifyContent="space-between"
@@ -231,9 +236,6 @@ export function MarketplaceDashboardProductsView() {
                 value={search}
                 placeholder="ค้นหาชื่อสินค้า วิชา หรือระดับชั้น..."
                 onChange={(event) => {
-                  requestVersionRef.current += 1;
-                  setLoading(true);
-                  setHasMore(false);
                   setSearch(event.target.value);
                 }}
                 slotProps={{
@@ -335,9 +337,6 @@ export function MarketplaceDashboardProductsView() {
                       aria-pressed={active}
                       onClick={() => {
                         if (active) return;
-                        requestVersionRef.current += 1;
-                        setLoading(true);
-                        setHasMore(false);
                         setPriceFilter(value);
                       }}
                       sx={{
@@ -436,10 +435,12 @@ export function MarketplaceDashboardProductsView() {
         )}
       </Stack>
 
-      <MarketplaceProductDetailDialog
-        product={selectedProduct}
-        onClose={() => setSelectedProduct(null)}
-      />
+      {selectedProduct && (
+        <MarketplaceProductDetailDialog
+          product={selectedProduct}
+          onClose={() => setSelectedProduct(null)}
+        />
+      )}
     </Container>
   );
 }

@@ -9,6 +9,8 @@ import Stack from '@mui/material/Stack';
 
 import { RouterLink } from 'src/routes/components';
 
+import { apiFetch as fetch } from 'src/lib/api-fetch';
+
 import { Logo } from 'src/components/logo';
 
 type MarketplaceBrandProps = {

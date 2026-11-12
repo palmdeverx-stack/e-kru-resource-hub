@@ -1,3 +1,4 @@
+import { revalidateTag } from 'next/cache';
 import { NextResponse } from 'next/server';
 
 import { requireRole } from 'src/lib/auth-token';
@@ -5,6 +6,8 @@ import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { writeSecurityAudit } from 'src/lib/security-audit';
 import { rejectCrossSiteMutation } from 'src/lib/request-security';
 import { isValidClamAvHost, isValidClamAvPort } from 'src/lib/malware-scanner';
+
+import { PUBLIC_PLATFORM_SETTINGS_TAG } from 'src/sections/marketplace/admin/server/platform-settings';
 
 function authorize(request: Request) {
   return requireRole(request, ['master_admin', 'marketplace_admin']);
@@ -114,16 +117,24 @@ export async function PATCH(request: Request) {
   const companyRegistrationNo = String(body?.companyRegistrationNo ?? '').replace(/\D/g, '');
   const taxId = String(body?.taxId ?? '').replace(/\D/g, '');
   const address = String(body?.address ?? '').trim();
-  const contactEmail = String(body?.contactEmail ?? '').trim().toLowerCase();
+  const contactEmail = String(body?.contactEmail ?? '')
+    .trim()
+    .toLowerCase();
   const contactPhone = String(body?.contactPhone ?? '').replace(/[^\d+]/g, '');
   const platformNameTh = String(body?.platformNameTh ?? '').trim();
   const platformNameEn = String(body?.platformNameEn ?? '').trim();
   const brandName = String(body?.brandName ?? '').trim();
   const websiteUrl = String(body?.websiteUrl ?? '').trim();
-  const supportEmail = String(body?.supportEmail ?? '').trim().toLowerCase();
+  const supportEmail = String(body?.supportEmail ?? '')
+    .trim()
+    .toLowerCase();
   const supportPhone = String(body?.supportPhone ?? '').trim();
-  const financeEmail = String(body?.financeEmail ?? '').trim().toLowerCase();
-  const privacyEmail = String(body?.privacyEmail ?? '').trim().toLowerCase();
+  const financeEmail = String(body?.financeEmail ?? '')
+    .trim()
+    .toLowerCase();
+  const privacyEmail = String(body?.privacyEmail ?? '')
+    .trim()
+    .toLowerCase();
   const lineOaId = String(body?.lineOaId ?? '').trim();
   const businessHours = String(body?.businessHours ?? '').trim();
   const complaintUrl = String(body?.complaintUrl ?? '').trim();
@@ -136,20 +147,32 @@ export async function PATCH(request: Request) {
   const authorizedSignatoryName = String(body?.authorizedSignatoryName ?? '').trim();
   const signatureUrl = String(body?.signatureUrl ?? '').trim();
   const sealUrl = String(body?.sealUrl ?? '').trim();
-  const receiptPrefix = String(body?.receiptPrefix ?? '').trim().toUpperCase();
-  const taxInvoicePrefix = String(body?.taxInvoicePrefix ?? '').trim().toUpperCase();
+  const receiptPrefix = String(body?.receiptPrefix ?? '')
+    .trim()
+    .toUpperCase();
+  const taxInvoicePrefix = String(body?.taxInvoicePrefix ?? '')
+    .trim()
+    .toUpperCase();
   const logoUrl = String(body?.logoUrl ?? '').trim();
   const transparentLogoUrl = String(body?.transparentLogoUrl ?? '').trim();
   const faviconUrl = String(body?.faviconUrl ?? '').trim();
   const ogImageUrl = String(body?.ogImageUrl ?? '').trim();
   const officialProductThumbnailUrl = String(body?.officialProductThumbnailUrl ?? '').trim();
-  const primaryColor = String(body?.primaryColor ?? '').trim().toUpperCase();
+  const primaryColor = String(body?.primaryColor ?? '')
+    .trim()
+    .toUpperCase();
   const footerText = String(body?.footerText ?? '').trim();
   const copyrightText = String(body?.copyrightText ?? '').trim();
   const timezone = String(body?.timezone ?? 'Asia/Bangkok').trim();
-  const currency = String(body?.currency ?? 'THB').trim().toUpperCase();
-  const defaultLanguage = String(body?.defaultLanguage ?? 'th').trim().toLowerCase();
-  const serviceCountry = String(body?.serviceCountry ?? 'TH').trim().toUpperCase();
+  const currency = String(body?.currency ?? 'THB')
+    .trim()
+    .toUpperCase();
+  const defaultLanguage = String(body?.defaultLanguage ?? 'th')
+    .trim()
+    .toLowerCase();
+  const serviceCountry = String(body?.serviceCountry ?? 'TH')
+    .trim()
+    .toUpperCase();
   const productionUrl = String(body?.productionUrl ?? '').trim();
   const clamavHost = String(body?.clamavHost ?? '').trim();
   const clamavPort = Number(body?.clamavPort ?? 3310);
@@ -251,6 +274,8 @@ export async function PATCH(request: Request) {
     updated_at: new Date().toISOString(),
   });
   if (error) return NextResponse.json({ message: error.message }, { status: 500 });
+
+  revalidateTag(PUBLIC_PLATFORM_SETTINGS_TAG, { expire: 0 });
 
   await writeSecurityAudit({
     request,

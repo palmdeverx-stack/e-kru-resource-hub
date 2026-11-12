@@ -29,6 +29,8 @@ import CircularProgress from '@mui/material/CircularProgress';
 
 import { formatThaiDateTime } from 'src/utils/timezone';
 
+import { apiFetch as fetch } from 'src/lib/api-fetch';
+
 import {
   RiUser3Line,
   RiSearchLine,
@@ -55,7 +57,15 @@ type SystemAccount = {
   suspended_at: string | null;
   suspended_reason: string | null;
   has_auth_identity: boolean;
+  signup_channel?: string;
   created_at: string;
+};
+
+const signupChannelLabels: Record<string, string> = {
+  google: 'Google',
+  email: 'Email',
+  system: 'บัญชีระบบ',
+  unknown: 'ไม่ทราบ',
 };
 
 const roleLabels: Record<string, string> = {
@@ -81,6 +91,7 @@ function accountStatus(account: SystemAccount) {
 export function SystemUsersView() {
   const { user } = useAuthContext();
   const [accounts, setAccounts] = useState<SystemAccount[]>([]);
+  const [signupChannelsWarning, setSignupChannelsWarning] = useState('');
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
@@ -119,6 +130,7 @@ export function SystemUsersView() {
       const result = await response.json();
       if (!response.ok) throw new Error(result.message);
       setAccounts(result.accounts ?? []);
+      setSignupChannelsWarning(result.signupChannelsWarning ?? '');
       setTotal(result.total ?? 0);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'โหลดบัญชีผู้ใช้งานไม่สำเร็จ');
@@ -267,12 +279,18 @@ export function SystemUsersView() {
       </Card>
 
       <Card variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden' }}>
+        {!!signupChannelsWarning && (
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            {signupChannelsWarning}
+          </Alert>
+        )}
         <TableContainer>
           <Table sx={{ minWidth: 980 }}>
             <TableHead>
               <TableRow>
                 <TableCell>ผู้ใช้งาน</TableCell>
                 <TableCell>ประเภท</TableCell>
+                <TableCell>ช่องทางสมัคร</TableCell>
                 <TableCell>โรงเรียน/ระบบ</TableCell>
                 <TableCell>สถานะ</TableCell>
                 <TableCell>วันที่สร้าง</TableCell>
@@ -282,13 +300,13 @@ export function SystemUsersView() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 9 }}>
+                  <TableCell colSpan={7} align="center" sx={{ py: 9 }}>
                     <CircularProgress size={34} />
                   </TableCell>
                 </TableRow>
               ) : accounts.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 9 }}>
+                  <TableCell colSpan={7} align="center" sx={{ py: 9 }}>
                     <RiUser3Line size={38} />
                     <Typography color="text.secondary" sx={{ mt: 1 }}>
                       ไม่พบบัญชีผู้ใช้งาน
@@ -325,6 +343,17 @@ export function SystemUsersView() {
                         <Typography variant="caption" color="text.secondary">
                           {account.source === 'marketplace' ? 'Marketplace' : 'ระบบโรงเรียน'}
                         </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          size="small"
+                          variant="soft"
+                          color={account.signup_channel === 'google' ? 'info' : 'default'}
+                          label={
+                            signupChannelLabels[account.signup_channel ?? 'unknown'] ??
+                            account.signup_channel
+                          }
+                        />
                       </TableCell>
                       <TableCell>{account.school_name || 'E-KRU Marketplace'}</TableCell>
                       <TableCell>

@@ -20,6 +20,7 @@ import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
 
 import { useTranslate } from 'src/locales';
+import { apiFetch as fetch } from 'src/lib/api-fetch';
 
 import {
   RiStore2Line,

@@ -4,7 +4,7 @@ import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { requireAuthenticated } from 'src/lib/auth-token';
 import { revealPayoutSnapshot } from 'src/lib/financial-data-cipher';
 
-import { getFinanceSettings } from 'src/sections/marketplace/admin/server/finance';
+import { DEFAULT_FINANCE_SETTINGS } from 'src/sections/marketplace/admin/server/finance';
 
 type BuyerInfo = {
   id: string;
@@ -57,13 +57,15 @@ async function getBuyers(buyerIds: string[]) {
   return buyers;
 }
 
+const bangkokDateFormatter = new Intl.DateTimeFormat('en-US', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+  timeZone: 'Asia/Bangkok',
+});
+
 function bangkokDateParts(value: Date | string) {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    timeZone: 'Asia/Bangkok',
-  }).formatToParts(new Date(value));
+  const parts = bangkokDateFormatter.formatToParts(new Date(value));
   const get = (type: Intl.DateTimeFormatPartTypes) =>
     Number(parts.find((part) => part.type === type)?.value);
   return { year: get('year'), month: get('month'), day: get('day') };
@@ -82,6 +84,66 @@ function nextPayoutDate(payoutDay: number) {
   return date.toISOString();
 }
 
+async function getDashboardSummary(sellerId: string) {
+  const now = new Date().toISOString();
+  const currentDateKey = bangkokDateKey(now);
+  const monthStart = new Date(`${currentDateKey.slice(0, 7)}-01T00:00:00+07:00`).toISOString();
+  const [ledgerResult, payoutsResult, ordersResult, settingsResult] = await Promise.all([
+    supabaseAdmin
+      .from('marketplace_ledger_entries')
+      .select('amount, available_at, payout_id')
+      .eq('seller_id', sellerId)
+      .eq('account_scope', 'seller')
+      .is('payout_id', null),
+    supabaseAdmin
+      .from('marketplace_payouts')
+      .select('amount, status')
+      .eq('seller_id', sellerId)
+      .in('status', ['pending', 'processing']),
+    supabaseAdmin
+      .from('marketplace_orders')
+      .select('seller_net, paid_at, created_at')
+      .eq('seller_id', sellerId)
+      .in('status', ['paid', 'completed'])
+      .or(`paid_at.gte.${monthStart},and(paid_at.is.null,created_at.gte.${monthStart})`),
+    supabaseAdmin
+      .from('marketplace_finance_settings')
+      .select('payout_day')
+      .eq('id', 'default')
+      .maybeSingle(),
+  ]);
+  const error =
+    ledgerResult.error ?? payoutsResult.error ?? ordersResult.error ?? settingsResult.error;
+  if (error) return NextResponse.json({ message: error.message }, { status: 500 });
+  const rows = ledgerResult.data ?? [];
+  const todayKey = bangkokDateKey(now);
+  const monthKey = todayKey.slice(0, 7);
+  let todayIncome = 0;
+  let monthIncome = 0;
+  for (const order of ordersResult.data ?? []) {
+    const dateKey = bangkokDateKey(String(order.paid_at ?? order.created_at));
+    if (dateKey === todayKey) todayIncome += Number(order.seller_net);
+    if (dateKey.slice(0, 7) === monthKey) monthIncome += Number(order.seller_net);
+  }
+  return NextResponse.json({
+    balance: {
+      available: rows
+        .filter((row) => row.available_at && row.available_at <= now)
+        .reduce((sum, row) => sum + Number(row.amount), 0),
+      pending: rows
+        .filter((row) => !row.available_at || row.available_at > now)
+        .reduce((sum, row) => sum + Number(row.amount), 0),
+      processing: (payoutsResult.data ?? []).reduce(
+        (sum, payout) => sum + Number(payout.amount),
+        0
+      ),
+      todayIncome,
+      monthIncome,
+    },
+    schedule: { nextPayoutAt: nextPayoutDate(Number(settingsResult.data?.payout_day ?? 5)) },
+  });
+}
+
 export async function GET(request: Request) {
   const caller = requireAuthenticated(request);
   if (!caller) return NextResponse.json({ message: 'กรุณาเข้าสู่ระบบ' }, { status: 401 });
@@ -92,6 +154,9 @@ export async function GET(request: Request) {
     .eq('owner_id', caller.sub)
     .maybeSingle();
   if (!seller) return NextResponse.json({ message: 'ไม่พบร้านค้า' }, { status: 404 });
+  if (new URL(request.url).searchParams.get('summary') === '1') {
+    return getDashboardSummary(seller.id);
+  }
 
   const now = new Date().toISOString();
   const canViewPaymentTransactions =
@@ -102,7 +167,7 @@ export async function GET(request: Request) {
     { data: ledger, error: ledgerError },
     { data: payouts, error: payoutError },
     { data: orders, error: orderError },
-    finance,
+    financeResult,
   ] = await Promise.all([
     supabaseAdmin
       .from('marketplace_ledger_entries')
@@ -124,11 +189,16 @@ export async function GET(request: Request) {
       )
       .eq('seller_id', seller.id)
       .order('created_at', { ascending: false }),
-    getFinanceSettings(),
+    supabaseAdmin
+      .from('marketplace_finance_settings')
+      .select('payout_day, minimum_payout, hold_days, commission_rate')
+      .eq('id', 'default')
+      .maybeSingle(),
   ]);
-  const loadError = ledgerError ?? payoutError ?? orderError;
+  const loadError = ledgerError ?? payoutError ?? orderError ?? financeResult.error;
   if (loadError) return NextResponse.json({ message: loadError.message }, { status: 500 });
 
+  const finance = financeResult.data ?? DEFAULT_FINANCE_SETTINGS;
   const rows = ledger ?? [];
   const orderRows = orders ?? [];
   const buyerIds = [
@@ -206,14 +276,14 @@ export async function GET(request: Request) {
   const nowDate = new Date();
   const todayKey = bangkokDateKey(nowDate);
   const monthKey = todayKey.slice(0, 7);
-  const paidOn = (order: (typeof successfulOrders)[number]) =>
-    bangkokDateKey(String(order.paid_at ?? order.created_at));
-  const todayIncome = successfulOrders
-    .filter((order) => paidOn(order) === todayKey)
-    .reduce((sum, order) => sum + Number(order.seller_net), 0);
-  const monthIncome = successfulOrders
-    .filter((order) => paidOn(order).slice(0, 7) === monthKey)
-    .reduce((sum, order) => sum + Number(order.seller_net), 0);
+  let todayIncome = 0;
+  let monthIncome = 0;
+  for (const order of successfulOrders) {
+    const dateKey = bangkokDateKey(String(order.paid_at ?? order.created_at));
+    const net = Number(order.seller_net);
+    if (dateKey === todayKey) todayIncome += net;
+    if (dateKey.slice(0, 7) === monthKey) monthIncome += net;
+  }
 
   return NextResponse.json({
     seller,

@@ -11,6 +11,8 @@
     "applySeller": "Become a seller"
   },
   "errors": {
+    "products": "Unable to load products. Please try again.",
+    "retry": "Retry",
     "stats": "Unable to load statistics",
     "contact": "Unable to load contact information"
   },

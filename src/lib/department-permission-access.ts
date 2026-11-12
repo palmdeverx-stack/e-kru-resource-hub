@@ -178,12 +178,7 @@ export async function getEffectiveDepartmentPermissions(
           isDepartmentDelegablePermission(key)
       )
   );
-  return applyStaffAccess(
-    base,
-    staffAccess.typePermissions,
-    staffAccess.overrides,
-    'manage'
-  );
+  return applyStaffAccess(base, staffAccess.typePermissions, staffAccess.overrides, 'manage');
 }
 
 export async function hasDepartmentPermission(
@@ -224,4 +219,53 @@ export async function canManageViaPermission(
   if (caller.role === 'school_admin') return true;
   if (caller.role !== 'teacher' || !caller.schoolId) return false;
   return hasDepartmentPermission(caller.sub, caller.schoolId, permissionKey);
+}
+
+/** Load the view/manage permission sets together for session hydration. */
+export async function getDepartmentSessionPermissions(teacherId: string, schoolId: string) {
+  const [membership, staffAccess] = await Promise.all([
+    loadMembership(teacherId, schoolId),
+    loadStaffAccess(teacherId, schoolId),
+  ]);
+  const [{ data: departmentGrants }, { data: memberGrants }] = membership
+    ? await Promise.all([
+        supabaseAdmin
+          .from('department_permissions')
+          .select('permission_key')
+          .eq('department_id', membership.department_id),
+        supabaseAdmin
+          .from('department_member_permissions')
+          .select('permission_key')
+          .eq('member_id', membership.id),
+      ])
+    : [{ data: [] }, { data: [] }];
+  const departmentKeys = new Set((departmentGrants ?? []).map((row) => row.permission_key));
+  const viewBase = new Set<DepartmentPermissionKey>(
+    [...departmentKeys].filter(isDepartmentPermissionKey).filter(isDepartmentDelegablePermission)
+  );
+  const manageBase = new Set<DepartmentPermissionKey>(
+    (memberGrants ?? [])
+      .map((row) => row.permission_key)
+      .filter(
+        (key): key is DepartmentPermissionKey =>
+          departmentKeys.has(key) &&
+          isDepartmentPermissionKey(key) &&
+          isDepartmentDelegablePermission(key)
+      )
+  );
+  const view = applyStaffAccess(
+    viewBase,
+    staffAccess.typePermissions,
+    staffAccess.overrides,
+    'view'
+  );
+  if (view.includes('grades.review') && !view.includes('grades.approve'))
+    view.push('grades.approve');
+  const manage = applyStaffAccess(
+    manageBase,
+    staffAccess.typePermissions,
+    staffAccess.overrides,
+    'manage'
+  );
+  return { view, manage };
 }

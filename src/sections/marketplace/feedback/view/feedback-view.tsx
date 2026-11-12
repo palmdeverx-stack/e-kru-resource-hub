@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -12,8 +12,11 @@ import Divider from '@mui/material/Divider';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import Container from '@mui/material/Container';
+import Pagination from '@mui/material/Pagination';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
+
+import { apiFetch as fetch } from 'src/lib/api-fetch';
 
 import {
   RiAddLine,
@@ -69,27 +72,63 @@ export function MarketplaceFeedbackView() {
   const [savingId, setSavingId] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(0);
+  const [counts, setCounts] = useState({ all: 0, pending: 0 });
+  const [statusFilter, setStatusFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const draftsRef = useRef(new Map<string, FeedbackItem>());
+  const saveInProgressRef = useRef(false);
+  const changeFeedback = (updated: FeedbackItem) => {
+    draftsRef.current.set(updated.id, updated);
+    setFeedback((current) => current.map((entry) => (entry.id === updated.id ? updated : entry)));
+  };
+  const requestRef = useRef<AbortController | null>(null);
 
   const loadFeedback = useCallback(async () => {
+    requestRef.current?.abort();
+    const controller = new AbortController();
+    requestRef.current = controller;
     setLoading(true);
     setError('');
     try {
-      const response = await fetch('/api/marketplace/feedback', { cache: 'no-store' });
+      const params = new URLSearchParams({
+        page: String(page),
+        status: statusFilter,
+        category: categoryFilter,
+      });
+      const response = await fetch(`/api/marketplace/feedback?${params}`, {
+        cache: 'no-store',
+        signal: controller.signal,
+      });
       const result = await response.json();
+      if (controller.signal.aborted) return;
       if (!response.ok) throw new Error(result.message ?? 'โหลด Feedback ไม่สำเร็จ');
-      setFeedback(result.feedback ?? []);
+      if (page > Math.max(1, result.pagination?.totalPages ?? 0)) {
+        setPage(Math.max(1, result.pagination?.totalPages ?? 0));
+        return;
+      }
+      setFeedback(
+        (result.feedback ?? []).map((item: FeedbackItem) => draftsRef.current.get(item.id) ?? item)
+      );
+      setTotalPages(result.pagination?.totalPages ?? 0);
+      setCounts(result.counts ?? { all: 0, pending: 0 });
     } catch (loadError) {
+      if (controller.signal.aborted) return;
       setError(loadError instanceof Error ? loadError.message : 'โหลด Feedback ไม่สำเร็จ');
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) setLoading(false);
     }
-  }, []);
+  }, [page, statusFilter, categoryFilter]);
 
   useEffect(() => {
     if (user?.id) void loadFeedback();
+    return () => requestRef.current?.abort();
   }, [loadFeedback, user?.id]);
 
   const updateFeedback = async (item: FeedbackItem) => {
+    if (saveInProgressRef.current) return;
+    saveInProgressRef.current = true;
     setSavingId(item.id);
     setError('');
     setSuccess('');
@@ -101,13 +140,16 @@ export function MarketplaceFeedbackView() {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.message ?? 'อัปเดต Feedback ไม่สำเร็จ');
+      draftsRef.current.delete(item.id);
       setFeedback((current) =>
         current.map((entry) => (entry.id === item.id ? result.feedback : entry))
       );
       setSuccess('อัปเดตสถานะ Feedback แล้ว');
+      await loadFeedback();
     } catch (updateError) {
       setError(updateError instanceof Error ? updateError.message : 'อัปเดต Feedback ไม่สำเร็จ');
     } finally {
+      saveInProgressRef.current = false;
       setSavingId('');
     }
   };
@@ -116,15 +158,25 @@ export function MarketplaceFeedbackView() {
     return (
       <AdminFeedbackList
         feedback={feedback}
+        counts={counts}
+        page={page}
+        totalPages={totalPages}
+        onPageChange={setPage}
+        statusFilter={statusFilter}
+        categoryFilter={categoryFilter}
+        onStatusFilterChange={(value) => {
+          setStatusFilter(value);
+          setPage(1);
+        }}
+        onCategoryFilterChange={(value) => {
+          setCategoryFilter(value);
+          setPage(1);
+        }}
         loading={loading}
         savingId={savingId}
         error={error}
         success={success}
-        onChange={(updated) =>
-          setFeedback((current) =>
-            current.map((entry) => (entry.id === updated.id ? updated : entry))
-          )
-        }
+        onChange={changeFeedback}
         onSave={updateFeedback}
       />
     );
@@ -193,26 +245,10 @@ export function MarketplaceFeedbackView() {
         onSubmitted={async () => {
           setError('');
           setSuccess('ส่งความคิดเห็นเรียบร้อยแล้ว สามารถติดตามสถานะได้จากรายการด้านล่าง');
-          await loadFeedback();
+          if (page !== 1) setPage(1);
+          else await loadFeedback();
         }}
       />
-
-      {/* <Stack
-        direction="row"
-        justifyContent="space-between"
-        alignItems="center"
-        sx={{ mt: 5, mb: 2 }}
-      >
-        <Box>
-          <Typography variant="h5">{isAdmin ? 'Feedback ทั้งหมด' : 'Feedback ของฉัน'}</Typography>
-          <Typography variant="body2" color="text.secondary">
-            {isAdmin
-              ? 'ตรวจสอบข้อเสนอและอัปเดตสถานะให้ผู้ส่งติดตามได้'
-              : 'ติดตามสถานะและคำตอบจากผู้ดูแลแพลตฟอร์ม'}
-          </Typography>
-        </Box>
-        <Chip label={`${feedback.length} รายการ`} variant="soft" color="primary" />
-      </Stack> */}
 
       {loading ? (
         <Box sx={{ py: 8, textAlign: 'center', mt: 3 }}>
@@ -226,11 +262,8 @@ export function MarketplaceFeedbackView() {
               item={item}
               isAdmin={isAdmin}
               saving={savingId === item.id}
-              onChange={(updated) =>
-                setFeedback((current) =>
-                  current.map((entry) => (entry.id === updated.id ? updated : entry))
-                )
-              }
+              disabled={Boolean(savingId)}
+              onChange={changeFeedback}
               onSave={() => updateFeedback(item)}
             />
           ))}
@@ -262,12 +295,29 @@ export function MarketplaceFeedbackView() {
           </Typography>
         </Card>
       )}
+      {totalPages > 1 && (
+        <Pagination
+          count={totalPages}
+          page={page}
+          onChange={(_, value) => setPage(value)}
+          disabled={loading}
+          sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}
+        />
+      )}
     </Container>
   );
 }
 
 function AdminFeedbackList({
   feedback,
+  counts,
+  page,
+  totalPages,
+  onPageChange,
+  statusFilter,
+  categoryFilter,
+  onStatusFilterChange,
+  onCategoryFilterChange,
   loading,
   savingId,
   error,
@@ -276,6 +326,14 @@ function AdminFeedbackList({
   onSave,
 }: {
   feedback: FeedbackItem[];
+  counts: { all: number; pending: number };
+  page: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+  statusFilter: string;
+  categoryFilter: string;
+  onStatusFilterChange: (value: string) => void;
+  onCategoryFilterChange: (value: string) => void;
   loading: boolean;
   savingId: string;
   error: string;
@@ -283,15 +341,6 @@ function AdminFeedbackList({
   onChange: (item: FeedbackItem) => void;
   onSave: (item: FeedbackItem) => void;
 }) {
-  const [statusFilter, setStatusFilter] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
-  const visibleFeedback = feedback.filter(
-    (item) =>
-      (!statusFilter || item.status === statusFilter) &&
-      (!categoryFilter || item.category === categoryFilter)
-  );
-  const pendingCount = feedback.filter((item) => ['new', 'reviewing'].includes(item.status)).length;
-
   return (
     <Container maxWidth={false} sx={{ py: { xs: 3 } }}>
       <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2}>
@@ -320,8 +369,8 @@ function AdminFeedbackList({
           </Box>
         </Stack>
         <Stack direction="row" spacing={1} alignItems="center">
-          <Chip label={`ทั้งหมด ${feedback.length}`} variant="soft" color="primary" />
-          <Chip label={`รอตรวจ ${pendingCount}`} variant="soft" color="warning" />
+          <Chip label={`ทั้งหมด ${counts.all}`} variant="soft" color="primary" />
+          <Chip label={`รอตรวจ ${counts.pending}`} variant="soft" color="warning" />
         </Stack>
       </Stack>
 
@@ -342,7 +391,7 @@ function AdminFeedbackList({
             select
             label="สถานะ"
             value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
+            onChange={(event) => onStatusFilterChange(event.target.value)}
             sx={{ minWidth: 220 }}
           >
             <MenuItem value="">ทุกสถานะ</MenuItem>
@@ -356,7 +405,7 @@ function AdminFeedbackList({
             select
             label="ประเภท Feedback"
             value={categoryFilter}
-            onChange={(event) => setCategoryFilter(event.target.value)}
+            onChange={(event) => onCategoryFilterChange(event.target.value)}
             sx={{ minWidth: 240 }}
           >
             <MenuItem value="">ทุกประเภท</MenuItem>
@@ -373,14 +422,15 @@ function AdminFeedbackList({
         <Box sx={{ py: 8, textAlign: 'center' }}>
           <CircularProgress />
         </Box>
-      ) : visibleFeedback.length ? (
+      ) : feedback.length ? (
         <Stack spacing={2} sx={{ mt: 3 }}>
-          {visibleFeedback.map((item) => (
+          {feedback.map((item) => (
             <FeedbackCard
               key={item.id}
               item={item}
               isAdmin
               saving={savingId === item.id}
+              disabled={Boolean(savingId)}
               onChange={onChange}
               onSave={() => onSave(item)}
             />
@@ -395,6 +445,15 @@ function AdminFeedbackList({
           <Typography color="text.secondary">ยังไม่มีรายการที่ตรงกับตัวกรองที่เลือก</Typography>
         </Card>
       )}
+      {totalPages > 1 && (
+        <Pagination
+          count={totalPages}
+          page={page}
+          onChange={(_, value) => onPageChange(value)}
+          disabled={loading}
+          sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}
+        />
+      )}
     </Container>
   );
 }
@@ -403,16 +462,18 @@ function FeedbackCard({
   item,
   isAdmin,
   saving,
+  disabled,
   onChange,
   onSave,
 }: {
   item: FeedbackItem;
   isAdmin: boolean;
   saving: boolean;
+  disabled: boolean;
   onChange: (item: FeedbackItem) => void;
   onSave: () => void;
 }) {
-  const category = CATEGORY_OPTIONS.find((option) => option.value === item.category)!;
+  const category = CATEGORY_OPTIONS.find((option) => option.value === item.category);
 
   return (
     <Card variant="outlined" sx={{ p: { xs: 2.5, md: 3 } }}>
@@ -425,7 +486,12 @@ function FeedbackCard({
         <Box sx={{ minWidth: 0 }}>
           <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
             <CategoryIcon category={item.category} />
-            <Chip size="small" label={category.label} variant="soft" color="primary" />
+            <Chip
+              size="small"
+              label={category?.label ?? item.category}
+              variant="soft"
+              color="primary"
+            />
             <StatusChip status={item.status} />
             {item.system_area && <Chip size="small" label={item.system_area} variant="outlined" />}
           </Stack>
@@ -465,6 +531,7 @@ function FeedbackCard({
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                 <TextField
                   select
+                  disabled={disabled}
                   label="สถานะ"
                   value={item.status}
                   onChange={(event) =>
@@ -482,6 +549,8 @@ function FeedbackCard({
                   fullWidth
                   multiline
                   minRows={2}
+                  disabled={disabled}
+                  slotProps={{ htmlInput: { maxLength: 2000 } }}
                   label="หมายเหตุจากผู้ดูแลแพลตฟอร์ม"
                   value={item.admin_note ?? ''}
                   onChange={(event) => onChange({ ...item, admin_note: event.target.value })}
@@ -490,6 +559,7 @@ function FeedbackCard({
               <Button
                 variant="contained"
                 loading={saving}
+                disabled={disabled}
                 onClick={onSave}
                 sx={{ alignSelf: 'flex-start' }}
               >
@@ -512,7 +582,7 @@ function FeedbackDetail({ label, value }: { label: string; value: string | null 
       <Typography
         variant="body2"
         color={value ? 'text.secondary' : 'text.disabled'}
-        sx={{ mt: 0.75, whiteSpace: 'pre-wrap' }}
+        sx={{ mt: 0.75, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}
       >
         {value || 'ไม่ได้ระบุ'}
       </Typography>

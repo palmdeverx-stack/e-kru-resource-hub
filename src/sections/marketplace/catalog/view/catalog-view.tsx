@@ -2,11 +2,14 @@
 
 import type { MarketplaceProduct } from '../../shared/types';
 
+import dynamic from 'next/dynamic';
 import { useRef, useMemo, useState, useEffect, useCallback } from 'react';
+import { useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import Chip from '@mui/material/Chip';
+import Alert from '@mui/material/Alert';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Select from '@mui/material/Select';
@@ -26,6 +29,7 @@ import { RouterLink } from 'src/routes/components';
 import { useRouter, useSearchParams } from 'src/routes/hooks';
 
 import { useTranslate } from 'src/locales';
+import { apiFetch as fetch } from 'src/lib/api-fetch';
 
 import {
   RiTimeLine,
@@ -47,11 +51,18 @@ import {
   RiGraduationCapLine,
 } from 'src/components/remix-icon';
 
+import { useAuthContext } from 'src/auth/hooks';
+
+import { getProducts, getCategories } from '../../shared/api';
+import { MARKETPLACE_CATEGORIES } from '../../shared/constants';
 import { MarketplaceProductCard } from '../../shared/product-card';
 import { MarketplaceNewProductCard } from '../components/new-product-card';
-import { SAMPLE_PRODUCTS, MARKETPLACE_CATEGORIES } from '../../shared/constants';
-import { getProducts, getCategories, getLocalizedProduct } from '../../shared/api';
-import { MarketplaceProductDetailDialog } from '../components/product-detail-dialog';
+
+const MarketplaceProductDetailDialog = dynamic(() =>
+  import('../components/product-detail-dialog').then(
+    (module) => module.MarketplaceProductDetailDialog
+  )
+);
 
 type PublicStats = {
   teachers: number;
@@ -65,19 +76,6 @@ type GradeGroup = 'all' | 'kindergarten' | 'primary' | 'secondary';
 const normalizeGradeGroup = (value: string | null): GradeGroup => {
   if (value === 'kindergarten' || value === 'primary' || value === 'secondary') return value;
   return 'all';
-};
-
-const matchesGradeGroup = (product: MarketplaceProduct, gradeGroup: GradeGroup) => {
-  if (gradeGroup === 'all') return true;
-
-  const gradeText = [
-    product.title,
-    ...(product.grade_levels ?? []).map(({ grade_level: gradeLevel }) => gradeLevel.name),
-  ].join(' ');
-
-  if (gradeGroup === 'kindergarten') return /อนุบาล|อ\.[1-3]/i.test(gradeText);
-  if (gradeGroup === 'primary') return /ประถม|ป\.[1-6]/i.test(gradeText);
-  return /มัธยม|ม\.[1-6]/i.test(gradeText);
 };
 
 const gradeCollections = [
@@ -166,25 +164,112 @@ export function MarketplaceCatalogView() {
   const requestedCategory = searchParams.get('category') || 'all';
   const requestedGradeGroup = normalizeGradeGroup(searchParams.get('grade'));
   const requestedSearch = searchParams.get('q')?.trim() || '';
-  const [products, setProducts] = useState<MarketplaceProduct[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [productPage, setProductPage] = useState(1);
-  const [hasMore, setHasMore] = useState(false);
   const [search, setSearch] = useState(requestedSearch);
   const [category, setCategory] = useState(requestedCategory);
   const [gradeGroup, setGradeGroup] = useState<GradeGroup>(requestedGradeGroup);
   const [sort, setSort] = useState('popular');
   const [priceFilter, setPriceFilter] = useState<PriceFilter>('all');
-  const [categories, setCategories] = useState<string[]>([...MARKETPLACE_CATEGORIES]);
-  const [newProducts, setNewProducts] = useState<MarketplaceProduct[]>([]);
-  const [newProductsLoading, setNewProductsLoading] = useState(true);
-  const [publicStats, setPublicStats] = useState<PublicStats | null>(null);
-  const [publicStatsLoading, setPublicStatsLoading] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<MarketplaceProduct | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const newProductsScrollRef = useRef<HTMLDivElement | null>(null);
-  const requestVersionRef = useRef(0);
+  const { user } = useAuthContext();
+  const queryClient = useQueryClient();
+  const [debouncedSearch, setDebouncedSearch] = useState(requestedSearch);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 250);
+    return () => window.clearTimeout(timer);
+  }, [search]);
+
+  // Both the latest row and the catalog reuse the same page request/cache.
+  const fetchProductPage = useCallback(
+    (params: Parameters<typeof getProducts>[0]) => {
+      const normalized = {
+        q: params?.q || '',
+        category: params?.category || 'all',
+        price: params?.price ?? 'all',
+        gradeGroup: params?.gradeGroup,
+        page: params?.page ?? 1,
+        limit: 12,
+      };
+      return queryClient.fetchQuery({
+        queryKey: ['catalog-page', user?.id ?? 'guest', user?.role ?? 'guest', normalized],
+        queryFn: () => getProducts(normalized),
+        staleTime: 60_000,
+        retry: false,
+      });
+    },
+    [queryClient, user?.id, user?.role]
+  );
+  const { data: categories = [...MARKETPLACE_CATEGORIES] } = useQuery({
+    queryKey: ['catalog-categories'],
+    queryFn: async () => {
+      const result = await getCategories();
+      return result.categories.length
+        ? ['all', ...result.categories.map((item) => item.name)]
+        : [...MARKETPLACE_CATEGORIES];
+    },
+    staleTime: 5 * 60_000,
+  });
+  const { data: publicStats, isPending: publicStatsLoading } = useQuery({
+    queryKey: ['landing', 'stats'],
+    queryFn: async (): Promise<PublicStats> => {
+      const response = await fetch('/api/marketplace/public-stats');
+      if (!response.ok) throw new Error('Failed to load public stats');
+      return response.json();
+    },
+    staleTime: 5 * 60_000,
+  });
+  const { data: latestPage, isPending: newProductsLoading } = useQuery({
+    queryKey: ['catalog-latest', user?.id ?? 'guest', user?.role ?? 'guest'],
+    queryFn: () => fetchProductPage({ page: 1 }),
+    staleTime: 60_000,
+  });
+  const newProducts = latestPage?.products ?? [];
+  const {
+    data: catalogPages,
+    isPending: loading,
+    isError: loadError,
+    isFetchNextPageError: loadMoreError,
+    refetch,
+    isFetchingNextPage: loadingMore,
+    hasNextPage: hasMore,
+    fetchNextPage,
+  } = useInfiniteQuery({
+    queryKey: [
+      'catalog',
+      user?.id ?? 'guest',
+      user?.role ?? 'guest',
+      debouncedSearch,
+      category,
+      gradeGroup,
+      priceFilter,
+    ],
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) =>
+      fetchProductPage({
+        q: debouncedSearch,
+        category,
+        price: priceFilter,
+        gradeGroup: gradeGroup === 'all' ? undefined : gradeGroup,
+        page: pageParam,
+      }),
+    getNextPageParam: (lastPage, _pages, lastPageParam) =>
+      lastPage.hasMore ? lastPageParam + 1 : undefined,
+    staleTime: 60_000,
+  });
+  const products = useMemo(() => {
+    const unique = new Map<string, MarketplaceProduct>();
+    catalogPages?.pages.forEach((page) =>
+      page.products.forEach((product) => unique.set(product.id, product))
+    );
+    return [...unique.values()];
+  }, [catalogPages]);
+  const loadMoreProducts = useCallback(() => {
+    if (!loading && !loadingMore && hasMore && search.trim() === debouncedSearch) {
+      void fetchNextPage();
+    }
+  }, [loading, loadingMore, hasMore, search, debouncedSearch, fetchNextPage]);
 
   useEffect(() => {
     setCategory(requestedCategory);
@@ -199,104 +284,8 @@ export function MarketplaceCatalogView() {
   }, [requestedSearch]);
 
   useEffect(() => {
-    getCategories()
-      .then(({ categories: categoryRows }) => {
-        if (categoryRows.length) {
-          setCategories(['all', ...categoryRows.map((item) => item.name)]);
-        }
-      })
-      .catch(() => {
-        // Keep the built-in category fallback while the master schema is being installed.
-      });
-  }, []);
-
-  useEffect(() => {
-    const controller = new AbortController();
-
-    fetch('/api/marketplace/public-stats', { signal: controller.signal })
-      .then(async (response) => {
-        if (!response.ok) throw new Error(t('errors.stats'));
-        return response.json() as Promise<PublicStats>;
-      })
-      .then(setPublicStats)
-      .catch((error) => {
-        if (error instanceof Error && error.name === 'AbortError') return;
-        setPublicStats(null);
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setPublicStatsLoading(false);
-      });
-
-    return () => controller.abort();
-  }, [t]);
-
-  useEffect(() => {
-    getProducts({ page: 1, limit: 12 })
-      .then(({ products: latestProducts }) => setNewProducts(latestProducts))
-      .catch(() => setNewProducts(SAMPLE_PRODUCTS.slice(0, 12)))
-      .finally(() => setNewProductsLoading(false));
-  }, []);
-
-  useEffect(() => {
-    const requestVersion = ++requestVersionRef.current;
-    const timer = window.setTimeout(async () => {
-      setLoading(true);
-      try {
-        const result = await getProducts({
-          q: search,
-          category,
-          price: priceFilter,
-          gradeGroup: gradeGroup === 'all' ? undefined : gradeGroup,
-          page: 1,
-          limit: 12,
-        });
-        if (requestVersion !== requestVersionRef.current) return;
-        setProducts(result.products);
-        setProductPage(1);
-        setHasMore(Boolean(result.hasMore));
-      } catch {
-        if (requestVersion !== requestVersionRef.current) return;
-        setProducts(SAMPLE_PRODUCTS);
-        setProductPage(1);
-        setHasMore(false);
-      } finally {
-        if (requestVersion === requestVersionRef.current) setLoading(false);
-      }
-    }, 250);
-    return () => window.clearTimeout(timer);
-  }, [category, gradeGroup, priceFilter, search]);
-
-  const loadMoreProducts = useCallback(async () => {
-    if (loading || loadingMore || !hasMore) return;
-    const requestVersion = requestVersionRef.current;
-    const nextPage = productPage + 1;
-    setLoadingMore(true);
-    try {
-      const result = await getProducts({
-        q: search,
-        category,
-        price: priceFilter,
-        gradeGroup: gradeGroup === 'all' ? undefined : gradeGroup,
-        page: nextPage,
-        limit: 12,
-      });
-      if (requestVersion !== requestVersionRef.current) return;
-      setProducts((current) => {
-        const existingIds = new Set(current.map((product) => product.id));
-        return [...current, ...result.products.filter((product) => !existingIds.has(product.id))];
-      });
-      setProductPage(nextPage);
-      setHasMore(Boolean(result.hasMore));
-    } catch {
-      if (requestVersion === requestVersionRef.current) setHasMore(false);
-    } finally {
-      if (requestVersion === requestVersionRef.current) setLoadingMore(false);
-    }
-  }, [category, gradeGroup, hasMore, loading, loadingMore, priceFilter, productPage, search]);
-
-  useEffect(() => {
     const sentinel = loadMoreRef.current;
-    if (!sentinel || loading || loadingMore || !hasMore) return undefined;
+    if (!sentinel || loading || loadingMore || loadMoreError || !hasMore) return undefined;
 
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -306,22 +295,10 @@ export function MarketplaceCatalogView() {
     );
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [hasMore, loadMoreProducts, loading, loadingMore]);
+  }, [hasMore, loadMoreProducts, loading, loadingMore, loadMoreError]);
 
-  const visibleProducts = products.filter(
-    (product) =>
-      (category === 'all' || product.category === category) &&
-      matchesGradeGroup(product, gradeGroup) &&
-      (priceFilter === 'all' ||
-        (priceFilter === 'free' ? Number(product.price) === 0 : Number(product.price) > 0)) &&
-      (!search ||
-        getLocalizedProduct(product, currentLang.value)
-          .title.toLowerCase()
-          .includes(search.toLowerCase()))
-  );
-  const displayedProducts = loading && products.length ? products : visibleProducts;
   const sortedDisplayedProducts = useMemo(() => {
-    const sorted = [...displayedProducts];
+    const sorted = [...products];
 
     if (sort === 'latest') {
       return sorted.sort(
@@ -345,7 +322,7 @@ export function MarketplaceCatalogView() {
         (second.engagement?.purchases ?? 0) * 10 + (second.engagement?.views ?? 0);
       return secondScore - firstScore;
     });
-  }, [displayedProducts, sort]);
+  }, [products, sort]);
 
   const updateCatalogUrl = (
     nextCategory: string,
@@ -365,9 +342,6 @@ export function MarketplaceCatalogView() {
 
   const handleCategoryChange = (nextCategory: string) => {
     if (nextCategory !== category) {
-      requestVersionRef.current += 1;
-      setLoading(true);
-      setHasMore(false);
       setCategory(nextCategory);
     }
     updateCatalogUrl(nextCategory, gradeGroup);
@@ -375,18 +349,12 @@ export function MarketplaceCatalogView() {
 
   const handleGradeGroupChange = (nextGradeGroup: GradeGroup) => {
     if (nextGradeGroup !== gradeGroup) {
-      requestVersionRef.current += 1;
-      setLoading(true);
-      setHasMore(false);
       setGradeGroup(nextGradeGroup);
     }
     updateCatalogUrl(category, nextGradeGroup);
   };
 
   const handleGradeCollectionSelect = (nextGradeGroup: Exclude<GradeGroup, 'all'>) => {
-    requestVersionRef.current += 1;
-    setLoading(true);
-    setHasMore(false);
     setSearch('');
     setCategory('all');
     setPriceFilter('all');
@@ -656,9 +624,6 @@ export function MarketplaceCatalogView() {
               value={search}
               placeholder={t('catalog.filters.searchPlaceholder')}
               onChange={(event) => {
-                requestVersionRef.current += 1;
-                setLoading(true);
-                setHasMore(false);
                 setSearch(event.target.value);
               }}
               slotProps={{
@@ -821,9 +786,7 @@ export function MarketplaceCatalogView() {
                       color={priceFilter === value ? 'primary' : 'inherit'}
                       onClick={() => {
                         if (priceFilter === value) return;
-                        requestVersionRef.current += 1;
-                        setLoading(true);
-                        setHasMore(false);
+
                         setPriceFilter(value);
                       }}
                       sx={{
@@ -860,6 +823,23 @@ export function MarketplaceCatalogView() {
             </Stack>
           </Stack>
 
+          {loadError && (
+            <Alert
+              severity="error"
+              action={
+                <Button
+                  color="inherit"
+                  onClick={() => {
+                    void (loadMoreError ? fetchNextPage() : refetch());
+                  }}
+                >
+                  {t('errors.retry')}
+                </Button>
+              }
+            >
+              {t('errors.products')}
+            </Alert>
+          )}
           {loading && !products.length ? (
             <Box sx={{ py: 10, textAlign: 'center' }}>
               <CircularProgress />
@@ -1112,10 +1092,12 @@ export function MarketplaceCatalogView() {
           )}
         </Box>
 
-        <MarketplaceProductDetailDialog
-          product={selectedProduct}
-          onClose={() => setSelectedProduct(null)}
-        />
+        {selectedProduct && (
+          <MarketplaceProductDetailDialog
+            product={selectedProduct}
+            onClose={() => setSelectedProduct(null)}
+          />
+        )}
       </Container>
 
       <Box component="section" aria-labelledby="grade-collections-title" sx={{ py: { xs: 5 } }}>

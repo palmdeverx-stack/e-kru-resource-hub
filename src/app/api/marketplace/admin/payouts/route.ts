@@ -146,8 +146,16 @@ export async function POST(request: Request) {
     getFinanceSettings(),
   ]);
   const revealedAccount = revealPayoutAccount(account);
-  if (!revealedAccount?.account_number) {
-    return NextResponse.json({ message: 'ผู้ขายยังไม่ได้บันทึกบัญชีรับเงิน' }, { status: 400 });
+  if (
+    !revealedAccount?.bank_code ||
+    !revealedAccount?.bank_name ||
+    String(revealedAccount?.account_name ?? '').trim().length < 2 ||
+    String(revealedAccount?.account_number ?? '').replace(/\D/g, '').length < 6
+  ) {
+    return NextResponse.json(
+      { message: 'กรุณาให้ผู้ขายกรอกธนาคาร ชื่อบัญชี และเลขบัญชีให้ครบก่อนเบิกเงิน' },
+      { status: 400 }
+    );
   }
   const amount = money((entries ?? []).reduce((sum, entry) => sum + Number(entry.amount), 0));
   if (amount <= 0 || amount < Number(finance.minimum_payout)) {

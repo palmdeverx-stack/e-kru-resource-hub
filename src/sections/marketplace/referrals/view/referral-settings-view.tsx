@@ -13,6 +13,8 @@ import Typography from '@mui/material/Typography';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import CircularProgress from '@mui/material/CircularProgress';
 
+import { apiFetch as fetch } from 'src/lib/api-fetch';
+
 type Settings = {
   isEnabled: boolean;
   rewardRate: number;

@@ -20,9 +20,9 @@ export function StudentBottomNav({ data }: NavMainProps) {
   const currentPath = [...data]
     .sort((a, b) => b.path.length - a.path.length)
     .find((item) =>
-      item.path === '/'
-        ? pathname === '/'
-        : pathname === item.path || pathname.startsWith(`${item.path}/`)
+      (item.activePaths ?? [item.path]).some((path) =>
+        path === '/' ? pathname === '/' : pathname === path || pathname.startsWith(`${path}/`)
+      )
     )?.path;
 
   return (
@@ -82,6 +82,7 @@ export function StudentBottomNav({ data }: NavMainProps) {
               component={RouterLink}
               href={item.path}
               value={item.path}
+              aria-current={currentPath === item.path ? 'page' : undefined}
               label={item.title}
               icon={item.icon}
             />

@@ -12,17 +12,19 @@ import MenuItem from '@mui/material/MenuItem';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 
+import { useRouter } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 
 import { useTranslate } from 'src/locales';
 
+import { toast } from 'src/components/snackbar';
 import {
   RiKey2Line,
   RiStore2Line,
   RiSearchLine,
+  RiReceiptLine,
   RiLogoutBoxLine,
   RiDashboardLine,
-  RiShoppingBag3Line,
 } from 'src/components/remix-icon';
 
 import { signOut } from 'src/auth/context/jwt';
@@ -30,14 +32,16 @@ import { useAuthContext } from 'src/auth/hooks';
 
 const memberMenuItems = [
   { label: 'สินค้าทั้งหมด', href: '/products', icon: RiSearchLine },
-  { label: 'ภาพรวม', href: '/dashboard', icon: RiDashboardLine },
-  { label: 'รายการซื้อ', href: '/dashboard/purchases', icon: RiShoppingBag3Line },
+  { label: 'ภาพรวมบัญชี', href: '/dashboard', icon: RiDashboardLine },
+  { label: 'รายการซื้อ', href: '/dashboard/purchases', icon: RiReceiptLine },
   { label: 'ศูนย์ผู้ขาย', href: '/dashboard/seller', icon: RiStore2Line },
 ] as const;
 
 export function MarketplaceAccountMenu() {
   const { t } = useTranslate('navbar');
-  const { user, authenticated, checkUserSession } = useAuthContext();
+  const { user, authenticated, setSessionUser } = useAuthContext();
+  const router = useRouter();
+  const [pendingSignOut, setPendingSignOut] = useState(false);
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
 
   if (!authenticated || !user) return null;
@@ -57,10 +61,18 @@ export function MarketplaceAccountMenu() {
   }
 
   const handleSignOut = async () => {
-    setAnchorEl(null);
-    await signOut();
-    await checkUserSession?.();
-    window.location.replace('/');
+    if (pendingSignOut) return;
+    setPendingSignOut(true);
+    try {
+      await signOut();
+      setSessionUser?.(null);
+      setAnchorEl(null);
+      router.replace('/');
+    } catch {
+      toast.error(t('ออกจากระบบไม่สำเร็จ กรุณาลองใหม่'));
+    } finally {
+      setPendingSignOut(false);
+    }
   };
 
   return (
@@ -146,7 +158,11 @@ export function MarketplaceAccountMenu() {
           );
         })}
         {!!menuItems.length && <Divider />}
-        <MenuItem onClick={handleSignOut} sx={{ gap: 1.5, color: 'error.main' }}>
+        <MenuItem
+          onClick={handleSignOut}
+          disabled={pendingSignOut}
+          sx={{ gap: 1.5, color: 'error.main' }}
+        >
           <RiLogoutBoxLine size={20} />
           {t('ออกจากระบบ')}
         </MenuItem>

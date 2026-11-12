@@ -12,7 +12,9 @@ import Alert from '@mui/material/Alert';
 
 import { usePathname } from 'src/routes/hooks';
 
-import { languageOptions, useTranslate, useTranslatedMainNav } from 'src/locales';
+import { useTranslate, languageOptions, useTranslatedMainNav } from 'src/locales';
+
+import { RiSettings3Line } from 'src/components/remix-icon';
 
 import { NavMobile } from './nav/mobile';
 import { NavDesktop } from './nav/desktop';
@@ -60,7 +62,7 @@ export function MainLayout({
 
   const rawNavData = slotProps?.nav?.data ?? mainNavData;
   const navData = useTranslatedMainNav(rawNavData);
-  const mobileBottom = slotProps?.nav?.mobileBottom ?? false;
+  const mobileBottom = slotProps?.nav?.mobileBottom ?? true;
 
   const renderHeader = () => {
     const customHeaderSlots = slotProps?.header?.slots;
@@ -141,7 +143,14 @@ export function MainLayout({
   ];
 
   const renderFooter = () => {
-    if (slotProps?.footerContent) return slotProps.footerContent;
+    if (pathname === '/settings' || pathname === '/settings/') return null;
+    if (slotProps?.footerContent) {
+      return (
+        <Box sx={mobileBottom ? { display: { xs: 'none', md: 'block' } } : undefined}>
+          {slotProps.footerContent}
+        </Box>
+      );
+    }
     return isHomePage ? (
       <HomeFooter sx={footerSx} />
     ) : (
@@ -184,7 +193,22 @@ export function MainLayout({
       sx={sx}
     >
       {renderMain()}
-      {mobileBottom && <StudentBottomNav data={navData} />}
+      {mobileBottom && (
+        <StudentBottomNav
+          data={[
+            ...navData,
+            ...(rawNavData === mainNavData
+              ? [
+                  {
+                    title: t('ตั้งค่าระบบ'),
+                    path: '/settings',
+                    icon: <RiSettings3Line size={22} />,
+                  },
+                ]
+              : []),
+          ]}
+        />
+      )}
     </LayoutSection>
   );
 }

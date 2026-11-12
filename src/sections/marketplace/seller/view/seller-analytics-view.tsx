@@ -27,6 +27,8 @@ import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
+import { apiFetch as fetch } from 'src/lib/api-fetch';
+
 import { Chart, useChart } from 'src/components/chart';
 import {
   RiEyeLine,
@@ -350,7 +352,11 @@ export function MarketplaceSellerAnalyticsView() {
         </Stack>
       </Stack>
 
-      {error && <Alert severity="error" sx={{ mt: 3 }}>{error}</Alert>}
+      {error && (
+        <Alert severity="error" sx={{ mt: 3 }}>
+          {error}
+        </Alert>
+      )}
       {data?.setupRequired && (
         <Alert severity="warning" sx={{ mt: 3 }}>
           กรุณารัน migration ล่าสุดเพื่อเปิดใช้งานสถิติร้านค้า
@@ -392,11 +398,15 @@ export function MarketplaceSellerAnalyticsView() {
             </Stack>
             <Stack spacing={2.25} sx={{ mt: 3 }}>
               <Box>
-                <Typography color="text.secondary" variant="body2">สินค้าทั้งหมด</Typography>
+                <Typography color="text.secondary" variant="body2">
+                  สินค้าทั้งหมด
+                </Typography>
                 <Typography variant="h3">{numberFormat.format(summary?.products ?? 0)}</Typography>
               </Box>
               <Box>
-                <Typography color="text.secondary" variant="body2">กำลังเผยแพร่</Typography>
+                <Typography color="text.secondary" variant="body2">
+                  กำลังเผยแพร่
+                </Typography>
                 <Typography variant="h3" color="success.main">
                   {numberFormat.format(summary?.publishedProducts ?? 0)}
                 </Typography>
@@ -434,7 +444,9 @@ export function MarketplaceSellerAnalyticsView() {
               {loading ? (
                 Array.from({ length: 4 }).map((_, index) => (
                   <TableRow key={index}>
-                    <TableCell colSpan={8}><Skeleton height={34} /></TableCell>
+                    <TableCell colSpan={8}>
+                      <Skeleton height={34} />
+                    </TableCell>
                   </TableRow>
                 ))
               ) : data?.analytics.products.length ? (
@@ -466,7 +478,9 @@ export function MarketplaceSellerAnalyticsView() {
                           label={statusLabels[product.status] ?? product.status}
                         />
                       </TableCell>
-                      <TableCell align="right">{numberFormat.format(product.product_views)}</TableCell>
+                      <TableCell align="right">
+                        {numberFormat.format(product.product_views)}
+                      </TableCell>
                       <TableCell align="right">{numberFormat.format(product.orders)}</TableCell>
                       <TableCell align="right">{numberFormat.format(product.units_sold)}</TableCell>
                       <TableCell align="right">{formatPrice(product.gross_sales)}</TableCell>
@@ -489,11 +503,7 @@ export function MarketplaceSellerAnalyticsView() {
 
       <Card variant="outlined" sx={{ mt: 3, overflow: 'hidden' }}>
         <Box sx={{ px: { xs: 2, md: 3 }, pt: 3, pb: 2 }}>
-          <Stack
-            direction={{ xs: 'column', sm: 'row' }}
-            justifyContent="space-between"
-            spacing={2}
-          >
+          <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" spacing={2}>
             <Box>
               <Stack direction="row" spacing={1.25} alignItems="center">
                 <RiSearchLine size={24} />
@@ -537,7 +547,9 @@ export function MarketplaceSellerAnalyticsView() {
               {loading ? (
                 Array.from({ length: 3 }).map((_, index) => (
                   <TableRow key={index}>
-                    <TableCell colSpan={5}><Skeleton height={34} /></TableCell>
+                    <TableCell colSpan={5}>
+                      <Skeleton height={34} />
+                    </TableCell>
                   </TableRow>
                 ))
               ) : data?.analytics.searchTerms.length ? (
@@ -550,7 +562,9 @@ export function MarketplaceSellerAnalyticsView() {
                     <TableCell align="right">
                       {numberFormat.format(term.product_impressions)}
                     </TableCell>
-                    <TableCell align="right">{numberFormat.format(term.matched_products)}</TableCell>
+                    <TableCell align="right">
+                      {numberFormat.format(term.matched_products)}
+                    </TableCell>
                     <TableCell align="right">
                       {new Date(term.last_searched_at).toLocaleString('th-TH', {
                         dateStyle: 'medium',

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { useState, useCallback } from 'react';
 
 import { MarketplacePayoutAccessDialog } from './payout-access-dialog';
 import { MarketplaceFinanceSettingsView } from './finance-settings-view';

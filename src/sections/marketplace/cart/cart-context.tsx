@@ -27,6 +27,7 @@ export function MarketplaceCartProvider({ children }: { children: React.ReactNod
 
   useEffect(() => {
     let active = true;
+    const controller = new AbortController();
     try {
       const stored = window.localStorage.getItem(STORAGE_KEY);
       if (stored) {
@@ -40,18 +41,23 @@ export function MarketplaceCartProvider({ children }: { children: React.ReactNod
           Promise.allSettled(
             storedItems.map(async ({ product }) => {
               if (product.id.startsWith('sample-')) return product;
-              return (await getProduct(product.id)).product;
+              return (await getProduct(product.id, { cart: true, signal: controller.signal }))
+                .product;
             })
           ).then((results) => {
             if (!active) return;
-            setItems(
+            const refreshed = new Map(
               results.flatMap((result, index) =>
                 result.status === 'fulfilled'
-                  ? [{ product: result.value }]
-                  : storedItems[index]
-                    ? [storedItems[index]]
-                    : []
+                  ? [[storedItems[index].product.id, result.value] as const]
+                  : []
               )
+            );
+            setItems((current) =>
+              current.map((item) => {
+                const product = refreshed.get(item.product.id);
+                return product ? { product: { ...item.product, ...product } } : item;
+              })
             );
           });
         }
@@ -63,6 +69,7 @@ export function MarketplaceCartProvider({ children }: { children: React.ReactNod
     }
     return () => {
       active = false;
+      controller.abort();
     };
   }, []);
 

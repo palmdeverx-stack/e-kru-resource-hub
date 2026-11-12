@@ -2,7 +2,8 @@
 
 import type { MarketplaceSeller, MarketplaceProduct } from '../../shared/types';
 
-import { useRef, useState, useEffect, useCallback } from 'react';
+import { memo, useMemo, useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import Box from '@mui/material/Box';
 import Tab from '@mui/material/Tab';
@@ -34,6 +35,8 @@ import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
+
+import { apiFetch as fetch } from 'src/lib/api-fetch';
 
 import {
   RiAddLine,
@@ -136,12 +139,9 @@ const EMPTY_PRODUCT_COUNTS: ProductCounts = {
 
 export function MarketplaceSellerDashboardView() {
   const theme = useTheme();
-  const { user } = useAuthContext();
+  const queryClient = useQueryClient();
+  const { user, loading: authLoading } = useAuthContext();
   const isSystemStore = user?.role === 'master_admin';
-  const [seller, setSeller] = useState<MarketplaceSeller | null>(null);
-  const [products, setProducts] = useState<MarketplaceProduct[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [productsLoading, setProductsLoading] = useState(true);
   const [error, setError] = useState('');
   const [deleting, setDeleting] = useState<MarketplaceProduct | null>(null);
   const [deletingBusy, setDeletingBusy] = useState(false);
@@ -152,100 +152,89 @@ export function MarketplaceSellerDashboardView() {
   const [productSearch, setProductSearch] = useState('');
   const [debouncedProductSearch, setDebouncedProductSearch] = useState('');
   const [productPage, setProductPage] = useState(1);
-  const [productTotal, setProductTotal] = useState(0);
-  const [productPageCount, setProductPageCount] = useState(0);
-  const [productCounts, setProductCounts] = useState<ProductCounts>(EMPTY_PRODUCT_COUNTS);
-  const [analytics, setAnalytics] = useState<DashboardAnalytics | null>(null);
-  const [finance, setFinance] = useState<DashboardFinance | null>(null);
-  const [overviewLoading, setOverviewLoading] = useState(false);
-  const [overviewError, setOverviewError] = useState('');
-  const productRequestRef = useRef(0);
-
-  useEffect(() => {
-    getSeller()
-      .then((sellerResult) => {
-        setSeller(sellerResult.seller);
-      })
-      .catch((loadError) =>
-        setError(loadError instanceof Error ? loadError.message : 'ไม่สามารถโหลดข้อมูลร้านได้')
-      )
-      .finally(() => setLoading(false));
-  }, []);
-
   useEffect(() => {
     const timeout = window.setTimeout(() => setDebouncedProductSearch(productSearch.trim()), 300);
     return () => window.clearTimeout(timeout);
   }, [productSearch]);
 
-  const loadProducts = useCallback(async () => {
-    const requestId = productRequestRef.current + 1;
-    productRequestRef.current = requestId;
-    setProductsLoading(true);
-    try {
-      const result = await getProducts({
-        mine: true,
-        q: debouncedProductSearch || undefined,
-        status: productFilter,
-        page: productPage,
-        limit: PAGE_SIZE,
-      });
-      if (requestId !== productRequestRef.current) return;
-      const totalPages = result.pagination?.totalPages ?? 0;
-      if (totalPages > 0 && productPage > totalPages) {
-        setProductPage(totalPages);
-        return;
-      }
-      setProducts(result.products);
-      setProductTotal(result.pagination?.total ?? result.products.length);
-      setProductPageCount(totalPages);
-      setProductCounts(result.counts ?? EMPTY_PRODUCT_COUNTS);
-    } catch (loadError) {
-      if (requestId !== productRequestRef.current) return;
-      setError(loadError instanceof Error ? loadError.message : 'ไม่สามารถโหลดรายการสินค้าได้');
-    } finally {
-      if (requestId === productRequestRef.current) setProductsLoading(false);
-    }
-  }, [debouncedProductSearch, productFilter, productPage]);
-
+  const sellerQuery = useQuery({
+    queryKey: ['seller-summary', user?.id],
+    queryFn: ({ signal }) => getSeller({ summary: true, signal }),
+    enabled: !authLoading && !!user?.id,
+    staleTime: 30_000,
+  });
+  const seller = sellerQuery.data?.seller ?? null;
+  const loading = sellerQuery.isPending;
+  const productsQuery = useQuery({
+    queryKey: [
+      'seller-dashboard-products',
+      user?.id,
+      debouncedProductSearch,
+      productFilter,
+      productPage,
+    ],
+    queryFn: ({ signal }) =>
+      getProducts(
+        {
+          mine: true,
+          cards: true,
+          q: debouncedProductSearch || undefined,
+          status: productFilter,
+          page: productPage,
+          limit: PAGE_SIZE,
+        },
+        { signal }
+      ),
+    enabled: !authLoading && !!user?.id,
+    staleTime: 30_000,
+  });
+  const products = productsQuery.data?.products ?? [];
+  const productsLoading = productsQuery.isPending;
+  const productTotal = productsQuery.data?.pagination?.total ?? products.length;
+  const productPageCount = productsQuery.data?.pagination?.totalPages ?? 0;
+  const productCounts = productsQuery.data?.counts ?? EMPTY_PRODUCT_COUNTS;
+  const loadProducts = () =>
+    queryClient.invalidateQueries({ queryKey: ['seller-dashboard-products', user?.id] });
   useEffect(() => {
-    void loadProducts();
-  }, [loadProducts]);
+    if (productPageCount > 0 && productPage > productPageCount) setProductPage(productPageCount);
+  }, [productPageCount, productPage]);
 
-  useEffect(() => {
-    if (!seller || (!isSystemStore && seller.status !== 'active')) return undefined;
-
-    let active = true;
-    setOverviewLoading(true);
-    setOverviewError('');
-    Promise.all([
-      fetch('/api/marketplace/seller/analytics?days=30', { cache: 'no-store' }),
-      fetch('/api/marketplace/seller/finance', { cache: 'no-store' }),
-    ])
-      .then(async ([analyticsResponse, financeResponse]) => {
-        const [analyticsResult, financeResult] = await Promise.all([
-          analyticsResponse.json(),
-          financeResponse.json(),
-        ]);
-        if (!analyticsResponse.ok) throw new Error(analyticsResult.message);
-        if (!financeResponse.ok) throw new Error(financeResult.message);
-        if (!active) return;
-        setAnalytics(analyticsResult);
-        setFinance(financeResult);
-      })
-      .catch((loadError) => {
-        if (!active) return;
-        setOverviewError(
-          loadError instanceof Error ? loadError.message : 'ไม่สามารถโหลดภาพรวมร้านค้าได้'
-        );
-      })
-      .finally(() => {
-        if (active) setOverviewLoading(false);
+  // Both summaries start immediately; either one can render independently.
+  const overviewEnabled = !authLoading && !!user?.id;
+  const analyticsQuery = useQuery({
+    queryKey: ['seller-dashboard-analytics', user?.id],
+    enabled: overviewEnabled,
+    queryFn: async ({ signal }): Promise<DashboardAnalytics> => {
+      const response = await fetch('/api/marketplace/seller/analytics?days=30&summary=1', {
+        cache: 'no-store',
+        signal,
       });
-
-    return () => {
-      active = false;
-    };
-  }, [isSystemStore, seller]);
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message ?? 'โหลดสถิติไม่สำเร็จ');
+      return result;
+    },
+    staleTime: 30_000,
+    retry: 1,
+  });
+  const financeQuery = useQuery({
+    queryKey: ['seller-dashboard-finance', user?.id],
+    enabled: overviewEnabled,
+    queryFn: async ({ signal }): Promise<DashboardFinance> => {
+      const response = await fetch('/api/marketplace/seller/finance?summary=1', {
+        cache: 'no-store',
+        signal,
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message ?? 'โหลดการเงินไม่สำเร็จ');
+      return result;
+    },
+    staleTime: 30_000,
+    retry: 1,
+  });
+  const analytics = analyticsQuery.data ?? null;
+  const finance = financeQuery.data ?? null;
+  const overviewError = analyticsQuery.error?.message || financeQuery.error?.message || '';
+  const loadError = error || sellerQuery.error?.message || productsQuery.error?.message || '';
 
   const confirmDelete = async () => {
     if (!deleting) return;
@@ -256,9 +245,8 @@ export function MarketplaceSellerDashboardView() {
       setDeleting(null);
       if (products.length === 1 && productPage > 1) {
         setProductPage((current) => current - 1);
-      } else {
-        await loadProducts();
       }
+      await loadProducts();
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : 'ลบสินค้าไม่สำเร็จ');
     } finally {
@@ -282,7 +270,10 @@ export function MarketplaceSellerDashboardView() {
     }
   };
 
-  const sellerCompletion = seller ? getSellerProfileCompletion(seller) : 0;
+  const sellerCompletion = useMemo(
+    () => (seller ? getSellerProfileCompletion(seller) : 0),
+    [seller]
+  );
 
   const changeProductFilter = (value: ProductFilter) => {
     setProductFilter(value);
@@ -299,9 +290,9 @@ export function MarketplaceSellerDashboardView() {
 
   return (
     <Container maxWidth={false} sx={{ py: { xs: 3 } }}>
-      {!!error && (
+      {!!loadError && (
         <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
+          {loadError}
         </Alert>
       )}
 
@@ -412,7 +403,8 @@ export function MarketplaceSellerDashboardView() {
           <SellerBusinessOverview
             analytics={analytics}
             finance={finance}
-            loading={overviewLoading}
+            analyticsLoading={analyticsQuery.isPending}
+            financeLoading={financeQuery.isPending}
             error={overviewError}
             productCounts={productCounts}
           />
@@ -651,6 +643,8 @@ export function MarketplaceSellerDashboardView() {
                             component="img"
                             src={coverUrl}
                             alt={product.title}
+                            loading="lazy"
+                            decoding="async"
                             sx={{ width: 1, height: 1, display: 'block', objectFit: 'cover' }}
                           />
                         ) : (
@@ -876,16 +870,18 @@ export function MarketplaceSellerDashboardView() {
   );
 }
 
-function SellerBusinessOverview({
+const SellerBusinessOverview = memo(function SellerBusinessOverview({
   analytics,
   finance,
-  loading,
+  analyticsLoading,
+  financeLoading,
   error,
   productCounts,
 }: {
   analytics: DashboardAnalytics | null;
   finance: DashboardFinance | null;
-  loading: boolean;
+  analyticsLoading: boolean;
+  financeLoading: boolean;
   error: string;
   productCounts: ProductCounts;
 }) {
@@ -970,9 +966,12 @@ function SellerBusinessOverview({
       {!!error && <Alert severity="warning">โหลดภาพรวมบางส่วนไม่สำเร็จ: {error}</Alert>}
 
       <Grid container spacing={2}>
-        {metrics.map((metric) => (
+        {metrics.map((metric, index) => (
           <Grid key={metric.label} size={{ xs: 12, sm: 6, lg: 3 }}>
-            <DashboardMetricCard {...metric} loading={loading} />
+            <DashboardMetricCard
+              {...metric}
+              loading={index < 2 ? analyticsLoading : financeLoading}
+            />
           </Grid>
         ))}
       </Grid>
@@ -992,7 +991,7 @@ function SellerBusinessOverview({
               </Button>
             </Stack>
             <Stack spacing={1.25} sx={{ mt: 2 }}>
-              {loading ? (
+              {analyticsLoading ? (
                 Array.from({ length: 3 }).map((_, index) => (
                   <Skeleton key={index} variant="rounded" height={56} />
                 ))
@@ -1054,7 +1053,7 @@ function SellerBusinessOverview({
               เสียงตอบรับล่าสุดจากผู้ซื้อ
             </Typography>
             <Stack spacing={1.5} sx={{ mt: 2 }}>
-              {loading ? (
+              {analyticsLoading ? (
                 Array.from({ length: 3 }).map((_, index) => (
                   <Skeleton key={index} variant="rounded" height={64} />
                 ))
@@ -1141,7 +1140,7 @@ function SellerBusinessOverview({
                   ยอดกำลังรอรับ
                 </Typography>
                 <Typography variant="h5" sx={{ mt: 0.25 }}>
-                  {loading ? <Skeleton width={100} /> : formatPrice(pendingPayout)}
+                  {financeLoading ? <Skeleton width={100} /> : formatPrice(pendingPayout)}
                 </Typography>
               </Box>
               <Button component="a" href="#seller-products" variant="outlined" fullWidth>
@@ -1153,7 +1152,7 @@ function SellerBusinessOverview({
       </Grid>
     </Stack>
   );
-}
+});
 
 function DashboardMetricCard({
   label,

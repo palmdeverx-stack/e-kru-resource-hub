@@ -25,6 +25,8 @@ import LinearProgress from '@mui/material/LinearProgress';
 import TableContainer from '@mui/material/TableContainer';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 
+import { apiFetch as fetch } from 'src/lib/api-fetch';
+
 import { Chart, useChart } from 'src/components/chart';
 import {
   RiEyeLine,

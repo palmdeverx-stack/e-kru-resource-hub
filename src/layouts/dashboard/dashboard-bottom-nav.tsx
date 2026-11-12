@@ -10,42 +10,84 @@ import BottomNavigationAction from '@mui/material/BottomNavigationAction';
 
 import { usePathname } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
-import { isNavDataActive } from 'src/components/nav-section';
 
 import { useTranslate } from 'src/locales';
+
+import { isNavDataActive } from 'src/components/nav-section';
+import { RiSettings3Line, RiShoppingBag3Line } from 'src/components/remix-icon';
 
 // ----------------------------------------------------------------------
 
 type Props = {
   data: NavSectionProps['data'];
   layoutQuery?: Breakpoint;
+  onMore?: () => void;
+  checkPermissions?: NavSectionProps['checkPermissions'];
 };
 
-export function DashboardBottomNav({ data, layoutQuery = 'sm' }: Props) {
-  const { t } = useTranslate('navbar');
-  const pathname = usePathname();
-  const items = data
+export function getDashboardMobileNavigation(
+  data: NavSectionProps['data'],
+  checkPermissions?: NavSectionProps['checkPermissions'],
+  withSettings = true
+) {
+  const allItems = data
     .flatMap((group) => group.items)
     .filter(
       (item): item is NavItemDataProps & { path: string } =>
-        !!item.path && item.path !== '#' && item.path !== '/teacher'
-    )
-    .slice(0, 5);
-  const currentPath = [...items]
+        !!item.path &&
+        item.path !== '#' &&
+        item.path !== '/teacher' &&
+        item.path !== '/dashboard/cart' &&
+        !item.disabled &&
+        !(item.allowedRoles && checkPermissions?.(item.allowedRoles))
+    );
+  const hasSettings = withSettings && allItems.length > 4;
+  const items = allItems.slice(0, hasSettings ? 4 : 5);
+  const sellerOverview = allItems.find((item) => item.path === '/dashboard/seller');
+  if (sellerOverview && !items.includes(sellerOverview)) {
+    items[items.length - 1] = sellerOverview;
+  }
+  const accountIndex = items.findIndex((item) => item.path === '/dashboard');
+  const sellerIndex = items.findIndex((item) => item.path === '/dashboard/seller');
+  if (accountIndex !== -1 && sellerIndex !== -1) {
+    [items[accountIndex], items[sellerIndex]] = [items[sellerIndex], items[accountIndex]];
+  }
+  const remaining = new Set(allItems.filter((item) => !items.includes(item)));
+  const settingsData = data
+    .map((group) => ({ ...group, items: group.items.filter((item) => remaining.has(item)) }))
+    .filter((group) => group.items.length > 0);
+  return { allItems, items, hasSettings, settingsData };
+}
+
+export function DashboardBottomNav({ data, layoutQuery = 'sm', onMore, checkPermissions }: Props) {
+  const { t } = useTranslate('navbar');
+  const pathname = usePathname();
+  const { allItems, items, hasSettings } = getDashboardMobileNavigation(
+    data,
+    checkPermissions,
+    Boolean(onMore)
+  );
+  const activeItem = [...allItems]
     .sort((a, b) => b.path.length - a.path.length)
-    .find((item) => isNavDataActive(pathname, item))?.path;
+    .find((item) => isNavDataActive(pathname, item));
+  const currentPath =
+    activeItem && items.some((item) => item.path === activeItem.path)
+      ? activeItem.path
+      : hasSettings && activeItem
+        ? '__settings'
+        : false;
   return (
     <Portal>
       <Paper
         component="nav"
-        aria-label={t('เมนูหลักสำหรับครู')}
+        aria-label={t('เมนูหลัก')}
         elevation={12}
         sx={{
           insetInline: 0,
           bottom: 0,
           width: '100%',
           maxWidth: '100vw',
-          zIndex: (theme) => theme.zIndex.modal,
+          zIndex: (theme) => theme.zIndex.appBar + 1,
           display: { xs: 'block', [layoutQuery]: 'none' },
           position: 'fixed',
           overflow: 'hidden',
@@ -94,10 +136,20 @@ export function DashboardBottomNav({ data, layoutQuery = 'sm' }: Props) {
               component={RouterLink}
               href={item.path}
               value={item.path}
+              aria-current={currentPath === item.path ? 'page' : undefined}
               label={item.title}
-              icon={item.icon}
+              icon={item.path === '/dashboard/seller' ? <RiShoppingBag3Line /> : item.icon}
             />
           ))}
+          {hasSettings && (
+            <BottomNavigationAction
+              value="__settings"
+              label={t('ตั้งค่า')}
+              icon={<RiSettings3Line size={24} />}
+              onClick={onMore}
+              aria-haspopup="dialog"
+            />
+          )}
         </BottomNavigation>
       </Paper>
     </Portal>

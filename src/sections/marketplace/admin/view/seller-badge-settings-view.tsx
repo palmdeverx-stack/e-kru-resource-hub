@@ -21,6 +21,8 @@ import Typography from '@mui/material/Typography';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import CircularProgress from '@mui/material/CircularProgress';
 
+import { apiFetch as fetch } from 'src/lib/api-fetch';
+
 import {
   RiFireFill,
   RiStarFill,
@@ -142,30 +144,28 @@ export function MarketplaceSellerBadgeSettingsView() {
     const priorities = settings.map((setting) => setting.priority);
     return (
       new Set(priorities).size !== priorities.length ||
-      settings.some(
-        (setting) => {
-          const hasInvalidCriterion = Object.entries(setting.criteria).some(([key, value]) => {
-            const maximum =
-              key === 'min_average_rating' ? 5 : key.includes('percent') ? 100 : 1_000_000;
-            return !Number.isFinite(value) || value < 0 || value > maximum;
-          });
-          return (
-            !setting.label_th.trim() ||
-            !setting.label_en.trim() ||
-            !setting.description_th.trim() ||
-            !setting.description_en.trim() ||
-            !iconOptions.some((option) => option.value === setting.icon_key) ||
-            !/^#[0-9a-f]{6}$/i.test(setting.color) ||
-            !Number.isInteger(setting.priority) ||
-            setting.priority < 0 ||
-            setting.priority > 10_000 ||
-            !Number.isInteger(setting.evaluation_days) ||
-            setting.evaluation_days < 1 ||
-            setting.evaluation_days > 3650 ||
-            hasInvalidCriterion
-          );
-        }
-      )
+      settings.some((setting) => {
+        const hasInvalidCriterion = Object.entries(setting.criteria).some(([key, value]) => {
+          const maximum =
+            key === 'min_average_rating' ? 5 : key.includes('percent') ? 100 : 1_000_000;
+          return !Number.isFinite(value) || value < 0 || value > maximum;
+        });
+        return (
+          !setting.label_th.trim() ||
+          !setting.label_en.trim() ||
+          !setting.description_th.trim() ||
+          !setting.description_en.trim() ||
+          !iconOptions.some((option) => option.value === setting.icon_key) ||
+          !/^#[0-9a-f]{6}$/i.test(setting.color) ||
+          !Number.isInteger(setting.priority) ||
+          setting.priority < 0 ||
+          setting.priority > 10_000 ||
+          !Number.isInteger(setting.evaluation_days) ||
+          setting.evaluation_days < 1 ||
+          setting.evaluation_days > 3650 ||
+          hasInvalidCriterion
+        );
+      })
     );
   }, [settings]);
 

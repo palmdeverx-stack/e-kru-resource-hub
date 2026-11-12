@@ -1,19 +1,9 @@
 import 'server-only';
 
 import fontkit from '@pdf-lib/fontkit';
-import { readFile } from 'node:fs/promises';
 import { rgb, degrees, PDFDocument } from 'pdf-lib';
 
-const WATERMARK_FONT_URL = new URL(
-  '../../public/fonts/LINESeedSansTH-Regular.ttf',
-  import.meta.url
-);
-let watermarkFontPromise: Promise<Buffer> | undefined;
-
-function getWatermarkFont() {
-  watermarkFontPromise ??= readFile(WATERMARK_FONT_URL);
-  return watermarkFontPromise;
-}
+import { getWatermarkFont } from './server-watermark-font';
 
 export async function watermarkPdfDocument(bytes: Uint8Array, lines: readonly string[]) {
   const pdfDocument = await PDFDocument.load(bytes);

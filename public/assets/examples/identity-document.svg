@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="720" viewBox="0 0 1000 720">
+<rect width="1000" height="720" fill="#f1f5f9"/>
+<g font-family="Tahoma, sans-serif">
+<rect x="40" y="35" width="920" height="650" rx="20" fill="white"/>
+<text x="500" y="95" text-anchor="middle" font-size="28" fill="#1c252e">ตัวอย่างเอกสารยืนยันตัวตน</text>
+<text x="500" y="133" text-anchor="middle" font-size="19" fill="#637381">ข้อมูลสมมติสำหรับแสดงตัวอย่างเท่านั้น</text>
+<rect x="115" y="180" width="770" height="360" rx="18" fill="#eff6ff" stroke="#bfdbfe" stroke-width="2"/>
+<text x="150" y="230" font-size="22" fill="#1e40af">เอกสารตัวอย่าง · ไม่ใช่บัตรจริง</text>
+<rect x="155" y="260" width="150" height="195" rx="12" fill="#dbeafe"/>
+<circle cx="230" cy="318" r="32" fill="#93c5fd"/>
+<path d="M175 421v-25a55 55 0 0 1 110 0v25" fill="#93c5fd"/>
+<text x="345" y="295" font-size="20" fill="#475569">ชื่อ: ผู้ขาย ตัวอย่าง</text>
+<text x="345" y="342" font-size="20" fill="#475569">เลขประจำตัว: X-XXXX-XXXXX-XX-X</text>
+<text x="345" y="389" font-size="20" fill="#475569">ข้อมูลทั้งหมดในภาพนี้เป็นข้อมูลสมมติ</text>
+<text x="345" y="436" font-size="18" fill="#64748b">ถ่ายภาพให้ครบทั้งใบและอ่านข้อความได้ชัดเจน</text>
+<g transform="rotate(-15 500 365)" fill="#2563eb" opacity="0.5">
+<text x="500" y="340" text-anchor="middle" font-size="21">เอกสารนี้ใช้สำหรับยืนยันตัวตนผู้ขายในระบบ E-KRU Marketplace เท่านั้น</text>
+<text x="500" y="374" text-anchor="middle" font-size="21">ข้อมูลจะถูกเก็บเป็นความลับ และเปิดให้เข้าถึงได้เฉพาะผู้ขาย</text>
+<text x="500" y="408" text-anchor="middle" font-size="21">และผู้ดูแลระบบที่ได้รับอนุญาต โดยจะไม่นำไปใช้เพื่อวัตถุประสงค์อื่น</text>
+</g>
+<text x="500" y="590" text-anchor="middle" font-size="21" fill="#334155">เมื่ออัปโหลดแล้ว สามารถกดดูเอกสารของคุณได้ในหน้าต่างนี้</text>
+<text x="500" y="630" text-anchor="middle" font-size="18" fill="#64748b">ภาพตัวอย่างนี้จะไม่ถูกบันทึกเป็นเอกสารของร้านค้า</text>
+</g></svg>

@@ -3,8 +3,8 @@ import 'server-only';
 import { createHash, randomBytes } from 'node:crypto';
 
 import { supabaseAdmin } from './supabase-admin';
-import { decryptLineCredential } from './line-credentials';
 import { schoolHasFeature } from './school-subscription';
+import { decryptLineCredential } from './line-credentials';
 
 // ----------------------------------------------------------------------
 

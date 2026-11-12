@@ -2,12 +2,15 @@
 
 import type { MarketplaceProduct } from '../../shared/types';
 
+import dynamic from 'next/dynamic';
 import { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
+import Alert from '@mui/material/Alert';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Container from '@mui/material/Container';
@@ -30,7 +33,12 @@ import { useAuthContext } from 'src/auth/hooks';
 
 import { getProductCollections } from '../../shared/api';
 import { MarketplaceProductCard } from '../../shared/product-card';
-import { MarketplaceProductDetailDialog } from '../../catalog/components/product-detail-dialog';
+
+const MarketplaceProductDetailDialog = dynamic(() =>
+  import('../../catalog/components/product-detail-dialog').then(
+    (module) => module.MarketplaceProductDetailDialog
+  )
+);
 
 const actions = [
   {
@@ -165,30 +173,31 @@ export function MarketplaceDashboardOverviewView() {
 }
 
 export function MarketplaceDashboardCollectionsSection() {
-  const [favorites, setFavorites] = useState<MarketplaceProduct[]>([]);
-  const [bookmarks, setBookmarks] = useState<MarketplaceProduct[]>([]);
+  const { user } = useAuthContext();
+  const queryClient = useQueryClient();
+  const {
+    data,
+    isPending: loading,
+    error,
+  } = useQuery({
+    queryKey: ['dashboard-collections', user?.id, user?.role],
+    enabled: Boolean(user?.id),
+    queryFn: ({ signal }) => getProductCollections({ signal }),
+    staleTime: 30_000,
+  });
+  const favorites = data?.favorites ?? [];
+  const bookmarks = data?.bookmarks ?? [];
   const [activeList, setActiveList] = useState<'favorite' | 'bookmark'>('favorite');
   const [selectedProduct, setSelectedProduct] = useState<MarketplaceProduct | null>(null);
-  const [loading, setLoading] = useState(true);
-
   useEffect(() => {
-    const loadCollections = () => {
-      getProductCollections()
-        .then((result) => {
-          setFavorites(result.favorites);
-          setBookmarks(result.bookmarks);
-        })
-        .catch(() => {
-          setFavorites([]);
-          setBookmarks([]);
-        })
-        .finally(() => setLoading(false));
+    const invalidate = () => {
+      void queryClient.invalidateQueries({
+        queryKey: ['dashboard-collections', user?.id, user?.role],
+      });
     };
-
-    loadCollections();
-    window.addEventListener('marketplace-collections-changed', loadCollections);
-    return () => window.removeEventListener('marketplace-collections-changed', loadCollections);
-  }, []);
+    window.addEventListener('marketplace-collections-changed', invalidate);
+    return () => window.removeEventListener('marketplace-collections-changed', invalidate);
+  }, [queryClient, user?.id, user?.role]);
 
   const products = activeList === 'favorite' ? favorites : bookmarks;
 
@@ -237,6 +246,11 @@ export function MarketplaceDashboardCollectionsSection() {
         </Button>
       </Stack>
 
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error.message}
+        </Alert>
+      )}
       {loading ? (
         <Box sx={{ minHeight: 260, display: 'grid', placeItems: 'center' }}>
           <CircularProgress />
@@ -294,10 +308,12 @@ export function MarketplaceDashboardCollectionsSection() {
         </Card>
       )}
 
-      <MarketplaceProductDetailDialog
-        product={selectedProduct}
-        onClose={() => setSelectedProduct(null)}
-      />
+      {selectedProduct && (
+        <MarketplaceProductDetailDialog
+          product={selectedProduct}
+          onClose={() => setSelectedProduct(null)}
+        />
+      )}
     </Container>
   );
 }

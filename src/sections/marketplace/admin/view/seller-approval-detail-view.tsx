@@ -24,6 +24,8 @@ import CircularProgress from '@mui/material/CircularProgress';
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
+import { apiFetch as fetch } from 'src/lib/api-fetch';
+
 import {
   RiEyeLine,
   RiCloseLine,
@@ -64,6 +66,21 @@ function maskIdentifier(value: string | null | undefined) {
   if (!value) return value;
   if (value.length <= 8) return '*'.repeat(value.length);
   return `${value.slice(0, 4)}${'*'.repeat(value.length - 8)}${value.slice(-4)}`;
+}
+
+function maskPhone(value: string | null | undefined) {
+  if (!value) return value;
+  const digits = value.replace(/\D/g, '');
+  if (digits.length <= 5) return '*'.repeat(digits.length);
+  return `${digits.slice(0, 3)}${'*'.repeat(digits.length - 5)}${digits.slice(-2)}`;
+}
+
+function maskEmail(value: string | null | undefined) {
+  if (!value) return value;
+  const at = value.lastIndexOf('@');
+  if (at <= 0) return '*'.repeat(value.length);
+  const visibleLength = Math.min(2, Math.max(0, at - 1));
+  return `${value.slice(0, visibleLength)}${'*'.repeat(Math.max(3, at - visibleLength))}${value.slice(at)}`;
 }
 
 const agreementFields: Array<{
@@ -335,8 +352,8 @@ export function MarketplaceSellerApprovalDetailView({
               items={[
                 ['ประเภทผู้ขาย', sellerTypeLabel[seller.seller_type]],
                 ['ชื่อ-นามสกุล', seller.seller_name],
-                ['เบอร์โทร', seller.phone],
-                ['อีเมล', seller.contact_email],
+                ['เบอร์โทร', maskPhone(seller.phone)],
+                ['อีเมล', maskEmail(seller.contact_email)],
                 ['เลขบัตรประชาชน/ผู้เสียภาษี', maskIdentifier(seller.national_tax_id)],
                 ['ชื่อบริษัท', seller.company_name],
                 ['เลขนิติบุคคล', seller.company_registration_no],

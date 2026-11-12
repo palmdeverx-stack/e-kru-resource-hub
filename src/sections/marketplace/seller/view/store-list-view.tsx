@@ -3,11 +3,13 @@
 import type { MarketplaceSeller } from '../../shared/types';
 
 import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
+import Alert from '@mui/material/Alert';
 import Stack from '@mui/material/Stack';
 import Avatar from '@mui/material/Avatar';
 import Rating from '@mui/material/Rating';
@@ -23,6 +25,7 @@ import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
 import { useTranslate } from 'src/locales';
+import { apiFetch as fetch } from 'src/lib/api-fetch';
 
 import {
   RiEyeLine,
@@ -66,50 +69,34 @@ type StoreResponse = {
 
 export function MarketplaceStoreListView() {
   const { t } = useTranslate('marketplace');
-  const [stores, setStores] = useState<PublicStore[]>([]);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(0);
-  const [loading, setLoading] = useState(true);
-
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   useEffect(() => {
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => {
-      setLoading(true);
-      const params = new URLSearchParams({
-        page: String(page),
-        limit: '24',
-      });
-      if (search.trim()) params.set('q', search.trim());
+    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 250);
+    return () => window.clearTimeout(timer);
+  }, [search]);
 
-      fetch(`/api/marketplace/stores?${params}`, {
-        cache: 'no-store',
-        signal: controller.signal,
-      })
-        .then(async (response) => {
-          const result = (await response.json()) as StoreResponse & { message?: string };
-          if (!response.ok) throw new Error(result.message ?? t('stores.errors.load'));
-          return result;
-        })
-        .then((result) => {
-          setStores(result.stores);
-          setTotalPages(result.totalPages);
-        })
-        .catch((error) => {
-          if (error instanceof Error && error.name === 'AbortError') return;
-          setStores([]);
-          setTotalPages(0);
-        })
-        .finally(() => {
-          if (!controller.signal.aborted) setLoading(false);
-        });
-    }, 250);
-
-    return () => {
-      window.clearTimeout(timer);
-      controller.abort();
-    };
-  }, [page, search, t]);
+  const {
+    data,
+    isPending: loading,
+    isError,
+    refetch,
+  } = useQuery({
+    queryKey: ['public-stores', debouncedSearch, page],
+    queryFn: async ({ signal }): Promise<StoreResponse> => {
+      const params = new URLSearchParams({ page: String(page), limit: '24' });
+      if (debouncedSearch) params.set('q', debouncedSearch);
+      const response = await fetch(`/api/marketplace/stores?${params}`, { signal });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message ?? 'Unable to load stores');
+      return result;
+    },
+    staleTime: 60_000,
+    enabled: search.trim() === debouncedSearch,
+  });
+  const stores = data?.stores ?? [];
+  const totalPages = data?.totalPages ?? 0;
 
   const handleSearch = (value: string) => {
     setSearch(value);
@@ -159,6 +146,23 @@ export function MarketplaceStoreListView() {
           )} */}
         </Stack>
 
+        {isError && (
+          <Alert
+            severity="error"
+            action={
+              <Button
+                color="inherit"
+                onClick={() => {
+                  void refetch();
+                }}
+              >
+                {t('errors.retry')}
+              </Button>
+            }
+          >
+            {t('stores.errors.load')}
+          </Alert>
+        )}
         <Grid container spacing={2.5}>
           {loading
             ? Array.from({ length: 6 }).map((_, index) => (
@@ -173,7 +177,7 @@ export function MarketplaceStoreListView() {
               ))}
         </Grid>
 
-        {!loading && stores.length === 0 && (
+        {!loading && !isError && stores.length === 0 && (
           <Card
             variant="outlined"
             sx={{ py: 8, px: 3, textAlign: 'center', borderStyle: 'dashed' }}
@@ -261,16 +265,32 @@ function StoreCard({ store }: { store: PublicStore }) {
           position: 'relative',
           textDecoration: 'none',
           bgcolor: 'primary.lighter',
-          backgroundImage: store.cover_url
-            ? `linear-gradient(180deg, rgba(15,23,42,0.04), rgba(15,23,42,0.34)), url(${store.cover_url})`
-            : 'linear-gradient(135deg, #E9F2FF 0%, #DDF7F1 100%)',
+          backgroundImage: 'linear-gradient(135deg, #E9F2FF 0%, #DDF7F1 100%)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
         }}
       >
+        {store.cover_url && (
+          <Box
+            component="img"
+            src={store.cover_url}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            sx={{ width: 1, height: 1, objectFit: 'cover', display: 'block' }}
+          />
+        )}
+        <Box
+          sx={{
+            position: 'absolute',
+            inset: 0,
+            background: 'linear-gradient(180deg, rgba(15,23,42,0.04), rgba(15,23,42,0.34))',
+          }}
+        />
         <Avatar
           src={store.logo_url ?? undefined}
           alt={storeName}
+          slotProps={{ img: { loading: 'lazy', decoding: 'async' } }}
           sx={{
             left: 24,
             bottom: -38,

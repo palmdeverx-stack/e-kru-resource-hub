@@ -18,6 +18,8 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
+import { apiFetch as fetch } from 'src/lib/api-fetch';
+
 import { RiSchoolLine, RiShieldCheckLine } from 'src/components/remix-icon';
 
 import { useAuthContext } from 'src/auth/hooks';

@@ -27,6 +27,7 @@ import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
 import { useTranslate } from 'src/locales';
+import { apiFetch as fetch } from 'src/lib/api-fetch';
 
 import {
   RiEyeLine,
@@ -678,8 +679,7 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                             </Box>
                           ) : (
                             <Alert severity="warning" sx={{ mt: 2 }}>
-                              ชำระเงินแล้ว แต่ยังไม่พบข้อมูล License
-                              กรุณารีเฟรชหรือติดต่อผู้ดูแลระบบ
+                              ชำระเงินแล้ว แต่ยังไม่พบข้อมูล License กรุณารีเฟรชหรือติดต่อผู้ดูแลระบบ
                             </Alert>
                           ))}
                         {showDownloads && (
@@ -721,6 +721,8 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                                       size="small"
                                       variant="outlined"
                                       href={file.url}
+                                      download={file.file_name}
+                                      title={file.file_name}
                                       target="_blank"
                                       rel="noopener noreferrer"
                                       startIcon={<RiDownloadCloud2Line />}
@@ -860,10 +862,7 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
             </Stack>
             <Divider sx={{ my: 2.5 }} />
             <Stack spacing={1.75}>
-              <InfoRow
-                label="เลขที่คำสั่งซื้อ"
-                value={`ORD-${order.id.slice(0, 12).toUpperCase()}`}
-              />
+              <InfoRow label="เลขที่คำสั่งซื้อ" value={`ORD-${order.id.slice(0, 12).toUpperCase()}`} />
               <InfoRow
                 label="วันที่สั่งซื้อ"
                 value={new Date(order.created_at).toLocaleString('th-TH', {
@@ -1102,8 +1101,7 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
             />
             {receiptIssueError && <Alert severity="error">{receiptIssueError}</Alert>}
             <Typography variant="caption" color="text.secondary">
-              โปรดตรวจสอบข้อมูลให้ถูกต้องก่อนออกใบเสร็จ เนื่องจากเอกสารจะเก็บข้อมูล ณ
-              วันที่ออกไว้เป็นหลักฐาน
+              โปรดตรวจสอบข้อมูลให้ถูกต้องก่อนออกใบเสร็จ เนื่องจากเอกสารจะเก็บข้อมูล ณ วันที่ออกไว้เป็นหลักฐาน
             </Typography>
           </Stack>
         </DialogContent>
@@ -1278,22 +1276,12 @@ function licenseStatusLabel(status: string) {
 function OrderStatusChip({ status }: { status: MarketplaceOrder['status'] }) {
   if (['paid', 'completed'].includes(status)) {
     return (
-      <Chip
-        color="success"
-        label="พร้อมใช้งาน"
-        variant="soft"
-        sx={{ bgcolor: 'background.paper' }}
-      />
+      <Chip color="success" label="พร้อมใช้งาน" variant="soft" sx={{ bgcolor: 'background.paper' }} />
     );
   }
   if (status === 'payment_review') {
     return (
-      <Chip
-        color="warning"
-        label="รอตรวจสลิป"
-        variant="soft"
-        sx={{ bgcolor: 'background.paper' }}
-      />
+      <Chip color="warning" label="รอตรวจสลิป" variant="soft" sx={{ bgcolor: 'background.paper' }} />
     );
   }
   if (status === 'payment_rejected') {

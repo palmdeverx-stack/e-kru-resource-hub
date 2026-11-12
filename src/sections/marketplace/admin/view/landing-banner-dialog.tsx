@@ -19,6 +19,8 @@ import DialogTitle from '@mui/material/DialogTitle';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 
+import { apiFetch as fetch } from 'src/lib/api-fetch';
+
 import { Upload } from 'src/components/upload';
 import { Form, Field } from 'src/components/hook-form';
 

@@ -7,8 +7,8 @@ import Typography from '@mui/material/Typography';
 import Autocomplete from '@mui/material/Autocomplete';
 import InputAdornment from '@mui/material/InputAdornment';
 
-import { THAI_BANKS, findThaiBank } from './thai-banks';
 import { ThaiBankLogo } from './bank-logo';
+import { THAI_BANKS, findThaiBank } from './thai-banks';
 
 type Props = {
   value: string;

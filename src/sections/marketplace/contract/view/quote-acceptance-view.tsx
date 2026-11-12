@@ -23,6 +23,8 @@ import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 
+import { apiFetch as fetch } from 'src/lib/api-fetch';
+
 import { RiFilePaper2Line, RiShieldCheckLine } from 'src/components/remix-icon';
 
 import { useAuthContext } from 'src/auth/hooks';

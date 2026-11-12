@@ -6,7 +6,7 @@ import type { MarketplaceSeller } from '../../shared/types';
 import type { LegalDocumentType, MarketplaceLegalDocument } from '../../legal/types';
 
 import * as z from 'zod';
-import { useState, useEffect } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, useWatch, Controller, FormProvider } from 'react-hook-form';
 
@@ -28,8 +28,11 @@ import AccordionDetails from '@mui/material/AccordionDetails';
 import AccordionSummary from '@mui/material/AccordionSummary';
 import CircularProgress from '@mui/material/CircularProgress';
 
+import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 import { useRouter, useSearchParams } from 'src/routes/hooks';
+
+import { apiFetch as fetch } from 'src/lib/api-fetch';
 
 import { toast } from 'src/components/snackbar';
 import { Field } from 'src/components/hook-form';
@@ -59,26 +62,31 @@ import { DocumentPreviewDialog } from '../../shared/document-preview-dialog';
 const STEPS = [
   {
     title: 'ข้อมูลร้านค้า',
+    mobileTitle: ['ข้อมูล', 'ร้านค้า'],
     description: 'ชื่อร้าน โลโก้ และหน้าปก',
     icon: RiStore2Line,
   },
   {
     title: 'ข้อมูลผู้ขาย',
+    mobileTitle: ['ข้อมูล', 'ผู้ขาย'],
     description: 'ข้อมูลติดต่อและยืนยันตัวตน',
     icon: RiUser3Line,
   },
   {
     title: 'บัญชีรับเงิน',
+    mobileTitle: ['บัญชี', 'รับเงิน'],
     description: 'ธนาคารและ PromptPay',
     icon: RiBankLine,
   },
   {
     title: 'เอกสารยืนยัน',
+    mobileTitle: ['เอกสาร', 'ยืนยัน'],
     description: 'เอกสารสำหรับตรวจสอบร้าน',
     icon: RiFileShield2Line,
   },
   {
     title: 'ข้อตกลง',
+    mobileTitle: ['ข้อตกลง'],
     description: 'อ่านและยอมรับเงื่อนไข',
     icon: RiShieldCheckLine,
   },
@@ -144,9 +152,7 @@ const SellerSetupSchema = z
     phone: z
       .string()
       .trim()
-      .refine((value) => value.replace(/\D/g, '').length >= 9, {
-        error: 'กรุณากรอกเบอร์โทรให้ถูกต้อง',
-      }),
+      .regex(/^\d{10}$/, { error: 'กรุณากรอกเบอร์โทรเป็นตัวเลข 10 หลัก' }),
     contactEmail: z.email({ error: 'กรุณากรอกอีเมลให้ถูกต้อง' }),
     nationalTaxId: z.string().trim(),
     companyName: z.string().trim(),
@@ -161,7 +167,7 @@ const SellerSetupSchema = z
       .refine((value) => value.replace(/\D/g, '').length >= 6, {
         error: 'กรุณากรอกเลขบัญชีให้ถูกต้อง',
       }),
-    accountName: z.string().trim().min(1, { error: 'กรุณากรอกชื่อบัญชี' }),
+    accountName: z.string().trim().min(2, { error: 'กรุณากรอกชื่อบัญชี' }),
     promptpayId: z.string().trim(),
     sellerAgreement: z
       .boolean()
@@ -223,18 +229,13 @@ const STEP_FIELDS: FieldPath<SellerSetupSchemaType>[][] = [
   ['sellerAgreement', 'copyrightConfirmed', 'feeAgreement', 'pdpaAccepted'],
 ];
 
-const requiredDocument = (message: string) =>
-  z
-    .union([z.instanceof(File), z.string()])
-    .nullable()
-    .refine((value): value is File | string => value !== null && value !== '', { error: message });
 const optionalDocument = z.union([z.instanceof(File), z.string()]).nullable();
 
 const SellerDocumentsSchema = z.object({
-  storeLogo: requiredDocument('กรุณาอัปโหลดโลโก้ร้าน'),
+  storeLogo: optionalDocument,
   storeCover: optionalDocument,
-  bankBook: requiredDocument('กรุณาอัปโหลดหน้าสมุดบัญชี'),
-  identityCard: requiredDocument('กรุณาอัปโหลดบัตรประชาชน'),
+  bankBook: optionalDocument,
+  identityCard: optionalDocument,
   companyCertificate: optionalDocument,
   vatCertificate: optionalDocument,
   receiptSignature: optionalDocument,
@@ -323,7 +324,6 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
   const [openAgreement, setOpenAgreement] = useState<Agreement | null>(null);
   const [agreementRead, setAgreementRead] = useState(initialAgreementRead);
   const [legalDocuments, setLegalDocuments] = useState<MarketplaceLegalDocument[]>([]);
-  const [showStepErrors, setShowStepErrors] = useState(false);
   const methods = useForm<SellerSetupSchemaType>({
     resolver: zodResolver(SellerSetupSchema),
     defaultValues: initialForm,
@@ -369,6 +369,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
           reset({
             ...initialForm,
             sellerType: user?.role === 'teacher' ? 'teacher' : 'individual',
+            contactEmail: user?.email?.trim() || '',
           });
           resetDocuments(initialDocuments);
           return;
@@ -387,7 +388,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
           sellerType: current.seller_type,
           sellerName: current.seller_name ?? '',
           phone: current.phone ?? '',
-          contactEmail: current.contact_email ?? user?.email ?? '',
+          contactEmail: current.contact_email?.trim() || user?.email?.trim() || '',
           nationalTaxId: current.national_tax_id ?? '',
           companyName: current.company_name ?? '',
           companyRegistrationNo: current.company_registration_no ?? '',
@@ -442,13 +443,11 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
     const fields = STEP_FIELDS[activeStep];
     const fieldsValid = fields.length ? await trigger(fields) : true;
     if (!fieldsValid || !isStepComplete(activeStep)) {
-      setShowStepErrors(true);
       setError('กรุณากรอกข้อมูลที่จำเป็นและอัปโหลดเอกสารให้ครบ');
       return;
     }
     const saved = await save('save_draft', Math.min(5, activeStep + 2));
     if (saved) {
-      setShowStepErrors(false);
       setActiveStep((step) => Math.min(4, step + 1));
     }
   };
@@ -486,7 +485,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
           : value
       );
       toast.success(result.message ?? 'อัปโหลดไฟล์เรียบร้อยแล้ว');
-      return true;
+      return result.document.url || true;
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : 'อัปโหลดไม่สำเร็จ');
       return false;
@@ -507,12 +506,12 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
 
   const isStepComplete = (step: number) => {
     if (step === 0) {
-      return form.displayName.trim().length >= 2 && form.slug.length >= 3 && hasStoreLogo;
+      return form.displayName.trim().length >= 2 && form.slug.length >= 3;
     }
     if (step === 1) {
       return (
         form.sellerName.trim().length >= 3 &&
-        form.phone.replace(/\D/g, '').length >= 9 &&
+        /^\d{10}$/.test(form.phone) &&
         form.contactEmail.includes('@') &&
         (form.sellerType !== 'company' ||
           (form.companyName.trim().length >= 2 &&
@@ -521,12 +520,12 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
     }
     if (step === 2) {
       return (
-        Boolean(form.bankCode && form.bankName && form.accountName) &&
-        form.accountNumber.replace(/\D/g, '').length >= 6 &&
-        hasDocument('bank_book')
+        Boolean(form.bankCode && form.bankName) &&
+        form.accountName.trim().length >= 2 &&
+        form.accountNumber.replace(/\D/g, '').length >= 6
       );
     }
-    if (step === 3) return hasDocument('identity_card') && hasDocument('bank_book');
+    if (step === 3) return isStepComplete(2);
     return (
       form.sellerAgreement &&
       form.copyrightConfirmed &&
@@ -538,9 +537,8 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
 
   const submit = handleSubmit(
     async () => {
-      if (!isStepComplete(3) || !Object.values(agreementRead).every(Boolean)) {
-        setShowStepErrors(true);
-        setError('กรุณาอัปโหลดเอกสารและยอมรับข้อตกลงทั้ง 4 ข้อให้ครบ');
+      if (!isStepComplete(2) || !Object.values(agreementRead).every(Boolean)) {
+        setError('กรุณาอ่านและยอมรับข้อตกลงทั้ง 4 ข้อให้ครบ');
         return;
       }
       const result = await save('submit', 5);
@@ -550,7 +548,6 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
       }
     },
     () => {
-      setShowStepErrors(true);
       setError('กรุณากรอกข้อมูลที่จำเป็นและยอมรับข้อตกลงทั้ง 4 ข้อ');
     }
   );
@@ -563,9 +560,24 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
     );
   }
 
+  const backToSeller =
+    mode === 'edit' ? (
+      <Button
+        component={RouterLink}
+        href={paths.marketplace.seller}
+        color="inherit"
+        startIcon={<RiArrowLeftLine />}
+        disabled={saving || Boolean(uploading)}
+        sx={{ mb: 2, minHeight: 44 }}
+      >
+        กลับไปภาพรวมร้านค้า
+      </Button>
+    ) : null;
+
   if (isSystemStore) {
     return (
       <Container maxWidth={false} sx={{ py: { xs: 3, md: 4 } }}>
+        {backToSeller}
         <Stack
           direction={{ xs: 'column', sm: 'row' }}
           alignItems={{ xs: 'flex-start', sm: 'center' }}
@@ -705,10 +717,9 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                 <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="flex-start">
                   <Box sx={{ width: { xs: 1, md: '36%' } }}>
                     <DocumentUploadField
-                      required
                       methods={documentsMethods}
                       name="storeLogo"
-                      label="รูปโปรไฟล์ร้าน (โลโก้)"
+                      label="รูปโปรไฟล์ร้าน (โลโก้) (ไม่บังคับ)"
                       done={hasStoreLogo}
                       document={getDocument('store_logo')}
                       currentUrl={defaultStoreLogoPreviewUrl}
@@ -723,7 +734,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                     <DocumentUploadField
                       methods={documentsMethods}
                       name="storeCover"
-                      label="ภาพปกร้าน"
+                      label="ภาพปกร้าน (ไม่บังคับ)"
                       done={Boolean(seller?.cover_url || hasDocument('store_cover'))}
                       document={getDocument('store_cover')}
                       currentUrl={seller?.cover_url}
@@ -860,16 +871,15 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                   </Typography>
                 </Box>
                 <DocumentUploadField
-                  required
                   methods={documentsMethods}
                   name="bankBook"
-                  label="หน้าสมุดบัญชี"
+                  label="หน้าสมุดบัญชี (ไม่บังคับ)"
                   recommendation="อัปโหลดหน้าที่เห็นชื่อธนาคาร ชื่อบัญชี และเลขบัญชีชัดเจน ผู้ดูแลจะใช้เอกสารนี้ตรวจสอบบัญชีรับเงิน"
                   done={hasDocument('bank_book')}
                   document={getDocument('bank_book')}
                   loading={uploading === 'bank_book'}
                   maxSizeMb={5}
-                  storedMaxSizeMb={1}
+                  storedMaxSizeMb={2}
                   onFile={(file) => upload('bank_book', file)}
                 />
               </Stack>
@@ -985,7 +995,16 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
 
   return (
     <FormProvider {...methods}>
-      <Container maxWidth={false} sx={{ py: { xs: 3 } }}>
+      <Container
+        maxWidth={false}
+        sx={{
+          py: { xs: 2, sm: 3 },
+          px: { xs: 2, sm: 3 },
+          '& .MuiInputBase-input': { fontSize: { xs: 16, sm: 'inherit' } },
+          '& .MuiButton-root': { minHeight: { xs: 44, sm: 36 } },
+        }}
+      >
+        {backToSeller}
         <Stack
           direction={{ xs: 'column', md: 'row' }}
           justifyContent="space-between"
@@ -994,16 +1013,23 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
           sx={{ mb: 3 }}
         >
           <Box>
-            <Typography component="h1" variant="h3">
+            <Typography
+              component="h1"
+              variant="h3"
+              sx={{ fontSize: { xs: 22, sm: 32 }, fontWeight: { xs: 600, sm: 700 } }}
+            >
               {mode === 'edit' ? 'แก้ไขข้อมูลร้านค้า' : 'สมัครเปิดร้าน E-KRU Marketplace'}
             </Typography>
-            <Typography color="text.secondary" sx={{ mt: 0.5 }}>
+            <Typography
+              color="text.secondary"
+              sx={{ mt: 0.5, fontSize: { xs: 13, sm: 16 }, lineHeight: 1.6 }}
+            >
               {mode === 'edit'
                 ? 'ตรวจสอบและแก้ไขข้อมูลร้าน บัญชีรับเงิน เอกสาร และข้อตกลง'
                 : 'บันทึกร่างได้ทุกขั้น และส่งให้ผู้ดูแลตรวจสอบเมื่อข้อมูลครบ'}
             </Typography>
           </Box>
-          <Box sx={{ minWidth: { xs: 1, md: 240 } }}>
+          <Box sx={{ width: { xs: 1, md: 240 }, flexShrink: 0 }}>
             <Stack
               direction="row"
               justifyContent="space-between"
@@ -1024,7 +1050,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
               variant="determinate"
               color={storeReadiness.color === 'default' ? 'primary' : storeReadiness.color}
               value={(completedCount / STEPS.length) * 100}
-              sx={{ height: 8, borderRadius: 8 }}
+              sx={{ height: { xs: 5, sm: 8 }, borderRadius: 8 }}
             />
             <Stack direction="row" justifyContent="space-between" sx={{ mt: 0.75 }}>
               <Typography variant="caption" color="text.secondary">
@@ -1042,26 +1068,26 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
         <Accordion
           disableGutters
           sx={{
-            mb: 3,
+            mb: { xs: 2, sm: 3 },
             boxShadow: 'none',
-            borderRadius: 3,
+            borderRadius: { xs: 2, sm: 3 },
             border: '1px solid',
-            borderColor: 'primary.light',
+            borderColor: { xs: 'divider', sm: 'primary.light' },
             bgcolor: 'primary.lighter',
             overflow: 'hidden',
-            px: 2,
+            px: { xs: 0, sm: 2 },
             '&::before': { display: 'none' },
-            '&.Mui-expanded': { m: 0, mb: 3 },
+            '&.Mui-expanded': { m: 0, mb: { xs: 2, sm: 3 } },
           }}
         >
           <AccordionSummary
-            expandIcon={<RiArrowRightLine size={20} />}
+            expandIcon={<RiArrowRightLine size={18} style={{ transform: 'rotate(90deg)' }} />}
             aria-controls="seller-data-protection-content"
             id="seller-data-protection-header"
             sx={{
               px: { xs: 2, md: 2.5 },
-              minHeight: 84,
-              '&.Mui-expanded': { minHeight: 84 },
+              minHeight: { xs: 56, sm: 84 },
+              '&.Mui-expanded': { minHeight: { xs: 56, sm: 84 } },
               '& .MuiAccordionSummary-content': { my: 1.5 },
               '& .MuiAccordionSummary-content.Mui-expanded': { my: 1.5 },
             }}
@@ -1074,8 +1100,17 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                 <RiShieldCheckLine size={24} />
               </Avatar>
               <Box>
-                <Typography variant="h6">ข้อมูลของคุณได้รับการปกป้อง</Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                <Typography
+                  variant="h6"
+                  sx={{ fontSize: { xs: 13, sm: 18 }, fontWeight: { xs: 500, sm: 600 } }}
+                >
+                  ข้อมูลของคุณได้รับการปกป้อง
+                </Typography>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ mt: 0.5, display: { xs: 'none', sm: 'block' } }}
+                >
                   เราขอเฉพาะข้อมูลที่จำเป็นสำหรับยืนยันผู้ขาย ออกเอกสาร และโอนรายได้ให้ถูกบัญชี
                 </Typography>
               </Box>
@@ -1084,12 +1119,24 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
 
           <AccordionDetails
             id="seller-data-protection-content"
-            sx={{ px: { xs: 2, md: 2.5 }, pt: 0, pb: 2.5 }}
+            sx={{
+              px: { xs: 1.5, md: 2.5 },
+              pt: 0,
+              pb: { xs: 1.5, sm: 2.5 },
+              '& .MuiAlert-message': { fontSize: { xs: 12, sm: 14 }, lineHeight: 1.6 },
+            }}
           >
-            <Stack spacing={2.5}>
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ display: { xs: 'block', sm: 'none' }, mb: 1.5, fontSize: 12, lineHeight: 1.6 }}
+            >
+              เราขอเฉพาะข้อมูลที่จำเป็นสำหรับยืนยันผู้ขาย ออกเอกสาร และโอนรายได้ให้ถูกบัญชี
+            </Typography>
+            <Stack spacing={{ xs: 1.5, sm: 2.5 }}>
               <Box
                 sx={{
-                  gap: 2,
+                  gap: { xs: 1, sm: 2 },
                   display: 'grid',
                   gridTemplateColumns: { xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' },
                 }}
@@ -1112,8 +1159,13 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
               </Box>
 
               <Alert severity="warning">
-                <Typography variant="subtitle2">E-KRU จะไม่ขอข้อมูลลับของธนาคาร</Typography>
-                <Typography variant="body2">
+                <Typography
+                  variant="subtitle2"
+                  sx={{ fontSize: { xs: 12, sm: 14 }, fontWeight: 500 }}
+                >
+                  E-KRU จะไม่ขอข้อมูลลับของธนาคาร
+                </Typography>
+                <Typography variant="body2" sx={{ fontSize: { xs: 12, sm: 14 }, lineHeight: 1.6 }}>
                   เราจะไม่ขอ OTP, รหัสผ่าน, PIN, CVV หรือให้โอนเงินเพื่อยืนยันตัวตน หากมีผู้ร้องขอ
                   กรุณาหยุดดำเนินการและติดต่อทีมงาน
                 </Typography>
@@ -1144,37 +1196,46 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
         <Card
           variant="outlined"
           sx={{
-            p: 1.25,
-            mb: 3,
-            overflowX: 'auto',
-            borderRadius: 3,
-            scrollbarWidth: 'thin',
+            p: { xs: 0.75, sm: 1.25 },
+            mb: { xs: 2, sm: 3 },
+            minWidth: 0,
+            borderRadius: { xs: 2, sm: 3 },
+            boxShadow: 'none',
           }}
         >
-          <Stack direction="row" spacing={1} sx={{ minWidth: { xs: 760, lg: 0 } }}>
+          <Box
+            role="group"
+            aria-label="ขั้นตอนข้อมูลร้านค้า"
+            sx={{
+              display: 'grid',
+              gap: { xs: 0.5, sm: 1 },
+              gridTemplateColumns: 'repeat(5, minmax(0, 1fr))',
+            }}
+          >
             {STEPS.map((step, index) => {
               const Icon = step.icon;
               const active = index === activeStep;
               const completed = isStepComplete(index);
-              const canOpen = mode === 'edit' || index <= maxVisitedStep;
+              const canOpen =
+                (mode === 'edit' || index <= maxVisitedStep) && (index < 3 || isStepComplete(2));
 
               return (
                 <Button
                   key={step.title}
                   type="button"
                   disabled={!canOpen}
+                  aria-current={active ? 'step' : undefined}
                   onClick={() => {
                     setError('');
-                    setShowStepErrors(false);
                     setActiveStep(index);
                   }}
                   sx={{
-                    p: 1.5,
-                    gap: 1.25,
-                    flex: 1,
-                    minWidth: 140,
+                    p: { xs: 0.75, md: 1.5 },
+                    gap: { xs: 0.75, md: 1.25 },
+                    flexDirection: { xs: 'column', lg: 'row' },
+                    minWidth: 0,
                     borderRadius: 2,
-                    textAlign: 'left',
+                    textAlign: { xs: 'center', lg: 'left' },
                     justifyContent: 'flex-start',
                     color: active ? 'primary.main' : 'text.primary',
                     bgcolor: active ? 'primary.lighter' : 'transparent',
@@ -1187,8 +1248,8 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                 >
                   <Avatar
                     sx={{
-                      width: 38,
-                      height: 38,
+                      width: { xs: 30, sm: 38 },
+                      height: { xs: 30, sm: 38 },
                       flexShrink: 0,
                       color: completed
                         ? 'success.main'
@@ -1208,18 +1269,43 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                     <Typography
                       variant="subtitle2"
                       noWrap
-                      sx={{ color: 'inherit', lineHeight: 1.25 }}
+                      sx={{
+                        color: 'inherit',
+                        lineHeight: 1.4,
+                        whiteSpace: 'normal',
+                        overflowWrap: 'normal',
+                        fontSize: { xs: 11, md: 14 },
+                        fontWeight: { xs: 400, md: 600 },
+                      }}
                     >
-                      {index + 1}. {step.title}
+                      <Box component="span" sx={{ display: { xs: 'none', lg: 'inline' } }}>
+                        {index + 1}. {step.title}
+                      </Box>
+                      <Box component="span" sx={{ display: { xs: 'block', lg: 'none' } }}>
+                        {step.mobileTitle.map((line) => (
+                          <Box
+                            component="span"
+                            key={line}
+                            sx={{ display: 'block', whiteSpace: 'nowrap' }}
+                          >
+                            {line}
+                          </Box>
+                        ))}
+                      </Box>
                     </Typography>
-                    <Typography variant="caption" color="text.secondary" noWrap>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      noWrap
+                      sx={{ display: { xs: 'none', lg: 'block' } }}
+                    >
                       {completed ? 'ข้อมูลครบแล้ว' : active ? 'กำลังดำเนินการ' : step.description}
                     </Typography>
                   </Box>
                 </Button>
               );
             })}
-          </Stack>
+          </Box>
         </Card>
         {!!error && (
           <Alert severity="error" sx={{ mb: 2 }}>
@@ -1232,24 +1318,47 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
           </Alert>
         )}
 
-        <Card variant="outlined" sx={{ p: { xs: 2.5, md: 4 }, borderRadius: 3 }}>
+        <Card
+          variant="outlined"
+          sx={{
+            p: { xs: 2, md: 4 },
+            borderRadius: { xs: 2, sm: 3 },
+            minWidth: 0,
+            boxShadow: 'none',
+          }}
+        >
           <Stack
             direction="row"
             justifyContent="space-between"
             alignItems="center"
             spacing={2}
-            sx={{ pb: 2.5, mb: 3, borderBottom: '1px solid', borderColor: 'divider' }}
+            sx={{
+              pb: { xs: 2, sm: 2.5 },
+              mb: { xs: 2, sm: 3 },
+              borderBottom: '1px solid',
+              borderColor: 'divider',
+            }}
           >
             <Stack direction="row" spacing={1.5} alignItems="center">
               <Avatar variant="rounded" sx={{ color: 'primary.main', bgcolor: 'primary.lighter' }}>
                 <ActiveStepIcon />
               </Avatar>
               <Box>
-                <Typography variant="overline" color="primary.main">
+                <Typography
+                  variant="overline"
+                  color="primary.main"
+                  sx={{ fontSize: 11, fontWeight: 400 }}
+                >
                   ขั้นตอนที่ {activeStep + 1} จาก {STEPS.length}
                 </Typography>
-                <Typography variant="h5">{activeStepMeta.title}</Typography>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="h5" sx={{ fontSize: { xs: 18, sm: 20 }, fontWeight: 500 }}>
+                  {activeStepMeta.title}
+                </Typography>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ fontSize: { xs: 12, sm: 14 } }}
+                >
                   {activeStepMeta.description}
                 </Typography>
               </Box>
@@ -1270,7 +1379,10 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                   display: 'grid',
                   gap: { xs: 2.5, md: 3 },
                   alignItems: 'start',
-                  gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) minmax(500px, 0.5fr)' },
+                  gridTemplateColumns: {
+                    xs: 'minmax(0, 1fr)',
+                    lg: 'minmax(0, 1fr) minmax(0, 0.8fr)',
+                  },
                 }}
               >
                 <Stack spacing={2.5}>
@@ -1318,7 +1430,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                       <DocumentUploadField
                         methods={documentsMethods}
                         name="storeCover"
-                        label="ภาพหน้าปกร้าน"
+                        label="ภาพหน้าปกร้าน (ไม่บังคับ)"
                         recommendation="แนะนำภาพแนวนอน อัตราส่วน 16:6 เช่น 1600 × 600 px"
                         done={hasDocument('store_cover')}
                         document={getDocument('store_cover')}
@@ -1342,13 +1454,11 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                   </Box>
                   <Box>
                     <DocumentUploadField
-                      required
                       methods={documentsMethods}
                       name="storeLogo"
-                      label="โลโก้ร้าน"
+                      label="โลโก้ร้าน (ไม่บังคับ)"
                       recommendation="แนะนำภาพสี่เหลี่ยมจัตุรัส อัตราส่วน 1:1 เช่น 800 x 800 px"
                       done={hasStoreLogo}
-                      error={showStepErrors && !hasStoreLogo}
                       document={getDocument('store_logo')}
                       currentUrl={defaultStoreLogoPreviewUrl}
                       loading={uploading === 'store_logo'}
@@ -1376,7 +1486,10 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                       required
                       fullWidth
                       type={showPhone ? 'text' : 'password'}
-                      label="เบอร์โทร"
+                      onChange={(event) =>
+                        field.onChange(event.target.value.replace(/\D/g, '').slice(0, 10))
+                      }
+                      label="เบอร์โทร (10 หลัก)"
                       error={!!fieldError}
                       helperText={fieldError?.message}
                       slotProps={{
@@ -1393,7 +1506,12 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                             </InputAdornment>
                           ),
                         },
-                        htmlInput: { inputMode: 'tel', autoComplete: 'off' },
+                        htmlInput: {
+                          inputMode: 'numeric',
+                          maxLength: 10,
+                          pattern: '[0-9]{10}',
+                          autoComplete: 'off',
+                        },
                       }}
                     />
                   )}
@@ -1403,7 +1521,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                   type="email"
                   name="contactEmail"
                   label="Email"
-                  autoComplete="off"
+                  autoComplete="email"
                 />
               </Stack>
               <Controller
@@ -1486,7 +1604,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                   <Box>
                     <Typography variant="subtitle1">ข้อมูลบัญชีรับเงิน</Typography>
                     <Typography variant="body2" color="text.secondary">
-                      ระบบจะใช้บัญชีนี้สำหรับโอนยอดขายหลังพ้นระยะพักยอด
+                      กรุณากรอกบัญชีรับเงินให้ครบก่อนส่งข้อมูลร้านค้า
                     </Typography>
                   </Box>
                   <Field.Text required name="accountName" label="ชื่อบัญชี" />
@@ -1574,17 +1692,15 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                     </Typography>
                   </Box>
                   <DocumentUploadField
-                    required
                     methods={documentsMethods}
                     name="bankBook"
-                    label="หน้าสมุดบัญชี"
+                    label="หน้าสมุดบัญชี (ไม่บังคับ)"
                     recommendation="ผู้ดูแลจะเห็นชื่อธนาคาร ชื่อบัญชี และเลขบัญชีเพื่อเปรียบเทียบกับข้อมูลรับเงิน กดดูตัวอย่างเพื่อตรวจก่อนส่งได้"
                     done={hasDocument('bank_book')}
-                    error={showStepErrors && !hasDocument('bank_book')}
                     document={getDocument('bank_book')}
                     loading={uploading === 'bank_book'}
                     maxSizeMb={5}
-                    storedMaxSizeMb={1}
+                    storedMaxSizeMb={2}
                     onFile={(file) => upload('bank_book', file)}
                   />
                 </Stack>
@@ -1602,30 +1718,15 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                 }}
               >
                 <DocumentUploadField
-                  required
                   methods={documentsMethods}
                   name="identityCard"
-                  label="บัตรประชาชน หรือสำเนาบัตรประชาชน"
+                  samplePreviewUrl="/assets/examples/identity-document.svg"
+                  label="บัตรประชาชน หรือสำเนาบัตรประชาชน (ไม่บังคับ)"
                   done={hasDocument('identity_card')}
-                  error={showStepErrors && !hasDocument('identity_card')}
                   document={getDocument('identity_card')}
                   loading={uploading === 'identity_card'}
-                  storedMaxSizeMb={1}
+                  storedMaxSizeMb={2}
                   onFile={(file) => upload('identity_card', file)}
-                />
-                <DocumentUploadField
-                  required
-                  methods={documentsMethods}
-                  name="bankBook"
-                  label="หน้าสมุดบัญชี"
-                  recommendation="ผู้ดูแลจะเห็นชื่อธนาคาร ชื่อบัญชี และเลขบัญชีเพื่อเปรียบเทียบกับข้อมูลรับเงิน กดดูตัวอย่างเพื่อตรวจก่อนส่งได้"
-                  done={hasDocument('bank_book')}
-                  error={showStepErrors && !hasDocument('bank_book')}
-                  document={getDocument('bank_book')}
-                  loading={uploading === 'bank_book'}
-                  maxSizeMb={5}
-                  storedMaxSizeMb={1}
-                  onFile={(file) => upload('bank_book', file)}
                 />
                 <DocumentUploadField
                   methods={documentsMethods}
@@ -1635,7 +1736,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                   done={hasDocument('company_certificate')}
                   document={getDocument('company_certificate')}
                   loading={uploading === 'company_certificate'}
-                  storedMaxSizeMb={1}
+                  storedMaxSizeMb={2}
                   onFile={(file) => upload('company_certificate', file)}
                 />
                 <DocumentUploadField
@@ -1646,7 +1747,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                   done={hasDocument('vat_certificate')}
                   document={getDocument('vat_certificate')}
                   loading={uploading === 'vat_certificate'}
-                  storedMaxSizeMb={1}
+                  storedMaxSizeMb={2}
                   onFile={(file) => upload('vat_certificate', file)}
                 />
               </Box>
@@ -1721,12 +1822,13 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
           )}
 
           <Stack
-            direction={{ xs: 'column-reverse', sm: 'row' }}
+            direction={{ xs: 'column', sm: 'row' }}
             justifyContent="space-between"
             spacing={1.5}
             sx={{
               pt: 2.5,
-              mt: 4,
+              mt: { xs: 3, sm: 4 },
+              '& .MuiButton-root': { minHeight: 44 },
               borderTop: '1px solid',
               borderColor: 'divider',
             }}
@@ -1801,7 +1903,11 @@ function TrustItem({
       direction="row"
       spacing={1.25}
       alignItems="flex-start"
-      sx={{ p: 1.75, borderRadius: 2, bgcolor: 'background.paper' }}
+      sx={{
+        p: { xs: 1.25, sm: 1.75 },
+        borderRadius: { xs: 1.5, sm: 2 },
+        bgcolor: 'background.paper',
+      }}
     >
       <Avatar
         variant="rounded"
@@ -1810,8 +1916,14 @@ function TrustItem({
         {icon}
       </Avatar>
       <Box sx={{ minWidth: 0 }}>
-        <Typography variant="subtitle2">{title}</Typography>
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="subtitle2" sx={{ fontSize: { xs: 13, sm: 14 }, fontWeight: 500 }}>
+          {title}
+        </Typography>
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ display: 'block', lineHeight: 1.6, mt: 0.25 }}
+        >
           {description}
         </Typography>
       </Box>
@@ -1829,8 +1941,9 @@ function DocumentUploadField({
   currentUrl,
   loading,
   onFile,
-  accept = 'image/*,application/pdf',
+  accept = 'image/jpeg,image/png,image/webp,application/pdf',
   previewAspectRatio,
+  samplePreviewUrl,
   required = false,
   error = false,
   maxSizeMb = 5,
@@ -1844,9 +1957,10 @@ function DocumentUploadField({
   document?: NonNullable<MarketplaceSeller['documents']>[number];
   currentUrl?: string | null;
   loading: boolean;
-  onFile: (file: File) => Promise<boolean>;
+  onFile: (file: File) => Promise<boolean | string>;
   accept?: string;
   previewAspectRatio?: string;
+  samplePreviewUrl?: string;
   required?: boolean;
   error?: boolean;
   maxSizeMb?: number;
@@ -1855,7 +1969,78 @@ function DocumentUploadField({
   const { control, setValue } = methods;
   const value = useWatch({ control, name });
   const pendingFile = value instanceof File ? value : null;
-  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewSource, setPreviewSource] = useState<'pending' | 'uploaded' | 'sample' | null>(
+    null
+  );
+  const [pendingPreviewUrl, setPendingPreviewUrl] = useState<string | null>(null);
+
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState('');
+  const [pendingPreviewMime, setPendingPreviewMime] = useState('');
+  const previewRequestRef = useRef(0);
+
+  useEffect(() => {
+    setPendingPreviewUrl(null);
+    setPreviewSource(null);
+    setPreviewError('');
+    setPreviewLoading(false);
+    return () => {
+      previewRequestRef.current += 1;
+    };
+  }, [pendingFile]);
+  useEffect(
+    () => () => {
+      if (pendingPreviewUrl) URL.revokeObjectURL(pendingPreviewUrl);
+    },
+    [pendingPreviewUrl]
+  );
+
+  const previewPending = async () => {
+    if (!pendingFile) return;
+    if (pendingPreviewUrl) {
+      setPreviewSource('pending');
+      return;
+    }
+    const requestId = ++previewRequestRef.current;
+    setPreviewLoading(true);
+    setPreviewError('');
+    try {
+      const documentTypes = {
+        storeLogo: 'store_logo',
+        storeCover: 'store_cover',
+        bankBook: 'bank_book',
+        identityCard: 'identity_card',
+        companyCertificate: 'company_certificate',
+        vatCertificate: 'vat_certificate',
+        receiptSignature: 'receipt_signature',
+      };
+      const data = new FormData();
+      data.set('documentType', documentTypes[name]);
+      data.set('file', pendingFile);
+      const response = await fetch('/api/marketplace/seller/documents?preview=1', {
+        method: 'POST',
+        body: data,
+      });
+      if (!response.ok) {
+        const result = await response.json();
+        throw new Error(result.message ?? 'ไม่สามารถสร้างตัวอย่างเอกสารได้');
+      }
+      const blob = await response.blob();
+      if (requestId !== previewRequestRef.current) return;
+      setPendingPreviewMime(blob.type);
+      setPendingPreviewUrl(URL.createObjectURL(blob));
+      setPreviewSource('pending');
+    } catch (previewFailure) {
+      if (requestId === previewRequestRef.current)
+        setPreviewError(
+          previewFailure instanceof Error
+            ? previewFailure.message
+            : 'ไม่สามารถสร้างตัวอย่างเอกสารได้'
+        );
+    } finally {
+      if (requestId === previewRequestRef.current) setPreviewLoading(false);
+    }
+  };
 
   const uploadedUrl = document?.url ?? currentUrl ?? null;
 
@@ -1867,7 +2052,9 @@ function DocumentUploadField({
 
   const acceptTypes = accept.split(',').map((type) => type.trim());
   const acceptsOnlyImages = acceptTypes.every((type) => type.startsWith('image/'));
-  const acceptOption = Object.fromEntries(acceptTypes.map((type) => [type, [] as string[]]));
+  const acceptOption = Object.fromEntries(
+    acceptTypes.map((type) => [type, type === 'application/pdf' ? ['.pdf'] : ([] as string[])])
+  );
 
   const fileName = pendingFile?.name || document?.file_name || '';
   const fileSize = pendingFile?.size ?? document?.file_size ?? 0;
@@ -1875,7 +2062,13 @@ function DocumentUploadField({
 
   const handleConfirmUpload = async () => {
     if (!pendingFile) return;
-    await onFile(pendingFile);
+    const uploaded = await onFile(pendingFile);
+    if (uploaded && methods.getValues(name) === pendingFile) {
+      setValue(name, typeof uploaded === 'string' ? uploaded : uploadedUrl, {
+        shouldValidate: false,
+        shouldDirty: false,
+      });
+    }
   };
 
   return (
@@ -1888,7 +2081,12 @@ function DocumentUploadField({
           borderColor: 'divider',
         }}
       >
-        <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: 0.5 }}>
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={0.75}
+          alignItems={{ xs: 'flex-start', sm: 'center' }}
+          sx={{ mb: 0.5 }}
+        >
           <Typography variant="subtitle2">
             {label}
             {required ? <span style={{ color: 'red' }}> *</span> : ''}
@@ -1911,8 +2109,8 @@ function DocumentUploadField({
         </Typography>
         {storedMaxSizeMb && (
           <Typography variant="caption" color="success.main" sx={{ display: 'block' }}>
-            ระบบจะย่อไฟล์รูปก่อนบันทึกให้ไม่เกิน {storedMaxSizeMb} MB ส่วน PDF
-            จะตรวจขนาดอีกครั้งหลังประมวลผล
+            ระบบจะย่อไฟล์รูปก่อนบันทึกให้ไม่เกิน {storedMaxSizeMb} MB ส่วน PDF รองรับขนาดไม่เกิน{' '}
+            {maxSizeMb} MB และใส่ลายน้ำก่อนบันทึก
           </Typography>
         )}
         {recommendation && (
@@ -1931,6 +2129,30 @@ function DocumentUploadField({
             error={showRequiredError}
             helperText={showRequiredError ? 'กรุณาอัปโหลดไฟล์นี้' : undefined}
             onDelete={() => setValue(name, null, { shouldValidate: true })}
+            slotProps={{
+              singlePreview: {
+                fileName,
+                mimeType: pendingFile?.type || document?.mime_type,
+                role: 'button',
+                tabIndex: 0,
+                'aria-label': `ดูตัวอย่าง ${fileName || label}`,
+                sx: { cursor: 'pointer' },
+                onClick: (event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  if (pendingFile) void previewPending();
+                  else if (uploadedUrl) setPreviewSource('uploaded');
+                },
+                onKeyDown: (event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    if (pendingFile) void previewPending();
+                    else if (uploadedUrl) setPreviewSource('uploaded');
+                  }
+                },
+              },
+            }}
             sx={{
               mt: 1,
               minHeight: 160,
@@ -1944,7 +2166,7 @@ function DocumentUploadField({
                 >
                   {acceptsOnlyImages ? <RiImageLine size={30} /> : <RiUploadCloud2Line size={30} />}
                 </Avatar>
-                <Typography variant="subtitle2">ลากไฟล์มาวางที่นี่</Typography>
+                <Typography variant="subtitle2">แตะเพื่อเลือกไฟล์ หรือลากไฟล์มาวาง</Typography>
                 <Typography variant="body2" color="text.secondary">
                   หรือคลิกเพื่อเลือกไฟล์จากอุปกรณ์
                 </Typography>
@@ -1954,7 +2176,11 @@ function DocumentUploadField({
         </FormProvider>
 
         {fileName && (
-          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ mt: 1, display: 'block', overflowWrap: 'anywhere' }}
+          >
             {fileName}
             {fileSize ? ` • ${(fileSize / 1024 / 1024).toFixed(2)} MB` : ''}
           </Typography>
@@ -1966,35 +2192,105 @@ function DocumentUploadField({
           </Alert>
         )}
 
-        <Stack direction="row" justifyContent="flex-end" spacing={1} sx={{ mt: 1.5 }}>
-          {uploadedUrl && !pendingFile && (
-            <Button color="inherit" startIcon={<RiEyeLine />} onClick={() => setPreviewOpen(true)}>
-              ดูตัวอย่าง
+        {!!previewError && (
+          <Alert severity="error" sx={{ mt: 1.5 }}>
+            {previewError}
+          </Alert>
+        )}
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          justifyContent="flex-end"
+          spacing={1}
+          sx={{ mt: 1.5, '& .MuiButton-root': { minHeight: 44 } }}
+        >
+          <Button
+            variant="outlined"
+            startIcon={<RiEyeLine />}
+            loading={previewLoading}
+            disabled={!pendingFile && !uploadedUrl && !samplePreviewUrl}
+            onClick={() => {
+              if (pendingFile) void previewPending();
+              else setPreviewSource(uploadedUrl ? 'uploaded' : 'sample');
+            }}
+          >
+            ดูตัวอย่าง
+          </Button>
+          {uploadedUrl && pendingFile && (
+            <Button
+              variant="outlined"
+              startIcon={<RiEyeLine />}
+              onClick={() => setPreviewSource('uploaded')}
+            >
+              ดูไฟล์ที่อัปโหลดแล้ว
+            </Button>
+          )}
+          {uploadedUrl && (
+            <Button component="label" variant="outlined" disabled={loading}>
+              เปลี่ยนไฟล์
+              <input
+                hidden
+                type="file"
+                accept={accept}
+                disabled={loading}
+                onChange={(event) => {
+                  const nextFile = event.target.files?.[0];
+                  event.target.value = '';
+                  if (!nextFile) return;
+                  if (nextFile.size > maxSizeMb * 1024 * 1024) {
+                    setPreviewError(`ไฟล์ต้องมีขนาดไม่เกิน ${maxSizeMb} MB`);
+                    return;
+                  }
+                  const validType = acceptTypes.some(
+                    (type) =>
+                      type === nextFile.type ||
+                      (type === 'image/*' && nextFile.type.startsWith('image/')) ||
+                      (type === 'application/pdf' && /\.pdf$/i.test(nextFile.name))
+                  );
+                  if (!validType) {
+                    setPreviewError('ชนิดไฟล์ไม่รองรับ กรุณาเลือกไฟล์ตามรูปแบบที่ระบุ');
+                    return;
+                  }
+                  setValue(name, nextFile, { shouldValidate: true, shouldDirty: true });
+                }}
+              />
             </Button>
           )}
           <Button
             variant="contained"
             loading={loading}
             disabled={!pendingFile}
-            startIcon={<RiUploadCloud2Line />}
+            startIcon={done && !pendingFile ? <RiCheckboxCircleLine /> : <RiUploadCloud2Line />}
             onClick={handleConfirmUpload}
           >
-            ยืนยันอัปโหลด
+            {done && !pendingFile ? 'อัปโหลดแล้ว' : 'ยืนยันอัปโหลด'}
           </Button>
         </Stack>
       </Card>
       <DocumentPreviewDialog
         file={
-          previewOpen && uploadedUrl
+          previewSource === 'sample' && samplePreviewUrl
             ? {
-                url: uploadedUrl,
-                title: `ตัวอย่าง ${label}`,
-                fileName: document?.file_name,
-                mimeType: document?.mime_type,
+                url: samplePreviewUrl,
+                title: 'ตัวอย่างเอกสารยืนยันตัวตน (ข้อมูลสมมติ)',
+                mimeType: 'image/svg+xml',
               }
-            : null
+            : previewSource === 'pending' && pendingFile && pendingPreviewUrl
+              ? {
+                  url: pendingPreviewUrl,
+                  title: `ตัวอย่างหลังประมวลผล ${label}`,
+                  fileName: pendingFile.name,
+                  mimeType: pendingPreviewMime,
+                }
+              : previewSource === 'uploaded' && uploadedUrl
+                ? {
+                    url: uploadedUrl,
+                    title: `ตัวอย่าง ${label}`,
+                    fileName: document?.file_name,
+                    mimeType: document?.mime_type,
+                  }
+                : null
         }
-        onClose={() => setPreviewOpen(false)}
+        onClose={() => setPreviewSource(null)}
       />
     </>
   );

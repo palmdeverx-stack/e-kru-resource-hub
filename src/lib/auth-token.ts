@@ -138,7 +138,27 @@ export function requireAuthenticated(request: Request): AppTokenPayload | null {
   return token ? verifyAppToken(token) : null;
 }
 
-export async function isActiveTokenAccount(payload: AppTokenPayload) {
+// Coalesce concurrent checks only; completed results are never cached so account
+// suspension and session revocation are rechecked on the next request.
+const pendingAccountChecks = new Map<string, Promise<boolean>>();
+
+export function isActiveTokenAccount(payload: AppTokenPayload): Promise<boolean> {
+  const key = JSON.stringify([
+    payload.sub,
+    payload.role,
+    payload.schoolId,
+    payload.sessionVersion ?? 0,
+  ]);
+  const existing = pendingAccountChecks.get(key);
+  if (existing) return existing;
+  const pending = checkActiveTokenAccount(payload).finally(() => {
+    if (pendingAccountChecks.get(key) === pending) pendingAccountChecks.delete(key);
+  });
+  pendingAccountChecks.set(key, pending);
+  return pending;
+}
+
+async function checkActiveTokenAccount(payload: AppTokenPayload) {
   if (payload.role === 'marketplace_user') {
     const { data, error } = await supabaseAdmin
       .from('marketplace_users')
@@ -147,7 +167,8 @@ export async function isActiveTokenAccount(payload: AppTokenPayload) {
       .maybeSingle();
     return Boolean(
       !error &&
-      data?.is_active !== false &&
+      data &&
+      data.is_active !== false &&
       data?.is_suspended !== true &&
       Number(data?.session_version ?? 0) === Number(payload.sessionVersion ?? 0)
     );

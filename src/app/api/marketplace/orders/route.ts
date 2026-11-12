@@ -15,10 +15,6 @@ import { withPublicSystemStoreFlag } from 'src/sections/marketplace/seller/serve
 import { recordShippingCustomerCharge } from 'src/sections/marketplace/shipping/server/accounting';
 import { getEligibleLicenseSchools } from 'src/sections/marketplace/checkout/server/school-targets';
 import { createSchoolOnboardingForPaidOrders } from 'src/sections/marketplace/checkout/server/school-onboarding';
-import {
-  withMediaUrls,
-  withoutFileScanMetadata,
-} from 'src/sections/marketplace/seller/server/product-media';
 import { grantFeatureEntitlementsForOrders } from 'src/sections/marketplace/checkout/server/grant-feature-entitlements';
 import {
   canViewSellerTools,
@@ -28,6 +24,11 @@ import {
   getMarketplaceShippingConfig,
   isMarketplaceShippingEnabledForOfficialSeller,
 } from 'src/sections/marketplace/shipping/server/config';
+import {
+  withMediaUrls,
+  withoutFileScanMetadata,
+  getOfficialProductCoverFallback,
+} from 'src/sections/marketplace/seller/server/product-media';
 import {
   hasPurchasedProduct,
   isLicenseQuotaExhausted,
@@ -74,16 +75,29 @@ export async function GET(request: Request) {
     return NextResponse.json({ message: 'กรุณาเข้าสู่ระบบ' }, { status: 401 });
   }
 
+  const summary = new URL(request.url).searchParams.get('summary') === '1';
+  const columns: string = summary
+    ? 'id, payment_session_id, total, currency, status, created_at, seller:marketplace_sellers(id, display_name, slug, logo_url, owner_role), items:marketplace_order_items(id, title, product:marketplace_products(id, title, title_en, short_description, short_description_en, cover_url, resource_type, license_target_system, grants_feature_key, grants_feature_keys, images:marketplace_product_images(id, is_cover, storage_bucket, storage_path)))'
+    : '*, seller:marketplace_sellers(id, display_name, slug, logo_url, owner_role), items:marketplace_order_items(*, product:marketplace_products(id, title, title_en, short_description, short_description_en, file_url, cover_url, resource_type, license_target_system, grants_feature_key, grants_feature_keys, license_scope, images:marketplace_product_images(*), files:marketplace_product_files(*)))';
   const { data: orders, error } = await supabaseAdmin
     .from('marketplace_orders')
-    .select(
-      '*, seller:marketplace_sellers(id, display_name, slug, logo_url, owner_role), items:marketplace_order_items(*, product:marketplace_products(id, title, title_en, short_description, short_description_en, file_url, cover_url, resource_type, license_target_system, grants_feature_key, grants_feature_keys, license_scope, images:marketplace_product_images(*), files:marketplace_product_files(*)))'
-    )
+    .select(columns)
     .eq('buyer_id', caller.sub)
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .returns<
+      Array<{
+        status: string;
+        items: Array<Record<string, unknown>>;
+        seller: Record<string, unknown> | null;
+        [key: string]: unknown;
+      }>
+    >();
 
   if (error) return NextResponse.json({ message: error.message }, { status: 500 });
 
+  let fallbackPromise: Promise<string | null> | undefined;
+  const officialCoverFallback = () => (fallbackPromise ??= getOfficialProductCoverFallback());
+  const mediaByProduct = new Map<string, ReturnType<typeof withMediaUrls>>();
   const safeOrders = await Promise.all(
     (orders ?? []).map(async (order) => {
       const isPaid = ['paid', 'completed'].includes(order.status);
@@ -91,12 +105,26 @@ export async function GET(request: Request) {
         (order.items ?? []).map(async (item: Record<string, unknown>) => {
           const product = item.product as OrderProduct;
           if (!product) return item;
-          const media = await withMediaUrls({
-            images: product.images ?? [],
-            files: [],
-            cover_url: product.cover_url,
-            seller: order.seller,
-          });
+          let mediaPromise = mediaByProduct.get(product.id);
+          if (!mediaPromise) {
+            mediaPromise = withMediaUrls(
+              {
+                images: product.images ?? [],
+                files: [],
+                cover_url: product.cover_url,
+                seller: order.seller,
+              },
+              { officialCoverFallback }
+            );
+            mediaByProduct.set(product.id, mediaPromise);
+          }
+          const media = await mediaPromise;
+          if (summary) {
+            return {
+              ...item,
+              product: { ...product, images: media.images, cover_url: media.cover_url },
+            };
+          }
           if (!isPaid) {
             return {
               ...item,

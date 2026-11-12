@@ -6,7 +6,9 @@ import { rejectCrossSiteMutation } from 'src/lib/request-security';
 import { ALL_SCHOOL_FEATURE_KEYS } from 'src/lib/school-subscription-config';
 
 import { ownedSellerId } from 'src/sections/marketplace/seller/server/owned-seller';
+import { isSubscriptionSaleType } from 'src/sections/marketplace/shared/sale-type-access';
 import { MARKETPLACE_MINIMUM_PAID_PRICE_THB } from 'src/sections/marketplace/shared/payment';
+import { removeProductFiles } from 'src/sections/marketplace/seller/server/product-file-storage';
 import { notifyMarketplaceAdmins } from 'src/sections/marketplace/admin/server/line-notifications';
 import {
   withMediaUrls,
@@ -30,9 +32,8 @@ import {
   MAX_PURCHASE_BENEFITS_TEXT_LENGTH,
 } from 'src/sections/marketplace/shared/purchase-benefits';
 
-const FILE_OPTIONAL_RESOURCE_TYPES = new Set(['service', 'feature_unlock', 'physical']);
 const MAX_EXTERNAL_LINKS = 3;
-const MAX_PURCHASE_BENEFITS = 8;
+const MAX_PURCHASE_BENEFITS = 10;
 const ALLOWED_FEATURE_KEYS = new Set<string>([
   ...ALL_SCHOOL_FEATURE_KEYS,
   MARKETPLACE_SELLER_LINE_FEATURE_KEY,
@@ -167,10 +168,7 @@ export async function PATCH(request: Request, { params }: Context) {
   if (body.title !== undefined) {
     const title = String(body.title).trim();
     if (title.length < 3) {
-      return NextResponse.json(
-        { message: 'กรุณากรอกชื่อสินค้าอย่างน้อย 3 ตัวอักษร' },
-        { status: 400 }
-      );
+      return NextResponse.json({ message: 'กรุณากรอกชื่อสินค้าอย่างน้อย 3 ตัวอักษร' }, { status: 400 });
     }
     update.title = title;
   }
@@ -180,10 +178,7 @@ export async function PATCH(request: Request, { params }: Context) {
   if (body.shortDescription !== undefined) {
     const shortDescription = String(body.shortDescription).trim();
     if (shortDescription.length > 150) {
-      return NextResponse.json(
-        { message: 'คำอธิบายสั้นต้องไม่เกิน 150 ตัวอักษร' },
-        { status: 400 }
-      );
+      return NextResponse.json({ message: 'คำอธิบายสั้นต้องไม่เกิน 150 ตัวอักษร' }, { status: 400 });
     }
     update.short_description = shortDescription || null;
   }
@@ -220,10 +215,7 @@ export async function PATCH(request: Request, { params }: Context) {
       const label = String(link.label ?? '').trim();
       const urlValue = String(link.url ?? '').trim();
       if (!label || label.length > 80) {
-        return NextResponse.json(
-          { message: 'ชื่อลิงก์ต้องมีข้อมูลและไม่เกิน 80 ตัวอักษร' },
-          { status: 400 }
-        );
+        return NextResponse.json({ message: 'ชื่อลิงก์ต้องมีข้อมูลและไม่เกิน 80 ตัวอักษร' }, { status: 400 });
       }
       if (urlValue.length > 2048) {
         return NextResponse.json({ message: 'URL ต้องไม่เกิน 2,048 ตัวอักษร' }, { status: 400 });
@@ -272,10 +264,7 @@ export async function PATCH(request: Request, { params }: Context) {
       purchaseBenefitsHtml.length > MAX_PURCHASE_BENEFITS_HTML_LENGTH ||
       plainTextLength(purchaseBenefitsHtml) > MAX_PURCHASE_BENEFITS_TEXT_LENGTH
     ) {
-      return NextResponse.json(
-        { message: 'รายละเอียดสิ่งที่ลูกค้าจะได้รับยาวเกินกำหนด' },
-        { status: 400 }
-      );
+      return NextResponse.json({ message: 'รายละเอียดสิ่งที่ลูกค้าจะได้รับยาวเกินกำหนด' }, { status: 400 });
     }
     if (hasUnsafePurchaseBenefitsHtml(purchaseBenefitsHtml)) {
       return NextResponse.json(
@@ -294,10 +283,7 @@ export async function PATCH(request: Request, { params }: Context) {
       .eq('is_active', true)
       .maybeSingle();
     if (!selectedCategory) {
-      return NextResponse.json(
-        { message: 'หมวดหมู่นี้ไม่มีอยู่หรือถูกปิดใช้งาน' },
-        { status: 400 }
-      );
+      return NextResponse.json({ message: 'หมวดหมู่นี้ไม่มีอยู่หรือถูกปิดใช้งาน' }, { status: 400 });
     }
     update.category = category;
   }
@@ -314,10 +300,7 @@ export async function PATCH(request: Request, { params }: Context) {
         .eq('is_active', true)
         .maybeSingle();
       if (!curriculum) {
-        return NextResponse.json(
-          { message: 'หลักสูตรนี้ไม่มีอยู่หรือถูกปิดใช้งาน' },
-          { status: 400 }
-        );
+        return NextResponse.json({ message: 'หลักสูตรนี้ไม่มีอยู่หรือถูกปิดใช้งาน' }, { status: 400 });
       }
       update.curriculum_id = curriculum.id;
     } else {
@@ -368,10 +351,7 @@ export async function PATCH(request: Request, { params }: Context) {
         .eq('is_active', true)
         .maybeSingle();
       if (!mediaType) {
-        return NextResponse.json(
-          { message: 'ประเภทสื่อไม่มีอยู่หรือถูกปิดใช้งาน' },
-          { status: 400 }
-        );
+        return NextResponse.json({ message: 'ประเภทสื่อไม่มีอยู่หรือถูกปิดใช้งาน' }, { status: 400 });
       }
       if (mediaType.delivery_mode === 'feature_unlock' && caller.role !== 'master_admin') {
         return NextResponse.json(
@@ -645,15 +625,15 @@ export async function PATCH(request: Request, { params }: Context) {
     if (saleTypeId) {
       const { data: saleType } = await supabaseAdmin
         .from('marketplace_sale_types')
-        .select('id, pricing_mode')
+        .select('id, code, name, pricing_mode')
         .eq('id', saleTypeId)
         .eq('is_active', true)
         .maybeSingle();
       if (!saleType) {
-        return NextResponse.json(
-          { message: 'ประเภทการจำหน่ายไม่มีอยู่หรือถูกปิดใช้งาน' },
-          { status: 400 }
-        );
+        return NextResponse.json({ message: 'ประเภทการจำหน่ายไม่มีอยู่หรือถูกปิดใช้งาน' }, { status: 400 });
+      }
+      if (caller.role !== 'master_admin' && isSubscriptionSaleType(saleType)) {
+        return NextResponse.json({ message: 'Subscription ใช้ได้เฉพาะร้านค้าทางการ' }, { status: 403 });
       }
       resolvedSaleType = saleType;
       update.sale_type_id = saleType.id;
@@ -791,10 +771,7 @@ export async function PATCH(request: Request, { params }: Context) {
     }
 
     if (String(product.title ?? '').trim().length < 3) {
-      return NextResponse.json(
-        { message: 'กรุณากรอกชื่อสินค้าอย่างน้อย 3 ตัวอักษร' },
-        { status: 400 }
-      );
+      return NextResponse.json({ message: 'กรุณากรอกชื่อสินค้าอย่างน้อย 3 ตัวอักษร' }, { status: 400 });
     }
     if (plainTextLength(String(product.description ?? '')) < 10) {
       return NextResponse.json(
@@ -813,9 +790,16 @@ export async function PATCH(request: Request, { params }: Context) {
     }
     const { data: productSaleType } = await supabaseAdmin
       .from('marketplace_sale_types')
-      .select('pricing_mode')
+      .select('code, name, pricing_mode')
       .eq('id', product.sale_type_id)
       .maybeSingle();
+    if (
+      caller.role !== 'master_admin' &&
+      productSaleType &&
+      isSubscriptionSaleType(productSaleType)
+    ) {
+      return NextResponse.json({ message: 'Subscription ใช้ได้เฉพาะร้านค้าทางการ' }, { status: 403 });
+    }
     if (
       productSaleType?.pricing_mode === 'paid' &&
       Number(product.price) < MARKETPLACE_MINIMUM_PAID_PRICE_THB
@@ -836,22 +820,62 @@ export async function PATCH(request: Request, { params }: Context) {
     if (!(product.images as unknown[] | null)?.length) {
       return NextResponse.json({ message: 'กรุณาอัปโหลดรูปปกอย่างน้อย 1 รูป' }, { status: 400 });
     }
-    const fileOptional = FILE_OPTIONAL_RESOURCE_TYPES.has(String(product.resource_type));
-    const productFiles = (product.files ?? []) as Array<{ scan_status?: string }>;
-    if (productFiles.some((file) => file.scan_status === 'rejected')) {
-      return NextResponse.json(
-        { message: 'ยังส่งสินค้าไม่ได้ เนื่องจากมีไฟล์ที่ถูกระงับ' },
-        { status: 409 }
-      );
-    }
+    const productImages = (product.images ?? []) as Array<{
+      id?: string;
+      is_cover?: boolean;
+      file_size?: number;
+    }>;
+    const cover = productImages.find((image) => image.is_cover) ?? productImages[0];
+    const previewImages = productImages.filter((image) => image !== cover);
     if (
-      !fileOptional &&
-      !productFiles.length &&
-      !(product.external_links as unknown[] | null)?.length &&
-      plainTextLength(String(product.purchase_benefits_html ?? '')) === 0
+      !previewImages.length ||
+      previewImages.length > 8 ||
+      previewImages.some((image) => Number(image.file_size) > 3 * 1024 * 1024)
     ) {
       return NextResponse.json(
-        { message: 'กรุณาเพิ่มไฟล์ ลิงก์ หรือข้อความส่งมอบอย่างน้อย 1 รายการ' },
+        { message: 'กรุณาเพิ่มภาพพรีวิวอย่างน้อย 1 ภาพ สูงสุด 8 ภาพ ภาพละไม่เกิน 3 MB' },
+        { status: 400 }
+      );
+    }
+    const purchaseBenefits = product.purchase_benefits;
+    if (
+      !Array.isArray(purchaseBenefits) ||
+      purchaseBenefits.length < 1 ||
+      purchaseBenefits.length > MAX_PURCHASE_BENEFITS ||
+      purchaseBenefits.some(
+        (item) => typeof item !== 'string' || !item.trim() || item.trim().length > 120
+      )
+    ) {
+      return NextResponse.json(
+        { message: 'กรุณาระบุรายการที่ลูกค้าจะได้รับอย่างน้อย 1 รายการ สูงสุด 10 รายการ' },
+        { status: 400 }
+      );
+    }
+    const productFiles = (product.files ?? []) as Array<{
+      scan_status?: string;
+      is_preview?: boolean;
+      file_size?: number;
+    }>;
+    const actualFiles = productFiles.filter((file) => !file.is_preview);
+    const sampleFiles = productFiles.filter((file) => file.is_preview);
+    if (
+      actualFiles.length > 5 ||
+      actualFiles.some((file) => Number(file.file_size) > 10 * 1024 * 1024) ||
+      sampleFiles.length > 1 ||
+      sampleFiles.some((file) => Number(file.file_size) > 10 * 1024 * 1024) ||
+      (product.images as unknown[]).length > 9
+    ) {
+      return NextResponse.json(
+        { message: 'กรุณาตรวจจำนวนและขนาดไฟล์จริง ไฟล์ตัวอย่าง และภาพพรีวิวให้ตรงตามข้อกำหนด' },
+        { status: 400 }
+      );
+    }
+    if (productFiles.some((file) => file.scan_status === 'rejected')) {
+      return NextResponse.json({ message: 'ยังส่งสินค้าไม่ได้ เนื่องจากมีไฟล์ที่ถูกระงับ' }, { status: 409 });
+    }
+    if (product.resource_type !== 'feature_unlock' && actualFiles.length < 1) {
+      return NextResponse.json(
+        { message: 'กรุณาเพิ่มไฟล์จริงอย่างน้อย 1 ไฟล์ สูงสุด 5 ไฟล์ ไม่นับไฟล์ตัวอย่าง' },
         { status: 400 }
       );
     }
@@ -906,8 +930,7 @@ export async function PATCH(request: Request, { params }: Context) {
       ) {
         return NextResponse.json(
           {
-            message:
-              'แพ็กเกจ E-KRU ทั้งระบบต้องระบุ Plan Code จำนวนครู นักเรียน ผู้ดูแล และ LINE quota ให้ครบ',
+            message: 'แพ็กเกจ E-KRU ทั้งระบบต้องระบุ Plan Code จำนวนครู นักเรียน ผู้ดูแล และ LINE quota ให้ครบ',
           },
           { status: 400 }
         );
@@ -933,10 +956,7 @@ export async function PATCH(request: Request, { params }: Context) {
           product.shipping_height_cm,
         ].every((value) => Number(value) > 0)
       ) {
-        return NextResponse.json(
-          { message: 'กรุณาระบุน้ำหนักและขนาดพัสดุให้ครบ' },
-          { status: 400 }
-        );
+        return NextResponse.json({ message: 'กรุณาระบุน้ำหนักและขนาดพัสดุให้ครบ' }, { status: 400 });
       }
     }
 
@@ -1045,8 +1065,7 @@ export async function DELETE(request: Request, { params }: Context) {
   if (usage.hasOrderReferences || usage.hasDealReferences) {
     return NextResponse.json(
       {
-        message:
-          'สินค้านี้มีคำสั่งซื้อที่ยังไม่เสร็จหรือข้อเสนอขายอ้างอิงอยู่ จึงลบไม่ได้ แต่สามารถซ่อนสินค้าได้',
+        message: 'สินค้านี้มีคำสั่งซื้อที่ยังไม่เสร็จหรือข้อเสนอขายอ้างอิงอยู่ จึงลบไม่ได้ แต่สามารถซ่อนสินค้าได้',
       },
       { status: 409 }
     );
@@ -1068,9 +1087,7 @@ export async function DELETE(request: Request, { params }: Context) {
     byBucket.set(media.storage_bucket, paths);
   }
   await Promise.all(
-    [...byBucket.entries()].map(([bucket, paths]) =>
-      supabaseAdmin.storage.from(bucket).remove(paths)
-    )
+    [...byBucket.entries()].map(([bucket, paths]) => removeProductFiles(bucket, paths))
   );
 
   return NextResponse.json({ success: true });

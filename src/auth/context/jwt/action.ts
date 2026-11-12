@@ -1,5 +1,8 @@
 'use client';
 
+import { CONFIG } from 'src/global-config';
+import { apiFetch as fetch } from 'src/lib/api-fetch';
+
 // ----------------------------------------------------------------------
 
 export type SignInParams = {
@@ -215,6 +218,16 @@ export const signOut = async (): Promise<void> => {
 
   if (!response.ok) {
     throw new Error('ไม่สามารถออกจากระบบได้');
+  }
+
+  // Password/PIN accounts often have no Supabase browser session. Avoid
+  // downloading and initializing the SDK solely to clear an absent session.
+  if (typeof window === 'undefined' || !CONFIG.supabase.url) return;
+  try {
+    const projectRef = new URL(CONFIG.supabase.url).hostname.split('.')[0];
+    if (!window.localStorage.getItem(`sb-${projectRef}-auth-token`)) return;
+  } catch {
+    // If storage cannot be inspected, let the SDK perform its normal cleanup.
   }
 
   try {

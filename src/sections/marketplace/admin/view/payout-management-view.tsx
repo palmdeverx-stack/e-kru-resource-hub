@@ -23,6 +23,8 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import CircularProgress from '@mui/material/CircularProgress';
 
+import { apiFetch as fetch } from 'src/lib/api-fetch';
+
 import { formatPrice } from '../../shared/api';
 import { ThaiBankLogo } from '../../shared/bank-logo';
 

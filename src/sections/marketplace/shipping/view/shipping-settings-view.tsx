@@ -17,6 +17,8 @@ import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
 import FormControlLabel from '@mui/material/FormControlLabel';
 
+import { apiFetch as fetch } from 'src/lib/api-fetch';
+
 type FinanceSummary = {
   collected: number;
   providerCost: number;

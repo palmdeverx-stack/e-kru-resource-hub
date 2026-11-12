@@ -12,6 +12,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import { paths } from 'src/routes/paths';
 import { useRouter, useSearchParams } from 'src/routes/hooks';
 
+import { apiFetch as fetch } from 'src/lib/api-fetch';
 import { getSupabaseBrowserClient } from 'src/lib/supabase-browser';
 
 import { RemixIcon } from 'src/components/remix-icon';

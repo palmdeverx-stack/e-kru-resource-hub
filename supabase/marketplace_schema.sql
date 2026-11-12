@@ -796,7 +796,7 @@ create table if not exists public.marketplace_products (
   purchase_benefits jsonb not null default '[]'::jsonb
     check (
       jsonb_typeof(purchase_benefits) = 'array'
-      and jsonb_array_length(purchase_benefits) <= 8
+      and jsonb_array_length(purchase_benefits) <= 10
     ),
   purchase_benefits_html text,
   status text not null default 'pending_review'
@@ -864,7 +864,7 @@ alter table public.marketplace_products
   add constraint marketplace_products_purchase_benefits_check
   check (
     jsonb_typeof(purchase_benefits) = 'array'
-    and jsonb_array_length(purchase_benefits) <= 8
+    and jsonb_array_length(purchase_benefits) <= 10
   );
 alter table public.marketplace_products
   drop constraint if exists marketplace_products_list_price_check;
@@ -1660,7 +1660,7 @@ create table if not exists public.marketplace_seller_payout_accounts (
   seller_id uuid primary key references public.marketplace_sellers(id) on delete cascade,
   bank_code text not null,
   bank_name text not null,
-  account_number text not null,
+  account_number text,
   account_name text not null,
   promptpay_id text,
   is_verified boolean not null default false,
@@ -2252,3 +2252,29 @@ from public.marketplace_products
 where submitted_at is not null
   and status in ('pending_review', 'published', 'rejected')
 on conflict (product_id, submission_number) do nothing;
+
+-- Enforce quotas atomically for multipart and direct uploads, and preview moves.
+create or replace function public.enforce_marketplace_product_file_limits()
+returns trigger language plpgsql set search_path = public as $$
+begin
+  perform pg_advisory_xact_lock(hashtextextended(new.product_id::text, 0));
+  if new.file_size <= 0 or new.file_size > 10485760 then
+    raise exception 'Product files must be between 1 byte and 10 MB';
+  end if;
+  if (select count(*) from public.marketplace_product_files
+      where product_id = new.product_id and is_preview = new.is_preview
+      and id <> new.id) >= (case when new.is_preview then 1 else 5 end) then
+    raise exception 'Product file quota exceeded';
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists marketplace_product_file_limits on public.marketplace_product_files;
+create trigger marketplace_product_file_limits
+before insert or update of product_id, is_preview, file_size
+on public.marketplace_product_files for each row
+execute function public.enforce_marketplace_product_file_limits();
+
+-- Pending direct uploads are private and capped even before application verification.
+update storage.buckets set public = false, file_size_limit = 10485760
+where id = 'marketplace-product-files';

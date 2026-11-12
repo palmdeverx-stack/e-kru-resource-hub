@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 
 import Box from '@mui/material/Box';
 import Tab from '@mui/material/Tab';
@@ -26,6 +27,8 @@ import DialogContent from '@mui/material/DialogContent';
 import TableContainer from '@mui/material/TableContainer';
 import TablePagination from '@mui/material/TablePagination';
 import CircularProgress from '@mui/material/CircularProgress';
+
+import { apiFetch as fetch } from 'src/lib/api-fetch';
 
 import {
   RiEyeLine,
@@ -195,8 +198,8 @@ function paymentTransaction(order: FinanceOrder) {
 
 function getMoneyStatus(
   order: FinanceOrder,
-  ledger: LedgerEntry[],
-  payouts: Payout[]
+  ledger: Map<string, LedgerEntry>,
+  payouts: Map<string, Payout>
 ): MoneyStatus {
   if (order.status === 'refunded') return { label: 'คืนเงิน', color: 'default' };
   if (order.status === 'cancelled') return { label: 'ระงับยอด', color: 'error' };
@@ -207,11 +210,11 @@ function getMoneyStatus(
     return { label: 'รอชำระ', color: 'default' };
   }
 
-  const entry = ledger.find((item) => item.order_id === order.id && item.entry_type === 'sale');
+  const entry = ledger.get(order.id);
   if (!entry) return { label: 'ชำระสำเร็จ', color: 'info' };
 
   if (entry.payout_id) {
-    const payout = payouts.find((item) => item.id === entry.payout_id);
+    const payout = payouts.get(entry.payout_id);
     if (payout?.status === 'paid') return { label: 'โอนสำเร็จ', color: 'success' };
     if (payout?.status === 'processing') return { label: 'กำลังโอน', color: 'info' };
     if (payout?.status === 'pending') return { label: 'รอรอบโอน', color: 'warning' };
@@ -232,27 +235,44 @@ export function MarketplaceSellerFinanceView({
   productId?: string;
 }) {
   const { user } = useAuthContext();
-  const [data, setData] = useState<FinanceResult | null>(null);
   const [activeTab, setActiveTab] = useState<FinanceTab>(initialTab);
   const [selectedOrder, setSelectedOrder] = useState<FinanceOrder | null>(null);
   const [selectedPayout, setSelectedPayout] = useState<Payout | null>(null);
   const [salesPage, setSalesPage] = useState(0);
   const [salesRowsPerPage, setSalesRowsPerPage] = useState(10);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    fetch('/api/marketplace/seller/finance', { cache: 'no-store' })
-      .then(async (response) => {
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.message);
-        setData(result);
-      })
-      .catch((loadError) =>
-        setError(loadError instanceof Error ? loadError.message : 'โหลดข้อมูลรายได้ไม่สำเร็จ')
-      )
-      .finally(() => setLoading(false));
-  }, []);
+  const {
+    data,
+    isPending: loading,
+    error: loadError,
+  } = useQuery<FinanceResult>({
+    queryKey: ['seller-finance', user?.id, user?.role],
+    enabled: Boolean(user?.id),
+    staleTime: 0,
+    refetchOnMount: 'always',
+    queryFn: async ({ signal }) => {
+      const response = await fetch('/api/marketplace/seller/finance', {
+        cache: 'no-store',
+        signal,
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || 'โหลดข้อมูลรายได้ไม่สำเร็จ');
+      return result;
+    },
+  });
+  const error = loadError?.message ?? '';
+  const saleEntries = useMemo(() => {
+    const entries = new Map<string, LedgerEntry>();
+    for (const entry of data?.ledger ?? []) {
+      if (entry.entry_type === 'sale' && !entries.has(entry.order_id)) {
+        entries.set(entry.order_id, entry);
+      }
+    }
+    return entries;
+  }, [data?.ledger]);
+  const payoutsById = useMemo(
+    () => new Map((data?.payouts ?? []).map((payout) => [payout.id, payout])),
+    [data?.payouts]
+  );
 
   if (loading) {
     return (
@@ -428,6 +448,17 @@ export function MarketplaceSellerFinanceView({
         </Alert>
       )}
 
+      {data && (
+        <Alert severity="info" icon={<RiBankLine />} sx={{ mb: 3 }}>
+          <Typography variant="subtitle2">
+            ยอดโอนขั้นต่ำ {formatPrice(Number(data.schedule.minimumPayout))}
+          </Typography>
+          <Typography variant="body2">
+            ยอดพร้อมจ่ายต้องถึงขั้นต่ำจึงจะรวมในรอบโอน หากยังไม่ถึง ระบบจะสะสมยอดไว้รอรอบถัดไป
+          </Typography>
+        </Alert>
+      )}
+
       <Grid container spacing={2.5}>
         {summaryCards.map((item) => {
           const Icon = item.icon;
@@ -521,25 +552,31 @@ export function MarketplaceSellerFinanceView({
               }}
             >
               {[
-                ['1', 'ขายสำเร็จ', 'รับชำระและบันทึกยอดขายแล้ว'],
-                ['2', 'กำลังเคลียร์ยอด', 'ระบบตรวจสอบและสรุปยอดอัตโนมัติ'],
-                ['3', 'พร้อมจ่าย', 'ยอดพร้อมรวมในรอบโอนถัดไป'],
-                ['4', 'โอนสำเร็จ', 'เงินเข้าบัญชีผู้ขายแล้ว'],
-              ].map(([step, title, description]) => (
-                <Card key={step} variant="outlined" sx={{ p: 2, bgcolor: 'background.neutral' }}>
+                ['1', 'ขายสำเร็จ', 'รับชำระและบันทึกยอดขายแล้ว', 'info'],
+                ['2', 'กำลังเคลียร์ยอด', 'ระบบตรวจสอบและสรุปยอดอัตโนมัติ', 'warning'],
+                ['3', 'พร้อมจ่าย', 'ยอดพร้อมรวมในรอบโอนถัดไป', 'success'],
+                ['4', 'โอนสำเร็จ', 'เงินเข้าบัญชีผู้ขายแล้ว', 'primary'],
+              ].map(([step, title, description, color]) => (
+                <Card
+                  key={step}
+                  variant="outlined"
+                  sx={{ p: 2, bgcolor: `${color}.lighter`, borderColor: `${color}.light` }}
+                >
                   <Avatar
                     sx={{
                       width: 30,
                       height: 30,
                       mb: 1.5,
                       fontSize: 13,
-                      color: 'primary.main',
-                      bgcolor: 'primary.lighter',
+                      color: `${color}.contrastText`,
+                      bgcolor: `${color}.main`,
                     }}
                   >
                     {step}
                   </Avatar>
-                  <Typography variant="subtitle2">{title}</Typography>
+                  <Typography variant="subtitle2" sx={{ color: `${color}.dark` }}>
+                    {title}
+                  </Typography>
                   <Typography variant="caption" color="text.secondary">
                     {description}
                   </Typography>
@@ -549,15 +586,33 @@ export function MarketplaceSellerFinanceView({
 
             <Grid container spacing={2.5} sx={{ mt: 2 }}>
               {[
-                ['ยอดขายรวม', data?.balance.grossSales ?? 0, 'ยอดคำสั่งซื้อที่ชำระสำเร็จ'],
-                ['ยอดรอตรวจสอบ', data?.balance.underReview ?? 0, 'ยังไม่รวมในยอดพร้อมจ่าย'],
-                ['ยอดพร้อมถอนได้', data?.balance.available ?? 0, 'พร้อมรวมในรอบโอนถัดไป'],
-                ['ยอดที่โอนแล้ว', data?.balance.paid ?? 0, 'โอนเข้าบัญชีสำเร็จ'],
-              ].map(([label, amount, description]) => (
+                ['ยอดขายรวม', data?.balance.grossSales ?? 0, 'ยอดคำสั่งซื้อที่ชำระสำเร็จ', 'info'],
+                [
+                  'ยอดรอตรวจสอบ',
+                  data?.balance.underReview ?? 0,
+                  'ยังไม่รวมในยอดพร้อมจ่าย',
+                  'warning',
+                ],
+                [
+                  'ยอดพร้อมถอนได้',
+                  data?.balance.available ?? 0,
+                  'พร้อมรวมในรอบโอนถัดไป',
+                  'success',
+                ],
+                ['ยอดที่โอนแล้ว', data?.balance.paid ?? 0, 'โอนเข้าบัญชีสำเร็จ', 'primary'],
+              ].map(([label, amount, description, color]) => (
                 <Grid key={String(label)} size={{ xs: 12, sm: 6, lg: 3 }}>
-                  <Card variant="outlined" sx={{ p: 2.5, height: 1 }}>
+                  <Card
+                    variant="outlined"
+                    sx={{
+                      p: 2.5,
+                      height: 1,
+                      borderTop: '3px solid',
+                      borderTopColor: `${color}.main`,
+                    }}
+                  >
                     <Typography color="text.secondary">{label}</Typography>
-                    <Typography variant="h4" sx={{ mt: 0.75 }}>
+                    <Typography variant="h4" sx={{ mt: 0.75, color: `${color}.dark` }}>
                       {formatPrice(Number(amount))}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
@@ -617,11 +672,7 @@ export function MarketplaceSellerFinanceView({
                         salesPage * salesRowsPerPage + salesRowsPerPage
                       )
                       .map((order) => {
-                        const status = getMoneyStatus(
-                          order,
-                          data?.ledger ?? [],
-                          data?.payouts ?? []
-                        );
+                        const status = getMoneyStatus(order, saleEntries, payoutsById);
                         const transaction = canViewPaymentTransactions
                           ? paymentTransaction(order)
                           : null;
@@ -1146,8 +1197,7 @@ export function MarketplaceSellerFinanceView({
                   </Stack>
                 </Card>
                 <Alert severity="info">
-                  สถานะเงิน:{' '}
-                  {getMoneyStatus(selectedOrder, data?.ledger ?? [], data?.payouts ?? []).label}
+                  สถานะเงิน: {getMoneyStatus(selectedOrder, saleEntries, payoutsById).label}
                   {selectedOrder.available_at &&
                     ` · พร้อมเข้ารอบจ่ายหลัง ${new Date(
                       selectedOrder.available_at

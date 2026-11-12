@@ -2,7 +2,8 @@
 
 import type { MarketplaceOrder } from '../../shared/types';
 
-import { useMemo, useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useMemo, useState, useDeferredValue } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -36,9 +37,17 @@ import {
   RiMoneyDollarCircleLine,
 } from 'src/components/remix-icon';
 
+import { useAuthContext } from 'src/auth/hooks';
+
 import { formatPrice, getMyOrders } from '../../shared/api';
 import { PurchasedAppButton } from '../purchased-app-button';
 import { MarketplaceSellerLink } from '../../shared/seller-link';
+
+const EMPTY_ORDERS: MarketplaceOrder[] = [];
+const purchaseDateFormatter = new Intl.DateTimeFormat('th-TH', {
+  dateStyle: 'medium',
+  timeZone: 'Asia/Bangkok',
+});
 
 type PurchaseFilter = 'all' | 'ready' | 'pending' | 'closed';
 
@@ -46,63 +55,79 @@ export function MarketplacePurchasesView() {
   const router = useRouter();
   const { currentLang } = useTranslate();
   const isEnglish = currentLang.value === 'en';
-  const [orders, setOrders] = useState<MarketplaceOrder[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const { user } = useAuthContext();
+  const {
+    data,
+    isPending: loading,
+    error: loadError,
+  } = useQuery({
+    queryKey: ['my-purchases', user?.id, user?.role],
+    enabled: Boolean(user?.id),
+    queryFn: ({ signal }) => getMyOrders({ summary: true, signal }),
+    staleTime: 0,
+    refetchOnMount: 'always',
+  });
+  const orders = data?.orders ?? EMPTY_ORDERS;
+  const error = loadError?.message ?? '';
   const [query, setQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<PurchaseFilter>('all');
 
-  useEffect(() => {
-    getMyOrders()
-      .then((result) => setOrders(result.orders))
-      .catch((loadError) =>
-        setError(loadError instanceof Error ? loadError.message : 'ไม่สามารถโหลดรายการซื้อได้')
-      )
-      .finally(() => setLoading(false));
-  }, []);
-
-  const paidCount = orders.filter((order) => ['paid', 'completed'].includes(order.status)).length;
-  const pendingCount = orders.filter((order) =>
-    ['pending', 'pending_payment', 'payment_review', 'payment_rejected'].includes(order.status)
-  ).length;
-  const paidTotal = orders
-    .filter((order) => ['paid', 'completed'].includes(order.status))
-    .reduce((sum, order) => sum + Number(order.total), 0);
-  const normalizedQuery = query.trim().toLocaleLowerCase();
+  const { indexedOrders, paidCount, pendingCount, closedCount, paidTotal } = useMemo(() => {
+    let paid = 0;
+    let pending = 0;
+    let closed = 0;
+    let total = 0;
+    const indexed = orders.map((order) => {
+      const ready = ['paid', 'completed'].includes(order.status);
+      const awaiting = [
+        'pending',
+        'pending_payment',
+        'payment_review',
+        'payment_rejected',
+      ].includes(order.status);
+      const finished = ['cancelled', 'refunded'].includes(order.status);
+      if (ready) {
+        paid += 1;
+        total += Number(order.total);
+      }
+      if (awaiting) pending += 1;
+      if (finished) closed += 1;
+      const searchText = [
+        order.id,
+        order.seller?.display_name,
+        ...(order.items ?? []).flatMap((item) => [
+          item.title,
+          item.product?.title,
+          item.product?.title_en,
+        ]),
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLocaleLowerCase();
+      return { order, ready, awaiting, finished, searchText };
+    });
+    return {
+      indexedOrders: indexed,
+      paidCount: paid,
+      pendingCount: pending,
+      closedCount: closed,
+      paidTotal: total,
+    };
+  }, [orders]);
+  const normalizedQuery = useDeferredValue(query.trim().toLocaleLowerCase());
   const filteredOrders = useMemo(
     () =>
-      orders.filter((order) => {
-        const isReady = ['paid', 'completed'].includes(order.status);
-        const isPending = [
-          'pending',
-          'pending_payment',
-          'payment_review',
-          'payment_rejected',
-        ].includes(order.status);
-        const matchesFilter =
-          activeFilter === 'all' ||
-          (activeFilter === 'ready' && isReady) ||
-          (activeFilter === 'pending' && isPending) ||
-          (activeFilter === 'closed' && ['cancelled', 'refunded'].includes(order.status));
-
-        if (!matchesFilter || !normalizedQuery) return matchesFilter;
-
-        const searchableText = [
-          order.id,
-          order.seller?.display_name,
-          ...(order.items ?? []).flatMap((item) => [
-            item.title,
-            item.product?.title,
-            item.product?.title_en,
-          ]),
-        ]
-          .filter(Boolean)
-          .join(' ')
-          .toLocaleLowerCase();
-
-        return searchableText.includes(normalizedQuery);
-      }),
-    [activeFilter, normalizedQuery, orders]
+      indexedOrders
+        .filter((entry) => {
+          const matches =
+            activeFilter === 'all' ||
+            (activeFilter === 'ready' && entry.ready) ||
+            (activeFilter === 'pending' && entry.awaiting) ||
+            (activeFilter === 'closed' && entry.finished);
+          return matches && (!normalizedQuery || entry.searchText.includes(normalizedQuery));
+        })
+        .map((entry) => entry.order),
+    [activeFilter, normalizedQuery, indexedOrders]
   );
 
   const filters: Array<{ value: PurchaseFilter; label: string; count: number }> = [
@@ -112,7 +137,7 @@ export function MarketplacePurchasesView() {
     {
       value: 'closed',
       label: 'ยกเลิก/คืนเงิน',
-      count: orders.filter((order) => ['cancelled', 'refunded'].includes(order.status)).length,
+      count: closedCount,
     },
   ];
 
@@ -397,15 +422,29 @@ export function MarketplacePurchasesView() {
                       sx={{
                         aspectRatio: { xs: '16 / 8', sm: '16 / 10' },
                         bgcolor: 'background.neutral',
-                        backgroundImage: cover ? `url("${cover}")` : undefined,
-                        backgroundSize: 'cover',
-                        backgroundPosition: 'center',
                         display: 'grid',
                         placeItems: 'center',
                         position: 'relative',
                       }}
                     >
-                      {!cover && <RiShoppingBag3Line size={52} />}
+                      {cover ? (
+                        <Box
+                          component="img"
+                          src={cover}
+                          alt=""
+                          loading="lazy"
+                          decoding="async"
+                          sx={{
+                            position: 'absolute',
+                            inset: 0,
+                            width: 1,
+                            height: 1,
+                            objectFit: 'cover',
+                          }}
+                        />
+                      ) : (
+                        <RiShoppingBag3Line size={52} />
+                      )}
                       <Box sx={{ position: 'absolute', top: 12, right: 12 }}>
                         <OrderStatusChip status={order.status} />
                       </Box>
@@ -478,10 +517,7 @@ export function MarketplacePurchasesView() {
                             เลขที่ #{order.id.slice(0, 8).toUpperCase()}
                           </Typography>
                           <Typography variant="caption" color="text.secondary" display="block">
-                            {new Date(order.created_at).toLocaleDateString('th-TH', {
-                              dateStyle: 'medium',
-                              timeZone: 'Asia/Bangkok',
-                            })}
+                            {purchaseDateFormatter.format(new Date(order.created_at))}
                           </Typography>
                         </Box>
                         <Typography

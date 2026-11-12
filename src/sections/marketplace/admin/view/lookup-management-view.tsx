@@ -25,6 +25,8 @@ import DialogContent from '@mui/material/DialogContent';
 import TableContainer from '@mui/material/TableContainer';
 import CircularProgress from '@mui/material/CircularProgress';
 
+import { apiFetch as fetch } from 'src/lib/api-fetch';
+
 import { RiAddLine, RiEditLine, RiDeleteBinLine, RiSettings3Line } from 'src/components/remix-icon';
 
 import { useAuthContext } from 'src/auth/hooks';

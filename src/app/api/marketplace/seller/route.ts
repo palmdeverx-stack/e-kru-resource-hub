@@ -31,20 +31,18 @@ async function withSellerRelations(seller: Record<string, unknown> | null) {
       .eq('seller_id', seller.id)
       .maybeSingle(),
   ]);
-  const documentsWithUrls = await Promise.all(
-    (documents ?? []).map(async (document) => {
-      if (document.storage_bucket === 'marketplace-seller-assets') {
-        const { data } = supabaseAdmin.storage
-          .from(document.storage_bucket)
-          .getPublicUrl(document.storage_path);
-        return { ...document, url: data.publicUrl };
-      }
-      return {
-        ...document,
-        url: `/api/marketplace/seller/documents?documentId=${encodeURIComponent(document.id)}`,
-      };
-    })
-  );
+  const documentsWithUrls = (documents ?? []).map((document) => {
+    if (document.storage_bucket === 'marketplace-seller-assets') {
+      const { data } = supabaseAdmin.storage
+        .from(document.storage_bucket)
+        .getPublicUrl(document.storage_path);
+      return { ...document, url: data.publicUrl };
+    }
+    return {
+      ...document,
+      url: `/api/marketplace/seller/documents?documentId=${encodeURIComponent(document.id)}`,
+    };
+  });
   return {
     ...seller,
     documents: documentsWithUrls,
@@ -56,6 +54,33 @@ export async function GET(request: Request) {
   const caller = requireAuthenticated(request);
   if (!caller) return NextResponse.json({ message: 'กรุณาเข้าสู่ระบบ' }, { status: 401 });
 
+  if (new URL(request.url).searchParams.get('summary') === '1') {
+    const { data: summary, error: summaryError } = await supabaseAdmin
+      .from('marketplace_sellers')
+      .select(
+        'id, owner_id, owner_role, display_name, bio, logo_url, cover_url, seller_name, phone, contact_email, status, profile_review_status, profile_rejection_reason, rejection_reason, seller_agreement_accepted_at, copyright_confirmed_at, fee_agreement_accepted_at, pdpa_accepted_at, document_count:marketplace_seller_documents(count), payout_count:marketplace_seller_payout_accounts(count)'
+      )
+      .eq('owner_id', caller.sub)
+      .maybeSingle();
+    if (summaryError) return NextResponse.json({ message: summaryError.message }, { status: 500 });
+    if (summary) {
+      const { document_count, payout_count, ...seller } = summary;
+      const count = (value: unknown) => {
+        const row = Array.isArray(value) ? value[0] : value;
+        return Number((row as { count?: number } | null)?.count ?? 0);
+      };
+      return NextResponse.json({
+        seller: {
+          ...seller,
+          has_documents: count(document_count) > 0,
+          has_payout_account: count(payout_count) > 0,
+        },
+      });
+    }
+    if (!['master_admin', 'marketplace_admin'].includes(caller.role))
+      return NextResponse.json({ seller: null });
+  }
+
   const { data: existingSeller, error } = await supabaseAdmin
     .from('marketplace_sellers')
     .select('*')
@@ -64,6 +89,9 @@ export async function GET(request: Request) {
   if (error) return NextResponse.json({ message: error.message }, { status: 500 });
 
   if (caller.role === 'master_admin' || caller.role === 'marketplace_admin') {
+    if (existingSeller?.owner_role === 'master_admin') {
+      return NextResponse.json({ seller: await withSellerRelations(existingSeller) });
+    }
     const result = await provisionEkruSystemSeller(caller.sub, {
       bio: existingSeller?.bio,
       contactEmail: existingSeller?.contact_email,
@@ -188,7 +216,13 @@ export async function POST(request: Request) {
         : 'individual';
   const contactEmail = String(body?.contactEmail ?? '').trim();
   const sellerName = String(body?.sellerName ?? '').trim();
-  const phone = String(body?.phone ?? '').replace(/[^\d+]/g, '');
+  const phone = String(body?.phone ?? '').trim();
+  if (phone && !/^\d{1,10}$/.test(phone)) {
+    return NextResponse.json({ message: 'เบอร์โทรต้องเป็นตัวเลขไม่เกิน 10 หลัก' }, { status: 400 });
+  }
+  if (action === 'submit' && !/^\d{10}$/.test(phone)) {
+    return NextResponse.json({ message: 'กรุณากรอกเบอร์โทรเป็นตัวเลข 10 หลัก' }, { status: 400 });
+  }
   const requestedBankCode = String(body?.bankCode ?? '').trim();
   const requestedBankName = String(body?.bankName ?? '').trim();
   const selectedBank = findThaiBank(requestedBankCode) ?? findThaiBank(requestedBankName);
@@ -199,11 +233,7 @@ export async function POST(request: Request) {
   const now = new Date().toISOString();
 
   const [{ data: existing, error: findError }, { data: ownerProfile }] = await Promise.all([
-    supabaseAdmin
-      .from('marketplace_sellers')
-      .select('*')
-      .eq('owner_id', caller.sub)
-      .maybeSingle(),
+    supabaseAdmin.from('marketplace_sellers').select('*').eq('owner_id', caller.sub).maybeSingle(),
     supabaseAdmin
       .from(caller.role === 'marketplace_user' ? 'marketplace_users' : 'app_users')
       .select('avatar_url')
@@ -216,29 +246,19 @@ export async function POST(request: Request) {
   }
 
   if (action === 'submit') {
-    const [{ data: documents }, { data: legalDocuments, error: legalDocumentsError }] =
-      await Promise.all([
-        existing
-          ? supabaseAdmin
-              .from('marketplace_seller_documents')
-              .select('document_type')
-              .eq('seller_id', existing.id)
-          : Promise.resolve({ data: [] }),
-        supabaseAdmin
-          .from('marketplace_legal_documents')
-          .select('document_type')
-          .eq('status', 'published')
-          .in('document_type', [
-            'seller_agreement',
-            'copyright_takedown',
-            'payment_payout_policy',
-            'privacy_policy',
-          ]),
+    const { data: legalDocuments, error: legalDocumentsError } = await supabaseAdmin
+      .from('marketplace_legal_documents')
+      .select('document_type')
+      .eq('status', 'published')
+      .in('document_type', [
+        'seller_agreement',
+        'copyright_takedown',
+        'payment_payout_policy',
+        'privacy_policy',
       ]);
     if (legalDocumentsError) {
       return NextResponse.json({ message: legalDocumentsError.message }, { status: 500 });
     }
-    const documentTypes = new Set((documents ?? []).map((item) => item.document_type));
     const legalDocumentTypes = new Set((legalDocuments ?? []).map((item) => item.document_type));
     const companyValid =
       sellerType !== 'company' ||
@@ -248,7 +268,7 @@ export async function POST(request: Request) {
       displayName.length < 2 ||
       slug.length < 3 ||
       sellerName.length < 3 ||
-      phone.length < 9 ||
+      !/^\d{10}$/.test(phone) ||
       !contactEmail.includes('@') ||
       !selectedBank ||
       !bankCode ||
@@ -256,9 +276,6 @@ export async function POST(request: Request) {
       accountNumber.length < 6 ||
       accountName.length < 2 ||
       !companyValid ||
-      (!documentTypes.has('store_logo') && !existing?.logo_url && !ownerProfile?.avatar_url) ||
-      !documentTypes.has('identity_card') ||
-      !documentTypes.has('bank_book') ||
       !['seller_agreement', 'copyright_takedown', 'payment_payout_policy', 'privacy_policy'].every(
         (documentType) => legalDocumentTypes.has(documentType)
       ) ||
@@ -356,9 +373,10 @@ export async function POST(request: Request) {
         event: 'new_seller',
         sourceId: existing.id,
         title: 'มีข้อมูลร้านค้าแก้ไขรอตรวจสอบ',
+        dedupeKey: `seller_revision:${existing.id}:${now}`,
         message: `📝 ร้านค้าส่งข้อมูลแก้ไขให้ตรวจสอบ\nชื่อร้าน: ${sellerProfilePayload.display_name}\nผู้ขาย: ${sellerProfilePayload.seller_name}`,
         actionUrl: `${new URL(request.url).origin}/dashboard/seller-approvals/${existing.id}`,
-      });
+      }).catch(() => console.error('Failed to notify admins of seller profile revision'));
     }
     const sellerWithRelations = await withSellerRelations(stagedSeller);
     return NextResponse.json({
@@ -398,24 +416,41 @@ export async function POST(request: Request) {
   }
 
   if (bankCode && bankName && accountNumber && accountName) {
-    await supabaseAdmin.from('marketplace_seller_payout_accounts').upsert({
-      seller_id: seller.id,
-      bank_code: bankCode,
-      bank_name: bankName,
-      account_name: accountName,
-      ...encryptPayoutAccountFields(accountNumber, promptpayId),
-      is_verified: false,
-      updated_at: now,
-    });
+    const { error: payoutError } = await supabaseAdmin
+      .from('marketplace_seller_payout_accounts')
+      .upsert(
+        {
+          seller_id: seller.id,
+          bank_code: bankCode,
+          bank_name: bankName,
+          account_name: accountName,
+          ...encryptPayoutAccountFields(accountNumber, promptpayId),
+          is_verified: false,
+          updated_at: now,
+        },
+        { onConflict: 'seller_id' }
+      );
+    if (payoutError) {
+      return NextResponse.json(
+        {
+          message:
+            payoutError.code === '23502'
+              ? 'บันทึกบัญชีรับเงินไม่สำเร็จ: กรุณาอัปเดตฐานข้อมูลให้รองรับเลขบัญชีเข้ารหัส'
+              : `บันทึกบัญชีรับเงินไม่สำเร็จ: ${payoutError.message}`,
+        },
+        { status: 500 }
+      );
+    }
   }
 
   if (action === 'submit' && existing?.status !== 'pending') {
     await notifyMarketplaceAdmins({
       event: 'new_seller',
       sourceId: seller.id,
+      dedupeKey: `seller_request:${seller.id}:${seller.submitted_at ?? now}`,
       message: `🏪 มีคำขอเปิดร้านใหม่\nชื่อร้าน: ${seller.display_name}\nผู้ขาย: ${seller.seller_name}`,
-      actionUrl: `${new URL(request.url).origin}/dashboard/seller-approvals`,
-    });
+      actionUrl: `${new URL(request.url).origin}/dashboard/seller-approvals/${seller.id}`,
+    }).catch(() => console.error('Failed to notify admins of new seller request'));
   }
 
   return NextResponse.json({

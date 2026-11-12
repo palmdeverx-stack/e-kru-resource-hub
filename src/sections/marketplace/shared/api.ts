@@ -19,6 +19,10 @@ import type {
   MarketplaceProductEngagement,
 } from './types';
 
+import { apiFetch as fetch } from 'src/lib/api-fetch';
+
+import { PRODUCT_FILE_MAX_BYTES } from './product-upload-policy';
+
 async function parseResponse<T>(response: Response): Promise<T> {
   const result = await response.json();
   if (!response.ok) throw new Error(result.message ?? 'ไม่สามารถดำเนินการได้');
@@ -86,19 +90,23 @@ export async function getSubscriptionPlans() {
   return parseResponse<{ plans: MarketplaceSubscriptionPlan[] }>(response);
 }
 
-export async function getProducts(params?: {
-  q?: string;
-  category?: string;
-  sellerId?: string;
-  official?: boolean;
-  bestSeller?: boolean;
-  price?: 'all' | 'free' | 'paid';
-  gradeGroup?: 'kindergarten' | 'primary' | 'secondary';
-  mine?: boolean;
-  status?: MarketplaceProduct['status'] | 'all';
-  page?: number;
-  limit?: number;
-}) {
+export async function getProducts(
+  params?: {
+    q?: string;
+    category?: string;
+    sellerId?: string;
+    official?: boolean;
+    bestSeller?: boolean;
+    price?: 'all' | 'free' | 'paid';
+    gradeGroup?: 'kindergarten' | 'primary' | 'secondary';
+    mine?: boolean;
+    cards?: boolean;
+    status?: MarketplaceProduct['status'] | 'all';
+    page?: number;
+    limit?: number;
+  },
+  options?: { signal?: AbortSignal }
+) {
   const searchParams = new URLSearchParams();
   if (params?.q) searchParams.set('q', params.q);
   if (params?.category && params.category !== 'all') {
@@ -110,11 +118,15 @@ export async function getProducts(params?: {
   if (params?.price && params.price !== 'all') searchParams.set('price', params.price);
   if (params?.gradeGroup) searchParams.set('grade', params.gradeGroup);
   if (params?.mine) searchParams.set('mine', '1');
+  if (params?.cards) searchParams.set('cards', '1');
   if (params?.status && params.status !== 'all') searchParams.set('status', params.status);
   if (params?.page) searchParams.set('page', String(params.page));
   if (params?.limit) searchParams.set('limit', String(params.limit));
 
-  const response = await fetch(`/api/marketplace/products?${searchParams}`, { cache: 'no-store' });
+  const response = await fetch(`/api/marketplace/products?${searchParams}`, {
+    cache: 'no-store',
+    signal: options?.signal,
+  });
   return parseResponse<{
     products: MarketplaceProduct[];
     hasMore?: boolean;
@@ -140,13 +152,19 @@ export async function getRelatedProducts(productId: string, viewerKey?: string) 
   return parseResponse<{ products: MarketplaceProduct[] }>(response);
 }
 
-export async function getProduct(id: string) {
-  const response = await fetch(`/api/marketplace/products/${id}`, { cache: 'no-store' });
+export async function getProduct(id: string, options?: { cart?: boolean; signal?: AbortSignal }) {
+  const response = await fetch(
+    `/api/marketplace/products/${id}${options?.cart ? '?view=cart' : ''}`,
+    { cache: 'no-store', signal: options?.signal }
+  );
   return parseResponse<{ product: MarketplaceProduct }>(response);
 }
 
-export async function getProductCollections() {
-  const response = await fetch('/api/marketplace/product-collections', { cache: 'no-store' });
+export async function getProductCollections(options?: { signal?: AbortSignal }) {
+  const response = await fetch('/api/marketplace/product-collections', {
+    cache: 'no-store',
+    signal: options?.signal,
+  });
   return parseResponse<{
     favorites: MarketplaceProduct[];
     bookmarks: MarketplaceProduct[];
@@ -234,9 +252,17 @@ export async function replyProductReview(id: string, reviewId: string, comment: 
   }>(response);
 }
 
-export async function getSeller(options?: { edit?: boolean }) {
-  const response = await fetch(`/api/marketplace/seller${options?.edit ? '?edit=1' : ''}`, {
+export async function getSeller(options?: {
+  edit?: boolean;
+  summary?: boolean;
+  signal?: AbortSignal;
+}) {
+  const params = new URLSearchParams();
+  if (options?.edit) params.set('edit', '1');
+  if (options?.summary) params.set('summary', '1');
+  const response = await fetch(`/api/marketplace/seller${params.size ? `?${params}` : ''}`, {
     cache: 'no-store',
+    signal: options?.signal,
   });
   return parseResponse<{ seller: MarketplaceSeller | null }>(response);
 }
@@ -259,8 +285,9 @@ export async function createProduct(input: ProductInput) {
   return parseResponse<{ product: MarketplaceProduct }>(response);
 }
 
-export async function uploadProductImages(productId: string, files: File[]) {
+export async function uploadProductImages(productId: string, files: File[], isPreview = false) {
   const formData = new FormData();
+  formData.append('isPreview', String(isPreview));
   files.forEach((file) => formData.append('files', file));
   const response = await fetch(`/api/marketplace/seller/products/${productId}/images`, {
     method: 'POST',
@@ -285,14 +312,52 @@ export async function setProductCoverImage(productId: string, imageId: string) {
   return parseResponse<{ images: MarketplaceProductImage[] }>(response);
 }
 
-export async function uploadProductFiles(productId: string, files: File[]) {
-  const formData = new FormData();
-  files.forEach((file) => formData.append('files', file));
-  const response = await fetch(`/api/marketplace/seller/products/${productId}/files`, {
+const pendingDirectUploads = new WeakMap<
+  File,
+  { productId: string; isPreview: boolean; ticket: string }
+>();
+
+export async function uploadProductFiles(productId: string, files: File[], isPreview = false) {
+  if (files.length !== 1 || files[0].size <= 0 || files[0].size > PRODUCT_FILE_MAX_BYTES) {
+    throw new Error('กรุณาเลือกไฟล์ครั้งละ 1 ไฟล์ ขนาดไม่เกิน 10 MB');
+  }
+  const file = files[0];
+  const endpoint = `/api/marketplace/seller/products/${productId}/files/direct-upload`;
+  let transfer = pendingDirectUploads.get(file);
+  if (!transfer || transfer.productId !== productId || transfer.isPreview !== isPreview) {
+    const init = await parseResponse<{ signedUrl: string; ticket: string }>(
+      await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'init',
+          name: file.name,
+          mime: file.type,
+          size: file.size,
+          isPreview,
+        }),
+      })
+    );
+    // The file body goes directly to Supabase, never through a Vercel Function.
+    const uploaded = await globalThis.fetch(init.signedUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': file.type, 'x-upsert': 'false' },
+      body: file,
+      credentials: 'omit',
+    });
+    if (!uploaded.ok) throw new Error('อัปโหลดไฟล์เข้า Storage ไม่สำเร็จ กรุณาลองอีกครั้ง');
+    transfer = { productId, isPreview, ticket: init.ticket };
+    pendingDirectUploads.set(file, transfer);
+  }
+  const completed = await fetch(endpoint, {
     method: 'POST',
-    body: formData,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'complete', ticket: transfer.ticket }),
   });
-  return parseResponse<{ files: MarketplaceProductFile[] }>(response);
+  if ([401, 403, 422].includes(completed.status)) pendingDirectUploads.delete(file);
+  const result = await parseResponse<{ files: MarketplaceProductFile[] }>(completed);
+  pendingDirectUploads.delete(file);
+  return result;
 }
 
 export async function deleteProductFile(productId: string, fileId: string) {
@@ -395,8 +460,11 @@ export async function uploadPaymentSlip(id: string, file: File) {
   return parseResponse<{ paymentSession: MarketplacePaymentSession; message: string }>(response);
 }
 
-export async function getMyOrders() {
-  const response = await fetch('/api/marketplace/orders', { cache: 'no-store' });
+export async function getMyOrders(options?: { summary?: boolean; signal?: AbortSignal }) {
+  const response = await fetch(`/api/marketplace/orders${options?.summary ? '?summary=1' : ''}`, {
+    cache: 'no-store',
+    signal: options?.signal,
+  });
   return parseResponse<{ orders: MarketplaceOrder[] }>(response);
 }
 

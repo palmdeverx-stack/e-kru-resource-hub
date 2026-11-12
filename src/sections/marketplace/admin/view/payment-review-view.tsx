@@ -23,6 +23,8 @@ import CircularProgress from '@mui/material/CircularProgress';
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
+import { apiFetch as fetch } from 'src/lib/api-fetch';
+
 import { RiCloseLine, RiErrorWarningLine, RiCheckboxCircleLine } from 'src/components/remix-icon';
 
 import { formatPrice } from '../../shared/api';

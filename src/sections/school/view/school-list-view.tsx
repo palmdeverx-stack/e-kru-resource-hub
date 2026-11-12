@@ -1,5 +1,6 @@
 'use client';
 
+
 import type { School } from '../school-actions';
 
 import { useMemo, useState } from 'react';

@@ -16,7 +16,9 @@ import type {
   MarketplaceSubscriptionPlan,
 } from '../../shared/types';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useRef, useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
@@ -46,6 +48,7 @@ import { useRouter } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 
 import { useTranslate } from 'src/locales';
+import { apiFetch as fetch } from 'src/lib/api-fetch';
 import { SCHOOL_FEATURES } from 'src/lib/school-subscription-config';
 
 import { Upload } from 'src/components/upload';
@@ -69,8 +72,16 @@ import { useAuthContext } from 'src/auth/hooks';
 import { getMarketplacePricing } from '../../shared/pricing';
 import { MARKETPLACE_CATEGORIES } from '../../shared/constants';
 import { MARKETPLACE_SELLER_LINE_FEATURE } from '../line-feature';
+import { isSubscriptionSaleType } from '../../shared/sale-type-access';
 import { MARKETPLACE_MINIMUM_PAID_PRICE_THB } from '../../shared/payment';
 import { MAX_PURCHASE_BENEFITS_HTML_LENGTH } from '../../shared/purchase-benefits';
+import {
+  initialProductForm,
+  ProductDraftSchema,
+  isValidExternalUrl,
+  type ProductFormValues,
+  ProductSubmissionSchema,
+} from './product-form-schema';
 import {
   type ProductSubmissionAcceptance,
   initialProductSubmissionAcceptance,
@@ -103,7 +114,8 @@ const COVER_IMAGE_ACCEPT = {
   'image/jpeg': ['.jpg', '.jpeg'],
   'image/webp': ['.webp'],
 };
-const MAX_COVER_SIZE = 5 * 1024 * 1024;
+const MAX_COVER_SIZE = 4 * 1024 * 1024;
+const MAX_PREVIEW_IMAGE_SIZE = 3 * 1024 * 1024;
 
 const PRODUCT_FILE_ACCEPT = {
   'application/pdf': ['.pdf'],
@@ -118,9 +130,13 @@ const PRODUCT_FILE_ACCEPT = {
   'image/png': ['.png'],
   'image/webp': ['.webp'],
 };
-const MAX_PRODUCT_FILE_SIZE = 50 * 1024 * 1024;
+const MAX_PRODUCT_FILE_SIZE = 10 * 1024 * 1024;
+const MAX_PRODUCT_FILES = 5;
+const MAX_PREVIEW_FILE_SIZE = 10 * 1024 * 1024;
+const MAX_PREVIEW_FILES = 1;
+const MAX_PREVIEW_IMAGES = 8;
 const MAX_EXTERNAL_LINKS = 3;
-const MAX_PURCHASE_BENEFITS = 8;
+const MAX_PURCHASE_BENEFITS = 10;
 
 type Props = {
   productId?: string;
@@ -130,45 +146,6 @@ type PendingProductFile = {
   key: string;
   file: File;
   isPreview: boolean;
-};
-
-const initialForm = {
-  productKind: 'resource' as 'resource' | 'license',
-  title: '',
-  titleEn: '',
-  shortDescription: '',
-  shortDescriptionEn: '',
-  description: '',
-  descriptionEn: '',
-  category: '',
-  subjectLabel: '',
-  curriculumId: '',
-  gradeLevelIds: [] as string[],
-  tagIds: [] as string[],
-  mediaTypeId: '',
-  saleTypeId: '',
-  price: '0',
-  listPrice: '',
-  grantsFeatureKeys: [] as string[],
-  grantsPlanCode: '',
-  licenseBillingCycle: 'one_time' as 'one_time' | 'monthly' | 'yearly' | 'contract',
-  licenseDurationType: 'days' as 'days' | 'perpetual',
-  grantDurationDays: '30',
-  licenseTargetSystem: 'marketplace' as 'marketplace' | 'ekru',
-  licenseScope: 'individual' as 'individual' | 'school' | 'teacher' | 'platform',
-  licenseSeatCount: '1',
-  licenseMaxTeachers: '',
-  licenseMaxStudents: '',
-  licenseMaxSchoolAdmins: '',
-  licenseLineQuota: '',
-  licenseQuota: '',
-  externalLinks: [] as Array<{ label: string; url: string }>,
-  purchaseBenefits: [] as string[],
-  purchaseBenefitsHtml: '',
-  shippingWeightGrams: '',
-  shippingWidthCm: '',
-  shippingLengthCm: '',
-  shippingHeightCm: '',
 };
 
 function normalizeNumberInput(value: string) {
@@ -182,15 +159,6 @@ function plainTextLength(html: string) {
     .trim().length;
 }
 
-function isValidExternalUrl(value: string) {
-  try {
-    const url = new URL(value);
-    return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password;
-  } catch {
-    return false;
-  }
-}
-
 export function MarketplaceProductFormView({ productId: initialProductId }: Props = {}) {
   const router = useRouter();
   const { currentLang } = useTranslate();
@@ -198,6 +166,9 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
   const [productId, setProductId] = useState(initialProductId);
   const [initializing, setInitializing] = useState(Boolean(initialProductId));
   const [saving, setSaving] = useState(false);
+  const saveInProgressRef = useRef(false);
+  const pendingCoverIdRef = useRef<string | null>(null);
+  const [lookupError, setLookupError] = useState('');
   const [imagesUploading, setImagesUploading] = useState(false);
   const [filesUploading, setFilesUploading] = useState(false);
   const [error, setError] = useState('');
@@ -239,7 +210,32 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
   const [pendingProductFiles, setPendingProductFiles] = useState<PendingProductFile[]>([]);
   const [pendingDeletedFileIds, setPendingDeletedFileIds] = useState<string[]>([]);
   const [pendingFilePreview, setPendingFilePreview] = useState<Record<string, boolean>>({});
-  const [form, setForm] = useState(initialForm);
+  const methods = useForm<ProductFormValues>({
+    resolver: zodResolver(ProductDraftSchema),
+    defaultValues: initialProductForm,
+    mode: 'onBlur',
+    reValidateMode: 'onChange',
+  });
+  const {
+    setValue,
+    getValues,
+    reset,
+    trigger,
+    setError: setFieldError,
+    formState: { errors },
+  } = methods;
+  const form = methods.watch();
+  const setForm = useCallback(
+    (update: React.SetStateAction<ProductFormValues>) => {
+      const current = getValues();
+      const next = typeof update === 'function' ? update(current) : update;
+      (Object.keys(next) as Array<keyof ProductFormValues>).forEach((key) => {
+        if (next[key] !== current[key])
+          setValue(key, next[key], { shouldDirty: true, shouldValidate: true });
+      });
+    },
+    [getValues, setValue]
+  );
 
   useEffect(() => {
     fetch('/api/marketplace/shipping/status', { cache: 'no-store' })
@@ -252,37 +248,29 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
   }, []);
 
   useEffect(() => {
-    Promise.all([
-      getCategories(),
-      getGradeLevels(),
-      getCurricula(),
-      getSellerTags(),
-      getMediaTypes(),
-      getSaleTypes(),
-      getMarketplaceSubjects(),
-    ])
-      .then(
-        ([
-          categoryResult,
-          gradeLevelResult,
-          curriculumResult,
-          tagResult,
-          mediaTypeResult,
-          saleTypeResult,
-          subjectResult,
-        ]) => {
-          if (categoryResult.categories.length) {
-            setCategories(categoryResult.categories.map((item) => item.name));
-          }
-          setGradeLevels(gradeLevelResult.items);
-          setCurricula(curriculumResult.items);
-          setTags(tagResult.items);
-          setMediaTypes(mediaTypeResult.items);
-          setSaleTypes(saleTypeResult.items);
-          setSubjectOptions(subjectResult.items);
-        }
-      )
-      .catch(() => {});
+    let active = true;
+    const loadOptions = async <T,>(load: () => Promise<T>, apply: (result: T) => void) => {
+      const result = await load();
+      if (active) apply(result);
+    };
+    void Promise.allSettled([
+      loadOptions(getCategories, (result) => {
+        if (result.categories.length) setCategories(result.categories.map((item) => item.name));
+      }),
+      loadOptions(getGradeLevels, (result) => setGradeLevels(result.items)),
+      loadOptions(getCurricula, (result) => setCurricula(result.items)),
+      loadOptions(getSellerTags, (result) => setTags(result.items)),
+      loadOptions(getMediaTypes, (result) => setMediaTypes(result.items)),
+      loadOptions(getSaleTypes, (result) => setSaleTypes(result.items)),
+      loadOptions(getMarketplaceSubjects, (result) => setSubjectOptions(result.items)),
+    ]).then((results) => {
+      if (active && results.some((result) => result.status === 'rejected')) {
+        setLookupError('โหลดตัวเลือกสินค้าบางส่วนไม่สำเร็จ กรุณาโหลดหน้าใหม่ก่อนส่งตรวจ');
+      }
+    });
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -336,64 +324,70 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
       .catch(() => setCommissionRate(0));
   }, [user]);
 
-  const hydrate = useCallback((product: MarketplaceProduct) => {
-    setForm({
-      productKind: product.resource_type === 'feature_unlock' ? 'license' : 'resource',
-      title: product.title ?? '',
-      titleEn: product.title_en ?? '',
-      shortDescription: product.short_description ?? '',
-      shortDescriptionEn: product.short_description_en ?? '',
-      description: product.description ?? '',
-      descriptionEn: product.description_en ?? '',
-      category: product.category ?? '',
-      subjectLabel: product.subject_label ?? '',
-      curriculumId: product.curriculum_id ?? '',
-      gradeLevelIds: (product.grade_levels ?? []).map((item) => item.grade_level.id),
-      tagIds: (product.tags ?? []).map((item) => item.tag.id),
-      mediaTypeId: product.media_type_id ?? '',
-      saleTypeId: product.sale_type_id ?? '',
-      price: String(product.price ?? 0),
-      listPrice: product.list_price == null ? '' : String(product.list_price),
-      grantsFeatureKeys: product.grants_feature_keys?.length
-        ? product.grants_feature_keys
-        : product.grants_feature_key
-          ? [product.grants_feature_key]
-          : [],
-      grantsPlanCode: product.grants_plan_code ?? '',
-      licenseBillingCycle: product.license_billing_cycle ?? 'one_time',
-      licenseDurationType: product.grant_duration_days == null ? 'perpetual' : 'days',
-      grantDurationDays: String(product.grant_duration_days ?? 30),
-      licenseTargetSystem:
-        product.license_target_system ??
-        (product.grants_feature_keys?.some((key) => key.startsWith('marketplace.'))
-          ? 'marketplace'
-          : 'ekru'),
-      licenseScope: product.license_scope ?? 'school',
-      licenseSeatCount: String(product.license_seat_count ?? 1),
-      licenseMaxTeachers: String(product.license_max_teachers ?? ''),
-      licenseMaxStudents: String(product.license_max_students ?? ''),
-      licenseMaxSchoolAdmins: String(product.license_max_school_admins ?? ''),
-      licenseLineQuota: String(product.license_line_quota ?? ''),
-      licenseQuota: product.license_quota == null ? '' : String(product.license_quota),
-      externalLinks: (product.external_links ?? []).slice(0, MAX_EXTERNAL_LINKS),
-      purchaseBenefits: (product.purchase_benefits ?? []).slice(0, MAX_PURCHASE_BENEFITS),
-      purchaseBenefitsHtml: product.purchase_benefits_html ?? '',
-      shippingWeightGrams: String(product.shipping_weight_grams ?? ''),
-      shippingWidthCm: String(product.shipping_width_cm ?? ''),
-      shippingLengthCm: String(product.shipping_length_cm ?? ''),
-      shippingHeightCm: String(product.shipping_height_cm ?? ''),
-    });
-    setImages(product.images ?? []);
-    setPendingCover(null);
-    setPendingPreviewImages([]);
-    setPendingDeletedImageIds([]);
-    setFiles(product.files ?? []);
-    setPendingProductFiles([]);
-    setPendingDeletedFileIds([]);
-    setPendingFilePreview({});
-    setRejectionReason(product.status === 'rejected' ? (product.rejection_reason ?? null) : null);
-    setProductStatus(product.status);
-  }, []);
+  const hydrate = useCallback(
+    (product: MarketplaceProduct) => {
+      reset({
+        productKind: product.resource_type === 'feature_unlock' ? 'license' : 'resource',
+        title: product.title ?? '',
+        titleEn: product.title_en ?? '',
+        shortDescription: product.short_description ?? '',
+        shortDescriptionEn: product.short_description_en ?? '',
+        description: product.description ?? '',
+        descriptionEn: product.description_en ?? '',
+        category: product.category ?? '',
+        subjectLabel: product.subject_label ?? '',
+        curriculumId: product.curriculum_id ?? '',
+        gradeLevelIds: (product.grade_levels ?? []).map((item) => item.grade_level.id),
+        tagIds: (product.tags ?? []).map((item) => item.tag.id),
+        mediaTypeId: product.media_type_id ?? '',
+        saleTypeId: product.sale_type_id ?? '',
+        price: String(product.price ?? 0),
+        listPrice: product.list_price == null ? '' : String(product.list_price),
+        grantsFeatureKeys: product.grants_feature_keys?.length
+          ? product.grants_feature_keys
+          : product.grants_feature_key
+            ? [product.grants_feature_key]
+            : [],
+        grantsPlanCode: product.grants_plan_code ?? '',
+        licenseBillingCycle: product.license_billing_cycle ?? 'one_time',
+        licenseDurationType: product.grant_duration_days == null ? 'perpetual' : 'days',
+        grantDurationDays: String(product.grant_duration_days ?? 30),
+        licenseTargetSystem:
+          product.license_target_system ??
+          (product.grants_feature_keys?.some((key) => key.startsWith('marketplace.'))
+            ? 'marketplace'
+            : 'ekru'),
+        licenseScope: product.license_scope ?? 'school',
+        licenseSeatCount: String(product.license_seat_count ?? 1),
+        licenseMaxTeachers: String(product.license_max_teachers ?? ''),
+        licenseMaxStudents: String(product.license_max_students ?? ''),
+        licenseMaxSchoolAdmins: String(product.license_max_school_admins ?? ''),
+        licenseLineQuota: String(product.license_line_quota ?? ''),
+        licenseQuota: product.license_quota == null ? '' : String(product.license_quota),
+        externalLinks: (product.external_links ?? []).slice(0, MAX_EXTERNAL_LINKS),
+        purchaseBenefits: product.purchase_benefits?.length
+          ? product.purchase_benefits.slice(0, MAX_PURCHASE_BENEFITS)
+          : [''],
+        purchaseBenefitsHtml: product.purchase_benefits_html ?? '',
+        shippingWeightGrams: String(product.shipping_weight_grams ?? ''),
+        shippingWidthCm: String(product.shipping_width_cm ?? ''),
+        shippingLengthCm: String(product.shipping_length_cm ?? ''),
+        shippingHeightCm: String(product.shipping_height_cm ?? ''),
+      });
+      setImages(product.images ?? []);
+      setPendingCover(null);
+      pendingCoverIdRef.current = null;
+      setPendingPreviewImages([]);
+      setPendingDeletedImageIds([]);
+      setFiles(product.files ?? []);
+      setPendingProductFiles([]);
+      setPendingDeletedFileIds([]);
+      setPendingFilePreview({});
+      setRejectionReason(product.status === 'rejected' ? (product.rejection_reason ?? null) : null);
+      setProductStatus(product.status);
+    },
+    [reset]
+  );
 
   useEffect(() => {
     if (!initialProductId) return;
@@ -459,7 +453,18 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
       ? [selectedSubject, ...subjectOptions]
       : subjectOptions;
 
-  const readinessItems = [
+  const realFiles = visibleFiles.filter(
+    (file) => !(pendingFilePreview[file.id] ?? file.is_preview)
+  );
+  const sampleFiles = visibleFiles.filter((file) => pendingFilePreview[file.id] ?? file.is_preview);
+  const pendingRealFiles = pendingProductFiles.filter((file) => !file.isPreview);
+  const pendingSampleFiles = pendingProductFiles.filter((file) => file.isPreview);
+  const realFileCount = realFiles.length + pendingRealFiles.length;
+  const sampleFileCount = sampleFiles.length + pendingSampleFiles.length;
+  const previewImageCount =
+    previewImages.length + pendingPreviewImages.length + (pendingCover && coverImage ? 1 : 0);
+
+  const readinessItems: Array<{ label: string; completed: boolean; optional?: boolean }> = [
     {
       label: 'ชื่อสินค้าอย่างน้อย 3 ตัวอักษร',
       completed: form.title.trim().length >= 3,
@@ -482,7 +487,8 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
           ? `เลือกประเภทการจำหน่ายและระบุราคาอย่างน้อย ${MARKETPLACE_MINIMUM_PAID_PRICE_THB} บาท`
           : 'เลือกประเภทการจำหน่าย',
       completed:
-        Boolean(form.saleTypeId) &&
+        Boolean(selectedSaleType) &&
+        (user?.role === 'master_admin' || !isSubscriptionSaleType(selectedSaleType!)) &&
         (selectedSaleType?.pricing_mode !== 'paid' ||
           Number(form.price) >= MARKETPLACE_MINIMUM_PAID_PRICE_THB),
     },
@@ -490,17 +496,42 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
       label: 'เพิ่มภาพปกสินค้า',
       completed: Boolean(pendingCover || coverImage),
     },
-    ...(!isFileOptional
+    ...(!isLicenseProduct
       ? [
           {
-            label: 'เพิ่มไฟล์ ลิงก์ หรือข้อความส่งมอบอย่างน้อย 1 รายการ',
+            label: `ไฟล์จริงอย่างน้อย 1 ไฟล์ (${realFileCount}/5)`,
             completed:
-              visibleFiles.length + pendingProductFiles.length > 0 ||
-              form.externalLinks.length > 0 ||
-              plainTextLength(form.purchaseBenefitsHtml) > 0,
+              realFileCount >= 1 &&
+              realFileCount <= MAX_PRODUCT_FILES &&
+              realFiles.every((file) => Number(file.file_size) <= MAX_PRODUCT_FILE_SIZE) &&
+              pendingRealFiles.every((item) => item.file.size <= MAX_PRODUCT_FILE_SIZE),
           },
         ]
       : []),
+    {
+      label: 'ตรวจจำนวนและขนาดไฟล์ตัวอย่าง',
+      optional: true,
+      completed:
+        sampleFileCount <= MAX_PREVIEW_FILES &&
+        sampleFiles.every((file) => Number(file.file_size) <= MAX_PREVIEW_FILE_SIZE) &&
+        pendingSampleFiles.every((item) => item.file.size <= MAX_PREVIEW_FILE_SIZE),
+    },
+    {
+      label: `ภาพพรีวิวอย่างน้อย 1 ภาพ (${previewImageCount}/8)`,
+      completed:
+        previewImageCount >= 1 &&
+        previewImageCount <= MAX_PREVIEW_IMAGES &&
+        previewImages.every((image) => Number(image.file_size) <= MAX_PREVIEW_IMAGE_SIZE) &&
+        (!pendingCover || !coverImage || Number(coverImage.file_size) <= MAX_PREVIEW_IMAGE_SIZE) &&
+        pendingPreviewImages.every((file) => file.size <= MAX_PREVIEW_IMAGE_SIZE),
+    },
+    {
+      label: `สิ่งที่จะได้รับอย่างน้อย 1 รายการ (${form.purchaseBenefits.filter((item) => item.trim()).length}/10)`,
+      completed:
+        form.purchaseBenefits.length >= 1 &&
+        form.purchaseBenefits.length <= MAX_PURCHASE_BENEFITS &&
+        form.purchaseBenefits.every((item) => item.trim().length > 0 && item.trim().length <= 120),
+    },
     ...(isLicenseProduct
       ? [
           {
@@ -667,21 +698,25 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
       if (pendingCover) {
         const previousImageIds = new Set(updatedImages.map((image) => image.id));
         const uploaded = await uploadProductImages(id, [pendingCover]);
+        updatedImages = uploaded.images;
+        setImages(updatedImages);
         const uploadedCover = uploaded.images.find((image) => !previousImageIds.has(image.id));
         if (!uploadedCover) throw new Error('ไม่พบภาพปกที่อัปโหลด');
-        const result = uploadedCover.is_cover
-          ? uploaded
-          : await setProductCoverImage(id, uploadedCover.id);
+        setPendingCover(null);
+        pendingCoverIdRef.current = uploadedCover.is_cover ? null : uploadedCover.id;
+      }
+      if (pendingCoverIdRef.current) {
+        const result = await setProductCoverImage(id, pendingCoverIdRef.current);
         updatedImages = result.images;
         setImages(updatedImages);
-        setPendingCover(null);
+        pendingCoverIdRef.current = null;
       }
 
-      if (pendingPreviewImages.length) {
-        const result = await uploadProductImages(id, pendingPreviewImages);
+      for (const image of pendingPreviewImages) {
+        const result = await uploadProductImages(id, [image], true);
         updatedImages = result.images;
         setImages(updatedImages);
-        setPendingPreviewImages([]);
+        setPendingPreviewImages((current) => current.filter((file) => file !== image));
       }
 
       setImages(updatedImages);
@@ -719,32 +754,11 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
         });
       }
 
-      if (pendingProductFiles.length) {
-        const previousIds = new Set(updatedFiles.map((file) => file.id));
-        const uploaded = await uploadProductFiles(
-          id,
-          pendingProductFiles.map((item) => item.file)
-        );
+      for (const pendingFile of pendingProductFiles) {
+        const uploaded = await uploadProductFiles(id, [pendingFile.file], pendingFile.isPreview);
         updatedFiles = uploaded.files;
         setFiles(updatedFiles);
-        setPendingProductFiles([]);
-
-        const newFiles = updatedFiles.filter((file) => !previousIds.has(file.id));
-        const matchedIds = new Set<string>();
-        for (const pendingFile of pendingProductFiles.filter((item) => item.isPreview)) {
-          const uploadedFile = newFiles.find(
-            (file) =>
-              !matchedIds.has(file.id) &&
-              file.file_name === pendingFile.file.name &&
-              Number(file.file_size) === pendingFile.file.size
-          );
-          if (uploadedFile) {
-            matchedIds.add(uploadedFile.id);
-            const result = await setProductFilePreview(id, uploadedFile.id, true);
-            updatedFiles = result.files;
-            setFiles(updatedFiles);
-          }
-        }
+        setPendingProductFiles((current) => current.filter((item) => item.key !== pendingFile.key));
       }
 
       setFiles(updatedFiles);
@@ -758,6 +772,33 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
   };
 
   const saveProduct = async (submit = false) => {
+    if (saveInProgressRef.current) return false;
+    if (!(await trigger())) {
+      setError('กรุณาตรวจสอบข้อมูลในช่องที่ระบุ');
+      return false;
+    }
+    if (submit) {
+      const validation = ProductSubmissionSchema.safeParse(getValues());
+      if (!validation.success) {
+        for (const issue of validation.error.issues) {
+          setFieldError(issue.path.join('.') as keyof ProductFormValues, {
+            type: 'zod',
+            message: issue.message,
+          });
+        }
+        setError(validation.error.issues[0]?.message ?? 'กรุณากรอกข้อมูลให้ครบ');
+        return false;
+      }
+    }
+    if (saveInProgressRef.current) return false;
+    if (
+      user?.role !== 'master_admin' &&
+      selectedSaleType &&
+      isSubscriptionSaleType(selectedSaleType)
+    ) {
+      setError('Subscription ใช้ได้เฉพาะร้านค้าทางการ กรุณาเลือกประเภทการจำหน่ายอื่น');
+      return false;
+    }
     if (form.title.trim().length < 3) {
       setError('กรุณากรอกชื่อสินค้าอย่างน้อย 3 ตัวอักษร');
       return false;
@@ -778,6 +819,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
       setError('กรุณากรอกข้อมูลที่จำเป็นให้ครบก่อนส่งตรวจ');
       return false;
     }
+    saveInProgressRef.current = true;
     setSaving(true);
     setError('');
     setMessage('');
@@ -813,6 +855,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
       setError(saveError instanceof Error ? saveError.message : 'บันทึกสินค้าไม่สำเร็จ');
       return false;
     } finally {
+      saveInProgressRef.current = false;
       setSaving(false);
     }
   };
@@ -874,21 +917,33 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
   const handleCoverDrop = async (dropped: File[]) => {
     const coverFile = dropped[0];
     if (!coverFile) return;
-    if (!pendingCover && visibleImages.length + pendingPreviewImages.length >= 10) {
-      setError('รูปภาพครบ 10 รูปแล้ว กรุณาลบภาพพรีวิวอย่างน้อย 1 รูปก่อนเปลี่ยนภาพปก');
+    if (
+      !pendingCover &&
+      visibleImages.length + pendingPreviewImages.length >= MAX_PREVIEW_IMAGES + 1
+    ) {
+      setError('รูปภาพครบ 9 รูปแล้ว กรุณาลบภาพพรีวิวอย่างน้อย 1 รูปก่อนเปลี่ยนภาพปก');
       return;
     }
     setError('');
+    pendingCoverIdRef.current = null;
     setPendingCover(coverFile);
   };
 
   const handlePreviewDrop = async (dropped: File[]) => {
+    if (dropped.some((file) => file.size > MAX_PREVIEW_IMAGE_SIZE)) {
+      setError('ภาพพรีวิวต้องมีขนาดไม่เกิน 3 MB ต่อภาพ');
+      return;
+    }
     if (!pendingCover && !coverImage) {
       setError('กรุณาเพิ่มภาพปกสินค้าก่อนเพิ่มภาพพรีวิว');
       return;
     }
     const remainingSlots =
-      10 - visibleImages.length - pendingPreviewImages.length - (pendingCover ? 1 : 0);
+      MAX_PREVIEW_IMAGES +
+      1 -
+      visibleImages.length -
+      pendingPreviewImages.length -
+      (pendingCover ? 1 : 0);
     if (dropped.length > remainingSlots) {
       setError(`เพิ่มรูปภาพได้อีกไม่เกิน ${Math.max(remainingSlots, 0)} รูป`);
       return;
@@ -897,11 +952,23 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
     setPendingPreviewImages((current) => [...current, ...dropped]);
   };
 
-  const handleFileDrop = (dropped: File[]) => {
+  const handleFileDrop = (dropped: File[], isPreview = false) => {
     if (!dropped.length) return;
-    const availableSlots = 20 - visibleFiles.length - pendingProductFiles.length;
+    const maxSize = isPreview ? MAX_PREVIEW_FILE_SIZE : MAX_PRODUCT_FILE_SIZE;
+    if (dropped.some((file) => file.size > maxSize)) {
+      setError(`ไฟล์${isPreview ? 'ตัวอย่าง' : 'สินค้า'}ต้องมีขนาดไม่เกิน 10 MB ต่อไฟล์`);
+      return;
+    }
+    const existingCount = visibleFiles.filter(
+      (file) => (pendingFilePreview[file.id] ?? file.is_preview) === isPreview
+    ).length;
+    const pendingCount = pendingProductFiles.filter((file) => file.isPreview === isPreview).length;
+    const availableSlots =
+      (isPreview ? MAX_PREVIEW_FILES : MAX_PRODUCT_FILES) - existingCount - pendingCount;
     if (dropped.length > availableSlots) {
-      setError(`เพิ่มไฟล์สินค้าได้อีกไม่เกิน ${Math.max(availableSlots, 0)} ไฟล์`);
+      setError(
+        `เพิ่มไฟล์${isPreview ? 'ตัวอย่าง' : 'สินค้า'}ได้อีกไม่เกิน ${Math.max(availableSlots, 0)} ไฟล์`
+      );
       return;
     }
     setError('');
@@ -910,7 +977,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
       ...dropped.map((file) => ({
         key: crypto.randomUUID(),
         file,
-        isPreview: false,
+        isPreview,
       })),
     ]);
   };
@@ -929,7 +996,25 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
     setError('');
   };
 
+  const canMoveFile = (size: number, isPreview: boolean) => {
+    const count =
+      visibleFiles.filter((file) => (pendingFilePreview[file.id] ?? file.is_preview) === isPreview)
+        .length + pendingProductFiles.filter((file) => file.isPreview === isPreview).length;
+    if (
+      size > (isPreview ? MAX_PREVIEW_FILE_SIZE : MAX_PRODUCT_FILE_SIZE) ||
+      count >= (isPreview ? MAX_PREVIEW_FILES : MAX_PRODUCT_FILES)
+    ) {
+      setError(
+        isPreview ? 'ไฟล์ตัวอย่างสูงสุด 1 ไฟล์ ขนาดไม่เกิน 10 MB' : 'ไฟล์จริงสูงสุด 5 ไฟล์ ไฟล์ละไม่เกิน 10 MB'
+      );
+      return false;
+    }
+    return true;
+  };
+
   const handleTogglePreview = (fileId: string, isPreview: boolean) => {
+    const file = visibleFiles.find((item) => item.id === fileId);
+    if (!file || !canMoveFile(Number(file.file_size), isPreview)) return;
     setPendingFilePreview((current) => ({ ...current, [fileId]: isPreview }));
     setError('');
   };
@@ -939,6 +1024,8 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
   };
 
   const handlePendingFilePreview = (key: string, isPreview: boolean) => {
+    const pending = pendingProductFiles.find((file) => file.key === key);
+    if (!pending || !canMoveFile(pending.file.size, isPreview)) return;
     setPendingProductFiles((current) =>
       current.map((item) => (item.key === key ? { ...item, isPreview } : item))
     );
@@ -953,6 +1040,189 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
     anchor.click();
     window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
   };
+
+  const renderFileUploadGroup = (isPreviewGroup: boolean) => (
+    <Stack
+      key={String(isPreviewGroup)}
+      spacing={1.5}
+      sx={{
+        p: { xs: 2, md: 2.5 },
+        borderRadius: 2,
+        border: '1px solid',
+        borderColor: 'divider',
+        bgcolor: 'background.paper',
+      }}
+    >
+      <Stack direction="row" spacing={1} alignItems="center">
+        <Box
+          sx={{
+            width: 32,
+            height: 32,
+            display: 'grid',
+            borderRadius: 1,
+            placeItems: 'center',
+            color: 'primary.main',
+            bgcolor: 'primary.lighter',
+          }}
+        >
+          <RiFileList3Line size={18} />
+        </Box>
+        <Typography variant="subtitle1">
+          {isPreviewGroup ? '04.2 ไฟล์ตัวอย่าง — ดูได้ก่อนซื้อ' : '05.1 ไฟล์จริง — ได้รับหลังซื้อ'}
+        </Typography>
+      </Stack>
+      <Typography variant="body2" color="text.secondary">
+        PDF, DOC/DOCX, PPT/PPTX, XLS/XLSX, ZIP หรือรูปภาพ ไม่เกิน 10 MB ต่อไฟล์
+      </Typography>
+      <Typography variant="caption" color="text.secondary">
+        {isPreviewGroup ? 'ไฟล์ตัวอย่างสูงสุด 1 ไฟล์' : 'ไฟล์จริงอย่างน้อย 1 ไฟล์ สูงสุด 5 ไฟล์'} ต่อสินค้า
+      </Typography>
+      <Alert severity={isPreviewGroup ? 'warning' : 'info'} variant="outlined">
+        {isPreviewGroup
+          ? 'ทุกคนดูหรือดาวน์โหลดไฟล์ในกล่องนี้ได้ทั้งไฟล์ก่อนซื้อ เมื่อสินค้าเผยแพร่แล้ว หากต้องการโชว์บางหน้า ให้แนบไฟล์ตัวอย่างที่ตัดไว้แยกต่างหาก'
+          : 'แนบไฟล์ฉบับเต็มที่ขายจริง ลูกค้าเข้าถึงได้หลังซื้อ ไฟล์ในกล่องนี้ไม่เปิดเป็นตัวอย่างก่อนซื้อ'}
+      </Alert>
+      <Upload
+        multiple
+        value={[]}
+        accept={PRODUCT_FILE_ACCEPT}
+        maxSize={isPreviewGroup ? MAX_PREVIEW_FILE_SIZE : MAX_PRODUCT_FILE_SIZE}
+        loading={filesUploading}
+        disabled={filesUploading}
+        onDrop={(dropped) => handleFileDrop(dropped, isPreviewGroup)}
+        sx={{ height: 170 }}
+      />
+      {!!pendingProductFiles.filter((item) => item.isPreview === isPreviewGroup).length && (
+        <Alert severity="info" variant="outlined">
+          ไฟล์ใหม่ {pendingProductFiles.filter((item) => item.isPreview === isPreviewGroup).length}{' '}
+          ไฟล์ยังไม่ได้อัปโหลดเข้าระบบ สามารถตรวจสอบไฟล์ได้ก่อน แล้วกดบันทึกเพื่อยืนยันการอัปโหลด
+        </Alert>
+      )}
+      {!!pendingProductFiles.filter((item) => item.isPreview === isPreviewGroup).length && (
+        <Stack spacing={1}>
+          <Typography variant="subtitle2">ไฟล์ใหม่ (รอบันทึก)</Typography>
+          {pendingProductFiles
+            .filter((item) => item.isPreview === isPreviewGroup)
+            .map((item) => (
+              <Stack
+                key={item.key}
+                direction={{ xs: 'column', sm: 'row' }}
+                alignItems={{ xs: 'stretch', sm: 'center' }}
+                spacing={1.25}
+                sx={{
+                  p: 1.5,
+                  border: '1px solid',
+                  borderColor: 'primary.light',
+                  borderRadius: 1.5,
+                  bgcolor: 'primary.lighter',
+                }}
+              >
+                <RemixIcon icon="solar:file-text-bold-duotone" width={22} />
+                <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                  <Typography variant="body2" noWrap>
+                    {item.file.name}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {(item.file.size / 1024 / 1024).toLocaleString('th-TH', {
+                      maximumFractionDigits: 2,
+                    })}{' '}
+                    MB · ยังไม่ได้อัปโหลด
+                  </Typography>
+                </Box>
+                <Button
+                  size="small"
+                  color="inherit"
+                  variant="outlined"
+                  startIcon={<RiEyeLine />}
+                  onClick={() => openPendingFile(item.file)}
+                >
+                  ดูไฟล์
+                </Button>
+                <Chip
+                  size="small"
+                  label={item.isPreview ? 'ย้ายไปไฟล์จริงหลังซื้อ' : 'ย้ายไปตัวอย่างก่อนซื้อ'}
+                  color={item.isPreview ? 'primary' : 'default'}
+                  onClick={() => handlePendingFilePreview(item.key, !item.isPreview)}
+                  sx={{ cursor: 'pointer' }}
+                />
+                <IconButton size="small" onClick={() => handlePendingFileDelete(item.key)}>
+                  <RemixIcon icon="mingcute:close-line" width={16} />
+                </IconButton>
+              </Stack>
+            ))}
+        </Stack>
+      )}
+      {!!visibleFiles.filter(
+        (file) => (pendingFilePreview[file.id] ?? file.is_preview) === isPreviewGroup
+      ).length && (
+        <Stack spacing={1}>
+          <Typography variant="subtitle2">ไฟล์ที่บันทึกแล้ว</Typography>
+          {visibleFiles
+            .filter((file) => (pendingFilePreview[file.id] ?? file.is_preview) === isPreviewGroup)
+            .map((file) => {
+              const isPreview = pendingFilePreview[file.id] ?? file.is_preview;
+              return (
+                <Stack
+                  key={file.id}
+                  direction={{ xs: 'column', sm: 'row' }}
+                  alignItems={{ xs: 'stretch', sm: 'center' }}
+                  spacing={1.25}
+                  sx={{
+                    p: 1.5,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 1.5,
+                  }}
+                >
+                  <RemixIcon icon="solar:file-text-bold-duotone" width={22} />
+                  <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                    <Typography variant="body2" noWrap>
+                      {file.file_name}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {(Number(file.file_size) / 1024 / 1024).toLocaleString('th-TH', {
+                        maximumFractionDigits: 2,
+                      })}{' '}
+                      MB
+                    </Typography>
+                  </Box>
+                  <Button
+                    component="a"
+                    href={file.url ?? undefined}
+                    download={file.file_name}
+                    title={file.file_name}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    size="small"
+                    color="inherit"
+                    variant="outlined"
+                    startIcon={<RiEyeLine />}
+                    disabled={!file.url}
+                  >
+                    ดูไฟล์
+                  </Button>
+                  <Chip
+                    size="small"
+                    label={isPreview ? 'ย้ายไปไฟล์จริงหลังซื้อ' : 'ย้ายไปตัวอย่างก่อนซื้อ'}
+                    color={isPreview ? 'primary' : 'default'}
+                    onClick={() => handleTogglePreview(file.id, !isPreview)}
+                    sx={{ cursor: 'pointer' }}
+                  />
+                  <IconButton size="small" onClick={() => handleFileDelete(file.id)}>
+                    <RemixIcon icon="mingcute:close-line" width={16} />
+                  </IconButton>
+                </Stack>
+              );
+            })}
+        </Stack>
+      )}
+      {!!pendingDeletedFileIds.length && (
+        <Typography variant="caption" color="warning.dark">
+          มีไฟล์รอลบ {pendingDeletedFileIds.length} ไฟล์ การลบจะมีผลเมื่อกดบันทึก
+        </Typography>
+      )}
+    </Stack>
+  );
 
   if (initializing) {
     return (
@@ -984,13 +1254,64 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
             /> */}
           </Stack>
           <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-            กรอกข้อมูลทั้งหมดในหน้าเดียว บันทึกร่างได้ตลอด และส่งตรวจเมื่อพร้อม
+            เริ่มจากข้อมูลหน้าขาย แล้วเพิ่มของที่ลูกค้าจะได้รับหลังซื้อ บันทึกฉบับร่างได้ตลอด
           </Typography>
         </Box>
         <Button color="inherit" onClick={() => router.push('/dashboard/seller')}>
           กลับไปร้านค้าของฉัน
         </Button>
       </Stack>
+
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        {[
+          {
+            target: '01',
+            title: '1. ข้อมูลสำหรับขาย',
+            detail: 'ทุกคนเห็นก่อนซื้อ: ชื่อ คำอธิบาย ราคา รูปตัวอย่าง และรายการสิ่งที่จะได้รับ',
+            color: 'primary',
+          },
+          {
+            target: '05',
+            title: '2. ของที่ได้รับหลังซื้อ',
+            detail: 'ลูกค้าได้รับหลังซื้อ: ไฟล์ฉบับเต็ม ลิงก์ใช้งาน และเนื้อหาที่ส่งมอบ',
+            color: 'success',
+          },
+        ].map((item) => (
+          <Grid key={item.target} size={{ xs: 12, sm: 6 }}>
+            <Box
+              component="a"
+              href={`#product-section-${item.target}`}
+              sx={{
+                display: 'block',
+                height: 1,
+                p: 2,
+                borderRadius: 2,
+                border: '1px solid',
+                borderColor: `${item.color}.light`,
+                bgcolor: `${item.color}.lighter`,
+                color: 'text.primary',
+                textDecoration: 'none',
+                '&:focus-visible': {
+                  outline: '2px solid',
+                  outlineColor: `${item.color}.main`,
+                  outlineOffset: 3,
+                },
+              }}
+            >
+              <Typography variant="subtitle1">{item.title}</Typography>
+              <Typography variant="body2" sx={{ mt: 0.5 }}>
+                {item.detail}
+              </Typography>
+              <Typography
+                variant="caption"
+                sx={{ mt: 1, display: 'block', textDecoration: 'underline' }}
+              >
+                ไปส่วนที่ {item.target}
+              </Typography>
+            </Box>
+          </Grid>
+        ))}
+      </Grid>
 
       {!!rejectionReason && (
         <Alert severity="error" sx={{ mb: 3 }}>
@@ -1008,54 +1329,26 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
         </Alert>
       )}
 
-      <Grid container spacing={3} alignItems="flex-start">
+      {!!lookupError && (
+        <Alert severity="warning" sx={{ mb: 3 }}>
+          {lookupError}
+        </Alert>
+      )}
+
+      <Grid container spacing={3} alignItems="flex-start" inert={saving} aria-busy={saving}>
         <Grid size={{ xs: 12, lg: 8 }}>
           <Stack spacing={{ xs: 2.5, md: 4 }}>
             <FormSection
               number="01"
-              title="รายละเอียดสินค้า"
-              description="บอกว่าสินค้านี้ช่วยเรื่องอะไร เหมาะกับใคร และใช้อย่างไร"
+              title="เนื้อหาหน้าขาย — ให้ลูกค้าตัดสินใจซื้อ"
+              description="ชื่อ คำอธิบาย และรายการสิ่งที่จะได้รับ แสดงให้ทุกคนเห็นก่อนซื้อ"
               icon={<RiFileList3Line />}
             >
               <Stack spacing={2.5}>
-                <Grid container spacing={1.5}>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <Box
-                      sx={{
-                        p: 2,
-                        height: 1,
-                        borderRadius: 2,
-                        bgcolor: 'primary.lighter',
-                        border: '1px solid',
-                        borderColor: 'primary.light',
-                      }}
-                    >
-                      <Typography variant="subtitle2" color="primary.darker">
-                        เขียนในส่วนนี้
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                        เนื้อหาเหมาะกับใคร และนำไปใช้สอนอย่างไร
-                      </Typography>
-                    </Box>
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <Box
-                      sx={{
-                        p: 2,
-                        height: 1,
-                        borderRadius: 2,
-                        bgcolor: 'background.neutral',
-                        border: '1px solid',
-                        borderColor: 'divider',
-                      }}
-                    >
-                      <Typography variant="subtitle2">ไปเขียนในส่วนที่ 05</Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                        จำนวนไฟล์ จำนวนหน้า เฉลย และลิงก์ที่ลูกค้าจะได้รับ
-                      </Typography>
-                    </Box>
-                  </Grid>
-                </Grid>
+                <Alert severity="info" variant="outlined">
+                  ทุกคนเห็นส่วนนี้ก่อนซื้อ ใช้อธิบายจุดเด่น เหมาะกับใคร และนำไปใช้อย่างไร เช่น “ใบงานเศษส่วน ป.4
+                  สำหรับทบทวน พร้อมเฉลย”
+                </Alert>
 
                 <Stack direction="row" spacing={1} alignItems="center">
                   <Chip size="small" color="primary" label="TH" />
@@ -1065,6 +1358,9 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                   required
                   label="ชื่อสินค้า (ภาษาไทย)"
                   placeholder="เช่น ใบงานคณิตศาสตร์ ป.4 เรื่องเศษส่วน"
+                  {...methods.register('title')}
+                  error={Boolean(errors.title)}
+                  helperText={errors.title?.message}
                   value={form.title}
                   onChange={(event) =>
                     setForm((current) => ({ ...current, title: event.target.value }))
@@ -1074,7 +1370,10 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                   label="คำอธิบายสั้น (ภาษาไทย)"
                   placeholder="สรุปจุดเด่นของสินค้าใน 1–2 บรรทัด"
                   value={form.shortDescription}
-                  helperText={`${form.shortDescription.length}/150`}
+                  error={Boolean(errors.shortDescription)}
+                  helperText={
+                    errors.shortDescription?.message ?? `${form.shortDescription.length}/150`
+                  }
                   slotProps={{ htmlInput: { maxLength: 150 } }}
                   onChange={(event) =>
                     setForm((current) => ({
@@ -1084,8 +1383,9 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                   }
                 />
                 <Stack spacing={1}>
-                  <Typography variant="subtitle2">รายละเอียดสำหรับช่วยตัดสินใจ *</Typography>
+                  <Typography variant="subtitle2">คำอธิบายบนหน้าขาย (ทุกคนเห็นก่อนซื้อ) *</Typography>
                   <Editor
+                    error={Boolean(errors.description)}
                     value={form.description}
                     onChange={(value) => setForm((current) => ({ ...current, description: value }))}
                     placeholder="เช่น แบบฝึกเรื่องเศษส่วนสำหรับ ป.4 ใช้ทบทวนในชั้นเรียนหรือมอบหมายเป็นการบ้าน"
@@ -1095,7 +1395,8 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                     variant="caption"
                     color={plainTextLength(form.description) < 10 ? 'error' : 'text.secondary'}
                   >
-                    อย่างน้อย 10 ตัวอักษร · ปัจจุบัน {plainTextLength(form.description)} ตัวอักษร
+                    {errors.description?.message ??
+                      `อย่างน้อย 10 ตัวอักษร · ปัจจุบัน ${plainTextLength(form.description)} ตัวอักษร`}
                   </Typography>
                 </Stack>
 
@@ -1122,7 +1423,10 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                   label="Short description (English)"
                   placeholder="Summarize the product in 1–2 lines"
                   value={form.shortDescriptionEn}
-                  helperText={`${form.shortDescriptionEn.length}/150`}
+                  error={Boolean(errors.shortDescriptionEn)}
+                  helperText={
+                    errors.shortDescriptionEn?.message ?? `${form.shortDescriptionEn.length}/150`
+                  }
                   slotProps={{ htmlInput: { maxLength: 150 } }}
                   onChange={(event) =>
                     setForm((current) => ({
@@ -1138,10 +1442,80 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                     onChange={(value) =>
                       setForm((current) => ({ ...current, descriptionEn: value }))
                     }
-                    placeholder="Describe the contents, file format, usage, and what buyers receive"
+                    placeholder="Describe who this product is for, its benefits, and how to use it. Visible before purchase."
                     sx={{ minHeight: 220 }}
                   />
                 </Stack>
+                <Divider />
+                <Box>
+                  <Typography variant="subtitle1">รายการที่ลูกค้าจะได้รับ — แสดงบนหน้าขาย *</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    ทุกคนอ่านรายการนี้ได้ก่อนซื้อ เช่น “ไฟล์ PDF พร้อมเฉลย 30 หน้า” ส่วนไฟล์จริงให้แนบในส่วนที่ 05
+                  </Typography>
+                </Box>
+
+                <Stack spacing={1.25}>
+                  {form.purchaseBenefits.map((benefit, index) => (
+                    <Stack
+                      key={`purchase-benefit-${index}`}
+                      direction="row"
+                      spacing={1}
+                      alignItems="flex-start"
+                    >
+                      <TextField
+                        fullWidth
+                        required
+                        label={`รายการที่ ${index + 1}`}
+                        placeholder="เช่น ไฟล์ PDF พร้อมเฉลย จำนวน 30 หน้า"
+                        value={benefit}
+                        helperText={`${benefit.length}/120 ตัวอักษร`}
+                        slotProps={{ htmlInput: { maxLength: 120 } }}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            purchaseBenefits: current.purchaseBenefits.map((item, itemIndex) =>
+                              itemIndex === index ? event.target.value : item
+                            ),
+                          }))
+                        }
+                      />
+                      <IconButton
+                        aria-label={`ลบรายการที่ ${index + 1}`}
+                        color="error"
+                        onClick={() =>
+                          setForm((current) => ({
+                            ...current,
+                            purchaseBenefits: current.purchaseBenefits.filter(
+                              (_, itemIndex) => itemIndex !== index
+                            ),
+                          }))
+                        }
+                        sx={{ mt: 1 }}
+                      >
+                        <RemixIcon icon="mingcute:close-line" width={18} />
+                      </IconButton>
+                    </Stack>
+                  ))}
+                </Stack>
+
+                {form.purchaseBenefits.length < MAX_PURCHASE_BENEFITS && (
+                  <Button
+                    variant="outlined"
+                    startIcon={<RiAddLine />}
+                    onClick={() =>
+                      setForm((current) => ({
+                        ...current,
+                        purchaseBenefits: [...current.purchaseBenefits, ''],
+                      }))
+                    }
+                    sx={{ alignSelf: 'flex-start' }}
+                  >
+                    เพิ่มรายการที่ลูกค้าจะได้รับ
+                  </Button>
+                )}
+                <Typography variant="caption" color="text.secondary">
+                  บังคับอย่างน้อย 1 รายการ · สูงสุด {MAX_PURCHASE_BENEFITS} รายการ
+                </Typography>
               </Stack>
             </FormSection>
 
@@ -1289,8 +1663,8 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                     </Stack>
 
                     <Typography variant="caption" color="text.secondary" display="block">
-                      ผู้ขายทุกคนใช้แท็กเดียวกันได้ หากชื่อซ้ำระบบจะเลือกแท็กเดิมให้
-                      แท็กที่ยังไม่เคยใช้จะถูกลบอัตโนมัติหลัง 24 ชั่วโมง
+                      ผู้ขายทุกคนใช้แท็กเดียวกันได้ หากชื่อซ้ำระบบจะเลือกแท็กเดิมให้ แท็กที่ยังไม่เคยใช้จะถูกลบอัตโนมัติหลัง
+                      24 ชั่วโมง
                     </Typography>
                     {!!ownTags.length && (
                       <Stack direction="row" flexWrap="wrap" gap={1} sx={{ mt: 1.5 }}>
@@ -1447,11 +1821,15 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                     }}
                   >
                     <MenuItem value="">เลือกประเภทการจำหน่าย</MenuItem>
-                    {saleTypes.map((item) => (
-                      <MenuItem key={item.id} value={item.id}>
-                        {item.name}
-                      </MenuItem>
-                    ))}
+                    {saleTypes
+                      .filter(
+                        (item) => user?.role === 'master_admin' || !isSubscriptionSaleType(item)
+                      )
+                      .map((item) => (
+                        <MenuItem key={item.id} value={item.id}>
+                          {item.name}
+                        </MenuItem>
+                      ))}
                   </TextField>
                 </Grid>
                 <Grid size={{ xs: 12, sm: 3 }}>
@@ -1548,10 +1926,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                         value={form.licenseBillingCycle}
                         onChange={(event) => {
                           const cycle = event.target.value as
-                            | 'one_time'
-                            | 'monthly'
-                            | 'yearly'
-                            | 'contract';
+                            'one_time' | 'monthly' | 'yearly' | 'contract';
                           setForm((current) => ({
                             ...current,
                             licenseBillingCycle: cycle,
@@ -1620,10 +1995,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                         disabled={form.licenseTargetSystem === 'marketplace'}
                         onChange={(event) => {
                           const licenseScope = event.target.value as
-                            | 'individual'
-                            | 'school'
-                            | 'teacher'
-                            | 'platform';
+                            'individual' | 'school' | 'teacher' | 'platform';
                           setForm((current) => ({
                             ...current,
                             licenseScope,
@@ -1902,8 +2274,8 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
 
             <FormSection
               number="04"
-              title="รูปภาพสินค้า"
-              description="รูปภาพใช้แสดงตัวอย่างและรายละเอียดสินค้าในหน้าร้าน"
+              title="ตัวอย่างก่อนซื้อ — ภาพและไฟล์"
+              description="ทุกคนเห็นก่อนซื้อ เพิ่มภาพพรีวิวและไฟล์ตัวอย่างเพื่อช่วยตัดสินใจ ส่วนไฟล์จริงอยู่ในส่วน 05"
               icon={<RiImageAddLine />}
             >
               <Stack spacing={2.5}>
@@ -1931,16 +2303,17 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                     >
                       <RiImageAddLine size={18} />
                     </Box>
-                    <Typography variant="subtitle1">ภาพพรีวิวสินค้า</Typography>
+                    <Typography variant="subtitle1">04.1 ภาพพรีวิวสินค้า — เห็นก่อนซื้อ</Typography>
                   </Stack>
                   <Typography variant="body2" color="text.secondary">
-                    เพิ่มภาพรายละเอียดหรือภาพตัวอย่างที่ผู้ซื้อจะเห็นถัดจากภาพปก · สูงสุด 9 รูป
+                    เพิ่มภาพรายละเอียดหรือภาพตัวอย่างที่ผู้ซื้อจะเห็นถัดจากภาพปก · อย่างน้อย 1 รูป · สูงสุด 8 รูป ·
+                    ภาพละไม่เกิน 3 MB
                   </Typography>
                   <Upload
                     multiple
                     value={pendingPreviewImages}
                     accept={COVER_IMAGE_ACCEPT}
-                    maxSize={MAX_COVER_SIZE}
+                    maxSize={MAX_PREVIEW_IMAGE_SIZE}
                     loading={imagesUploading}
                     disabled={imagesUploading}
                     onDrop={handlePreviewDrop}
@@ -1998,193 +2371,22 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                     </Grid>
                   )}
                 </Stack>
+                {!isLicenseProduct && renderFileUploadGroup(true)}
               </Stack>
             </FormSection>
 
             <FormSection
               number="05"
-              title="ของที่ลูกค้าจะได้รับหลังซื้อ"
-              description="ระบุของที่ส่งมอบจริง เช่น ไฟล์ จำนวนหน้า เฉลย หรือลิงก์"
+              title="ของที่ส่งมอบ — ให้ลูกค้าหลังซื้อ"
+              description="แนบไฟล์จริง ลิงก์ใช้งาน หรือเขียนเนื้อหาฉบับเต็มที่ลูกค้าจะได้รับ"
               icon={<RiGiftLine />}
             >
               <Stack spacing={3}>
                 <Alert severity="info" variant="outlined">
-                  ส่วนนี้ไม่ใช่คำอธิบายสินค้า — ระบุเฉพาะของที่ลูกค้าจะได้รับจริง
+                  ลูกค้าเข้าถึงไฟล์ ลิงก์ และข้อความส่วนนี้ผ่านรายการซื้อหลังได้รับสิทธิ์
                 </Alert>
 
-                {!isLicenseProduct && (
-                  <Stack
-                    spacing={1.5}
-                    sx={{
-                      p: { xs: 2, md: 2.5 },
-                      borderRadius: 2,
-                      border: '1px solid',
-                      borderColor: 'divider',
-                      bgcolor: 'background.paper',
-                    }}
-                  >
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <Box
-                        sx={{
-                          width: 32,
-                          height: 32,
-                          display: 'grid',
-                          borderRadius: 1,
-                          placeItems: 'center',
-                          color: 'primary.main',
-                          bgcolor: 'primary.lighter',
-                        }}
-                      >
-                        <RiFileList3Line size={18} />
-                      </Box>
-                      <Typography variant="subtitle1">
-                        แนบไฟล์ที่จะส่งให้ลูกค้า (เลือกได้)
-                      </Typography>
-                    </Stack>
-                    <Typography variant="body2" color="text.secondary">
-                      PDF, DOC/DOCX, PPT/PPTX, XLS/XLSX, ZIP หรือรูปภาพ ไม่เกิน 50MB ต่อไฟล์
-                    </Typography>
-                    {isFileOptional && selectedMediaType && (
-                      <Alert severity="info" variant="outlined">
-                        ประเภทสื่อ “{selectedMediaType.name}” ไม่บังคับอัปโหลดไฟล์
-                      </Alert>
-                    )}
-                    <Upload
-                      multiple
-                      value={[]}
-                      accept={PRODUCT_FILE_ACCEPT}
-                      maxSize={MAX_PRODUCT_FILE_SIZE}
-                      loading={filesUploading}
-                      disabled={filesUploading}
-                      onDrop={handleFileDrop}
-                      sx={{ height: 170 }}
-                    />
-                    {!!pendingProductFiles.length && (
-                      <Alert severity="info" variant="outlined">
-                        ไฟล์ใหม่ {pendingProductFiles.length} ไฟล์ยังไม่ได้อัปโหลดเข้าระบบ
-                        สามารถตรวจสอบไฟล์ได้ก่อน แล้วกดบันทึกเพื่อยืนยันการอัปโหลด
-                      </Alert>
-                    )}
-                    {!!pendingProductFiles.length && (
-                      <Stack spacing={1}>
-                        <Typography variant="subtitle2">ไฟล์ใหม่ (รอบันทึก)</Typography>
-                        {pendingProductFiles.map((item) => (
-                          <Stack
-                            key={item.key}
-                            direction={{ xs: 'column', sm: 'row' }}
-                            alignItems={{ xs: 'stretch', sm: 'center' }}
-                            spacing={1.25}
-                            sx={{
-                              p: 1.5,
-                              border: '1px solid',
-                              borderColor: 'primary.light',
-                              borderRadius: 1.5,
-                              bgcolor: 'primary.lighter',
-                            }}
-                          >
-                            <RemixIcon icon="solar:file-text-bold-duotone" width={22} />
-                            <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                              <Typography variant="body2" noWrap>
-                                {item.file.name}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                {(item.file.size / 1024 / 1024).toLocaleString('th-TH', {
-                                  maximumFractionDigits: 2,
-                                })}{' '}
-                                MB · ยังไม่ได้อัปโหลด
-                              </Typography>
-                            </Box>
-                            <Button
-                              size="small"
-                              color="inherit"
-                              variant="outlined"
-                              startIcon={<RiEyeLine />}
-                              onClick={() => openPendingFile(item.file)}
-                            >
-                              ดูไฟล์
-                            </Button>
-                            <Chip
-                              size="small"
-                              label={item.isPreview ? 'ไฟล์ตัวอย่าง' : 'ตั้งเป็นตัวอย่าง'}
-                              color={item.isPreview ? 'primary' : 'default'}
-                              onClick={() => handlePendingFilePreview(item.key, !item.isPreview)}
-                              sx={{ cursor: 'pointer' }}
-                            />
-                            <IconButton
-                              size="small"
-                              onClick={() => handlePendingFileDelete(item.key)}
-                            >
-                              <RemixIcon icon="mingcute:close-line" width={16} />
-                            </IconButton>
-                          </Stack>
-                        ))}
-                      </Stack>
-                    )}
-                    {!!visibleFiles.length && (
-                      <Stack spacing={1}>
-                        <Typography variant="subtitle2">ไฟล์ที่บันทึกแล้ว</Typography>
-                        {visibleFiles.map((file) => {
-                          const isPreview = pendingFilePreview[file.id] ?? file.is_preview;
-                          return (
-                            <Stack
-                              key={file.id}
-                              direction={{ xs: 'column', sm: 'row' }}
-                              alignItems={{ xs: 'stretch', sm: 'center' }}
-                              spacing={1.25}
-                              sx={{
-                                p: 1.5,
-                                border: '1px solid',
-                                borderColor: 'divider',
-                                borderRadius: 1.5,
-                              }}
-                            >
-                              <RemixIcon icon="solar:file-text-bold-duotone" width={22} />
-                              <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                                <Typography variant="body2" noWrap>
-                                  {file.file_name}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                  {(Number(file.file_size) / 1024 / 1024).toLocaleString('th-TH', {
-                                    maximumFractionDigits: 2,
-                                  })}{' '}
-                                  MB
-                                </Typography>
-                              </Box>
-                              <Button
-                                component="a"
-                                href={file.url ?? undefined}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                size="small"
-                                color="inherit"
-                                variant="outlined"
-                                startIcon={<RiEyeLine />}
-                                disabled={!file.url}
-                              >
-                                ดูไฟล์
-                              </Button>
-                              <Chip
-                                size="small"
-                                label={isPreview ? 'ไฟล์ตัวอย่าง' : 'ตั้งเป็นตัวอย่าง'}
-                                color={isPreview ? 'primary' : 'default'}
-                                onClick={() => handleTogglePreview(file.id, !isPreview)}
-                                sx={{ cursor: 'pointer' }}
-                              />
-                              <IconButton size="small" onClick={() => handleFileDelete(file.id)}>
-                                <RemixIcon icon="mingcute:close-line" width={16} />
-                              </IconButton>
-                            </Stack>
-                          );
-                        })}
-                      </Stack>
-                    )}
-                    {!!pendingDeletedFileIds.length && (
-                      <Typography variant="caption" color="warning.dark">
-                        มีไฟล์รอลบ {pendingDeletedFileIds.length} ไฟล์ การลบจะมีผลเมื่อกดบันทึก
-                      </Typography>
-                    )}
-                  </Stack>
-                )}
+                {!isLicenseProduct && renderFileUploadGroup(false)}
 
                 <Stack
                   spacing={1.5}
@@ -2211,9 +2413,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                       <RemixIcon icon="eva:link-2-fill" width={18} />
                     </Box>
                     <Box>
-                      <Typography variant="subtitle1">
-                        เพิ่มลิงก์ที่จะส่งให้ลูกค้า (ไม่บังคับ)
-                      </Typography>
+                      <Typography variant="subtitle1">05.2 ลิงก์สำหรับลูกค้าหลังซื้อ (ไม่บังคับ)</Typography>
                     </Box>
                   </Stack>
                   <Box>
@@ -2263,9 +2463,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                           placeholder="https://example.com"
                           value={link.url}
                           error={urlError}
-                          helperText={
-                            urlError ? 'กรุณากรอก URL ที่ขึ้นต้นด้วย http:// หรือ https://' : ' '
-                          }
+                          helperText={urlError ? 'กรุณากรอก URL ที่ขึ้นต้นด้วย http:// หรือ https://' : ' '}
                           slotProps={{ htmlInput: { maxLength: 2048 } }}
                           onChange={(event) =>
                             setForm((current) => ({
@@ -2341,7 +2539,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                     </Box>
                     <Box>
                       <Typography variant="subtitle1">
-                        เพิ่มข้อความส่งมอบหลังชำระเงิน (ไม่บังคับ)
+                        05.3 เนื้อหาฉบับเต็ม / ข้อความหลังซื้อ (ไม่บังคับ)
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
                         ผู้ซื้อที่ชำระเงินแล้วเท่านั้นจึงจะเห็นข้อความนี้
@@ -2349,8 +2547,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                     </Box>
                   </Stack>
                   <Alert severity="info" variant="outlined">
-                    ใช้สำหรับ Prompt, Template, รหัส, ขั้นตอนเข้าใช้งาน
-                    หรือเนื้อหาที่ต้องส่งมอบเพิ่มเติมจากไฟล์และลิงก์
+                    ใช้สำหรับ Prompt, Template, รหัส, ขั้นตอนเข้าใช้งาน หรือเนื้อหาที่ต้องส่งมอบเพิ่มเติมจากไฟล์และลิงก์
                   </Alert>
                   <Editor
                     fullItem
@@ -2420,10 +2617,8 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                       <Stack direction="row" spacing={1} alignItems="flex-start">
                         <RiCheckboxCircleLine size={20} color="#16A34A" />
                         <Typography variant="body2">
-                          {visibleFiles.length + pendingProductFiles.length > 0
-                            ? `ไฟล์สินค้าฉบับเต็ม ${
-                                visibleFiles.length + pendingProductFiles.length
-                              } ไฟล์ พร้อมดาวน์โหลดจากรายละเอียดการซื้อ`
+                          {realFileCount > 0
+                            ? `ไฟล์สินค้าฉบับเต็ม ${realFileCount} ไฟล์ พร้อมดาวน์โหลดจากรายละเอียดการซื้อ`
                             : form.externalLinks.length > 0
                               ? `ลิงก์ส่งมอบ ${form.externalLinks.length} ลิงก์ พร้อมเปิดจากรายละเอียดการซื้อ`
                               : plainTextLength(form.purchaseBenefitsHtml) > 0
@@ -2436,75 +2631,6 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                     )}
                   </Stack>
                 </Box>
-
-                <Box>
-                  <Typography variant="subtitle1">สรุปสิ่งที่ลูกค้าจะได้รับ (แนะนำ)</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    เขียนสั้น ๆ รายการละ 1 อย่าง เช่น “ไฟล์ PDF 30 หน้า”
-                  </Typography>
-                </Box>
-
-                <Stack spacing={1.25}>
-                  {form.purchaseBenefits.map((benefit, index) => (
-                    <Stack
-                      key={`purchase-benefit-${index}`}
-                      direction="row"
-                      spacing={1}
-                      alignItems="flex-start"
-                    >
-                      <TextField
-                        fullWidth
-                        label={`รายการที่ ${index + 1}`}
-                        placeholder="เช่น ไฟล์ PDF พร้อมเฉลย จำนวน 30 หน้า"
-                        value={benefit}
-                        helperText={`${benefit.length}/120 ตัวอักษร`}
-                        slotProps={{ htmlInput: { maxLength: 120 } }}
-                        onChange={(event) =>
-                          setForm((current) => ({
-                            ...current,
-                            purchaseBenefits: current.purchaseBenefits.map((item, itemIndex) =>
-                              itemIndex === index ? event.target.value : item
-                            ),
-                          }))
-                        }
-                      />
-                      <IconButton
-                        aria-label={`ลบรายการที่ ${index + 1}`}
-                        color="error"
-                        onClick={() =>
-                          setForm((current) => ({
-                            ...current,
-                            purchaseBenefits: current.purchaseBenefits.filter(
-                              (_, itemIndex) => itemIndex !== index
-                            ),
-                          }))
-                        }
-                        sx={{ mt: 1 }}
-                      >
-                        <RemixIcon icon="mingcute:close-line" width={18} />
-                      </IconButton>
-                    </Stack>
-                  ))}
-                </Stack>
-
-                {form.purchaseBenefits.length < MAX_PURCHASE_BENEFITS && (
-                  <Button
-                    variant="outlined"
-                    startIcon={<RiAddLine />}
-                    onClick={() =>
-                      setForm((current) => ({
-                        ...current,
-                        purchaseBenefits: [...current.purchaseBenefits, ''],
-                      }))
-                    }
-                    sx={{ alignSelf: 'flex-start' }}
-                  >
-                    เพิ่มรายการที่ลูกค้าจะได้รับ
-                  </Button>
-                )}
-                <Typography variant="caption" color="text.secondary">
-                  เพิ่มได้สูงสุด {MAX_PURCHASE_BENEFITS} รายการ
-                </Typography>
               </Stack>
             </FormSection>
           </Stack>
@@ -2544,7 +2670,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                       ? 'กำลังแสดงตัวอย่าง · รูปจะอัปโหลดเมื่อกดบันทึก'
                       : coverImage
                         ? 'คลิกที่ภาพเพื่อเปลี่ยนภาพปก · ปุ่ม × สำหรับลบ'
-                        : 'PNG, JPEG หรือ WEBP ไม่เกิน 5MB'}
+                        : 'PNG, JPEG หรือ WEBP ไม่เกิน 4 MB'}
                   </Typography>
                 }
                 sx={{
@@ -2600,35 +2726,40 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                   label={requirements.length ? `เหลือ ${requirements.length}` : 'พร้อมส่ง'}
                 />
               </Stack>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                รายการจำเป็นก่อนส่งตรวจ
+              </Typography>
               <Divider sx={{ my: 2 }} />
               <Stack spacing={1}>
-                {readinessItems.map((item) => (
-                  <Stack
-                    key={item.label}
-                    direction="row"
-                    spacing={1.25}
-                    alignItems="center"
-                    sx={{
-                      px: 1.25,
-                      py: 1,
-                      borderRadius: 1.25,
-                      bgcolor: item.completed ? 'success.lighter' : 'background.neutral',
-                    }}
-                  >
-                    {item.completed ? (
-                      <RiCheckboxCircleLine size={20} color="var(--palette-success-main)" />
-                    ) : (
-                      <RiCheckboxBlankCircleLine size={20} color="var(--palette-text-disabled)" />
-                    )}
-                    <Typography
-                      variant="body2"
-                      color={item.completed ? 'success.darker' : 'text.secondary'}
-                      sx={{ fontWeight: item.completed ? 600 : 400 }}
+                {readinessItems
+                  .filter((item) => !item.optional || !item.completed)
+                  .map((item) => (
+                    <Stack
+                      key={item.label}
+                      direction="row"
+                      spacing={1.25}
+                      alignItems="center"
+                      sx={{
+                        px: 1.25,
+                        py: 1,
+                        borderRadius: 1.25,
+                        bgcolor: item.completed ? 'success.lighter' : 'background.neutral',
+                      }}
                     >
-                      {item.label}
-                    </Typography>
-                  </Stack>
-                ))}
+                      {item.completed ? (
+                        <RiCheckboxCircleLine size={20} color="var(--palette-success-main)" />
+                      ) : (
+                        <RiCheckboxBlankCircleLine size={20} color="var(--palette-text-disabled)" />
+                      )}
+                      <Typography
+                        variant="body2"
+                        color={item.completed ? 'success.darker' : 'text.secondary'}
+                        sx={{ fontWeight: item.completed ? 600 : 400 }}
+                      >
+                        {item.label}
+                      </Typography>
+                    </Stack>
+                  ))}
               </Stack>
               {!requirements.length && (
                 <Alert severity="success" variant="outlined" sx={{ mt: 2 }}>
@@ -2873,8 +3004,10 @@ function FormSection({
 }) {
   return (
     <Card
+      id={`product-section-${number}`}
       variant="outlined"
       sx={{
+        scrollMarginTop: 100,
         p: 0,
         overflow: 'hidden',
         borderRadius: 2.5,
@@ -2914,8 +3047,26 @@ function FormSection({
               color="primary.main"
               sx={{ display: 'block', lineHeight: 1.4, fontWeight: 700 }}
             >
-              SECTION {number}
+              ส่วนที่ {number}
             </Typography>
+            <Chip
+              size="small"
+              variant="soft"
+              color={number === '05' ? 'success' : 'primary'}
+              label={
+                number === '05'
+                  ? 'ของจริง · ได้รับหลังซื้อ'
+                  : number === '04'
+                    ? 'ตัวอย่าง · ทุกคนดูได้ก่อนซื้อ'
+                    : 'ข้อมูลหน้าขาย · ทุกคนเห็นก่อนซื้อ'
+              }
+              sx={{
+                my: 0.75,
+                maxWidth: '100%',
+                height: 'auto',
+                '& .MuiChip-label': { whiteSpace: 'normal', py: 0.5 },
+              }}
+            />
             <Typography variant="h5">{title}</Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
               {description}

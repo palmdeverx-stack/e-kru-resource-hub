@@ -17,7 +17,7 @@ import {
   RiUserAddLine,
   RiLoginBoxLine,
   RiDashboardLine,
-  RiShoppingBag3Line,
+  RiShoppingCart2Line,
 } from 'src/components/remix-icon';
 
 import { useAuthContext } from 'src/auth/hooks';
@@ -49,7 +49,7 @@ export function MarketplaceHeaderActions() {
         }}
       >
         <Badge badgeContent={itemCount} color="primary">
-          <RiShoppingBag3Line color="text.primary" />
+          <RiShoppingCart2Line color="primary.main" />
         </Badge>
       </IconButton>
 

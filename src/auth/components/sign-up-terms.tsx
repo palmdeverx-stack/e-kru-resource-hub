@@ -22,6 +22,7 @@ import DialogContent from '@mui/material/DialogContent';
 import CircularProgress from '@mui/material/CircularProgress';
 
 import { useTranslate } from 'src/locales';
+import { apiFetch as fetch } from 'src/lib/api-fetch';
 
 import { Editor } from 'src/components/editor';
 import { editorClasses } from 'src/components/editor/classes';

@@ -1,7 +1,8 @@
 import 'server-only';
 
 import sharp from 'sharp';
-import { readFile } from 'node:fs/promises';
+
+import { getWatermarkFont } from './server-watermark-font';
 
 const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
@@ -29,17 +30,6 @@ const MAX_DIMENSION: Record<ImagePreset, number> = {
   content: 2400,
   document: 2800,
 };
-
-const WATERMARK_FONT_URL = new URL(
-  '../../public/fonts/LINESeedSansTH-Regular.ttf',
-  import.meta.url
-);
-let watermarkFontPromise: Promise<Buffer> | undefined;
-
-function getWatermarkFont() {
-  watermarkFontPromise ??= readFile(WATERMARK_FONT_URL);
-  return watermarkFontPromise;
-}
 
 function extensionFor(contentType: string): OptimizedImage['extension'] {
   if (contentType === 'image/png') return 'png';
@@ -173,9 +163,19 @@ export async function optimizeUploadedImage(
     });
   }
   if (watermarkLines?.length) {
-    pipeline = pipeline.composite([
+    const normalized = await pipeline.png().toBuffer({ resolveWithObject: true });
+    const watermark = await sharp(await createWatermarkTile(watermarkLines))
+      .resize({
+        width: Math.min(1100, normalized.info.width),
+        height: Math.min(300, normalized.info.height),
+        fit: 'inside',
+        withoutEnlargement: true,
+      })
+      .png()
+      .toBuffer();
+    pipeline = sharp(normalized.data).composite([
       {
-        input: await createWatermarkTile(watermarkLines),
+        input: watermark,
         tile: true,
         blend: 'over',
       },

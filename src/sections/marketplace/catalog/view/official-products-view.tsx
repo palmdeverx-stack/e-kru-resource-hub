@@ -2,7 +2,8 @@
 
 import type { MarketplaceProduct } from '../../shared/types';
 
-import { useMemo, useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useMemo, useState, useDeferredValue } from 'react';
 
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
@@ -38,6 +39,8 @@ import {
   RiShieldStarFill,
   RiCheckboxMultipleLine,
 } from 'src/components/remix-icon';
+
+import { useAuthContext } from 'src/auth/hooks';
 
 import { MarketplaceProductCard } from '../../shared/product-card';
 import { getProducts, getLocalizedProduct } from '../../shared/api';
@@ -119,22 +122,22 @@ export function OfficialProductsView() {
   const { currentLang } = useTranslate();
   const language = currentLang.value === 'en' ? 'en' : 'th';
   const text = copy[language];
-  const [products, setProducts] = useState<MarketplaceProduct[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
+  const { user } = useAuthContext();
+  const {
+    data: products = [],
+    isPending: loading,
+    isError: loadError,
+  } = useQuery({
+    queryKey: ['official-products', user?.id ?? 'guest', user?.role ?? 'guest'],
+    queryFn: async () => (await getProducts({ official: true, page: 1, limit: 48 })).products,
+    staleTime: 60_000,
+  });
   const [category, setCategory] = useState('all');
   const [audience, setAudience] = useState<Audience>('all');
   const [search, setSearch] = useState('');
 
-  useEffect(() => {
-    getProducts({ official: true, page: 1, limit: 48 })
-      .then(({ products: officialProducts }) => {
-        setProducts(officialProducts);
-        setLoadError(false);
-      })
-      .catch(() => setLoadError(true))
-      .finally(() => setLoading(false));
-  }, []);
+  const deferredSearch = useDeferredValue(search);
+  const [displayLimit, setDisplayLimit] = useState(12);
 
   const categories = useMemo(
     () => [
@@ -147,7 +150,7 @@ export function OfficialProductsView() {
   );
 
   const visibleProducts = useMemo(() => {
-    const normalizedSearch = search.trim().toLowerCase();
+    const normalizedSearch = deferredSearch.trim().toLowerCase();
     return products.filter((product) => {
       const localized = getLocalizedProduct(product, language);
       const searchableText = [
@@ -166,12 +169,13 @@ export function OfficialProductsView() {
         (!normalizedSearch || searchableText.includes(normalizedSearch))
       );
     });
-  }, [audience, category, language, products, search]);
+  }, [audience, category, language, products, deferredSearch]);
 
   const resetFilters = () => {
     setCategory('all');
     setAudience('all');
     setSearch('');
+    setDisplayLimit(12);
   };
 
   return (
@@ -282,7 +286,10 @@ export function OfficialProductsView() {
                     <Paper
                       component="button"
                       type="button"
-                      onClick={() => setCategory(item)}
+                      onClick={() => {
+                        setCategory(item);
+                        setDisplayLimit(12);
+                      }}
                       aria-pressed={selected}
                       sx={{
                         p: 2,
@@ -326,7 +333,10 @@ export function OfficialProductsView() {
                 size="small"
                 value={search}
                 placeholder={text.search}
-                onChange={(event) => setSearch(event.target.value)}
+                onChange={(event) => {
+                  setSearch(event.target.value);
+                  setDisplayLimit(12);
+                }}
                 slotProps={{
                   input: {
                     startAdornment: (
@@ -343,7 +353,12 @@ export function OfficialProductsView() {
                 size="small"
                 value={audience}
                 aria-label={text.audience}
-                onChange={(_, value: Audience | null) => value && setAudience(value)}
+                onChange={(_, value: Audience | null) => {
+                  if (value) {
+                    setAudience(value);
+                    setDisplayLimit(12);
+                  }
+                }}
               >
                 <ToggleButton value="all">{text.allAudience}</ToggleButton>
                 <ToggleButton value="individual">{text.individual}</ToggleButton>
@@ -371,7 +386,7 @@ export function OfficialProductsView() {
             </Paper>
           ) : visibleProducts.length ? (
             <Grid container spacing={2.5}>
-              {visibleProducts.map((product, index) => (
+              {visibleProducts.slice(0, displayLimit).map((product, index) => (
                 <Grid key={product.id} size={{ xs: 12, sm: 6, md: 3 }}>
                   <MarketplaceProductCard product={product} colorIndex={index} />
                 </Grid>
@@ -390,6 +405,12 @@ export function OfficialProductsView() {
                 {text.clear}
               </Button>
             </Paper>
+          )}
+
+          {visibleProducts.length > displayLimit && (
+            <Button variant="outlined" onClick={() => setDisplayLimit((value) => value + 12)}>
+              {language === 'en' ? 'Show more products' : 'แสดงสินค้าเพิ่มเติม'}
+            </Button>
           )}
 
           <Stack direction="row" justifyContent="center">

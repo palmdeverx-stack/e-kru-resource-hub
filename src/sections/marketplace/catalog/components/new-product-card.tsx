@@ -33,11 +33,11 @@ const fallbackGradients = [
 ];
 
 const categoryTranslationKeys: Record<string, string> = {
-  'แผนการสอน': 'lessonPlans',
-  'ใบงาน': 'worksheets',
-  'สื่อประกอบ': 'supplementary',
-  'แบบทดสอบ': 'quizzes',
-  'คอร์สเรียน': 'courses',
+  แผนการสอน: 'lessonPlans',
+  ใบงาน: 'worksheets',
+  สื่อประกอบ: 'supplementary',
+  แบบทดสอบ: 'quizzes',
+  คอร์สเรียน: 'courses',
 };
 
 export function MarketplaceNewProductCard({
@@ -104,6 +104,8 @@ export function MarketplaceNewProductCard({
           <Box
             component="img"
             src={coverUrl}
+            loading="lazy"
+            decoding="async"
             alt={content.title}
             sx={{
               width: 1,

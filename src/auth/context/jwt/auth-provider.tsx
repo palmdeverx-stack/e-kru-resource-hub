@@ -3,7 +3,10 @@
 import type { AuthState } from '../../types';
 
 import { useSetState } from 'minimal-shared/hooks';
-import { useMemo, useEffect, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useRef, useMemo, useEffect, useCallback } from 'react';
+
+import { setApiCacheScope, apiFetch as fetch } from 'src/lib/api-fetch';
 
 import { AuthContext } from '../auth-context';
 
@@ -14,34 +17,50 @@ type Props = {
 };
 
 export function AuthProvider({ children }: Props) {
+  const queryClient = useQueryClient();
+  const sessionVersion = useRef(0);
+  const pendingSession = useRef<Promise<void> | null>(null);
   const { state, setState } = useSetState<AuthState>({ user: null, loading: true });
 
   const setSessionUser = useCallback(
     (user: AuthState['user']) => {
+      // Invalidate an older /me response before committing a login/logout.
+      sessionVersion.current += 1;
+      pendingSession.current = null;
+      setApiCacheScope(user ? `${user.id}:${user.role}:${user.school_id ?? ''}` : 'guest');
+      queryClient.clear();
       setState({ user, loading: false });
     },
-    [setState]
+    [queryClient, setState]
   );
 
-  const checkUserSession = useCallback(async (): Promise<void> => {
-    try {
-      const response = await fetch('/api/auth/me', {
-        cache: 'no-store',
-        credentials: 'same-origin',
-      });
-
-      if (!response.ok) {
-        setState({ user: null, loading: false });
-        return;
+  const checkUserSession = useCallback((): Promise<void> => {
+    if (pendingSession.current) return pendingSession.current;
+    const version = sessionVersion.current;
+    const pending = (async () => {
+      try {
+        const response = await fetch('/api/auth/me', {
+          cache: 'no-store',
+          credentials: 'same-origin',
+        });
+        const user = response.ok ? (await response.json()).user : null;
+        if (version === sessionVersion.current) {
+          setApiCacheScope(user ? `${user.id}:${user.role}:${user.school_id ?? ''}` : 'guest');
+          setState({ user, loading: false });
+        }
+      } catch (error) {
+        console.error(error);
+        if (version === sessionVersion.current) {
+          setApiCacheScope('guest');
+          setState({ user: null, loading: false });
+        }
       }
-
-      const { user } = await response.json();
-
-      setState({ user, loading: false });
-    } catch (error) {
-      console.error(error);
-      setState({ user: null, loading: false });
-    }
+    })();
+    pendingSession.current = pending;
+    void pending.finally(() => {
+      if (pendingSession.current === pending) pendingSession.current = null;
+    });
+    return pending;
   }, [setState]);
 
   useEffect(() => {

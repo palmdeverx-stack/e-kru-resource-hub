@@ -14,6 +14,7 @@ export const PRODUCT_MANAGE_SELECT = `*,
 type StoredMedia = {
   id?: string;
   is_cover?: boolean;
+  file_name?: string;
   storage_bucket: string;
   storage_path: string;
   [key: string]: unknown;
@@ -48,7 +49,7 @@ function isOfficialSeller(seller: unknown) {
   return resolvedSeller?.owner_role === 'master_admin' || resolvedSeller?.is_system_store === true;
 }
 
-async function getOfficialProductCoverFallback() {
+export async function getOfficialProductCoverFallback() {
   const settings = await getPublicPlatformSettings();
   return (
     settings?.official_product_thumbnail_url?.trim() ||
@@ -67,7 +68,13 @@ export async function withMediaUrls<
     cover_url?: string | null;
     seller?: unknown;
   },
->(product: T, options: { includeScanMetadata?: boolean } = {}): Promise<T> {
+>(
+  product: T,
+  options: {
+    includeScanMetadata?: boolean;
+    officialCoverFallback?: () => Promise<string | null>;
+  } = {}
+): Promise<T> {
   const images = (product.images ?? []).map((image) => ({
     ...image,
     url: image.id ? productImageUrl(image.id) : null,
@@ -83,7 +90,7 @@ export async function withMediaUrls<
           : (
               await supabaseAdmin.storage
                 .from(file.storage_bucket)
-                .createSignedUrl(file.storage_path, 10 * 60)
+                .createSignedUrl(file.storage_path, 10 * 60, { download: file.file_name })
             ).data;
       const resolvedFile = { ...file, url: data?.signedUrl ?? null };
       return options.includeScanMetadata
@@ -100,7 +107,7 @@ export async function withMediaUrls<
   let coverUrl = isSupabaseStorageUrl(storedCoverUrl) ? (coverImage?.url ?? null) : storedCoverUrl;
 
   if (!coverUrl && !coverImage?.url && isOfficialSeller(product.seller)) {
-    coverUrl = await getOfficialProductCoverFallback();
+    coverUrl = await (options.officialCoverFallback ?? getOfficialProductCoverFallback)();
   }
 
   return { ...product, cover_url: coverUrl, images, files };
