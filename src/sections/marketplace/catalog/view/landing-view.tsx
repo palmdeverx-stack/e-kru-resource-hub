@@ -511,89 +511,108 @@ export function MarketplaceLandingView() {
                 </Grid>
 
                 <Grid size={{ xs: 12, md: 5 }}>
-                  <Card
+                  <Box
                     sx={{
-                      p: { xs: 3, md: 4 },
-                      overflow: 'hidden',
                       position: 'relative',
-                      borderRadius: '36px 36px 36px 14px',
-                      color: 'common.white',
-                      background: 'linear-gradient(145deg, #174AA5 0%, #2877F3 100%)',
-                      boxShadow: '0 28px 70px rgba(30,84,173,0.22)',
-                      '&::before': {
-                        right: -72,
-                        bottom: -82,
-                        width: 210,
-                        height: 210,
-                        content: '""',
-                        opacity: 0.14,
-                        position: 'absolute',
-                        borderRadius: '50%',
-                        border: '38px solid white',
-                      },
+                      pt: { xs: 18, md: 22 },
+                      maxWidth: 460,
+                      mx: 'auto',
+                      width: 1,
                     }}
                   >
-                    <Stack spacing={3} sx={{ zIndex: 1, position: 'relative' }}>
-                      <Box
-                        sx={{
-                          width: 58,
-                          height: 58,
-                          display: 'grid',
-                          borderRadius: '20px 20px 8px 20px',
-                          placeItems: 'center',
-                          bgcolor: 'rgba(255,255,255,0.14)',
-                          border: '1px solid rgba(255,255,255,0.2)',
-                        }}
-                      >
-                        <RiShieldCheckLine size={34} />
-                      </Box>
-                      <Chip
-                        size="small"
-                        icon={<RiUserStarLine />}
-                        label={t('hero.trustBadge')}
-                        sx={{
-                          width: 'fit-content',
-                          color: 'common.white',
-                          bgcolor: 'rgba(255,255,255,0.13)',
-                          '& .MuiChip-icon': { color: 'inherit' },
-                        }}
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        top: 0,
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        width: { xs: 230, md: 280 },
+                        height: { xs: 212, md: 258 },
+                        zIndex: 2,
+                        pointerEvents: 'none',
+                      }}
+                    >
+                      <Image
+                        src="/assets/mascot/kumi_says_hi.png"
+                        alt=""
+                        fill
+                        priority
+                        sizes="(min-width: 900px) 280px, 230px"
+                        style={{ objectFit: 'contain' }}
                       />
-                      <Typography variant="h3">{t('hero.trustTitle')}</Typography>
-                      <Typography sx={{ color: 'rgba(255,255,255,0.78)', lineHeight: 1.8 }}>
-                        {t('hero.trustDescription')}
-                      </Typography>
-                      <Grid container spacing={2}>
-                        <Grid size={{ xs: 6 }}>
-                          {publicStats ? (
-                            <Typography variant="h4">
-                              {formatCount(publicStats.activeSellers)}
-                            </Typography>
-                          ) : (
-                            <Skeleton
-                              width={72}
-                              height={40}
-                              sx={{ bgcolor: 'rgba(255,255,255,0.14)' }}
-                            />
-                          )}
-                          <Typography variant="caption">{t('stats.approvedStores')}</Typography>
+                    </Box>
+                    <Card
+                      sx={{
+                        p: { xs: 3, md: 4 },
+                        pt: { xs: 10, md: 11 },
+                        overflow: 'hidden',
+                        position: 'relative',
+                        borderRadius: '36px 36px 36px 14px',
+                        color: 'common.white',
+                        background: 'linear-gradient(145deg, #174AA5 0%, #2877F3 100%)',
+                        boxShadow: '0 28px 70px rgba(30,84,173,0.22)',
+                        '&::before': {
+                          right: -72,
+                          bottom: -82,
+                          width: 210,
+                          height: 210,
+                          content: '""',
+                          opacity: 0.14,
+                          position: 'absolute',
+                          borderRadius: '50%',
+                          border: '38px solid white',
+                        },
+                      }}
+                    >
+                      <Stack spacing={2.5} sx={{ zIndex: 1, position: 'relative' }}>
+                        <Chip
+                          size="small"
+                          icon={<RiUserStarLine />}
+                          label={t('hero.trustBadge')}
+                          sx={{
+                            width: 'fit-content',
+                            color: 'common.white',
+                            bgcolor: 'rgba(255,255,255,0.13)',
+                            '& .MuiChip-icon': { color: 'inherit' },
+                          }}
+                        />
+                        <Typography variant="h3">{t('hero.trustTitle')}</Typography>
+                        <Typography sx={{ color: 'rgba(255,255,255,0.78)', lineHeight: 1.8 }}>
+                          {t('hero.trustDescription')}
+                        </Typography>
+                        <Grid container spacing={2}>
+                          <Grid size={{ xs: 6 }}>
+                            {publicStats ? (
+                              <Typography variant="h4">
+                                {formatCount(publicStats.activeSellers)}
+                              </Typography>
+                            ) : (
+                              <Skeleton
+                                width={72}
+                                height={40}
+                                sx={{ bgcolor: 'rgba(255,255,255,0.14)' }}
+                              />
+                            )}
+                            <Typography variant="caption">{t('stats.approvedStores')}</Typography>
+                          </Grid>
+                          <Grid size={{ xs: 6 }}>
+                            {publicStats ? (
+                              <Typography variant="h4">
+                                {formatCount(publicStats.completedOrders)}
+                              </Typography>
+                            ) : (
+                              <Skeleton
+                                width={72}
+                                height={40}
+                                sx={{ bgcolor: 'rgba(255,255,255,0.14)' }}
+                              />
+                            )}
+                            <Typography variant="caption">{t('stats.completedOrders')}</Typography>
+                          </Grid>
                         </Grid>
-                        <Grid size={{ xs: 6 }}>
-                          {publicStats ? (
-                            <Typography variant="h4">
-                              {formatCount(publicStats.completedOrders)}
-                            </Typography>
-                          ) : (
-                            <Skeleton
-                              width={72}
-                              height={40}
-                              sx={{ bgcolor: 'rgba(255,255,255,0.14)' }}
-                            />
-                          )}
-                          <Typography variant="caption">{t('stats.completedOrders')}</Typography>
-                        </Grid>
-                      </Grid>
-                    </Stack>
-                  </Card>
+                      </Stack>
+                    </Card>
+                  </Box>
                 </Grid>
               </Grid>
             </Container>
@@ -1231,15 +1250,18 @@ export function MarketplaceLandingView() {
           >
             <Grid container spacing={{ xs: 4, md: 6 }} alignItems="center">
               <Grid size={{ xs: 12, md: 6 }}>
-                <Chip
-                  label={t('community.eyebrow')}
-                  sx={{
-                    color: '#9A5B16',
-                    fontWeight: 800,
-                    bgcolor: '#FFF0D5',
-                    border: '1px solid #F5D49D',
-                  }}
-                />
+                <Stack direction="row" alignItems="center" spacing={2} flexWrap="wrap" useFlexGap>
+                  <LandingMascot pose="heart" width={96} />
+                  <Chip
+                    label={t('community.eyebrow')}
+                    sx={{
+                      color: '#9A5B16',
+                      fontWeight: 800,
+                      bgcolor: '#FFF0D5',
+                      border: '1px solid #F5D49D',
+                    }}
+                  />
+                </Stack>
                 <Typography component="h2" variant="h3" sx={{ mt: 2.5, maxWidth: 590 }}>
                   {t('community.heading')}
                 </Typography>
@@ -1485,12 +1507,23 @@ export function MarketplaceLandingView() {
           )}
 
           <Box sx={{ pt: { xs: 4, md: 6 }, pb: 2 }}>
-            <SectionHeading
-              eyebrow="FREQUENTLY ASKED QUESTIONS"
-              title={t('faq.heading')}
-              description={t('faq.description')}
-            />
-            <Stack spacing={1.5} sx={{ maxWidth: '100%', mx: 'auto', mt: 4, pb: 2 }}>
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              alignItems="center"
+              justifyContent="center"
+              spacing={{ xs: 1.5, sm: 2.5 }}
+              sx={{ maxWidth: 800, mx: 'auto' }}
+            >
+              <LandingMascot pose="question" width={156} />
+              <Box sx={{ minWidth: 0, maxWidth: 580 }}>
+                <SectionHeading
+                  eyebrow="FREQUENTLY ASKED QUESTIONS"
+                  title={t('faq.heading')}
+                  description={t('faq.description')}
+                />
+              </Box>
+            </Stack>
+            <Stack spacing={1.5} sx={{ maxWidth: '100%', mx: 'auto', mt: 3, pb: 2 }}>
               {faqKeys.map((faqKey, index) => (
                 <Accordion
                   key={faqKey}
@@ -1560,39 +1593,72 @@ export function MarketplaceLandingView() {
               background: 'linear-gradient(135deg, #0B3B91 0%, #1565F5 100%)',
             }}
           >
-            <Typography variant="h3">{t('cta.title')}</Typography>
-            <Typography sx={{ mt: 1.5, color: 'rgba(255,255,255,0.75)' }}>
-              {t('cta.description')}
-            </Typography>
             <Stack
-              direction={{ xs: 'column', sm: 'row' }}
-              spacing={1.5}
-              justifyContent="center"
-              sx={{ mt: 3 }}
+              direction={{ xs: 'column', md: 'row' }}
+              alignItems="center"
+              spacing={{ xs: 2, md: 4 }}
             >
-              <Button
-                size="large"
-                variant="contained"
-                color="white"
-                component={RouterLink}
-                href={paths.marketplace.products}
-              >
-                {t('actions.browse')}
-              </Button>
-              <Button
-                size="large"
-                variant="outlined"
-                component={RouterLink}
-                href={paths.marketplace.seller}
-                sx={{ color: 'common.white', borderColor: 'rgba(255,255,255,0.45)' }}
-              >
-                {t('actions.applySeller')}
-              </Button>
+              <LandingMascot pose="thank" width={180} />
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography variant="h3">{t('cta.title')}</Typography>
+                <Typography sx={{ mt: 1.5, color: 'rgba(255,255,255,0.75)' }}>
+                  {t('cta.description')}
+                </Typography>
+                <Stack
+                  direction={{ xs: 'column', sm: 'row' }}
+                  spacing={1.5}
+                  justifyContent="center"
+                  sx={{ mt: 3 }}
+                >
+                  <Button
+                    size="large"
+                    variant="contained"
+                    color="white"
+                    component={RouterLink}
+                    href={paths.marketplace.products}
+                  >
+                    {t('actions.browse')}
+                  </Button>
+                  <Button
+                    size="large"
+                    variant="outlined"
+                    component={RouterLink}
+                    href={paths.marketplace.seller}
+                    sx={{ color: 'common.white', borderColor: 'rgba(255,255,255,0.45)' }}
+                  >
+                    {t('actions.applySeller')}
+                  </Button>
+                </Stack>
+              </Box>
             </Stack>
           </Card>
         </Stack>
       </Container>
     </>
+  );
+}
+
+/** Decorative artwork stays out of the reading order and loads only near the viewport. */
+function LandingMascot({ pose, width }: { pose: 'heart' | 'question' | 'thank'; width: number }) {
+  return (
+    <Box
+      sx={{
+        width,
+        maxWidth: '100%',
+        aspectRatio: '1 / 1',
+        position: 'relative',
+        flexShrink: 0,
+        pointerEvents: 'none',
+      }}
+    >
+      <Image
+        src={`/assets/mascot/kumi_${pose}.png`}
+        alt=""
+        fill
+        sizes={`${width}px`}
+        style={{ objectFit: 'contain' }}
+      />
+    </Box>
   );
 }
 
