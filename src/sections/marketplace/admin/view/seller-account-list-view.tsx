@@ -282,27 +282,37 @@ export function MarketplaceSellerAccountListView() {
         </Alert>
       )}
       <Card variant="outlined">
-        <TableContainer>
-          <Table sx={{ minWidth: 1360 }}>
+        <Stack direction="row" alignItems="center" spacing={1} sx={{ px: 2.5, py: 2 }}>
+          <Typography variant="h6">รายการร้านค้า</Typography>
+          <Chip size="small" variant="soft" label={`${total.toLocaleString('th-TH')} ร้าน`} />
+        </Stack>
+        <TableContainer sx={{ maxHeight: 720 }}>
+          <Table
+            stickyHeader
+            aria-label="บัญชีร้านค้าในระบบ"
+            sx={{ minWidth: 1180, '& td': { py: 2, verticalAlign: 'top' } }}
+          >
             <TableHead>
               <TableRow>
-                <TableCell>ร้านค้า</TableCell>
-                <TableCell>ผู้ขาย/การติดต่อ</TableCell>
-                <TableCell>ประเภท</TableCell>
-                <TableCell>สถานะ</TableCell>
-                <TableCell>ขั้นตอนล่าสุด</TableCell>
+                <TableCell sx={{ width: 64 }}>ลำดับ</TableCell>
+                <TableCell sx={{ minWidth: 220 }}>ร้านค้า / ประเภท</TableCell>
+                <TableCell sx={{ minWidth: 210 }}>ผู้ขาย / การติดต่อ</TableCell>
+                <TableCell sx={{ minWidth: 175 }}>สถานะ / การเปิดร้าน</TableCell>
                 <TableCell>ค่าธรรมเนียม</TableCell>
-                <TableCell align="right">สินค้า</TableCell>
-                <TableCell align="right">ขายแล้ว</TableCell>
-                <TableCell align="right">ผู้เข้าชมรวม</TableCell>
-                <TableCell>อัปเดตล่าสุด</TableCell>
-                <TableCell align="right">จัดการ</TableCell>
+                <TableCell sx={{ minWidth: 180 }}>สถิติร้านค้า</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap' }}>อัปเดตล่าสุด</TableCell>
+                <TableCell
+                  align="right"
+                  sx={{ position: 'sticky', right: 0, zIndex: 3, minWidth: 160 }}
+                >
+                  จัดการ
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={11} align="center" sx={{ py: 10 }}>
+                  <TableCell colSpan={8} align="center" sx={{ py: 10 }}>
                     <CircularProgress size={32} />
                     <Typography color="text.secondary" sx={{ mt: 1 }}>
                       กำลังโหลดบัญชีร้านค้า...
@@ -310,7 +320,7 @@ export function MarketplaceSellerAccountListView() {
                   </TableCell>
                 </TableRow>
               ) : sellers.length ? (
-                sellers.map((seller) => {
+                sellers.map((seller, index) => {
                   const step = Math.min(5, Math.max(1, seller.wizard_step || 1));
                   const isCustomRate = seller.commission_rate_override != null;
                   const effectiveRate = isCustomRate
@@ -318,6 +328,11 @@ export function MarketplaceSellerAccountListView() {
                     : defaultCommissionRate;
                   return (
                     <TableRow key={seller.id} hover>
+                      <TableCell
+                        sx={{ color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}
+                      >
+                        {page * rowsPerPage + index + 1}
+                      </TableCell>
                       <TableCell>
                         <Stack direction="row" spacing={1.5} alignItems="center">
                           <Avatar
@@ -328,9 +343,19 @@ export function MarketplaceSellerAccountListView() {
                             <RiStore3Line />
                           </Avatar>
                           <Box sx={{ minWidth: 0 }}>
-                            <Typography variant="subtitle2">{seller.display_name}</Typography>
+                            <Typography variant="subtitle2" sx={{ overflowWrap: 'anywhere' }}>
+                              {seller.display_name}
+                            </Typography>
                             <Typography variant="caption" color="text.secondary">
                               /store/{seller.slug || '-'}
+                            </Typography>
+                            <Typography
+                              variant="caption"
+                              display="block"
+                              color="text.secondary"
+                              sx={{ mt: 0.5 }}
+                            >
+                              {sellerTypeLabel[seller.seller_type]}
                             </Typography>
                           </Box>
                         </Stack>
@@ -345,29 +370,14 @@ export function MarketplaceSellerAccountListView() {
                         </Typography>
                       </TableCell>
                       <TableCell>
-                        <Chip
-                          size="small"
-                          variant="soft"
-                          label={sellerTypeLabel[seller.seller_type]}
-                        />
-                      </TableCell>
-                      <TableCell>
                         <SellerAccountStatus status={seller.status} />
-                      </TableCell>
-                      <TableCell sx={{ minWidth: 160 }}>
-                        <Chip
-                          size="small"
-                          variant="soft"
-                          color="info"
-                          label={`ขั้นตอนที่ ${step}/5`}
-                        />
-                        <Typography
-                          variant="caption"
-                          color="text.secondary"
-                          sx={{ display: 'block', mt: 0.5 }}
-                        >
-                          {sellerSteps[step - 1]}
-                        </Typography>
+                        {['draft', 'rejected'].includes(seller.status) && (
+                          <Box sx={{ mt: 1.25 }}>
+                            <Typography variant="caption" color="text.secondary">
+                              ล่าสุด: {step}/5 · {sellerSteps[step - 1]}
+                            </Typography>
+                          </Box>
+                        )}
                       </TableCell>
                       <TableCell>
                         <Typography
@@ -377,44 +387,35 @@ export function MarketplaceSellerAccountListView() {
                           {effectiveRate}%
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          {isCustomRate ? 'เรทเฉพาะร้าน' : 'เรท Default'}
+                          {isCustomRate ? 'อัตราเฉพาะร้าน' : 'อัตรามาตรฐาน'}
                         </Typography>
                       </TableCell>
-                      <TableCell align="right">
-                        <Typography variant="subtitle2">
-                          {statsLoading
-                            ? '…'
-                            : statsError
-                              ? '—'
-                              : seller.product_count.toLocaleString('th-TH')}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          รายการ
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="right">
-                        <Typography variant="subtitle2" color="success.main">
-                          {statsLoading
-                            ? '…'
-                            : statsError
-                              ? '—'
-                              : seller.sold_count.toLocaleString('th-TH')}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          ชิ้น
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="right">
-                        <Typography variant="subtitle2">
-                          {statsLoading
-                            ? '…'
-                            : statsError
-                              ? '—'
-                              : seller.view_count.toLocaleString('th-TH')}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          ครั้ง
-                        </Typography>
+                      <TableCell>
+                        <Stack spacing={0.5} sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                          {[
+                            { label: 'สินค้า', value: seller.product_count },
+                            { label: 'ขายแล้ว', value: seller.sold_count },
+                            { label: 'เข้าชม', value: seller.view_count },
+                          ].map((metric) => (
+                            <Stack
+                              key={metric.label}
+                              direction="row"
+                              justifyContent="space-between"
+                              spacing={2}
+                            >
+                              <Typography variant="caption" color="text.secondary">
+                                {metric.label}
+                              </Typography>
+                              <Typography variant="caption" fontWeight={600}>
+                                {statsLoading
+                                  ? '…'
+                                  : statsError
+                                    ? '—'
+                                    : metric.value.toLocaleString('th-TH')}
+                              </Typography>
+                            </Stack>
+                          ))}
+                        </Stack>
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2">
@@ -424,32 +425,42 @@ export function MarketplaceSellerAccountListView() {
                           })}
                         </Typography>
                       </TableCell>
-                      <TableCell align="right">
-                        <Button
-                          component={RouterLink}
-                          href={paths.marketplace.sellerAccount(seller.id)}
-                          size="small"
-                          variant="outlined"
-                          startIcon={<RiEyeLine />}
-                        >
-                          ดูรายละเอียด
-                        </Button>
-                        {['draft', 'rejected'].includes(seller.status) && (
+                      <TableCell
+                        align="right"
+                        sx={{
+                          position: 'sticky',
+                          right: 0,
+                          bgcolor: 'background.paper',
+                          boxShadow: '-8px 0 12px -12px rgba(0,0,0,0.3)',
+                        }}
+                      >
+                        <Stack alignItems="stretch" spacing={0.75}>
                           <Button
+                            component={RouterLink}
+                            href={paths.marketplace.sellerAccount(seller.id)}
                             size="small"
-                            onClick={() => setReminderSeller(seller)}
-                            sx={{ mt: 0.5 }}
+                            variant="outlined"
+                            startIcon={<RiEyeLine />}
                           >
-                            ส่งอีเมลเตือน
+                            ดูรายละเอียด
                           </Button>
-                        )}
+                          {['draft', 'rejected'].includes(seller.status) && (
+                            <Button
+                              size="small"
+                              onClick={() => setReminderSeller(seller)}
+                              variant="text"
+                            >
+                              ส่งอีเมลเตือน
+                            </Button>
+                          )}
+                        </Stack>
                       </TableCell>
                     </TableRow>
                   );
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={11} align="center" sx={{ py: 10 }}>
+                  <TableCell colSpan={8} align="center" sx={{ py: 10 }}>
                     <RiStore3Line size={42} />
                     <Typography variant="h6" sx={{ mt: 1 }}>
                       ไม่พบบัญชีร้านค้า

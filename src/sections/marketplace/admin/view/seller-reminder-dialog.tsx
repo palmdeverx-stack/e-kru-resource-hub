@@ -97,7 +97,7 @@ export function SellerReminderDialog({ sellerId, shopName, testOnly = false, onC
         )}
         {sent && (
           <Alert severity="success" sx={{ mb: 2 }}>
-            Resend รับคำขอส่งแล้ว กรุณาตรวจสถานะการนำส่งที่ Resend → Emails
+            ผู้ให้บริการรับคำขอส่งแล้ว กรุณาตรวจกล่องจดหมายและสแปมของผู้รับ
           </Alert>
         )}
         {!!testSuccess && (
@@ -157,7 +157,7 @@ export function SellerReminderDialog({ sellerId, shopName, testOnly = false, onC
                 <Typography variant="body2">ผู้ส่ง: {preview.fromEmail}</Typography>
               ) : (
                 <Alert severity="warning" sx={{ mt: 1 }}>
-                  ยังไม่ได้ตั้งค่าอีเมลผู้ส่ง RESEND_FROM_EMAIL
+                  ยังไม่ได้ตั้งค่าอีเมลผู้ส่ง
                 </Alert>
               )}
               <Typography variant="body2">

@@ -1,11 +1,11 @@
 import { z } from 'zod';
 import { NextResponse } from 'next/server';
 
-import { sendEmail } from 'src/lib/resend';
 import { requireRole } from 'src/lib/auth-token';
 import { isActionAllowed } from 'src/lib/auth-rate-limit';
 import { writeSecurityAudit } from 'src/lib/security-audit';
 import { rejectCrossSiteMutation } from 'src/lib/request-security';
+import { sendEmail, getEmailSender, getEmailReplyTo } from 'src/lib/resend';
 
 import { buildSellerReminderEmail } from 'src/sections/marketplace/admin/server/seller-reminder-email';
 
@@ -24,8 +24,8 @@ export async function GET(request: Request) {
     {
       ...templateFor(request),
       to: '',
-      fromEmail: process.env.RESEND_FROM_EMAIL?.trim() || null,
-      replyTo: process.env.RESEND_REPLY_TO_EMAIL?.trim() || null,
+      fromEmail: getEmailSender(),
+      replyTo: getEmailReplyTo() || null,
     },
     { headers: { 'Cache-Control': 'private, no-store' } }
   );
@@ -41,11 +41,8 @@ export async function POST(request: Request) {
     .safeParse(await request.json().catch(() => null));
   if (!parsed.success)
     return NextResponse.json({ message: 'กรุณาระบุอีเมลรับตัวอย่างให้ถูกต้อง' }, { status: 400 });
-  if (!process.env.RESEND_FROM_EMAIL?.trim())
-    return NextResponse.json(
-      { message: 'กรุณาตั้งค่า RESEND_FROM_EMAIL ก่อนส่ง' },
-      { status: 503 }
-    );
+  if (!getEmailSender())
+    return NextResponse.json({ message: 'กรุณาตั้งค่าอีเมลผู้ส่งก่อนส่ง' }, { status: 503 });
   const allowed = await isActionAllowed({
     request,
     action: 'seller-reminder-test',
@@ -61,7 +58,7 @@ export async function POST(request: Request) {
       to: parsed.data.to,
       subject: `[ตัวอย่าง] ${template.subject}`,
       html: template.html,
-      replyTo: process.env.RESEND_REPLY_TO_EMAIL?.trim() || undefined,
+      replyTo: getEmailReplyTo(),
     });
   } catch (mailError) {
     const code =
@@ -69,6 +66,10 @@ export async function POST(request: Request) {
         ? String(mailError.providerCode)
         : 'unknown';
     const messages: Record<string, string> = {
+      gmail_configuration_error: 'กรุณาตั้งค่า GMAIL_USER และ GMAIL_APP_PASSWORD',
+      gmail_auth_error:
+        'Gmail ปฏิเสธการเข้าสู่ระบบ กรุณาตรวจ App password และเปิดการยืนยันสองขั้นตอน',
+      gmail_send_error: 'Gmail ส่งไม่สำเร็จ กรุณาตรวจการเชื่อมต่อ โควตา และอีเมลผู้รับ',
       validation_error:
         'Resend ไม่ยอมรับอีเมลผู้ส่งหรือผู้รับ กรุณาตรวจสอบโดเมนที่ยืนยันและรูปแบบอีเมล',
       restricted_api_key: 'API key ของ Resend ไม่มีสิทธิ์ส่งจากโดเมนนี้ กรุณาตรวจสอบสิทธิ์ของคีย์',
@@ -102,5 +103,5 @@ export async function POST(request: Request) {
     result: 'success',
     metadata: { template: 'seller_issue_resolved' },
   });
-  return NextResponse.json({ message: 'Resend รับคำขอส่งตัวอย่างแล้ว' });
+  return NextResponse.json({ message: 'ผู้ให้บริการรับคำขอส่งตัวอย่างแล้ว' });
 }

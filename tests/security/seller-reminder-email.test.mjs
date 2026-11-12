@@ -22,7 +22,7 @@ function api({ authorized = true, status = 'draft', ownerEmail = 'owner@example.
     'src/lib/request-security': { rejectCrossSiteMutation: () => crossSite ? { status: 403 } : null },
     'src/lib/auth-rate-limit': { isActionAllowed: async (args) => { assert.equal(args.action, testBody ? 'seller-reminder-test' : 'seller-reminder:seller'); return allowed; } },
     'src/lib/security-audit': { writeSecurityAudit: async () => {} },
-    'src/lib/resend': { sendEmail: async (message) => { if (mailFailure) throw new Error('unavailable'); sent.push(message); } },
+    'src/lib/resend': { getEmailSender: () => sender, getEmailReplyTo: () => 'ekru.team@gmail.com', sendEmail: async (message) => { if (mailFailure) throw new Error('unavailable'); sent.push(message); } },
     'src/sections/marketplace/admin/server/seller-reminder-email': template,
     'src/lib/supabase-admin': { supabaseAdmin: { from: table => {
       assert.ok(['marketplace_sellers', 'marketplace_users'].includes(table));
@@ -96,7 +96,7 @@ test('page-level test email needs no seller and enforces admin, CSRF, recipient 
       'src/lib/request-security': { rejectCrossSiteMutation: () => scenario === 'csrf' ? { status: 403 } : null },
       'src/lib/auth-rate-limit': { isActionAllowed: async args => { assert.equal(args.subject, 'admin'); return scenario !== 'limited'; } },
       'src/lib/security-audit': { writeSecurityAudit: async event => audits.push(event) },
-      'src/lib/resend': { sendEmail: async message => { if (scenario === 'provider') throw new Error('failure'); sent.push(message); } },
+      'src/lib/resend': { getEmailSender: () => 'E-KRU <noreply@example.test>', getEmailReplyTo: () => undefined, sendEmail: async message => { if (scenario === 'provider') throw new Error('failure'); sent.push(message); } },
       'src/sections/marketplace/admin/server/seller-reminder-email': template,
     }, { RESEND_FROM_EMAIL: 'E-KRU <noreply@example.test>' });
     const request = { url: 'https://example.test/api/test-email', json: async () => ({ mode: 'test', to: scenario === 'invalid' ? 'invalid' : 'tester@example.test' }) };
