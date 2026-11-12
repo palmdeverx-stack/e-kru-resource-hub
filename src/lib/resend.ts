@@ -1,7 +1,9 @@
 import 'server-only';
 
 import { Resend } from 'resend';
+import { join } from 'node:path';
 import nodemailer from 'nodemailer';
+import { readFile } from 'node:fs/promises';
 
 // ----------------------------------------------------------------------
 
@@ -44,7 +46,17 @@ export async function sendEmail(params: {
   subject: string;
   html: string;
   replyTo?: string;
+  inlineLogo?: boolean;
 }): Promise<void> {
+  const logo = params.inlineLogo
+    ? await readFile(join(process.cwd(), 'public', 'logo', 'logo-email.png'))
+    : undefined;
+  const html = logo
+    ? params.html.replace(
+        /src="https:\/\/e-kru-marketplace\.com\/logo\/logo-email\.png"/g,
+        'src="cid:ekru-logo"'
+      )
+    : params.html;
   if (process.env.EMAIL_PROVIDER === 'gmail') {
     const user = process.env.GMAIL_USER?.trim();
     const pass = process.env.GMAIL_APP_PASSWORD?.replace(/\s/g, '');
@@ -69,7 +81,18 @@ export async function sendEmail(params: {
         from: { name: 'E-KRU Marketplace', address: user },
         to: params.to,
         subject: params.subject,
-        html: params.html,
+        html,
+        ...(logo && {
+          attachments: [
+            {
+              filename: 'logo.png',
+              content: logo,
+              cid: 'ekru-logo',
+              contentType: 'image/png',
+              contentDisposition: 'inline',
+            },
+          ],
+        }),
         replyTo: params.replyTo || getEmailReplyTo() || user,
       });
       if (!result.messageId || !result.accepted?.length || result.rejected?.length) {
@@ -99,7 +122,12 @@ export async function sendEmail(params: {
     from,
     to: params.to,
     subject: params.subject,
-    html: params.html,
+    html,
+    ...(logo && {
+      attachments: [
+        { filename: 'logo.png', content: logo, contentId: 'ekru-logo', contentType: 'image/png' },
+      ],
+    }),
     ...((params.replyTo || getEmailReplyTo()) && { replyTo: params.replyTo || getEmailReplyTo() }),
   });
 

@@ -368,6 +368,11 @@
     }
   },
   "stores": {
+    "allStores": "All stores",
+    "searchResults": "Store search results",
+    "resultCount": "{{formattedCount}} store",
+    "resultCount_other": "{{formattedCount}} stores",
+    "clearSearch": "Clear search",
     "seo": {
       "title": "Stores | {{platformName}}",
       "description": "Discover approved stores, educators, and resource creators on {{platformName}}.",

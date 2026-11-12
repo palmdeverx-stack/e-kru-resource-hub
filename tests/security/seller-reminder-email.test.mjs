@@ -42,10 +42,12 @@ test('preview uses owner email and escapes shop names without sending', async ()
   assert.equal(result.status, 200);
   assert.equal(result.body.to, 'owner@example.test');
   assert.match(result.body.html, /&lt;Store&gt;/);
-  assert.ok(result.body.html.includes('https://example.test/logo/logo-email.png'));
+  assert.ok(result.body.html.includes('https://e-kru-marketplace.com/logo/logo-email.png'));
   assert.ok(result.body.html.includes('alt="E-KRU Marketplace"')); 
   assert.match(result.body.html, /ขออภัยในความไม่สะดวก/);
   assert.match(result.body.subject, /แก้ไขปัญหาเรียบร้อยแล้ว/);
+  assert.equal(new URL(result.body.actionUrl).origin, 'https://e-kru-marketplace.com');
+  assert.ok(!result.body.html.includes('example.test'));
   assert.match(result.body.actionUrl, /profile\/edit\?step=3/);
   assert.equal(route.sent.length, 0);
 });
@@ -112,4 +114,11 @@ test('page-level test email needs no seller and enforces admin, CSRF, recipient 
       assert.match(sent[0].html, /ร้านค้าตัวอย่าง/);
     }
   }
+});
+
+test('emails generated on localhost always link to the production website', () => {
+  const result = template.buildSellerReminderEmail({ shopName: 'Store', recipientName: 'Tester', step: 1, origin: 'http://localhost:8800' });
+  assert.equal(result.actionUrl, 'https://e-kru-marketplace.com/dashboard/seller/profile/edit?step=1');
+  assert.ok(!result.html.includes('localhost'));
+  assert.ok(result.html.includes('margin:0 auto'));
 });

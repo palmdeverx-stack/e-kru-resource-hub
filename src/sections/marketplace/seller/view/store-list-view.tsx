@@ -17,6 +17,7 @@ import Button from '@mui/material/Button';
 import Skeleton from '@mui/material/Skeleton';
 import Container from '@mui/material/Container';
 import TextField from '@mui/material/TextField';
+import IconButton from '@mui/material/IconButton';
 import Pagination from '@mui/material/Pagination';
 import Typography from '@mui/material/Typography';
 import InputAdornment from '@mui/material/InputAdornment';
@@ -29,6 +30,7 @@ import { apiFetch as fetch } from 'src/lib/api-fetch';
 
 import {
   RiEyeLine,
+  RiCloseLine,
   RiSearchLine,
   RiStore2Line,
   RiArrowRightLine,
@@ -68,7 +70,7 @@ type StoreResponse = {
 };
 
 export function MarketplaceStoreListView() {
-  const { t } = useTranslate('marketplace');
+  const { t, currentLang } = useTranslate('marketplace');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -104,99 +106,156 @@ export function MarketplaceStoreListView() {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ py: { xs: 5, md: 8 } }}>
-      <Stack spacing={4}>
-        <Box>
-          <Typography component="h1" variant="h2">
-            {t('stores.heading')}
-          </Typography>
-          <Typography color="text.secondary" sx={{ mt: 1, maxWidth: 720 }}>
-            {t('stores.description')}
-          </Typography>
+    <Container maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
+      <Stack spacing={{ xs: 3, md: 4 }}>
+        <Box
+          sx={{
+            p: { xs: 3, md: 4 },
+            borderRadius: 3,
+            bgcolor: 'primary.lighter',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 3,
+          }}
+        >
+          <Box sx={{ maxWidth: 680 }}>
+            <Typography
+              component="h1"
+              variant="h2"
+              sx={{ typography: { xs: 'h3', md: 'h2' }, color: 'grey.900' }}
+            >
+              {t('stores.heading')}
+            </Typography>
+            <Typography sx={{ mt: 1.5, color: 'grey.700' }}>{t('stores.description')}</Typography>
+          </Box>
+          <Box
+            sx={{
+              display: { xs: 'none', md: 'grid' },
+              width: 104,
+              height: 104,
+              flexShrink: 0,
+              borderRadius: 3,
+              placeItems: 'center',
+              bgcolor: 'background.paper',
+              color: 'primary.main',
+            }}
+          >
+            <RiStore2Line size={48} aria-hidden />
+          </Box>
         </Box>
 
-        <Stack
-          direction={{ xs: 'column', sm: 'row' }}
-          spacing={2}
-          alignItems={{ xs: 'stretch', sm: 'center' }}
-          justifyContent="space-between"
-        >
-          <TextField
-            value={search}
-            onChange={(event) => handleSearch(event.target.value)}
-            placeholder={t('stores.searchPlaceholder')}
-            sx={{ width: { xs: 1, sm: 420 } }}
-            slotProps={{
-              input: {
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <RiSearchLine size={20} />
-                  </InputAdornment>
-                ),
-              },
-            }}
-          />
-          {/* {!loading && (
-            <Typography variant="body2" color="text.secondary">
-              {t('stores.approvedCount', {
-                count: total,
-                formattedCount: total.toLocaleString(currentLang.numberFormat.code),
-              })}
-            </Typography>
-          )} */}
+        <Stack spacing={2.5}>
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={2}
+            alignItems={{ xs: 'stretch', sm: 'center' }}
+            justifyContent="space-between"
+          >
+            <Box aria-live="polite">
+              <Typography component="h2" variant="h6">
+                {t(debouncedSearch ? 'stores.searchResults' : 'stores.allStores')}
+              </Typography>
+              {!loading && !isError && (
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                  {t('stores.resultCount', {
+                    count: data?.total ?? 0,
+                    formattedCount: (data?.total ?? 0).toLocaleString(
+                      currentLang.numberFormat.code
+                    ),
+                  })}
+                </Typography>
+              )}
+            </Box>
+            <TextField
+              value={search}
+              onChange={(event) => handleSearch(event.target.value)}
+              placeholder={t('stores.searchPlaceholder')}
+              size="small"
+              sx={{ width: { xs: 1, sm: 380 }, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+              slotProps={{
+                htmlInput: { 'aria-label': t('stores.searchPlaceholder') },
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <RiSearchLine size={20} />
+                    </InputAdornment>
+                  ),
+                  endAdornment: search ? (
+                    <InputAdornment position="end">
+                      <IconButton
+                        size="small"
+                        aria-label={t('stores.clearSearch')}
+                        onClick={() => handleSearch('')}
+                      >
+                        <RiCloseLine size={18} />
+                      </IconButton>
+                    </InputAdornment>
+                  ) : undefined,
+                },
+              }}
+            />
+          </Stack>
+
+          {isError && (
+            <Alert
+              severity="error"
+              action={
+                <Button
+                  color="inherit"
+                  onClick={() => {
+                    void refetch();
+                  }}
+                >
+                  {t('errors.retry')}
+                </Button>
+              }
+            >
+              {t('stores.errors.load')}
+            </Alert>
+          )}
+          <Grid container spacing={{ xs: 2, md: 2.5 }} aria-busy={loading}>
+            {loading
+              ? Array.from({ length: 6 }).map((_, index) => (
+                  <Grid key={index} size={{ xs: 12, sm: 6, md: 4 }}>
+                    <StoreCardSkeleton />
+                  </Grid>
+                ))
+              : stores.map((store) => (
+                  <Grid key={store.id} size={{ xs: 12, sm: 6, md: 4 }}>
+                    <StoreCard store={store} />
+                  </Grid>
+                ))}
+          </Grid>
+
+          {!loading && !isError && stores.length === 0 && (
+            <Card
+              variant="outlined"
+              sx={{ py: 8, px: 3, textAlign: 'center', borderStyle: 'dashed' }}
+            >
+              <RiStore2Line size={52} color="#919EAB" aria-hidden />
+              <Typography variant="h5" sx={{ mt: 2 }}>
+                {t('stores.empty.title')}
+              </Typography>
+              <Typography color="text.secondary" sx={{ mt: 1 }}>
+                {t('stores.empty.description')}
+              </Typography>
+              {!!search && (
+                <Button variant="outlined" onClick={() => handleSearch('')} sx={{ mt: 2.5 }}>
+                  {t('stores.clearSearch')}
+                </Button>
+              )}
+            </Card>
+          )}
         </Stack>
 
-        {isError && (
-          <Alert
-            severity="error"
-            action={
-              <Button
-                color="inherit"
-                onClick={() => {
-                  void refetch();
-                }}
-              >
-                {t('errors.retry')}
-              </Button>
-            }
-          >
-            {t('stores.errors.load')}
-          </Alert>
-        )}
-        <Grid container spacing={2.5}>
-          {loading
-            ? Array.from({ length: 6 }).map((_, index) => (
-                <Grid key={index} size={{ xs: 12, sm: 6, md: 4 }}>
-                  <StoreCardSkeleton />
-                </Grid>
-              ))
-            : stores.map((store) => (
-                <Grid key={store.id} size={{ xs: 12, sm: 6, md: 4 }}>
-                  <StoreCard store={store} />
-                </Grid>
-              ))}
-        </Grid>
-
-        {!loading && !isError && stores.length === 0 && (
-          <Card
-            variant="outlined"
-            sx={{ py: 8, px: 3, textAlign: 'center', borderStyle: 'dashed' }}
-          >
-            <RiStore2Line size={52} color="#919EAB" aria-hidden />
-            <Typography variant="h5" sx={{ mt: 2 }}>
-              {t('stores.empty.title')}
-            </Typography>
-            <Typography color="text.secondary" sx={{ mt: 1 }}>
-              {t('stores.empty.description')}
-            </Typography>
-          </Card>
-        )}
-
-        {totalPages > 1 && (
+        {!loading && !isError && totalPages > 1 && (
           <Pagination
             page={page}
             count={totalPages}
             color="primary"
+            shape="rounded"
+            sx={{ alignSelf: 'center', '& .MuiPagination-ul': { justifyContent: 'center' } }}
             getItemAriaLabel={(type, itemPage) =>
               type === 'page'
                 ? t('stores.pagination.page', { page: itemPage })
@@ -206,7 +265,6 @@ export function MarketplaceStoreListView() {
               setPage(nextPage);
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
-            sx={{ alignSelf: 'center' }}
           />
         )}
       </Stack>
@@ -231,14 +289,15 @@ function StoreCard({ store }: { store: PublicStore }) {
         flexDirection: 'column',
         position: 'relative',
         overflow: 'hidden',
-        borderRadius: 3.5,
+        borderRadius: 3,
         borderColor: 'divider',
         bgcolor: 'background.paper',
+        boxShadow: 'none',
         transition: 'transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease',
         '&:hover': {
-          transform: 'translateY(-4px)',
+          transform: 'translateY(-2px)',
           borderColor: 'primary.light',
-          boxShadow: '0 18px 44px rgba(15, 23, 42, 0.11)',
+          boxShadow: '0 8px 24px rgba(15, 23, 42, 0.08)',
         },
       }}
     >
@@ -259,11 +318,17 @@ function StoreCard({ store }: { store: PublicStore }) {
       <Box
         component={RouterLink}
         href={paths.marketplace.store(storeIdentifier)}
+        aria-label={storeName}
         sx={{
-          height: 132,
+          height: 112,
           display: 'block',
           position: 'relative',
           textDecoration: 'none',
+          '&:focus-visible': {
+            outline: '2px solid',
+            outlineColor: 'primary.main',
+            outlineOffset: -2,
+          },
           bgcolor: 'primary.lighter',
           backgroundImage: 'linear-gradient(135deg, #E9F2FF 0%, #DDF7F1 100%)',
           backgroundSize: 'cover',
@@ -292,12 +357,13 @@ function StoreCard({ store }: { store: PublicStore }) {
           alt={storeName}
           slotProps={{ img: { loading: 'lazy', decoding: 'async' } }}
           sx={{
-            left: 24,
-            bottom: -38,
-            width: 78,
-            height: 78,
+            left: 20,
+            bottom: -28,
+            width: 68,
+            height: 68,
             position: 'absolute',
-            bgcolor: 'common.white',
+            bgcolor: 'background.paper',
+            '& img': { objectFit: 'contain' },
             color: 'primary.main',
             border: '4px solid',
             borderColor: 'background.paper',
@@ -307,15 +373,30 @@ function StoreCard({ store }: { store: PublicStore }) {
         </Avatar>
       </Box>
 
-      <Stack spacing={1.75} sx={{ px: 3, pt: 6, pb: 3, flex: 1 }}>
+      <Stack spacing={1.5} sx={{ px: 2.5, pt: 4.5, pb: 2.5, flex: 1, minWidth: 0 }}>
         <Box>
-          <Stack direction="row" spacing={0.75} alignItems="center">
+          <Stack
+            direction="row"
+            spacing={0.75}
+            alignItems="flex-start"
+            sx={{ '& > svg': { flexShrink: 0, mt: 0.5 } }}
+          >
             <Typography
               component={RouterLink}
               href={paths.marketplace.store(storeIdentifier)}
               variant="h6"
-              noWrap
-              sx={{ color: 'text.primary', textDecoration: 'none' }}
+              sx={{
+                color: 'text.primary',
+                textDecoration: 'none',
+                minWidth: 0,
+                overflowWrap: 'anywhere',
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+                lineHeight: 1.4,
+                '&:hover': { color: 'primary.main' },
+              }}
             >
               {storeName}
             </Typography>
@@ -358,57 +439,63 @@ function StoreCard({ store }: { store: PublicStore }) {
           {store.bio || t('stores.card.defaultBio')}
         </Typography>
 
-        <Stack
-          direction="row"
-          spacing={1.5}
-          alignItems="center"
-          flexWrap="wrap"
-          useFlexGap
+        <Box
           sx={{
-            py: 1.25,
+            display: 'grid',
+            gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+            bgcolor: 'background.neutral',
+            borderRadius: 2,
+            p: 1.5,
+            gap: 1,
           }}
         >
-          <Stack direction="row" spacing={0.65} alignItems="center">
-            <RiShoppingBag3Line size={17} aria-hidden />
-            <Typography variant="body2" fontWeight={600}>
+          <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
+            <RiShoppingBag3Line size={18} aria-hidden />
+            <Typography variant="caption" fontWeight={600} sx={{ overflowWrap: 'anywhere' }}>
               {t('stores.card.products', {
                 count: store.product_count,
                 formattedCount: store.product_count.toLocaleString(currentLang.numberFormat.code),
               })}
             </Typography>
           </Stack>
-          <Stack direction="row" spacing={0.65} alignItems="center">
-            <RiEyeLine size={17} aria-hidden />
-            <Typography variant="body2" fontWeight={600}>
+          <Stack
+            direction="row"
+            spacing={0.75}
+            alignItems="center"
+            sx={{ minWidth: 0, pl: 1.5, borderLeft: '1px solid', borderColor: 'divider' }}
+          >
+            <RiEyeLine size={18} aria-hidden />
+            <Typography variant="caption" fontWeight={600} sx={{ overflowWrap: 'anywhere' }}>
               {t('stores.card.visitors', {
                 count: store.view_count,
                 formattedCount: store.view_count.toLocaleString(currentLang.numberFormat.code),
               })}
             </Typography>
           </Stack>
-          {store.review_count > 0 && (
-            <Stack direction="row" spacing={0.5} alignItems="center">
-              <Rating
-                value={store.average_rating}
-                precision={0.1}
-                readOnly
-                size="small"
-                sx={{ '& .MuiRating-icon': { fontSize: 17 } }}
-              />
-              <Typography variant="caption" color="text.secondary">
-                ({store.review_count.toLocaleString(currentLang.numberFormat.code)})
-              </Typography>
-            </Stack>
-          )}
-        </Stack>
+        </Box>
+        {store.review_count > 0 && (
+          <Stack direction="row" spacing={0.5} alignItems="center">
+            <Rating
+              value={store.average_rating}
+              precision={0.1}
+              readOnly
+              size="small"
+              sx={{ '& .MuiRating-icon': { fontSize: 17 } }}
+            />
+            <Typography variant="caption" color="text.secondary">
+              ({store.review_count.toLocaleString(currentLang.numberFormat.code)})
+            </Typography>
+          </Stack>
+        )}
 
+        <Box sx={{ flexGrow: 1 }} />
         <Button
           fullWidth
-          variant="contained"
+          variant="outlined"
           component={RouterLink}
           href={paths.marketplace.store(storeIdentifier)}
           endIcon={<RiArrowRightLine />}
-          sx={{ mt: 'auto', minHeight: 44, borderRadius: 2 }}
+          sx={{ minHeight: 44, borderRadius: 2 }}
         >
           {t('stores.card.viewStore')}
         </Button>
@@ -419,15 +506,32 @@ function StoreCard({ store }: { store: PublicStore }) {
 
 function StoreCardSkeleton() {
   return (
-    <Card variant="outlined" sx={{ height: 410, overflow: 'hidden', borderRadius: 3.5 }}>
-      <Skeleton variant="rectangular" height={132} />
-      <Stack spacing={1.5} sx={{ px: 3, pt: 6 }}>
-        <Skeleton width="62%" height={30} />
-        <Skeleton width="30%" height={24} />
-        <Skeleton />
-        <Skeleton width="82%" />
-        <Skeleton variant="rounded" height={46} />
-        <Skeleton variant="rounded" height={44} sx={{ mt: 1 }} />
+    <Card
+      variant="outlined"
+      sx={{ height: 430, overflow: 'hidden', borderRadius: 3, position: 'relative' }}
+    >
+      <Skeleton variant="rectangular" height={112} />
+      <Skeleton
+        variant="circular"
+        width={68}
+        height={68}
+        sx={{
+          position: 'absolute',
+          top: 72,
+          left: 20,
+          border: '4px solid',
+          borderColor: 'background.paper',
+        }}
+      />
+      <Stack spacing={1.5} sx={{ px: 2.5, pt: 4.5 }}>
+        <Skeleton width="70%" height={28} />
+        <Skeleton width="35%" height={24} />
+        <Box>
+          <Skeleton />
+          <Skeleton width="80%" />
+        </Box>
+        <Skeleton variant="rounded" height={48} />
+        <Skeleton variant="rounded" height={44} />
       </Stack>
     </Card>
   );

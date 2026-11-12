@@ -104,7 +104,7 @@ export function MarketplaceCartContent({
         spacing={{ xs: 2, md: 3 }}
         alignItems="flex-start"
       >
-        <Stack spacing={2} sx={{ flex: 1, width: 1 }}>
+        <Stack spacing={2} sx={{ flex: 1, width: 1, minWidth: 0 }}>
           {items.map(({ product }) => {
             const content = getLocalizedProduct(product, currentLang.value);
             const pricing = getMarketplacePricing(product);
@@ -129,16 +129,23 @@ export function MarketplaceCartContent({
                 key={product.id}
                 variant="outlined"
                 sx={{
-                  p: 1.5,
+                  p: { xs: 2, sm: 2.5 },
                   borderRadius: 3,
+                  boxShadow: 'none',
                   transition: 'border-color 160ms ease, box-shadow 160ms ease',
                   '&:hover': {
-                    borderColor: 'primary.light',
-                    boxShadow: '0 10px 28px rgba(15, 23, 42, 0.08)',
+                    borderColor: 'text.disabled',
+                    boxShadow: '0 4px 20px rgba(15, 23, 42, 0.04)',
                   },
                 }}
               >
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                <Box
+                  sx={{
+                    display: 'grid',
+                    gridTemplateColumns: { xs: '80px minmax(0, 1fr)', sm: '120px minmax(0, 1fr)' },
+                    gap: { xs: 1.5, sm: 2.5 },
+                  }}
+                >
                   <Box
                     component="button"
                     type="button"
@@ -146,9 +153,8 @@ export function MarketplaceCartContent({
                     onClick={() => setSelectedProduct(product)}
                     sx={{
                       p: 0,
-                      width: { xs: 1, sm: 160 },
-                      height: { xs: 'auto', sm: 160 },
-                      aspectRatio: { xs: '16 / 9', sm: 'auto' },
+                      width: 1,
+                      aspectRatio: '1 / 1',
                       border: 0,
                       flexShrink: 0,
                       display: 'grid',
@@ -156,7 +162,12 @@ export function MarketplaceCartContent({
                       overflow: 'hidden',
                       borderRadius: 2,
                       placeItems: 'center',
-                      bgcolor: 'primary.lighter',
+                      bgcolor: 'background.neutral',
+                      '&:focus-visible': {
+                        outline: '2px solid',
+                        outlineColor: 'primary.main',
+                        outlineOffset: 3,
+                      },
                     }}
                   >
                     {coverUrl ? (
@@ -168,7 +179,7 @@ export function MarketplaceCartContent({
                           width: 1,
                           height: 1,
                           display: 'block',
-                          objectFit: { xs: 'contain', sm: 'cover' },
+                          objectFit: 'contain',
                           objectPosition: 'center',
                           transition: 'transform 220ms ease',
                           '@media (hover: hover)': {
@@ -181,7 +192,7 @@ export function MarketplaceCartContent({
                     )}
                   </Box>
 
-                  <Stack spacing={1.25} sx={{ flexGrow: 1, minWidth: 0, py: 0.5 }}>
+                  <Stack spacing={1} sx={{ minWidth: 0 }}>
                     <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                       {product.category && (
                         <Chip
@@ -197,7 +208,7 @@ export function MarketplaceCartContent({
                     </Stack>
 
                     <Typography
-                      variant="h6"
+                      variant="subtitle1"
                       sx={{
                         lineHeight: 1.45,
                         overflow: 'hidden',
@@ -216,7 +227,7 @@ export function MarketplaceCartContent({
                         sx={{
                           overflow: 'hidden',
                           display: '-webkit-box',
-                          WebkitLineClamp: 2,
+                          WebkitLineClamp: 1,
                           WebkitBoxOrient: 'vertical',
                         }}
                       >
@@ -238,65 +249,76 @@ export function MarketplaceCartContent({
                           {mediaLabel}
                         </Typography>
                       </Stack>
-                      <Stack direction="row" spacing={0.6} alignItems="center">
-                        <RiGraduationCapLine size={16} />
-                        <Typography variant="caption" color="text.secondary">
-                          {gradeLabel}
-                        </Typography>
-                      </Stack>
-                    </Stack>
-
-                    <Stack
-                      direction={{ xs: 'column', sm: 'row' }}
-                      spacing={1}
-                      alignItems={{ xs: 'stretch', sm: 'center' }}
-                      sx={{ mt: 'auto !important' }}
-                    >
-                      <Stack direction="row" spacing={1} alignItems="center" sx={{ mr: 'auto' }}>
-                        <Typography variant="h5" color="primary.main">
-                          {formatPrice(pricing.salePrice, product.currency)}
-                        </Typography>
-                        {pricing.hasDiscount && (
-                          <>
-                            <Typography
-                              variant="body2"
-                              color="text.disabled"
-                              sx={{ textDecoration: 'line-through' }}
-                            >
-                              {formatPrice(pricing.listPrice, product.currency)}
-                            </Typography>
-                            <Chip
-                              size="small"
-                              color="error"
-                              label={`-${pricing.discountPercent}%`}
-                            />
-                          </>
-                        )}
-                      </Stack>
-                      <Stack spacing={1} sx={{ display: 'flex', flexDirection: 'row' }}>
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          fullWidth
-                          startIcon={<RiEyeLine />}
-                          sx={{ minWidth: 140 }}
-                          onClick={() => setSelectedProduct(product)}
-                        >
-                          {t('cart.actions.viewDetails')}
-                        </Button>
-                        <Button
-                          size="small"
-                          color="error"
-                          fullWidth
-                          startIcon={<RiDeleteBinLine />}
-                          onClick={() => removeItem(product.id)}
-                        >
-                          {t('cart.actions.remove')}
-                        </Button>
-                      </Stack>
+                      {product.resource_type !== 'feature_unlock' && (
+                        <Stack direction="row" spacing={0.6} alignItems="center">
+                          <RiGraduationCapLine size={16} />
+                          <Typography variant="caption" color="text.secondary">
+                            {gradeLabel}
+                          </Typography>
+                        </Stack>
+                      )}
                     </Stack>
                   </Stack>
-                </Stack>
+                  <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={1}
+                    flexWrap="wrap"
+                    useFlexGap
+                    alignItems={{ xs: 'stretch', sm: 'center' }}
+                    sx={{
+                      gridColumn: '1 / -1',
+                      pt: 1.5,
+                      borderTop: '1px solid',
+                      borderColor: 'divider',
+                    }}
+                  >
+                    <Stack direction="row" spacing={1} alignItems="center" sx={{ mr: 'auto' }}>
+                      <Typography
+                        variant="h6"
+                        color="primary.main"
+                        sx={{ fontVariantNumeric: 'tabular-nums' }}
+                      >
+                        {formatPrice(pricing.salePrice, product.currency)}
+                      </Typography>
+                      {pricing.hasDiscount && (
+                        <>
+                          <Typography
+                            variant="body2"
+                            color="text.disabled"
+                            sx={{ textDecoration: 'line-through' }}
+                          >
+                            {formatPrice(pricing.listPrice, product.currency)}
+                          </Typography>
+                          <Chip size="small" color="error" label={`-${pricing.discountPercent}%`} />
+                        </>
+                      )}
+                    </Stack>
+                    <Stack
+                      direction="row"
+                      spacing={1}
+                      sx={{ '& .MuiButton-root': { whiteSpace: 'nowrap' } }}
+                    >
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={<RiEyeLine />}
+                        sx={{ flex: { xs: 1, sm: 'initial' } }}
+                        onClick={() => setSelectedProduct(product)}
+                      >
+                        {t('cart.actions.viewDetails')}
+                      </Button>
+                      <Button
+                        size="small"
+                        color="error"
+                        startIcon={<RiDeleteBinLine />}
+                        onClick={() => removeItem(product.id)}
+                        aria-label={`${t('cart.actions.remove')} ${content.title}`}
+                      >
+                        {t('cart.actions.remove')}
+                      </Button>
+                    </Stack>
+                  </Stack>
+                </Box>
               </Card>
             );
           })}
@@ -306,6 +328,7 @@ export function MarketplaceCartContent({
           sx={{
             p: { xs: 2, sm: 3 },
             width: { xs: 1, md: 360 },
+            flexShrink: 0,
             position: { md: 'sticky' },
             top: { md: 96 },
           }}

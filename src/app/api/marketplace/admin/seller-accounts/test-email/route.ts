@@ -58,6 +58,7 @@ export async function POST(request: Request) {
       to: parsed.data.to,
       subject: `[ตัวอย่าง] ${template.subject}`,
       html: template.html,
+      inlineLogo: true,
       replyTo: getEmailReplyTo(),
     });
   } catch (mailError) {

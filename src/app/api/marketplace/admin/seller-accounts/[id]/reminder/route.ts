@@ -96,6 +96,7 @@ async function handle(request: Request, context: Context, send: boolean) {
       to,
       subject: testRecipient ? `[ตัวอย่าง] ${template.subject}` : template.subject,
       html: template.html,
+      inlineLogo: true,
       replyTo: getEmailReplyTo(),
     });
   } catch (mailError) {

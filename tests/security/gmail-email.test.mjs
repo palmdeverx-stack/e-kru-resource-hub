@@ -8,8 +8,10 @@ const source = ts.transpileModule(readFileSync('src/lib/resend.ts', 'utf8'), { c
 function fixture({ provider = 'gmail', password = 'fixture password', result = { messageId: 'fixture', accepted: ['recipient@example.test'], rejected: [] }, failure } = {}) {
   const exports = {}, sent = [], connections = [];
   let closed = false;
-  vm.runInNewContext(source, { exports, process: { env: { EMAIL_PROVIDER: provider, GMAIL_USER: 'ekru.team@gmail.com', GMAIL_APP_PASSWORD: password, RESEND_API_KEY: 'fixture', RESEND_FROM_EMAIL: 'E-KRU <sender@example.test>' } }, require(name) {
+  vm.runInNewContext(source, { exports, process: { cwd: () => process.cwd(), env: { EMAIL_PROVIDER: provider, GMAIL_USER: 'ekru.team@gmail.com', GMAIL_APP_PASSWORD: password, RESEND_API_KEY: 'fixture', RESEND_FROM_EMAIL: 'E-KRU <sender@example.test>' } }, require(name) {
     if (name === 'server-only') return {};
+    if (name === 'node:path') return { join: (...parts) => parts.join('/') };
+    if (name === 'node:fs/promises') return { readFile: async path => readFileSync(path) };
     if (name === 'resend') return { Resend: class { emails = { send: async message => { sent.push(message); return { data: { id: 'fixture' } }; } }; } };
     if (name === 'nodemailer') return { createTransport(options) { connections.push(options); return { sendMail: async message => { sent.push(message); if (failure) throw failure; return result; }, close: () => { closed = true; } }; } };
     throw new Error(name);
@@ -36,4 +38,15 @@ test('Resend mode keeps the existing provider and explicit reply-to', async () =
   const f = fixture({ provider: 'resend' }); await f.exports.sendEmail({ ...message, replyTo: 'reply@example.test' });
   assert.equal(f.connections.length, 0);
   assert.equal(f.sent[0].replyTo, 'reply@example.test');
+});
+
+test('inline logo is embedded for Gmail and Resend with matching Content-ID', async () => {
+  for (const provider of ['gmail', 'resend']) {
+    const f = fixture({ provider });
+    await f.exports.sendEmail({ ...message, inlineLogo: true, html: '<img src="https://e-kru-marketplace.com/logo/logo-email.png">' });
+    assert.match(f.sent[0].html, /src="cid:ekru-logo"/);
+    const attachment = f.sent[0].attachments[0];
+    assert.equal(attachment.cid || attachment.contentId, 'ekru-logo');
+    assert.ok(attachment.content.length > 0);
+  }
 });

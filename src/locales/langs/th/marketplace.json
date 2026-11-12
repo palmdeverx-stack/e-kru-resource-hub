@@ -355,6 +355,10 @@
     }
   },
   "stores": {
+    "allStores": "ร้านค้าทั้งหมด",
+    "searchResults": "ผลการค้นหาร้านค้า",
+    "resultCount": "{{formattedCount}} ร้าน",
+    "clearSearch": "ล้างการค้นหา",
     "seo": {
       "title": "ร้านค้า | {{platformName}}",
       "description": "ค้นหาร้านค้า ครูผู้สอน และผู้สร้างสื่อที่ผ่านการอนุมัติจาก {{platformName}}",
