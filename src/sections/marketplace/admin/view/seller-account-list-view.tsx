@@ -84,6 +84,7 @@ const sellerTypeLabel: Record<MarketplaceSeller['seller_type'], string> = {
 export function MarketplaceSellerAccountListView() {
   const { user } = useAuthContext();
   const [reminderSeller, setReminderSeller] = useState<SellerAccount | null>(null);
+  const [testEmailOpen, setTestEmailOpen] = useState(false);
   const [sellers, setSellers] = useState<SellerAccount[]>([]);
   const [defaultCommissionRate, setDefaultCommissionRate] = useState(0);
   const [status, setStatus] = useState('all');
@@ -205,14 +206,20 @@ export function MarketplaceSellerAccountListView() {
             </Typography>
           </Box>
         </Stack>
-        <Chip
-          icon={<RiPercentLine />}
-          color="primary"
-          variant="soft"
-          label={`ค่าธรรมเนียม Default ${defaultCommissionRate}%`}
-        />
+        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+          <Button variant="outlined" onClick={() => setTestEmailOpen(true)}>
+            ส่งอีเมลทดสอบ
+          </Button>
+          <Chip
+            icon={<RiPercentLine />}
+            color="primary"
+            variant="soft"
+            label={`ค่าธรรมเนียม Default ${defaultCommissionRate}%`}
+          />
+        </Stack>
       </Stack>
 
+      {testEmailOpen && <SellerReminderDialog testOnly onClose={() => setTestEmailOpen(false)} />}
       <Card variant="outlined" sx={{ p: 2, mt: 3, mb: 2, borderRadius: 3 }}>
         <Stack
           component="form"

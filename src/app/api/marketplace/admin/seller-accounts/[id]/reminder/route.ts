@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { NextResponse } from 'next/server';
 
 import { sendEmail } from 'src/lib/resend';
@@ -19,6 +20,16 @@ async function handle(request: Request, context: Context, send: boolean) {
   const caller = requireRole(request, ['master_admin']);
   if (!caller)
     return NextResponse.json({ message: 'ไม่มีสิทธิ์ส่งอีเมลถึงผู้ขาย' }, { status: 403 });
+  let testRecipient: string | undefined;
+  if (send && request.headers.get('content-type')?.includes('application/json')) {
+    const parsed = z
+      .object({ mode: z.literal('test'), to: z.string().trim().max(254).email() })
+      .strict()
+      .safeParse(await request.json().catch(() => null));
+    if (!parsed.success)
+      return NextResponse.json({ message: 'กรุณาระบุอีเมลรับตัวอย่างให้ถูกต้อง' }, { status: 400 });
+    testRecipient = parsed.data.to;
+  }
   const { id } = await context.params;
   const { data: seller, error } = await supabaseAdmin
     .from('marketplace_sellers')
@@ -40,7 +51,7 @@ async function handle(request: Request, context: Context, send: boolean) {
     .maybeSingle();
   if (ownerError)
     return NextResponse.json({ message: 'โหลดอีเมลเจ้าของร้านไม่สำเร็จ' }, { status: 500 });
-  const to = owner?.email?.trim();
+  const to = testRecipient ?? owner?.email?.trim();
   if (!to || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
     return NextResponse.json(
       { message: 'บัญชีเจ้าของร้านยังไม่มีอีเมลที่ใช้รับข้อความได้' },
@@ -73,26 +84,49 @@ async function handle(request: Request, context: Context, send: boolean) {
     );
   const allowed = await isActionAllowed({
     request,
-    action: `seller-reminder:${id}`,
-    subject: id,
+    action: testRecipient ? 'seller-reminder-test' : `seller-reminder:${id}`,
+    subject: testRecipient ? caller.sub : id,
     maxAttempts: 1,
     windowSeconds: 300,
   });
   if (!allowed)
     return NextResponse.json(
-      { message: 'เพิ่งส่งอีเมลถึงร้านนี้ กรุณารอ 5 นาทีก่อนส่งซ้ำ' },
+      { message: 'เพิ่งส่งอีเมล กรุณารอ 5 นาทีก่อนส่งซ้ำ' },
       { status: 429 }
     );
   try {
     await sendEmail({
       to,
-      subject: template.subject,
+      subject: testRecipient ? `[ตัวอย่าง] ${template.subject}` : template.subject,
       html: template.html,
       replyTo: process.env.RESEND_REPLY_TO_EMAIL?.trim() || undefined,
     });
-  } catch {
+  } catch (mailError) {
+    const code =
+      mailError && typeof mailError === 'object' && 'providerCode' in mailError
+        ? String(mailError.providerCode)
+        : 'unknown';
+    const messages: Record<string, string> = {
+      validation_error:
+        'Resend ไม่ยอมรับอีเมลผู้ส่งหรือผู้รับ กรุณาตรวจสอบโดเมนที่ยืนยันและรูปแบบอีเมล',
+      restricted_api_key: 'API key ของ Resend ไม่มีสิทธิ์ส่งจากโดเมนนี้ กรุณาตรวจสอบสิทธิ์ของคีย์',
+      invalid_api_key: 'API key ของ Resend ไม่ถูกต้อง กรุณาแก้ไขค่าใน Vercel และ Redeploy',
+      missing_api_key: 'ยังไม่ได้ตั้งค่า API key ของ Resend ใน deployment นี้',
+      rate_limit_exceeded: 'Resend จำกัดการส่งชั่วคราว กรุณารอสักครู่แล้วลองใหม่',
+      daily_quota_exceeded: 'ใช้โควตาส่งอีเมลรายวันของ Resend ครบแล้ว',
+      monthly_quota_exceeded: 'ใช้โควตาส่งอีเมลรายเดือนของ Resend ครบแล้ว',
+    };
+    console.error('Seller reminder email failed', {
+      sellerId: id,
+      providerCode: Object.hasOwn(messages, code) ? code : 'unknown',
+      apiKeyConfigured: Boolean(process.env.RESEND_API_KEY?.trim()),
+    });
     return NextResponse.json(
-      { message: 'ส่งอีเมลไม่สำเร็จ กรุณาตรวจสอบการตั้งค่าอีเมลและลองใหม่ภายหลัง' },
+      {
+        message: Object.hasOwn(messages, code)
+          ? messages[code]
+          : 'ส่งอีเมลไม่สำเร็จ กรุณาตรวจสอบการตั้งค่าอีเมลและลองใหม่ภายหลัง',
+      },
       { status: 502 }
     );
   }
@@ -102,7 +136,9 @@ async function handle(request: Request, context: Context, send: boolean) {
     actorRole: caller.role,
     actorUsername: caller.username,
     category: 'admin',
-    action: 'marketplace.seller_reminder_email',
+    action: testRecipient
+      ? 'marketplace.seller_reminder_test_email'
+      : 'marketplace.seller_reminder_email',
     targetType: 'marketplace_seller',
     targetId: id,
     result: 'success',

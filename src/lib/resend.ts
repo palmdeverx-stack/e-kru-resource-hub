@@ -29,7 +29,7 @@ export async function sendEmail(params: {
   const resend = getResendClient();
   const from = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
 
-  const { error } = await resend.emails.send({
+  const { data, error } = await resend.emails.send({
     from,
     to: params.to,
     subject: params.subject,
@@ -38,6 +38,7 @@ export async function sendEmail(params: {
   });
 
   if (error) {
-    throw new Error(error.message);
+    throw Object.assign(new Error(error.message), { providerCode: error.name });
   }
+  if (!data?.id) throw new Error('Resend did not return a message ID');
 }
