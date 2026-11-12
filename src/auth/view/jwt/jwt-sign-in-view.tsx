@@ -1,6 +1,5 @@
 'use client';
 
-
 import * as z from 'zod';
 import { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -21,6 +20,7 @@ import { useRouter, useSearchParams } from 'src/routes/hooks';
 
 import { useTranslate } from 'src/locales';
 
+import { Logo } from 'src/components/logo';
 import { Form, Field } from 'src/components/hook-form';
 import { RiEyeLine, RemixIcon, RiEyeOffLine } from 'src/components/remix-icon';
 
@@ -30,7 +30,6 @@ import { FormDivider } from '../../components/form-divider';
 import { getErrorMessage, getHomePathForRole } from '../../utils';
 import { LineLoginButton } from '../../components/line-login-button';
 import { GoogleIdentityButton } from '../../components/google-identity-button';
-import { MarketplaceAuthBrand } from '../../components/marketplace-auth-brand';
 import { verifySignInPin, signInWithGoogle, signInWithPassword } from '../../context/jwt';
 
 // ----------------------------------------------------------------------
@@ -162,11 +161,14 @@ export function JwtSignInView() {
   const errorMessage = error ? getErrorMessage(error) : null;
 
   const renderForm = () => (
-    <Box sx={{ gap: 2.5, display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ gap: 2, display: 'flex', flexDirection: 'column' }}>
       {!pinChallenge ? (
         <>
           <Field.Text
             name="username"
+            size="small"
+            autoComplete="username"
+            sx={{ '& .MuiInputBase-root': { minHeight: 44 } }}
             label={t('auth.fields.username')}
             placeholder={t('auth.placeholders.username')}
             slotProps={{
@@ -184,6 +186,9 @@ export function JwtSignInView() {
           <Box sx={{ gap: 1.5, display: 'flex', flexDirection: 'column' }}>
             <Field.Text
               name="password"
+              size="small"
+              autoComplete="current-password"
+              sx={{ '& .MuiInputBase-root': { minHeight: 44 } }}
               label={t('auth.fields.password')}
               placeholder={t('auth.placeholders.password6')}
               type={showPassword.value ? 'text' : 'password'}
@@ -242,9 +247,9 @@ export function JwtSignInView() {
           pinChallenge ? t('auth.signIn.verifyingPin') : t('auth.signIn.submitting')
         }
         sx={(theme) => ({
-          mt: 1,
-          py: 1.4,
-          fontSize: 16,
+          minHeight: 44,
+          py: 1,
+          fontSize: 15,
           color: 'common.white',
           background: `linear-gradient(135deg, ${theme.vars.palette.primary.main} 0%, ${theme.vars.palette.primary.dark} 100%)`,
           boxShadow: theme.customShadows.primary,
@@ -280,7 +285,12 @@ export function JwtSignInView() {
         '&& .MuiButton-root': { borderRadius: '4px' },
       }}
     >
-      <MarketplaceAuthBrand />
+      <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+        <Logo
+          isSingle={false}
+          sx={{ width: 220, height: 104, '& img': { objectPosition: 'center' } }}
+        />
+      </Box>
 
       <FormHead
         title={pinChallenge ? t('auth.signIn.pinTitle') : t('auth.signIn.title')}
@@ -291,8 +301,6 @@ export function JwtSignInView() {
             t('auth.signIn.adminPinDescription')
           ) : (
             <>
-              {t('auth.signIn.description')}
-              <br />
               {t('auth.signIn.noAccount')}{' '}
               <Link component={RouterLink} href={paths.auth.jwt.signUp} variant="subtitle2">
                 {t('auth.signIn.createAccount')}
@@ -300,11 +308,11 @@ export function JwtSignInView() {
             </>
           )
         }
-        sx={{ mt: 0.5, mb: 3, textAlign: 'left' }}
+        sx={{ mb: 2.5, gap: 0.75, textAlign: 'center' }}
       />
 
       {!!errorMessage && (
-        <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>
+        <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>
           {errorMessage}
         </Alert>
       )}
@@ -315,7 +323,7 @@ export function JwtSignInView() {
 
       {!pinChallenge && (
         <>
-          <FormDivider label={t('auth.signIn.divider')} />
+          <FormDivider label={t('auth.signIn.divider')} sx={{ my: 2 }} />
           <GoogleIdentityButton
             mode="signin"
             language={currentLang.value === 'en' ? 'en' : 'th'}

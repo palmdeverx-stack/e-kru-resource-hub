@@ -1,6 +1,5 @@
 'use client';
 
-
 import * as z from 'zod';
 import { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -21,6 +20,7 @@ import { RouterLink } from 'src/routes/components';
 
 import { useTranslate } from 'src/locales';
 
+import { Logo } from 'src/components/logo';
 import { RemixIcon } from 'src/components/remix-icon';
 import { Form, Field } from 'src/components/hook-form';
 
@@ -32,7 +32,6 @@ import { SignUpTerms } from '../../components/sign-up-terms';
 import { getErrorMessage, getHomePathForRole } from '../../utils';
 import { LineLoginButton } from '../../components/line-login-button';
 import { GoogleIdentityButton } from '../../components/google-identity-button';
-import { MarketplaceAuthBrand } from '../../components/marketplace-auth-brand';
 
 // ----------------------------------------------------------------------
 
@@ -127,10 +126,13 @@ export function JwtSignUpView() {
   const errorMessage = authError ? getErrorMessage(authError) : null;
 
   const renderForm = () => (
-    <Box sx={{ gap: 2.5, display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ gap: 2, display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
         <Field.Text
           name="firstName"
+          size="small"
+          autoComplete="given-name"
+          sx={{ '& .MuiInputBase-root': { minHeight: 44 } }}
           label={t('auth.fields.firstName')}
           placeholder={t('auth.placeholders.firstName')}
           slotProps={{
@@ -146,6 +148,9 @@ export function JwtSignUpView() {
         />
         <Field.Text
           name="lastName"
+          size="small"
+          autoComplete="family-name"
+          sx={{ '& .MuiInputBase-root': { minHeight: 44 } }}
           label={t('auth.fields.lastName')}
           placeholder={t('auth.placeholders.lastName')}
           slotProps={{ inputLabel: { shrink: true } }}
@@ -154,6 +159,9 @@ export function JwtSignUpView() {
 
       <Field.Text
         name="username"
+        size="small"
+        autoComplete="username"
+        sx={{ '& .MuiInputBase-root': { minHeight: 44 } }}
         label={t('auth.fields.username')}
         placeholder={t('auth.placeholders.newUsername')}
         slotProps={{
@@ -170,6 +178,9 @@ export function JwtSignUpView() {
 
       <Field.Text
         name="email"
+        size="small"
+        autoComplete="email"
+        sx={{ '& .MuiInputBase-root': { minHeight: 44 } }}
         label={t('auth.fields.email')}
         placeholder={t('auth.placeholders.email')}
         slotProps={{
@@ -186,6 +197,9 @@ export function JwtSignUpView() {
 
       <Field.Text
         name="password"
+        size="small"
+        autoComplete="new-password"
+        sx={{ '& .MuiInputBase-root': { minHeight: 44 } }}
         label={t('auth.fields.password')}
         placeholder={t('auth.placeholders.password8')}
         type={showPassword.value ? 'text' : 'password'}
@@ -227,9 +241,9 @@ export function JwtSignUpView() {
         loading={signUpMutation.isPending}
         loadingIndicator={t('auth.signUp.submitting')}
         sx={(theme) => ({
-          mt: 1,
-          py: 1.4,
-          fontSize: 16,
+          minHeight: 44,
+          py: 1,
+          fontSize: 15,
           color: 'common.white',
           background: `linear-gradient(135deg, ${theme.vars.palette.primary.main} 0%, ${theme.vars.palette.primary.dark} 100%)`,
           boxShadow: theme.customShadows.primary,
@@ -245,26 +259,35 @@ export function JwtSignUpView() {
   );
 
   return (
-    <Box sx={{ width: 1, color: 'text.primary' }}>
-      <MarketplaceAuthBrand />
+    <Box
+      sx={{
+        width: 1,
+        color: 'text.primary',
+        '&& .MuiButton-root': { borderRadius: '4px' },
+      }}
+    >
+      <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+        <Logo
+          isSingle={false}
+          sx={{ width: 220, height: 104, '& img': { objectPosition: 'center' } }}
+        />
+      </Box>
 
       <FormHead
         title={t('auth.signUp.title')}
         description={
           <>
-            {t('auth.signUp.description')}
-            <br />
             {t('auth.signUp.hasAccount')}{' '}
             <Link component={RouterLink} href={paths.auth.jwt.signIn} variant="subtitle2">
               {t('auth.signUp.goToSignIn')}
             </Link>
           </>
         }
-        sx={{ mt: 0.5, mb: 3, textAlign: 'left' }}
+        sx={{ mb: 2.5, gap: 0.75, textAlign: 'center' }}
       />
 
       {!!errorMessage && (
-        <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>
+        <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>
           {errorMessage}
         </Alert>
       )}
@@ -273,19 +296,21 @@ export function JwtSignUpView() {
         {renderForm()}
       </Form>
 
-      <FormDivider label={t('auth.signUp.divider')} />
-      <GoogleIdentityButton
-        mode="signup"
-        language={currentLang.value === 'en' ? 'en' : 'th'}
-        disabled={googleMutation.isPending}
-        onCredential={(credential) => {
-          setGoogleClientError(null);
-          googleMutation.mutate(credential);
-        }}
-        onError={setGoogleClientError}
-      />
+      <FormDivider label={t('auth.signUp.divider')} sx={{ my: 2 }} />
+      <Box sx={{ width: 1, maxWidth: 400, mx: 'auto' }}>
+        <GoogleIdentityButton
+          mode="signup"
+          language={currentLang.value === 'en' ? 'en' : 'th'}
+          disabled={googleMutation.isPending}
+          onCredential={(credential) => {
+            setGoogleClientError(null);
+            googleMutation.mutate(credential);
+          }}
+          onError={setGoogleClientError}
+        />
 
-      <LineLoginButton />
+        <LineLoginButton />
+      </Box>
       <SignUpTerms />
     </Box>
   );

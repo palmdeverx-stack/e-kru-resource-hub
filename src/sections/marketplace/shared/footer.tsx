@@ -129,7 +129,7 @@ export function MarketplaceFooter() {
                     placeItems: 'center',
                   }}
                 >
-                  <MarketplaceBrand compact variant="transparent" disabled width={48} height={48} />
+                  <MarketplaceBrand disabled width={48} height={48} />
                 </Box>
                 <Box>
                   <Typography variant="h5">

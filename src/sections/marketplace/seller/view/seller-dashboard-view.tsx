@@ -67,13 +67,8 @@ import {
 import { useAuthContext } from 'src/auth/hooks';
 
 import { MarketplaceProductCard } from '../../shared/product-card';
-import {
-  getSeller,
-  getProducts,
-  formatPrice,
-  deleteProduct,
-  setProductHidden,
-} from '../../shared/api';
+import { useDashboardLocale } from '../../shared/use-dashboard-locale';
+import { getSeller, getProducts, deleteProduct, setProductHidden } from '../../shared/api';
 import {
   isSellerProfileVerified,
   isSystemMarketplaceSeller,
@@ -138,6 +133,7 @@ const EMPTY_PRODUCT_COUNTS: ProductCounts = {
 };
 
 export function MarketplaceSellerDashboardView() {
+  const { tx, locale, money } = useDashboardLocale();
   const theme = useTheme();
   const queryClient = useQueryClient();
   const { user, loading: authLoading } = useAuthContext();
@@ -210,7 +206,7 @@ export function MarketplaceSellerDashboardView() {
         signal,
       });
       const result = await response.json();
-      if (!response.ok) throw new Error(result.message ?? 'โหลดสถิติไม่สำเร็จ');
+      if (!response.ok) throw new Error(result.message ?? tx('โหลดสถิติไม่สำเร็จ'));
       return result;
     },
     staleTime: 30_000,
@@ -225,7 +221,7 @@ export function MarketplaceSellerDashboardView() {
         signal,
       });
       const result = await response.json();
-      if (!response.ok) throw new Error(result.message ?? 'โหลดการเงินไม่สำเร็จ');
+      if (!response.ok) throw new Error(result.message ?? tx('โหลดการเงินไม่สำเร็จ'));
       return result;
     },
     staleTime: 30_000,
@@ -248,7 +244,7 @@ export function MarketplaceSellerDashboardView() {
       }
       await loadProducts();
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : 'ลบสินค้าไม่สำเร็จ');
+      setError(deleteError instanceof Error ? deleteError.message : tx('ลบสินค้าไม่สำเร็จ'));
     } finally {
       setDeletingBusy(false);
     }
@@ -263,7 +259,9 @@ export function MarketplaceSellerDashboardView() {
       await loadProducts();
     } catch (visibilityError) {
       setError(
-        visibilityError instanceof Error ? visibilityError.message : 'เปลี่ยนการแสดงสินค้าไม่สำเร็จ'
+        visibilityError instanceof Error
+          ? visibilityError.message
+          : tx('เปลี่ยนการแสดงสินค้าไม่สำเร็จ')
       );
     } finally {
       setVisibilityBusyId('');
@@ -316,14 +314,15 @@ export function MarketplaceSellerDashboardView() {
             <RiStore2Line size={40} />
           </Box>
           <Typography variant="h3" sx={{ mt: 3 }}>
-            เปิดร้านบน E-KRU Marketplace
+            {tx('เปิดร้านบน E-KRU Marketplace')}
           </Typography>
           <Typography color="text.secondary" sx={{ maxWidth: 600, mx: 'auto', mt: 1, mb: 3 }}>
-            ครู บุคคลทั่วไป และองค์กรสามารถสร้างร้าน แบ่งปันสื่อการสอน
-            และจัดการผลงานได้จากพื้นที่เดียว
+            {tx(
+              'ครู บุคคลทั่วไป และองค์กรสามารถสร้างร้าน แบ่งปันสื่อการสอน และจัดการผลงานได้จากพื้นที่เดียว'
+            )}
           </Typography>
           <Button component={RouterLink} href={paths.marketplace.sellerSetup} variant="contained">
-            เริ่มเปิดร้าน
+            {tx('เริ่มเปิดร้าน')}
           </Button>
         </Card>
       ) : !isSystemStore && seller.status !== 'active' ? (
@@ -332,14 +331,15 @@ export function MarketplaceSellerDashboardView() {
         <Stack spacing={4}>
           {seller.profile_review_status === 'pending' && (
             <Alert severity="info">
-              ข้อมูลร้านที่แก้ไขกำลังรอผู้ดูแลตรวจสอบ
-              ระหว่างนี้หน้าร้านยังแสดงข้อมูลเดิมที่อนุมัติแล้ว
+              {tx(
+                'ข้อมูลร้านที่แก้ไขกำลังรอผู้ดูแลตรวจสอบ ระหว่างนี้หน้าร้านยังแสดงข้อมูลเดิมที่อนุมัติแล้ว'
+              )}
             </Alert>
           )}
           {seller.profile_review_status === 'rejected' && (
             <Alert severity="warning">
-              ข้อมูลร้านที่แก้ไขไม่ผ่านการอนุมัติ:{' '}
-              {seller.profile_rejection_reason || 'กรุณาตรวจสอบและแก้ไขข้อมูลแล้วส่งใหม่'}
+              {tx('ข้อมูลร้านที่แก้ไขไม่ผ่านการอนุมัติ:')}{' '}
+              {seller.profile_rejection_reason || tx('กรุณาตรวจสอบและแก้ไขข้อมูลแล้วส่งใหม่')}
             </Alert>
           )}
           <Stack
@@ -357,14 +357,14 @@ export function MarketplaceSellerDashboardView() {
                   <RiVerifiedBadgeFill
                     size={26}
                     color={theme.palette.primary.main}
-                    aria-label="ร้านค้าที่ผ่านการตรวจสอบ"
+                    aria-label={tx('ร้านค้าที่ผ่านการตรวจสอบ')}
                   />
                 )}
                 {isSystemMarketplaceSeller(seller) && (
                   <RiShieldStarFill
                     size={26}
                     color={theme.palette.primary.main}
-                    aria-label="ร้านค้าระบบ E-KRU"
+                    aria-label={tx('ร้านค้าระบบ E-KRU')}
                   />
                 )}
                 {isSystemStore && (
@@ -372,13 +372,13 @@ export function MarketplaceSellerDashboardView() {
                     color="primary"
                     size="medium"
                     icon={<RiShieldStarLine />}
-                    label="ร้านทางการ"
+                    label={tx('ร้านทางการ')}
                   />
                 )}
                 {/* <Chip color="success" size="medium" label="เปิดขายแล้ว" /> */}
               </Stack>
               <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-                {seller.bio || 'ร้านค้าบน E-KRU Marketplace'}
+                {seller.bio || tx('ร้านค้าบน E-KRU Marketplace')}
               </Typography>
             </Box>
             <Stack direction="row" spacing={1}>
@@ -387,7 +387,7 @@ export function MarketplaceSellerDashboardView() {
                 href={paths.marketplace.sellerProfileEdit}
                 color="inherit"
               >
-                แก้ไขร้าน
+                {tx('แก้ไขร้าน')}
               </Button>
               <Button
                 component={RouterLink}
@@ -395,7 +395,7 @@ export function MarketplaceSellerDashboardView() {
                 variant="contained"
                 startIcon={<RiAddLine />}
               >
-                ลงสินค้าใหม่
+                {tx('ลงสินค้าใหม่')}
               </Button>
             </Stack>
           </Stack>
@@ -412,7 +412,7 @@ export function MarketplaceSellerDashboardView() {
           <Grid container spacing={2}>
             <Grid size={{ xs: 6, md: 3 }}>
               <ProductMetricCard
-                label="สินค้าทั้งหมด"
+                label={tx('สินค้าทั้งหมด')}
                 value={productCounts.all}
                 icon={<RiFileList3Line />}
                 color="primary"
@@ -420,7 +420,7 @@ export function MarketplaceSellerDashboardView() {
             </Grid>
             <Grid size={{ xs: 6, md: 3 }}>
               <ProductMetricCard
-                label="เผยแพร่แล้ว"
+                label={tx('เผยแพร่แล้ว')}
                 value={productCounts.published}
                 icon={<RiCheckboxCircleLine />}
                 color="success"
@@ -428,7 +428,7 @@ export function MarketplaceSellerDashboardView() {
             </Grid>
             <Grid size={{ xs: 6, md: 3 }}>
               <ProductMetricCard
-                label="รอตรวจสอบ"
+                label={tx('รอตรวจสอบ')}
                 value={productCounts.pending_review}
                 icon={<RiTimeLine />}
                 color="warning"
@@ -436,7 +436,7 @@ export function MarketplaceSellerDashboardView() {
             </Grid>
             <Grid size={{ xs: 6, md: 3 }}>
               <ProductMetricCard
-                label="ต้องดำเนินการ"
+                label={tx('ต้องดำเนินการ')}
                 value={productCounts.draft + productCounts.rejected}
                 icon={<RiErrorWarningLine />}
                 color="error"
@@ -453,9 +453,9 @@ export function MarketplaceSellerDashboardView() {
               sx={{ p: { xs: 2.5, md: 3 } }}
             >
               <Box>
-                <Typography variant="h4">สินค้าของฉัน</Typography>
+                <Typography variant="h4"> {tx('สินค้าของฉัน')} </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                  ค้นหา แก้ไข และติดตามสถานะสินค้าที่ส่งเข้าแพลตฟอร์มซื้อขาย
+                  {tx('ค้นหา แก้ไข และติดตามสถานะสินค้าที่ส่งเข้าแพลตฟอร์มซื้อขาย')}
                 </Typography>
               </Box>
               <Stack
@@ -466,7 +466,7 @@ export function MarketplaceSellerDashboardView() {
                 <TextField
                   size="small"
                   value={productSearch}
-                  placeholder="ค้นหาชื่อหรือหมวดหมู่สินค้า"
+                  placeholder={tx('ค้นหาชื่อหรือหมวดหมู่สินค้า')}
                   onChange={(event) => {
                     setProductSearch(event.target.value);
                     setProductPage(1);
@@ -486,20 +486,18 @@ export function MarketplaceSellerDashboardView() {
                   exclusive
                   size="small"
                   value={productView}
-                  aria-label="รูปแบบการแสดงสินค้า"
+                  aria-label={tx('รูปแบบการแสดงสินค้า')}
                   onChange={(_event, value: ProductView | null) => value && setProductView(value)}
                   sx={{
                     flexShrink: 0,
                     '& .MuiToggleButton-root': { gap: 0.75, px: 1.5 },
                   }}
                 >
-                  <ToggleButton value="list" aria-label="แสดงแบบรายการ">
-                    <RiListCheck size={18} />
-                    รายการ
+                  <ToggleButton value="list" aria-label={tx('แสดงแบบรายการ')}>
+                    <RiListCheck size={18} /> {tx('รายการ')}
                   </ToggleButton>
-                  <ToggleButton value="grid" aria-label="แสดงแบบกริดที่ลูกค้าเห็น">
-                    <RiLayoutGridLine size={18} />
-                    กริดลูกค้า
+                  <ToggleButton value="grid" aria-label={tx('แสดงแบบกริดที่ลูกค้าเห็น')}>
+                    <RiLayoutGridLine size={18} /> {tx('กริดลูกค้า')}
                   </ToggleButton>
                 </ToggleButtonGroup>
               </Stack>
@@ -512,12 +510,18 @@ export function MarketplaceSellerDashboardView() {
               scrollButtons="auto"
               sx={{ px: { xs: 1.5, md: 2.5 }, borderTop: '1px solid', borderColor: 'divider' }}
             >
-              <Tab value="all" label={`ทั้งหมด ${productCounts.all}`} />
-              <Tab value="published" label={`เผยแพร่ ${productCounts.published}`} />
-              <Tab value="pending_review" label={`รอตรวจ ${productCounts.pending_review}`} />
-              <Tab value="draft" label={`ฉบับร่าง ${productCounts.draft}`} />
-              <Tab value="rejected" label={`ไม่ผ่าน ${productCounts.rejected}`} />
-              <Tab value="archived" label={`ซ่อนแล้ว ${productCounts.archived}`} />
+              <Tab value="all" label={tx('ทั้งหมด {{v0}}', { v0: productCounts.all })} />
+              <Tab
+                value="published"
+                label={tx('เผยแพร่ {{v0}}', { v0: productCounts.published })}
+              />
+              <Tab
+                value="pending_review"
+                label={tx('รอตรวจ {{v0}}', { v0: productCounts.pending_review })}
+              />
+              <Tab value="draft" label={tx('ฉบับร่าง {{v0}}', { v0: productCounts.draft })} />
+              <Tab value="rejected" label={tx('ไม่ผ่าน {{v0}}', { v0: productCounts.rejected })} />
+              <Tab value="archived" label={tx('ซ่อนแล้ว {{v0}}', { v0: productCounts.archived })} />
             </Tabs>
 
             <Divider />
@@ -533,8 +537,9 @@ export function MarketplaceSellerDashboardView() {
                   variant="outlined"
                   sx={{ mb: 2.5, bgcolor: 'background.paper' }}
                 >
-                  การ์ดสินค้าแสดงในรูปแบบเดียวกับที่ลูกค้าเห็นบน Marketplace
-                  ส่วนสถานะและปุ่มจัดการจะแสดงเฉพาะในหน้าผู้ขายนี้
+                  {tx(
+                    'การ์ดสินค้าแสดงในรูปแบบเดียวกับที่ลูกค้าเห็นบน Marketplace ส่วนสถานะและปุ่มจัดการจะแสดงเฉพาะในหน้าผู้ขายนี้'
+                  )}
                 </Alert>
                 <Grid container spacing={2.5}>
                   {products.map((product, index) => (
@@ -568,7 +573,7 @@ export function MarketplaceSellerDashboardView() {
                           >
                             <ProductStatusChip product={product} />
                             <Typography variant="caption" color="text.secondary">
-                              ขายแล้ว {product.purchase_count ?? 0} สิทธิ์
+                              {tx('ขายแล้ว')} {product.purchase_count ?? 0} {tx('สิทธิ์')}
                             </Typography>
                           </Stack>
                           <SellerProductActions
@@ -582,7 +587,7 @@ export function MarketplaceSellerDashboardView() {
                           />
                           {product.rejection_reason && (
                             <Alert severity="error" variant="outlined">
-                              ไม่ผ่านการอนุมัติ: {product.rejection_reason}
+                              {tx('ไม่ผ่านการอนุมัติ:')} {product.rejection_reason}
                             </Alert>
                           )}
                         </Stack>
@@ -690,22 +695,22 @@ export function MarketplaceSellerDashboardView() {
                         <Stack direction="row" spacing={2.5} alignItems="center" sx={{ mt: 1.25 }}>
                           <Box>
                             <Typography variant="caption" color="text.secondary">
-                              ราคาขาย
+                              {tx('ราคาขาย')}
                             </Typography>
                             <Typography
                               variant="subtitle2"
                               color="primary.main"
                               sx={{ fontWeight: 800 }}
                             >
-                              {formatPrice(Number(product.price))}
+                              {money(Number(product.price))}
                             </Typography>
                           </Box>
                           <Box>
                             <Typography variant="caption" color="text.secondary">
-                              ยอดขาย
+                              {tx('ยอดขาย')}
                             </Typography>
                             <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                              {(product.purchase_count ?? 0).toLocaleString('th-TH')} สิทธิ์
+                              {(product.purchase_count ?? 0).toLocaleString(locale)} {tx('สิทธิ์')}
                             </Typography>
                           </Box>
                         </Stack>
@@ -716,7 +721,7 @@ export function MarketplaceSellerDashboardView() {
                           sx={{ mt: 1 }}
                         >
                           สร้างเมื่อ{' '}
-                          {new Intl.DateTimeFormat('th-TH', {
+                          {new Intl.DateTimeFormat(locale, {
                             dateStyle: 'medium',
                             timeZone: 'Asia/Bangkok',
                           }).format(new Date(product.created_at))}
@@ -746,7 +751,7 @@ export function MarketplaceSellerDashboardView() {
                           variant="outlined"
                           sx={{ gridArea: 'notice', mt: { xs: 0, md: 0.5 } }}
                         >
-                          ไม่ผ่านการอนุมัติ: {product.rejection_reason}
+                          {tx('ไม่ผ่านการอนุมัติ:')} {product.rejection_reason}
                         </Alert>
                       )}
                     </Box>
@@ -770,12 +775,12 @@ export function MarketplaceSellerDashboardView() {
                   <RiBookOpenLine size={34} />
                 </Box>
                 <Typography variant="h6" sx={{ mt: 2 }}>
-                  {productCounts.all ? 'ไม่พบสินค้าที่ค้นหา' : 'ยังไม่มีสินค้า'}
+                  {productCounts.all ? tx('ไม่พบสินค้าที่ค้นหา') : tx('ยังไม่มีสินค้า')}
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
                   {productCounts.all
-                    ? 'ลองเปลี่ยนคำค้นหาหรือตัวกรองสถานะ'
-                    : 'เริ่มสร้างสินค้าแรกของร้านและส่งให้ผู้ดูแลตรวจสอบ'}
+                    ? tx('ลองเปลี่ยนคำค้นหาหรือตัวกรองสถานะ')
+                    : tx('เริ่มสร้างสินค้าแรกของร้านและส่งให้ผู้ดูแลตรวจสอบ')}
                 </Typography>
                 {productCounts.all ? (
                   <Button
@@ -786,7 +791,7 @@ export function MarketplaceSellerDashboardView() {
                       changeProductFilter('all');
                     }}
                   >
-                    ล้างตัวกรอง
+                    {tx('ล้างตัวกรอง')}
                   </Button>
                 ) : (
                   <Button
@@ -796,7 +801,7 @@ export function MarketplaceSellerDashboardView() {
                     startIcon={<RiAddLine />}
                     sx={{ mt: 2 }}
                   >
-                    ลงสินค้าชิ้นแรก
+                    {tx('ลงสินค้าชิ้นแรก')}
                   </Button>
                 )}
               </Box>
@@ -813,8 +818,9 @@ export function MarketplaceSellerDashboardView() {
                   sx={{ px: { xs: 2, md: 3 }, py: 2.5 }}
                 >
                   <Typography variant="body2" color="text.secondary">
-                    แสดง {(productPage - 1) * PAGE_SIZE + 1}–
-                    {Math.min(productPage * PAGE_SIZE, productTotal)} จาก {productTotal} รายการ
+                    {tx('แสดง')} {(productPage - 1) * PAGE_SIZE + 1}–
+                    {Math.min(productPage * PAGE_SIZE, productTotal)} {tx('จาก')} {productTotal}{' '}
+                    {tx('รายการ')}
                   </Typography>
                   <Pagination
                     page={Math.min(productPage, Math.max(1, productPageCount))}
@@ -830,31 +836,35 @@ export function MarketplaceSellerDashboardView() {
       )}
 
       <Dialog open={Boolean(deleting)} onClose={() => setDeleting(null)} fullWidth maxWidth="xs">
-        <DialogTitle>ยืนยันการลบสินค้า</DialogTitle>
+        <DialogTitle> {tx('ยืนยันการลบสินค้า')} </DialogTitle>
         <DialogContent>
-          <Typography>ต้องการลบ “{deleting?.title}” หรือไม่? การลบไม่สามารถย้อนกลับได้</Typography>
+          <Typography>
+            {tx('ต้องการลบ “')} {deleting?.title} {tx('” หรือไม่? การลบไม่สามารถย้อนกลับได้')}
+          </Typography>
         </DialogContent>
         <DialogActions>
           <Button color="inherit" onClick={() => setDeleting(null)}>
-            ยกเลิก
+            {tx('ยกเลิก')}
           </Button>
           <Button color="error" variant="contained" loading={deletingBusy} onClick={confirmDelete}>
-            ลบสินค้า
+            {tx('ลบสินค้า')}
           </Button>
         </DialogActions>
       </Dialog>
 
       <Dialog open={Boolean(hiding)} onClose={() => setHiding(null)} fullWidth maxWidth="xs">
-        <DialogTitle>ยืนยันการซ่อนสินค้า</DialogTitle>
+        <DialogTitle> {tx('ยืนยันการซ่อนสินค้า')} </DialogTitle>
         <DialogContent>
           <Typography>
-            ต้องการซ่อน “{hiding?.title}” หรือไม่? ลูกค้าใหม่จะค้นหาและซื้อสินค้านี้ไม่ได้
-            แต่ลูกค้าที่ชำระเงินแล้วจะยังเปิดดูและดาวน์โหลดได้จากรายการซื้อของฉันตามเดิม
+            {tx('ต้องการซ่อน “')} {hiding?.title}{' '}
+            {tx(
+              '” หรือไม่? ลูกค้าใหม่จะค้นหาและซื้อสินค้านี้ไม่ได้ แต่ลูกค้าที่ชำระเงินแล้วจะยังเปิดดูและดาวน์โหลดได้จากรายการซื้อของฉันตามเดิม'
+            )}
           </Typography>
         </DialogContent>
         <DialogActions>
           <Button color="inherit" onClick={() => setHiding(null)}>
-            ยกเลิก
+            {tx('ยกเลิก')}
           </Button>
           <Button
             color="warning"
@@ -862,7 +872,7 @@ export function MarketplaceSellerDashboardView() {
             loading={Boolean(hiding && visibilityBusyId === hiding.id)}
             onClick={() => hiding && void changeProductVisibility(hiding, true)}
           >
-            ซ่อนสินค้า
+            {tx('ซ่อนสินค้า')}
           </Button>
         </DialogActions>
       </Dialog>
@@ -885,13 +895,14 @@ const SellerBusinessOverview = memo(function SellerBusinessOverview({
   error: string;
   productCounts: ProductCounts;
 }) {
+  const { tx, locale, money } = useDashboardLocale();
   const summary = analytics?.analytics.summary;
   const topProducts = analytics?.analytics.products.slice(0, 3) ?? [];
   const reviews = analytics?.recentReviews?.slice(0, 3) ?? [];
   const pendingPayout =
     Number(finance?.balance.pending ?? 0) + Number(finance?.balance.processing ?? 0);
   const nextPayoutAt = finance?.schedule.nextPayoutAt
-    ? new Date(finance.schedule.nextPayoutAt).toLocaleDateString('th-TH', {
+    ? new Date(finance.schedule.nextPayoutAt).toLocaleDateString(locale, {
         day: 'numeric',
         month: 'short',
         year: 'numeric',
@@ -900,30 +911,32 @@ const SellerBusinessOverview = memo(function SellerBusinessOverview({
     : '-';
   const metrics = [
     {
-      label: 'ยอดขาย 30 วัน',
-      value: formatPrice(Number(summary?.grossSales ?? 0)),
-      detail: `${Number(summary?.unitsSold ?? 0).toLocaleString('th-TH')} สิทธิ์ที่ขายได้`,
+      label: tx('ยอดขาย 30 วัน'),
+      value: money(Number(summary?.grossSales ?? 0)),
+      detail: tx('{{v0}} สิทธิ์ที่ขายได้', {
+        v0: Number(summary?.unitsSold ?? 0).toLocaleString(locale),
+      }),
       icon: <RiMoneyDollarCircleLine size={24} />,
       color: 'success' as const,
     },
     {
-      label: 'ออเดอร์สำเร็จ',
-      value: Number(summary?.orders ?? 0).toLocaleString('th-TH'),
-      detail: 'ในช่วง 30 วันที่ผ่านมา',
+      label: tx('ออเดอร์สำเร็จ'),
+      value: Number(summary?.orders ?? 0).toLocaleString(locale),
+      detail: tx('ในช่วง 30 วันที่ผ่านมา'),
       icon: <RiShoppingBag3Line size={24} />,
       color: 'info' as const,
     },
     {
-      label: 'รายได้เดือนนี้',
-      value: formatPrice(Number(finance?.balance.monthIncome ?? 0)),
-      detail: `วันนี้ ${formatPrice(Number(finance?.balance.todayIncome ?? 0))}`,
+      label: tx('รายได้เดือนนี้'),
+      value: money(Number(finance?.balance.monthIncome ?? 0)),
+      detail: tx('วันนี้ {{v0}}', { v0: money(Number(finance?.balance.todayIncome ?? 0)) }),
       icon: <RiFileList3Line size={24} />,
       color: 'primary' as const,
     },
     {
-      label: 'ยอดพร้อมจ่าย',
-      value: formatPrice(Number(finance?.balance.available ?? 0)),
-      detail: `รอบถัดไป ${nextPayoutAt}`,
+      label: tx('ยอดพร้อมจ่าย'),
+      value: money(Number(finance?.balance.available ?? 0)),
+      detail: tx('รอบถัดไป {{v0}}', { v0: nextPayoutAt }),
       icon: <RiWallet3Line size={24} />,
       color: 'warning' as const,
     },
@@ -938,9 +951,9 @@ const SellerBusinessOverview = memo(function SellerBusinessOverview({
         spacing={1}
       >
         <Box>
-          <Typography variant="h4">ภาพรวมธุรกิจ</Typography>
+          <Typography variant="h4"> {tx('ภาพรวมธุรกิจ')} </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            ยอดขาย รายได้ และสิ่งที่ต้องจัดการล่าสุดของร้าน
+            {tx('ยอดขาย รายได้ และสิ่งที่ต้องจัดการล่าสุดของร้าน')}
           </Typography>
         </Box>
         <Stack direction="row" spacing={1}>
@@ -950,7 +963,7 @@ const SellerBusinessOverview = memo(function SellerBusinessOverview({
             size="small"
             endIcon={<RiArrowRightLine />}
           >
-            ดูสถิติ
+            {tx('ดูสถิติ')}
           </Button>
           <Button
             component={RouterLink}
@@ -958,12 +971,16 @@ const SellerBusinessOverview = memo(function SellerBusinessOverview({
             size="small"
             variant="outlined"
           >
-            ดูการเงิน
+            {tx('ดูการเงิน')}
           </Button>
         </Stack>
       </Stack>
 
-      {!!error && <Alert severity="warning">โหลดภาพรวมบางส่วนไม่สำเร็จ: {error}</Alert>}
+      {!!error && (
+        <Alert severity="warning">
+          {tx('โหลดภาพรวมบางส่วนไม่สำเร็จ:')} {error}
+        </Alert>
+      )}
 
       <Grid container spacing={2}>
         {metrics.map((metric, index) => (
@@ -981,13 +998,13 @@ const SellerBusinessOverview = memo(function SellerBusinessOverview({
           <Card variant="outlined" sx={{ p: { xs: 2.25, md: 2.75 }, height: 1 }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center">
               <Box>
-                <Typography variant="h6">สินค้าขายดี</Typography>
+                <Typography variant="h6"> {tx('สินค้าขายดี')} </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  เรียงจากยอดขายในช่วง 30 วัน
+                  {tx('เรียงจากยอดขายในช่วง 30 วัน')}
                 </Typography>
               </Box>
               <Button component={RouterLink} href={paths.marketplace.sellerAnalytics} size="small">
-                ดูทั้งหมด
+                {tx('ดูทั้งหมด')}
               </Button>
             </Stack>
             <Stack spacing={1.25} sx={{ mt: 2 }}>
@@ -1024,12 +1041,12 @@ const SellerBusinessOverview = memo(function SellerBusinessOverview({
                         {product.title}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {Number(product.orders).toLocaleString('th-TH')} ออเดอร์ ·{' '}
-                        {Number(product.units_sold).toLocaleString('th-TH')} สิทธิ์
+                        {Number(product.orders).toLocaleString(locale)} {tx('ออเดอร์ ·')}{' '}
+                        {Number(product.units_sold).toLocaleString(locale)} {tx('สิทธิ์')}
                       </Typography>
                     </Box>
                     <Typography variant="subtitle2" color="success.main" sx={{ flexShrink: 0 }}>
-                      {formatPrice(Number(product.gross_sales))}
+                      {money(Number(product.gross_sales))}
                     </Typography>
                   </Stack>
                 ))
@@ -1039,7 +1056,7 @@ const SellerBusinessOverview = memo(function SellerBusinessOverview({
                   color="text.secondary"
                   sx={{ py: 3, textAlign: 'center' }}
                 >
-                  ยังไม่มียอดขายในช่วง 30 วัน
+                  {tx('ยังไม่มียอดขายในช่วง 30 วัน')}
                 </Typography>
               )}
             </Stack>
@@ -1048,9 +1065,9 @@ const SellerBusinessOverview = memo(function SellerBusinessOverview({
 
         <Grid size={{ xs: 12, md: 7, lg: 4 }}>
           <Card variant="outlined" sx={{ p: { xs: 2.25, md: 2.75 }, height: 1 }}>
-            <Typography variant="h6">รีวิวล่าสุด</Typography>
+            <Typography variant="h6"> {tx('รีวิวล่าสุด')} </Typography>
             <Typography variant="caption" color="text.secondary">
-              เสียงตอบรับล่าสุดจากผู้ซื้อ
+              {tx('เสียงตอบรับล่าสุดจากผู้ซื้อ')}
             </Typography>
             <Stack spacing={1.5} sx={{ mt: 2 }}>
               {analyticsLoading ? (
@@ -1072,7 +1089,7 @@ const SellerBusinessOverview = memo(function SellerBusinessOverview({
                     >
                       <Stack direction="row" justifyContent="space-between" spacing={1}>
                         <Typography variant="subtitle2" noWrap sx={{ minWidth: 0 }}>
-                          {product?.title ?? 'สินค้า'}
+                          {product?.title ?? tx('สินค้า')}
                         </Typography>
                         <Stack direction="row" spacing={0.25} sx={{ flexShrink: 0 }}>
                           {Array.from({ length: 5 }).map((_, index) => (
@@ -1085,7 +1102,7 @@ const SellerBusinessOverview = memo(function SellerBusinessOverview({
                         </Stack>
                       </Stack>
                       <Typography variant="body2" color="text.secondary" noWrap sx={{ mt: 0.5 }}>
-                        {review.comment || 'ให้คะแนนโดยไม่มีข้อความ'}
+                        {review.comment || tx('ให้คะแนนโดยไม่มีข้อความ')}
                       </Typography>
                       <Stack
                         direction="row"
@@ -1104,7 +1121,7 @@ const SellerBusinessOverview = memo(function SellerBusinessOverview({
                             color={hasReply ? 'inherit' : 'primary'}
                             sx={{ minWidth: 0, p: 0.25 }}
                           >
-                            {hasReply ? 'ตอบแล้ว' : 'ดูและตอบกลับ'}
+                            {hasReply ? tx('ตอบแล้ว') : tx('ดูและตอบกลับ')}
                           </Button>
                         )}
                       </Stack>
@@ -1117,7 +1134,7 @@ const SellerBusinessOverview = memo(function SellerBusinessOverview({
                   color="text.secondary"
                   sx={{ py: 3, textAlign: 'center' }}
                 >
-                  ยังไม่มีรีวิวจากผู้ซื้อ
+                  {tx('ยังไม่มีรีวิวจากผู้ซื้อ')}
                 </Typography>
               )}
             </Stack>
@@ -1126,25 +1143,33 @@ const SellerBusinessOverview = memo(function SellerBusinessOverview({
 
         <Grid size={{ xs: 12, md: 5, lg: 3 }}>
           <Card variant="outlined" sx={{ p: { xs: 2.25, md: 2.75 }, height: 1 }}>
-            <Typography variant="h6">สิ่งที่ต้องจัดการ</Typography>
+            <Typography variant="h6"> {tx('สิ่งที่ต้องจัดการ')} </Typography>
             <Typography variant="caption" color="text.secondary">
-              รายการที่อาจกระทบการขาย
+              {tx('รายการที่อาจกระทบการขาย')}
             </Typography>
             <Stack spacing={1.25} sx={{ mt: 2 }}>
-              <TaskRow label="สินค้าไม่ผ่าน" value={productCounts.rejected} color="error" />
-              <TaskRow label="ฉบับร่างที่ยังไม่เสร็จ" value={productCounts.draft} color="warning" />
-              <TaskRow label="กำลังรอตรวจ" value={productCounts.pending_review} color="info" />
+              <TaskRow label={tx('สินค้าไม่ผ่าน')} value={productCounts.rejected} color="error" />
+              <TaskRow
+                label={tx('ฉบับร่างที่ยังไม่เสร็จ')}
+                value={productCounts.draft}
+                color="warning"
+              />
+              <TaskRow
+                label={tx('กำลังรอตรวจ')}
+                value={productCounts.pending_review}
+                color="info"
+              />
               <Divider />
               <Box>
                 <Typography variant="caption" color="text.secondary">
-                  ยอดกำลังรอรับ
+                  {tx('ยอดกำลังรอรับ')}
                 </Typography>
                 <Typography variant="h5" sx={{ mt: 0.25 }}>
-                  {financeLoading ? <Skeleton width={100} /> : formatPrice(pendingPayout)}
+                  {financeLoading ? <Skeleton width={100} /> : money(pendingPayout)}
                 </Typography>
               </Box>
               <Button component="a" href="#seller-products" variant="outlined" fullWidth>
-                จัดการสินค้า
+                {tx('จัดการสินค้า')}
               </Button>
             </Stack>
           </Card>
@@ -1213,6 +1238,7 @@ function TaskRow({
   value: number;
   color: 'error' | 'warning' | 'info';
 }) {
+  const { locale } = useDashboardLocale();
   return (
     <Stack
       direction="row"
@@ -1221,7 +1247,7 @@ function TaskRow({
       sx={{ p: 1.25, borderRadius: 2, bgcolor: `${color}.lighter` }}
     >
       <Typography variant="body2">{label}</Typography>
-      <Chip size="small" color={color} label={value.toLocaleString('th-TH')} />
+      <Chip size="small" color={color} label={value.toLocaleString(locale)} />
     </Stack>
   );
 }
@@ -1243,6 +1269,7 @@ function SellerProductActions({
   onRestore: () => void;
   onDelete: () => void;
 }) {
+  const { tx } = useDashboardLocale();
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const closeMenu = () => setMenuAnchor(null);
   const runMenuAction = (action: () => void) => {
@@ -1274,7 +1301,7 @@ function SellerProductActions({
             color="inherit"
             startIcon={<RiEyeLine />}
           >
-            ดูสินค้า
+            {tx('ดูสินค้า')}
           </Button>
         )}
         {canViewBuyers && (product.purchase_count ?? 0) > 0 && (
@@ -1286,7 +1313,7 @@ function SellerProductActions({
             variant="outlined"
             startIcon={<RiShoppingBag3Line />}
           >
-            ดูผู้ซื้อ
+            {tx('ดูผู้ซื้อ')}
           </Button>
         )}
         <Button
@@ -1296,7 +1323,7 @@ function SellerProductActions({
           variant={product.status === 'archived' ? 'outlined' : 'contained'}
           startIcon={<RiEditLine />}
         >
-          {product.status === 'draft' ? 'ทำต่อ' : 'แก้ไข'}
+          {product.status === 'draft' ? tx('ทำต่อ') : tx('แก้ไข')}
         </Button>
         {product.status === 'archived' && (
           <Button
@@ -1307,13 +1334,13 @@ function SellerProductActions({
             startIcon={<RiEyeLine />}
             onClick={onRestore}
           >
-            ขายต่อ
+            {tx('ขายต่อ')}
           </Button>
         )}
         {hasSecondaryActions && (
           <IconButton
             size="small"
-            aria-label={`คำสั่งเพิ่มเติมสำหรับ ${product.title}`}
+            aria-label={tx('คำสั่งเพิ่มเติมสำหรับ {{v0}}', { v0: product.title })}
             aria-haspopup="menu"
             aria-expanded={Boolean(menuAnchor)}
             onClick={(event) => setMenuAnchor(event.currentTarget)}
@@ -1327,14 +1354,12 @@ function SellerProductActions({
       <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={closeMenu}>
         {product.can_hide === true && (
           <MenuItem onClick={() => runMenuAction(onHide)} sx={{ gap: 1.25, color: 'warning.dark' }}>
-            <RiEyeOffLine size={18} />
-            ซ่อนสินค้า
+            <RiEyeOffLine size={18} /> {tx('ซ่อนสินค้า')}
           </MenuItem>
         )}
         {product.can_delete === true && (
           <MenuItem onClick={() => runMenuAction(onDelete)} sx={{ gap: 1.25, color: 'error.main' }}>
-            <RiDeleteBinLine size={18} />
-            ลบสินค้า
+            <RiDeleteBinLine size={18} /> {tx('ลบสินค้า')}
           </MenuItem>
         )}
       </Menu>
@@ -1382,22 +1407,24 @@ function ProductMetricCard({
 }
 
 function ProductStatusChip({ product }: { product: MarketplaceProduct }) {
+  const { tx } = useDashboardLocale();
   if (product.status === 'published') {
-    return <Chip size="small" color="success" label="เผยแพร่แล้ว" variant="soft" />;
+    return <Chip size="small" color="success" label={tx('เผยแพร่แล้ว')} variant="soft" />;
   }
   if (product.status === 'rejected') {
-    return <Chip size="small" color="error" label="ไม่ผ่าน" variant="soft" />;
+    return <Chip size="small" color="error" label={tx('ไม่ผ่าน')} variant="soft" />;
   }
   if (product.status === 'pending_review') {
-    return <Chip size="small" color="warning" label="รอตรวจสอบ" variant="soft" />;
+    return <Chip size="small" color="warning" label={tx('รอตรวจสอบ')} variant="soft" />;
   }
   if (product.status === 'archived') {
-    return <Chip size="small" color="default" label="ซ่อนแล้ว" variant="soft" />;
+    return <Chip size="small" color="default" label={tx('ซ่อนแล้ว')} variant="soft" />;
   }
-  return <Chip size="small" label="ฉบับร่าง" variant="soft" />;
+  return <Chip size="small" label={tx('ฉบับร่าง')} variant="soft" />;
 }
 
 function SellerReviewState({ seller }: { seller: MarketplaceSeller }) {
+  const { tx } = useDashboardLocale();
   const isRejected = seller.status === 'rejected';
   const isSuspended = seller.status === 'suspended';
   const isDraft = seller.status === 'draft';
@@ -1420,21 +1447,23 @@ function SellerReviewState({ seller }: { seller: MarketplaceSeller }) {
       </Box>
       <Typography variant="h3" sx={{ mt: 3 }}>
         {isDraft
-          ? 'แบบร่างการสมัครเปิดร้าน'
+          ? tx('แบบร่างการสมัครเปิดร้าน')
           : isRejected
-            ? 'คำขอเปิดร้านไม่ผ่านการอนุมัติ'
+            ? tx('คำขอเปิดร้านไม่ผ่านการอนุมัติ')
             : isSuspended
-              ? 'ร้านถูกระงับการใช้งาน'
-              : 'ส่งคำขอเปิดร้านแล้ว'}
+              ? tx('ร้านถูกระงับการใช้งาน')
+              : tx('ส่งคำขอเปิดร้านแล้ว')}
       </Typography>
       <Typography color="text.secondary" sx={{ maxWidth: 620, mx: 'auto', mt: 1 }}>
         {isDraft
-          ? 'ข้อมูลยังไม่ได้ถูกส่งให้ผู้ดูแลตรวจสอบ กรุณากรอกข้อมูลให้ครบถ้วน แล้วส่งคำขอ'
+          ? tx('ข้อมูลยังไม่ได้ถูกส่งให้ผู้ดูแลตรวจสอบ กรุณากรอกข้อมูลให้ครบถ้วน แล้วส่งคำขอ')
           : isRejected
-            ? seller.rejection_reason || 'กรุณาตรวจสอบและแก้ไขข้อมูลร้านก่อนส่งคำขอใหม่'
+            ? seller.rejection_reason || tx('กรุณาตรวจสอบและแก้ไขข้อมูลร้านก่อนส่งคำขอใหม่')
             : isSuspended
-              ? 'กรุณาติดต่อผู้ดูแลระบบเพื่อสอบถามรายละเอียด'
-              : 'ผู้ดูแลระบบกำลังตรวจสอบข้อมูลร้าน เมื่ออนุมัติแล้วคุณจึงจะสามารถสร้างและส่งสินค้าได้'}
+              ? tx('กรุณาติดต่อผู้ดูแลระบบเพื่อสอบถามรายละเอียด')
+              : tx(
+                  'ผู้ดูแลระบบกำลังตรวจสอบข้อมูลร้าน เมื่ออนุมัติแล้วคุณจึงจะสามารถสร้างและส่งสินค้าได้'
+                )}
       </Typography>
       {!isSuspended && (
         <Button
@@ -1444,7 +1473,11 @@ function SellerReviewState({ seller }: { seller: MarketplaceSeller }) {
           color={isRejected ? 'error' : 'primary'}
           sx={{ mt: 3 }}
         >
-          {isDraft ? 'กรอกข้อมูลสมัครต่อ' : isRejected ? 'แก้ไขและส่งคำขอใหม่' : 'ดูหรือแก้ไขคำขอ'}
+          {isDraft
+            ? tx('กรอกข้อมูลสมัครต่อ')
+            : isRejected
+              ? tx('แก้ไขและส่งคำขอใหม่')
+              : tx('ดูหรือแก้ไขคำขอ')}
         </Button>
       )}
     </Card>

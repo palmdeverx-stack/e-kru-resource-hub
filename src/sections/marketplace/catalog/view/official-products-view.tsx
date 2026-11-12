@@ -52,8 +52,8 @@ type Audience = 'all' | 'individual' | 'school';
 
 const copy = {
   th: {
-    eyebrow: 'E-KRU TOOLS & RESOURCES',
-    title: 'เครื่องมือดี ๆ สำหรับครูและโรงเรียน',
+    eyebrow: 'MADE BY E-KRU',
+    title: 'สื่อและแอปดี ๆ จากทีม E-KRU',
     description: 'รวมสื่อการสอน เทมเพลต แบบฟอร์ม และแอปจากทีม E-KRU เลือกใช้ให้เหมาะกับงานของคุณ',
     personalTitle: 'ใช้ในนามบุคคล',
     personalDescription: 'ซื้อและใช้สิทธิ์ด้วยบัญชีของคุณ ใช้งานต่อได้แม้ย้ายโรงเรียน',
@@ -66,7 +66,7 @@ const copy = {
     allAudience: 'ทั้งหมด',
     individual: 'บุคคล',
     school: 'โรงเรียน',
-    search: 'ค้นหาสื่อหรือเครื่องมือ',
+    search: 'ค้นหาสื่อหรือแอปที่สนใจ',
     found: 'พบ {{count}} รายการ',
     emptyTitle: 'ยังไม่พบสินค้าที่ตรงกับตัวกรอง',
     emptyDescription: 'ลองเปลี่ยนประเภท กลุ่มผู้ใช้งาน หรือคำค้นหา',
@@ -75,10 +75,10 @@ const copy = {
     categories: 'ประเภทสินค้า',
     filters: 'ค้นหาและเลือกสินค้า',
     showing: 'แสดง {{shown}} จาก {{total}} รายการ',
-    loadError: 'ไม่สามารถโหลดสื่อและเครื่องมือได้ในขณะนี้',
+    loadError: 'โหลดรายการไม่สำเร็จ กรุณาลองอีกครั้ง',
   },
   en: {
-    eyebrow: 'E-KRU TOOLS & RESOURCES',
+    eyebrow: 'MADE BY E-KRU',
     title: 'Useful tools for teachers and schools',
     description:
       'Discover ready-to-use templates, files, forms, learning resources, and apps for individuals and schools.',

@@ -417,7 +417,7 @@ export default function Layout({ children }: Props) {
     staleTime: 60_000,
     queryFn: async ({ signal }) => {
       const response = await fetch('/api/marketplace/navigation', { signal });
-      if (!response.ok) throw new Error('โหลดเมนูไม่สำเร็จ');
+      if (!response.ok) throw new Error(t('โหลดเมนูไม่สำเร็จ'));
       return response.json() as Promise<{
         hasSubmittedSeller: boolean;
         shippingEnabled: boolean;

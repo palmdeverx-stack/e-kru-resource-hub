@@ -47,8 +47,8 @@ import {
 
 import { useAuthContext } from 'src/auth/hooks';
 
-import { formatPrice } from '../../shared/api';
 import { ThaiBankLogo } from '../../shared/bank-logo';
+import { useDashboardLocale } from '../../shared/use-dashboard-locale';
 
 type FinanceOrder = {
   id: string;
@@ -234,6 +234,7 @@ export function MarketplaceSellerFinanceView({
   initialTab?: FinanceTab;
   productId?: string;
 }) {
+  const { tx, locale, money } = useDashboardLocale();
   const { user } = useAuthContext();
   const [activeTab, setActiveTab] = useState<FinanceTab>(initialTab);
   const [selectedOrder, setSelectedOrder] = useState<FinanceOrder | null>(null);
@@ -255,7 +256,7 @@ export function MarketplaceSellerFinanceView({
         signal,
       });
       const result = await response.json();
-      if (!response.ok) throw new Error(result.message || 'โหลดข้อมูลรายได้ไม่สำเร็จ');
+      if (!response.ok) throw new Error(result.message || tx('โหลดข้อมูลรายได้ไม่สำเร็จ'));
       return result;
     },
   });
@@ -301,13 +302,13 @@ export function MarketplaceSellerFinanceView({
     0
   );
   const payoutDayNames = [
-    'วันอาทิตย์',
-    'วันจันทร์',
-    'วันอังคาร',
-    'วันพุธ',
-    'วันพฤหัสบดี',
-    'วันศุกร์',
-    'วันเสาร์',
+    tx('วันอาทิตย์'),
+    tx('วันจันทร์'),
+    tx('วันอังคาร'),
+    tx('วันพุธ'),
+    tx('วันพฤหัสบดี'),
+    tx('วันศุกร์'),
+    tx('วันเสาร์'),
   ];
   const exampleGross = 100;
   const exampleStripeFee = exampleGross * 0.0365 + 10;
@@ -334,42 +335,44 @@ export function MarketplaceSellerFinanceView({
 
   const summaryCards = [
     {
-      label: 'รายได้วันนี้',
-      description: 'รายได้สุทธิจากยอดที่ชำระสำเร็จ',
+      label: tx('รายได้วันนี้'),
+      description: tx('รายได้สุทธิจากยอดที่ชำระสำเร็จ'),
       amount: data?.balance.todayIncome ?? 0,
       color: 'info.main',
       background: 'info.lighter',
       icon: RiMoneyDollarCircleLine,
     },
     {
-      label: 'รายได้เดือนนี้',
-      description: 'รายได้สุทธิสะสมของเดือนปัจจุบัน',
+      label: tx('รายได้เดือนนี้'),
+      description: tx('รายได้สุทธิสะสมของเดือนปัจจุบัน'),
       amount: data?.balance.monthIncome ?? 0,
       color: 'primary.main',
       background: 'primary.lighter',
       icon: RiFileList3Line,
     },
     {
-      label: 'ยอดรอรับ',
-      description: 'ระบบกำลังสรุปยอดให้พร้อมจ่าย',
+      label: tx('ยอดรอรับ'),
+      description: tx('ระบบกำลังสรุปยอดให้พร้อมจ่าย'),
       amount: (data?.balance.pending ?? 0) + (data?.balance.processing ?? 0),
       color: 'warning.main',
       background: 'warning.lighter',
       icon: RiTimeLine,
     },
     {
-      label: 'ยอดพร้อมจ่าย',
-      description: 'พร้อมรวมในรอบโอนถัดไป',
+      label: tx('ยอดพร้อมจ่าย'),
+      description: tx('พร้อมรวมในรอบโอนถัดไป'),
       amount: data?.balance.available ?? 0,
       color: 'success.main',
       background: 'success.lighter',
       icon: RiWallet3Line,
     },
     {
-      label: 'ยอดที่ได้รับแล้ว',
+      label: tx('ยอดที่ได้รับแล้ว'),
       description: canViewPayoutHistory
-        ? `${data?.payouts.filter((item) => item.status === 'paid').length ?? 0} รายการโอน`
-        : 'ยอดโอนสะสมเข้าบัญชี',
+        ? tx('{{v0}} รายการโอน', {
+            v0: data?.payouts.filter((item) => item.status === 'paid').length ?? 0,
+          })
+        : tx('ยอดโอนสะสมเข้าบัญชี'),
       amount: data?.balance.paid ?? 0,
       color: 'primary.main',
       background: 'primary.lighter',
@@ -415,28 +418,24 @@ export function MarketplaceSellerFinanceView({
               sx={{ mb: 2, color: 'common.white', bgcolor: 'rgba(255,255,255,0.14)' }}
             />
             <Typography component="h1" variant="h3">
-              รายได้และการรับเงิน
+              {tx('รายได้และการรับเงิน')}
             </Typography>
             <Typography sx={{ mt: 0.75, color: 'rgba(255,255,255,0.76)' }}>
-              ติดตามยอดขาย ยอดพัก และประวัติเงินที่โอนเข้าบัญชีของร้าน
+              {tx('ติดตามยอดขาย ยอดพัก และประวัติเงินที่โอนเข้าบัญชีของร้าน')}
             </Typography>
           </Box>
           <Stack direction="row" spacing={{ xs: 3, md: 5 }}>
             <Box>
               <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.72)' }}>
-                ยอดขายรวม
+                {tx('ยอดขายรวม')}
               </Typography>
-              <Typography variant="h3">
-                {formatPrice(Number(data?.balance.grossSales ?? 0))}
-              </Typography>
+              <Typography variant="h3">{money(Number(data?.balance.grossSales ?? 0))}</Typography>
             </Box>
             <Box>
               <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.72)' }}>
-                ยอดรอตรวจสอบ
+                {tx('ยอดรอตรวจสอบ')}
               </Typography>
-              <Typography variant="h3">
-                {formatPrice(Number(data?.balance.underReview ?? 0))}
-              </Typography>
+              <Typography variant="h3">{money(Number(data?.balance.underReview ?? 0))}</Typography>
             </Box>
           </Stack>
         </Stack>
@@ -451,10 +450,12 @@ export function MarketplaceSellerFinanceView({
       {data && (
         <Alert severity="info" icon={<RiBankLine />} sx={{ mb: 3 }}>
           <Typography variant="subtitle2">
-            ยอดโอนขั้นต่ำ {formatPrice(Number(data.schedule.minimumPayout))}
+            {tx('ยอดโอนขั้นต่ำ')} {money(Number(data.schedule.minimumPayout))}
           </Typography>
           <Typography variant="body2">
-            ยอดพร้อมจ่ายต้องถึงขั้นต่ำจึงจะรวมในรอบโอน หากยังไม่ถึง ระบบจะสะสมยอดไว้รอรอบถัดไป
+            {tx(
+              'ยอดพร้อมจ่ายต้องถึงขั้นต่ำจึงจะรวมในรอบโอน หากยังไม่ถึง ระบบจะสะสมยอดไว้รอรอบถัดไป'
+            )}
           </Typography>
         </Alert>
       )}
@@ -469,7 +470,7 @@ export function MarketplaceSellerFinanceView({
                   <Box>
                     <Typography color="text.secondary">{item.label}</Typography>
                     <Typography variant="h4" sx={{ mt: 0.75, color: item.color }}>
-                      {formatPrice(Number(item.amount))}
+                      {money(Number(item.amount))}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
                       {item.description}
@@ -496,12 +497,22 @@ export function MarketplaceSellerFinanceView({
           scrollButtons="auto"
           sx={{ px: { xs: 1, md: 2 }, borderBottom: '1px solid', borderColor: 'divider' }}
         >
-          <Tab value="income" label="รายได้ของฉัน" icon={<RiWallet3Line />} iconPosition="start" />
-          <Tab value="sales" label="รายการขาย" icon={<RiShoppingBag3Line />} iconPosition="start" />
+          <Tab
+            value="income"
+            label={tx('รายได้ของฉัน')}
+            icon={<RiWallet3Line />}
+            iconPosition="start"
+          />
+          <Tab
+            value="sales"
+            label={tx('รายการขาย')}
+            icon={<RiShoppingBag3Line />}
+            iconPosition="start"
+          />
           {canViewPayoutHistory && (
             <Tab
               value="payouts"
-              label="ประวัติการจ่ายเงิน"
+              label={tx('ประวัติการจ่ายเงิน')}
               icon={<RiBankLine />}
               iconPosition="start"
             />
@@ -511,32 +522,34 @@ export function MarketplaceSellerFinanceView({
         {activeTab === 'income' && (
           <Box sx={{ p: { xs: 2.5, md: 3.5 } }}>
             <Alert severity="success" icon={<RiCalendarLine />} sx={{ mb: 3 }}>
-              ยอดที่พร้อมจ่ายจะถูกรวมในรอบถัดไปวันที่{' '}
-              {new Date(data?.schedule.nextPayoutAt ?? '').toLocaleDateString('th-TH', {
+              {tx('ยอดที่พร้อมจ่ายจะถูกรวมในรอบถัดไปวันที่')}{' '}
+              {new Date(data?.schedule.nextPayoutAt ?? '').toLocaleDateString(locale, {
                 dateStyle: 'long',
                 timeZone: 'Asia/Bangkok',
               })}{' '}
-              · ระบบจัดรอบทุก{payoutDayNames[data?.schedule.payoutDay ?? 5]}
+              {tx('· ระบบจัดรอบทุก')} {payoutDayNames[data?.schedule.payoutDay ?? 5]}
             </Alert>
             <Alert severity="info" sx={{ mb: 3 }}>
-              <Typography variant="subtitle2">เงินจะเข้าบัญชีเมื่อไร?</Typography>
+              <Typography variant="subtitle2"> {tx('เงินจะเข้าบัญชีเมื่อไร?')} </Typography>
               <Typography variant="body2" sx={{ mt: 0.5 }}>
-                หลังลูกค้าชำระสำเร็จ ระบบพักยอด{' '}
-                {(data?.schedule.holdDays ?? 0).toLocaleString('th-TH')} วัน
-                แล้วนำยอดที่ถึงขั้นต่ำไปรวมในรอบวัน
-                {payoutDayNames[data?.schedule.payoutDay ?? 5]} โดยทั่วไปจึงใช้เวลาประมาณ{' '}
-                {(data?.schedule.holdDays ?? 0).toLocaleString('th-TH')}–
-                {((data?.schedule.holdDays ?? 0) + 7).toLocaleString('th-TH')} วัน หลังชำระสำเร็จ
+                {tx('หลังลูกค้าชำระสำเร็จ ระบบพักยอด')}{' '}
+                {(data?.schedule.holdDays ?? 0).toLocaleString(locale)}{' '}
+                {tx('วัน แล้วนำยอดที่ถึงขั้นต่ำไปรวมในรอบวัน')}{' '}
+                {payoutDayNames[data?.schedule.payoutDay ?? 5]} {tx('โดยทั่วไปจึงใช้เวลาประมาณ')}{' '}
+                {(data?.schedule.holdDays ?? 0).toLocaleString(locale)}–
+                {((data?.schedule.holdDays ?? 0) + 7).toLocaleString(locale)}{' '}
+                {tx('วัน หลังชำระสำเร็จ')}
               </Typography>
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-                เป็นวันที่โดยประมาณ วันหยุด การตรวจสอบการชำระ การคืนเงิน หรือการดำเนินการของธนาคาร
-                อาจทำให้เงินเข้าช้ากว่ากำหนด
+                {tx(
+                  'เป็นวันที่โดยประมาณ วันหยุด การตรวจสอบการชำระ การคืนเงิน หรือการดำเนินการของธนาคาร อาจทำให้เงินเข้าช้ากว่ากำหนด'
+                )}
               </Typography>
             </Alert>
 
-            <Typography variant="h5">สถานะเงินของคำสั่งซื้อ</Typography>
+            <Typography variant="h5"> {tx('สถานะเงินของคำสั่งซื้อ')} </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              ดูเส้นทางรายได้แบบสั้นและชัดเจน ระบบจะแสดงวันที่รอบโอนถัดไปให้เสมอ
+              {tx('ดูเส้นทางรายได้แบบสั้นและชัดเจน ระบบจะแสดงวันที่รอบโอนถัดไปให้เสมอ')}
             </Typography>
             <Box
               sx={{
@@ -552,10 +565,10 @@ export function MarketplaceSellerFinanceView({
               }}
             >
               {[
-                ['1', 'ขายสำเร็จ', 'รับชำระและบันทึกยอดขายแล้ว', 'info'],
-                ['2', 'กำลังเคลียร์ยอด', 'ระบบตรวจสอบและสรุปยอดอัตโนมัติ', 'warning'],
-                ['3', 'พร้อมจ่าย', 'ยอดพร้อมรวมในรอบโอนถัดไป', 'success'],
-                ['4', 'โอนสำเร็จ', 'เงินเข้าบัญชีผู้ขายแล้ว', 'primary'],
+                ['1', tx('ขายสำเร็จ'), tx('รับชำระและบันทึกยอดขายแล้ว'), 'info'],
+                ['2', tx('กำลังเคลียร์ยอด'), tx('ระบบตรวจสอบและสรุปยอดอัตโนมัติ'), 'warning'],
+                ['3', tx('พร้อมจ่าย'), tx('ยอดพร้อมรวมในรอบโอนถัดไป'), 'success'],
+                ['4', tx('โอนสำเร็จ'), tx('เงินเข้าบัญชีผู้ขายแล้ว'), 'primary'],
               ].map(([step, title, description, color]) => (
                 <Card
                   key={step}
@@ -586,20 +599,25 @@ export function MarketplaceSellerFinanceView({
 
             <Grid container spacing={2.5} sx={{ mt: 2 }}>
               {[
-                ['ยอดขายรวม', data?.balance.grossSales ?? 0, 'ยอดคำสั่งซื้อที่ชำระสำเร็จ', 'info'],
                 [
-                  'ยอดรอตรวจสอบ',
+                  tx('ยอดขายรวม'),
+                  data?.balance.grossSales ?? 0,
+                  tx('ยอดคำสั่งซื้อที่ชำระสำเร็จ'),
+                  'info',
+                ],
+                [
+                  tx('ยอดรอตรวจสอบ'),
                   data?.balance.underReview ?? 0,
-                  'ยังไม่รวมในยอดพร้อมจ่าย',
+                  tx('ยังไม่รวมในยอดพร้อมจ่าย'),
                   'warning',
                 ],
                 [
-                  'ยอดพร้อมถอนได้',
+                  tx('ยอดพร้อมถอนได้'),
                   data?.balance.available ?? 0,
-                  'พร้อมรวมในรอบโอนถัดไป',
+                  tx('พร้อมรวมในรอบโอนถัดไป'),
                   'success',
                 ],
-                ['ยอดที่โอนแล้ว', data?.balance.paid ?? 0, 'โอนเข้าบัญชีสำเร็จ', 'primary'],
+                [tx('ยอดที่โอนแล้ว'), data?.balance.paid ?? 0, tx('โอนเข้าบัญชีสำเร็จ'), 'primary'],
               ].map(([label, amount, description, color]) => (
                 <Grid key={String(label)} size={{ xs: 12, sm: 6, lg: 3 }}>
                   <Card
@@ -613,7 +631,7 @@ export function MarketplaceSellerFinanceView({
                   >
                     <Typography color="text.secondary">{label}</Typography>
                     <Typography variant="h4" sx={{ mt: 0.75, color: `${color}.dark` }}>
-                      {formatPrice(Number(amount))}
+                      {money(Number(amount))}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
                       {description}
@@ -635,14 +653,14 @@ export function MarketplaceSellerFinanceView({
             >
               <Box>
                 <Typography variant="h5">
-                  {buyerProductId ? 'ผู้ซื้อสินค้านี้' : 'รายการขายทั้งหมด'}
+                  {buyerProductId ? tx('ผู้ซื้อสินค้านี้') : tx('รายการขายทั้งหมด')}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  แสดงยอดที่ผู้ซื้อชำระ ผู้รับค่าธรรมเนียม และยอดที่ผู้ขายจะได้รับ
+                  {tx('แสดงยอดที่ผู้ซื้อชำระ ผู้รับค่าธรรมเนียม และยอดที่ผู้ขายจะได้รับ')}
                 </Typography>
               </Box>
               <Chip
-                label={`${salesOrders.length} รายการ`}
+                label={tx('{{v0}} รายการ', { v0: salesOrders.length })}
                 color={buyerProductId ? 'primary' : 'default'}
                 variant={buyerProductId ? 'soft' : 'outlined'}
               />
@@ -652,15 +670,17 @@ export function MarketplaceSellerFinanceView({
               <Table sx={{ minWidth: canViewPaymentTransactions ? 1320 : 1120 }}>
                 <TableHead>
                   <TableRow>
-                    <TableCell>วันที่</TableCell>
-                    <TableCell>คำสั่งซื้อ</TableCell>
-                    {canViewPaymentTransactions && <TableCell>Transaction การชำระเงิน</TableCell>}
-                    <TableCell>สินค้า</TableCell>
-                    <TableCell align="right">ยอดขาย</TableCell>
-                    <TableCell align="right">Stripe ได้รับ</TableCell>
-                    <TableCell align="right">E-KRU ได้รับ</TableCell>
-                    <TableCell align="right">ผู้ขายได้รับ</TableCell>
-                    <TableCell>สถานะ</TableCell>
+                    <TableCell> {tx('วันที่')} </TableCell>
+                    <TableCell> {tx('คำสั่งซื้อ')} </TableCell>
+                    {canViewPaymentTransactions && (
+                      <TableCell> {tx('Transaction การชำระเงิน')} </TableCell>
+                    )}
+                    <TableCell> {tx('สินค้า')} </TableCell>
+                    <TableCell align="right"> {tx('ยอดขาย')} </TableCell>
+                    <TableCell align="right"> {tx('Stripe ได้รับ')} </TableCell>
+                    <TableCell align="right"> {tx('E-KRU ได้รับ')} </TableCell>
+                    <TableCell align="right"> {tx('ผู้ขายได้รับ')} </TableCell>
+                    <TableCell> {tx('สถานะ')} </TableCell>
                     <TableCell align="right" />
                   </TableRow>
                 </TableHead>
@@ -679,7 +699,7 @@ export function MarketplaceSellerFinanceView({
                         return (
                           <TableRow key={order.id} hover>
                             <TableCell>
-                              {new Date(order.created_at).toLocaleDateString('th-TH', {
+                              {new Date(order.created_at).toLocaleDateString(locale, {
                                 day: 'numeric',
                                 month: 'short',
                                 year: '2-digit',
@@ -702,7 +722,7 @@ export function MarketplaceSellerFinanceView({
                                   {transaction.reference}
                                 </Typography>
                                 <Typography variant="caption" color="text.secondary" noWrap>
-                                  {transaction.label}
+                                  {tx(transaction.label)}
                                 </Typography>
                               </TableCell>
                             )}
@@ -712,35 +732,35 @@ export function MarketplaceSellerFinanceView({
                               </Typography>
                               {(order.items?.length ?? 0) > 1 && (
                                 <Typography variant="caption" color="text.secondary">
-                                  {order.items?.length} รายการ
+                                  {order.items?.length} {tx('รายการ')}
                                 </Typography>
                               )}
                             </TableCell>
                             <TableCell align="right">
-                              {formatPrice(Number(order.gross_amount), order.currency)}
+                              {money(Number(order.gross_amount), order.currency)}
                             </TableCell>
                             <TableCell align="right">
                               <Typography variant="subtitle2" color="error.main">
-                                {formatPrice(Number(order.payment_fee), order.currency)}
+                                {money(Number(order.payment_fee), order.currency)}
                               </Typography>
                               <Typography variant="caption" color="text.secondary">
-                                ค่าชำระเงิน
+                                {tx('ค่าชำระเงิน')}
                               </Typography>
                             </TableCell>
                             <TableCell align="right">
                               <Typography variant="subtitle2" color="primary.main">
-                                {formatPrice(Number(order.platform_fee), order.currency)}
+                                {money(Number(order.platform_fee), order.currency)}
                               </Typography>
                               <Typography variant="caption" color="text.secondary">
-                                ค่าคอมมิชชัน
+                                {tx('ค่าคอมมิชชัน')}
                               </Typography>
                             </TableCell>
                             <TableCell align="right">
                               <Typography variant="subtitle2" color="success.main">
-                                {formatPrice(Number(order.seller_net), order.currency)}
+                                {money(Number(order.seller_net), order.currency)}
                               </Typography>
                               <Typography variant="caption" color="text.secondary">
-                                เข้ายอดรอรับของร้าน
+                                {tx('เข้ายอดรอรับของร้าน')}
                               </Typography>
                             </TableCell>
                             <TableCell>
@@ -748,12 +768,12 @@ export function MarketplaceSellerFinanceView({
                                 size="small"
                                 variant="soft"
                                 color={status.color}
-                                label={status.label}
+                                label={tx(status.label)}
                               />
                             </TableCell>
                             <TableCell align="right">
                               <IconButton
-                                aria-label="ดูรายละเอียดการคำนวณ"
+                                aria-label={tx('ดูรายละเอียดการคำนวณ')}
                                 onClick={() => setSelectedOrder(order)}
                               >
                                 <RiEyeLine />
@@ -771,7 +791,9 @@ export function MarketplaceSellerFinanceView({
                       >
                         <RiShoppingBag3Line size={42} />
                         <Typography variant="h6" sx={{ mt: 1 }}>
-                          {buyerProductId ? 'ยังไม่มีผู้ซื้อสินค้านี้' : 'ยังไม่มีรายการขาย'}
+                          {buyerProductId
+                            ? tx('ยังไม่มีผู้ซื้อสินค้านี้')
+                            : tx('ยังไม่มีรายการขาย')}
                         </Typography>
                       </TableCell>
                     </TableRow>
@@ -785,9 +807,13 @@ export function MarketplaceSellerFinanceView({
               page={salesPage}
               rowsPerPage={salesRowsPerPage}
               rowsPerPageOptions={[10, 25, 50]}
-              labelRowsPerPage="แสดงต่อหน้า"
+              labelRowsPerPage={tx('แสดงต่อหน้า')}
               labelDisplayedRows={({ from, to, count }) =>
-                `${from}–${to} จาก ${count.toLocaleString('th-TH')} รายการ`
+                tx('{{v0}}–{{v1}} จาก {{v2}} รายการ', {
+                  v0: from,
+                  v1: to,
+                  v2: count.toLocaleString(locale),
+                })
               }
               onPageChange={(_event, page) => setSalesPage(page)}
               onRowsPerPageChange={(event) => {
@@ -798,8 +824,9 @@ export function MarketplaceSellerFinanceView({
 
             <Stack mt={2}>
               <Alert severity="info" sx={{ mb: 2.5 }}>
-                เส้นทางเงิน: ผู้ซื้อชำระยอดขาย → ระบบชำระเงินออนไลน์หักค่าดำเนินการ → E-KRU
-                หักค่าคอมมิชชัน → ยอดคงเหลือเป็นรายได้สุทธิของผู้ขาย
+                {tx(
+                  'เส้นทางเงิน: ผู้ซื้อชำระยอดขาย → ระบบชำระเงินออนไลน์หักค่าดำเนินการ → E-KRU หักค่าคอมมิชชัน → ยอดคงเหลือเป็นรายได้สุทธิของผู้ขาย'
+                )}
               </Alert>
 
               <Card
@@ -822,9 +849,11 @@ export function MarketplaceSellerFinanceView({
                   }}
                 >
                   <Box>
-                    <Typography variant="subtitle1">ตัวอย่างที่ 1: บัตรผ่าน Stripe</Typography>
+                    <Typography variant="subtitle1">
+                      {tx('ตัวอย่างที่ 1: บัตรผ่าน Stripe')}
+                    </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      สมมติขายสินค้า ฿100 ผ่านบัตรในประเทศ
+                      {tx('สมมติขายสินค้า ฿100 ผ่านบัตรในประเทศ')}
                     </Typography>
                   </Box>
                   <Box
@@ -835,13 +864,13 @@ export function MarketplaceSellerFinanceView({
                     }}
                   >
                     <Typography variant="caption" color="text.secondary">
-                      ระบบชำระเงินออนไลน์ได้รับ
+                      {tx('ระบบชำระเงินออนไลน์ได้รับ')}
                     </Typography>
                     <Typography variant="subtitle2" color="error.main">
-                      {formatPrice(exampleStripeFee)}
+                      {money(exampleStripeFee)}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      3.65% + ฿10
+                      {tx('3.65% + ฿10')}
                     </Typography>
                   </Box>
                   <Box
@@ -852,18 +881,18 @@ export function MarketplaceSellerFinanceView({
                     }}
                   >
                     <Typography variant="caption" color="text.secondary">
-                      ระบบ E-KRU ได้รับ
+                      {tx('ระบบ E-KRU ได้รับ')}
                     </Typography>
                     <Typography variant="subtitle2" color="warning.dark">
-                      {formatPrice(examplePlatformFee)}
+                      {money(examplePlatformFee)}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      คอมมิชชัน {data?.schedule.commissionRate ?? 0}% ·{' '}
+                      {tx('คอมมิชชัน')} {data?.schedule.commissionRate ?? 0}% ·{' '}
                       {data?.schedule.commissionSource === 'system_store'
-                        ? 'ร้านทางการ'
+                        ? tx('ร้านทางการ')
                         : data?.schedule.commissionSource === 'seller_override'
-                          ? 'อัตราเฉพาะร้าน'
-                          : 'อัตรามาตรฐาน'}
+                          ? tx('อัตราเฉพาะร้าน')
+                          : tx('อัตรามาตรฐาน')}
                     </Typography>
                   </Box>
                   <Box
@@ -874,10 +903,10 @@ export function MarketplaceSellerFinanceView({
                     }}
                   >
                     <Typography variant="caption" color="text.secondary">
-                      ผู้ขายได้รับประมาณ
+                      {tx('ผู้ขายได้รับประมาณ')}
                     </Typography>
                     <Typography variant="h6" color="success.main">
-                      {formatPrice(exampleSellerNet)}
+                      {money(exampleSellerNet)}
                     </Typography>
                   </Box>
                 </Box>
@@ -897,11 +926,12 @@ export function MarketplaceSellerFinanceView({
                 >
                   <Box>
                     <Typography variant="subtitle1">
-                      ตัวอย่างที่ 2: PromptPay ผ่าน Stripe
+                      {tx('ตัวอย่างที่ 2: PromptPay ผ่าน Stripe')}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      สมมติขายสินค้า ฿100 ผู้ซื้อเลือก PromptPay บนหน้า Stripe แล้วสแกน QR
-                      ด้วยแอปธนาคาร
+                      {tx(
+                        'สมมติขายสินค้า ฿100 ผู้ซื้อเลือก PromptPay บนหน้า Stripe แล้วสแกน QR ด้วยแอปธนาคาร'
+                      )}
                     </Typography>
                   </Box>
                   <Box
@@ -912,13 +942,13 @@ export function MarketplaceSellerFinanceView({
                     }}
                   >
                     <Typography variant="caption" color="text.secondary">
-                      Stripe ได้รับโดยประมาณ
+                      {tx('Stripe ได้รับโดยประมาณ')}
                     </Typography>
                     <Typography variant="subtitle2" color="error.main">
-                      {formatPrice(exampleStripePromptPayFee)}
+                      {money(exampleStripePromptPayFee)}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      1.65% ของยอดชำระ
+                      {tx('1.65% ของยอดชำระ')}
                     </Typography>
                   </Box>
                   <Box
@@ -929,13 +959,13 @@ export function MarketplaceSellerFinanceView({
                     }}
                   >
                     <Typography variant="caption" color="text.secondary">
-                      ระบบ E-KRU ได้รับ
+                      {tx('ระบบ E-KRU ได้รับ')}
                     </Typography>
                     <Typography variant="subtitle2" color="warning.dark">
-                      {formatPrice(examplePlatformFee)}
+                      {money(examplePlatformFee)}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      คอมมิชชัน {data?.schedule.commissionRate ?? 0}%
+                      {tx('คอมมิชชัน')} {data?.schedule.commissionRate ?? 0}%
                     </Typography>
                   </Box>
                   <Box
@@ -946,10 +976,10 @@ export function MarketplaceSellerFinanceView({
                     }}
                   >
                     <Typography variant="caption" color="text.secondary">
-                      ผู้ขายได้รับประมาณ
+                      {tx('ผู้ขายได้รับประมาณ')}
                     </Typography>
                     <Typography variant="h6" color="success.main">
-                      {formatPrice(examplePromptPaySellerNet)}
+                      {money(examplePromptPaySellerNet)}
                     </Typography>
                   </Box>
                 </Box>
@@ -959,9 +989,9 @@ export function MarketplaceSellerFinanceView({
                   color="text.secondary"
                   sx={{ display: 'block', mt: 2 }}
                 >
-                  ตัวเลขเป็นตัวอย่างก่อนทำรายการ ค่าธรรมเนียมจริงให้ยึดจาก Stripe Balance
-                  Transaction ของรายการนั้น และอาจต่างกันตามประเภทการชำระ ประเทศของบัตร
-                  การแปลงสกุลเงิน หรืออัตราเฉพาะของบัญชี
+                  {tx(
+                    'ตัวเลขเป็นตัวอย่างก่อนทำรายการ ค่าธรรมเนียมจริงให้ยึดจาก Stripe Balance Transaction ของรายการนั้น และอาจต่างกันตามประเภทการชำระ ประเทศของบัตร การแปลงสกุลเงิน หรืออัตราเฉพาะของบัญชี'
+                  )}
                 </Typography>
               </Card>
             </Stack>
@@ -972,14 +1002,14 @@ export function MarketplaceSellerFinanceView({
           <Box sx={{ p: { xs: 2.5, md: 3 } }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
               <Box>
-                <Typography variant="h5">ประวัติการจ่ายเงิน</Typography>
+                <Typography variant="h5"> {tx('ประวัติการจ่ายเงิน')} </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  รายการเงินที่รวมยอดและส่งเข้าบัญชีรับเงินของร้าน
+                  {tx('รายการเงินที่รวมยอดและส่งเข้าบัญชีรับเงินของร้าน')}
                 </Typography>
               </Box>
               <Chip
                 variant="outlined"
-                label={`${data?.payouts.length ?? 0} รายการ`}
+                label={tx('{{v0}} รายการ', { v0: data?.payouts.length ?? 0 })}
                 icon={<RiFileList3Line />}
               />
             </Stack>
@@ -1020,11 +1050,11 @@ export function MarketplaceSellerFinanceView({
                           </Avatar>
                           <Box>
                             <Typography variant="subtitle1">
-                              {formatPrice(Number(payout.amount), payout.currency)}
+                              {money(Number(payout.amount), payout.currency)}
                             </Typography>
                             <Typography variant="caption" color="text.secondary">
                               {new Date(payout.requested_at || payout.created_at).toLocaleString(
-                                'th-TH',
+                                locale,
                                 { dateStyle: 'medium', timeStyle: 'short' }
                               )}
                             </Typography>
@@ -1035,7 +1065,7 @@ export function MarketplaceSellerFinanceView({
                             size="small"
                             variant="soft"
                             color={status.color}
-                            label={status.label}
+                            label={tx(status.label)}
                           />
                           <RiArrowRightSLine />
                         </Stack>
@@ -1047,16 +1077,18 @@ export function MarketplaceSellerFinanceView({
                 <Box sx={{ py: 7, textAlign: 'center' }}>
                   <RiBankLine size={44} />
                   <Typography variant="h6" sx={{ mt: 1.5 }}>
-                    ยังไม่มีประวัติการจ่ายเงิน
+                    {tx('ยังไม่มีประวัติการจ่ายเงิน')}
                   </Typography>
                 </Box>
               )}
             </Stack>
             <Alert severity="info" sx={{ mt: 3 }}>
-              พักยอด {(data?.schedule.holdDays ?? 0).toLocaleString('th-TH')} วัน · จ่ายเป็นรอบทุก
-              {payoutDayNames[data?.schedule.payoutDay ?? 5]} · ยอดขั้นต่ำ{' '}
-              {formatPrice(Number(data?.schedule.minimumPayout ?? 0))} · วันรอบโอนเป็นวันประมาณการ
-              ไม่ใช่วันรับประกันเงินเข้าบัญชี หากต้องการแก้ไขบัญชีรับเงิน ให้ไปที่เมนูข้อมูลร้านค้า
+              {tx('พักยอด')} {(data?.schedule.holdDays ?? 0).toLocaleString(locale)}{' '}
+              {tx('วัน · จ่ายเป็นรอบทุก')} {payoutDayNames[data?.schedule.payoutDay ?? 5]}{' '}
+              {tx('· ยอดขั้นต่ำ')} {money(Number(data?.schedule.minimumPayout ?? 0))}{' '}
+              {tx(
+                '· วันรอบโอนเป็นวันประมาณการ ไม่ใช่วันรับประกันเงินเข้าบัญชี หากต้องการแก้ไขบัญชีรับเงิน ให้ไปที่เมนูข้อมูลร้านค้า'
+              )}
             </Alert>
           </Box>
         )}
@@ -1072,12 +1104,12 @@ export function MarketplaceSellerFinanceView({
         {selectedOrder && (
           <>
             <DialogTitle component="div" sx={{ pr: 7 }}>
-              <Typography variant="h5">รายละเอียดรายได้คำสั่งซื้อ</Typography>
+              <Typography variant="h5"> {tx('รายละเอียดรายได้คำสั่งซื้อ')} </Typography>
               <Typography variant="body2" color="text.secondary">
                 ORD-{selectedOrder.id.slice(0, 8).toUpperCase()}
               </Typography>
               <IconButton
-                aria-label="ปิด"
+                aria-label={tx('ปิด')}
                 onClick={() => setSelectedOrder(null)}
                 sx={{ top: 16, right: 16, position: 'absolute' }}
               >
@@ -1090,7 +1122,7 @@ export function MarketplaceSellerFinanceView({
                 {canViewBuyerDetails && (
                   <Card variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
                     <Typography variant="caption" color="text.secondary">
-                      ผู้ซื้อ
+                      {tx('ผู้ซื้อ')}
                     </Typography>
                     <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mt: 1 }}>
                       <Avatar
@@ -1108,16 +1140,16 @@ export function MarketplaceSellerFinanceView({
                         <Typography variant="subtitle2" noWrap>
                           {selectedOrder.buyer?.name ||
                             (selectedOrder.buyer_id
-                              ? `ผู้ซื้อ #${selectedOrder.buyer_id.slice(0, 8)}`
-                              : 'ไม่พบข้อมูลผู้ซื้อ')}
+                              ? tx('ผู้ซื้อ #{{v0}}', { v0: selectedOrder.buyer_id.slice(0, 8) })
+                              : tx('ไม่พบข้อมูลผู้ซื้อ'))}
                         </Typography>
                         <Typography variant="body2" color="text.secondary" noWrap>
-                          {selectedOrder.buyer?.email || 'ไม่มีข้อมูลอีเมล'}
+                          {selectedOrder.buyer?.email || tx('ไม่มีข้อมูลอีเมล')}
                         </Typography>
                         <Typography variant="caption" color="text.secondary" noWrap>
                           {selectedOrder.buyer?.school?.name
-                            ? `สังกัด ${selectedOrder.buyer.school.name}`
-                            : 'บัญชีส่วนตัว / ไม่ได้ระบุโรงเรียน'}
+                            ? tx('สังกัด {{v0}}', { v0: selectedOrder.buyer.school.name })
+                            : tx('บัญชีส่วนตัว / ไม่ได้ระบุโรงเรียน')}
                         </Typography>
                       </Box>
                     </Stack>
@@ -1126,13 +1158,13 @@ export function MarketplaceSellerFinanceView({
                 {canViewPaymentTransactions && (
                   <Card variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
                     <Typography variant="caption" color="text.secondary">
-                      Transaction การชำระเงิน
+                      {tx('Transaction การชำระเงิน')}
                     </Typography>
                     <Typography variant="subtitle2" sx={{ mt: 0.5, overflowWrap: 'anywhere' }}>
                       {paymentTransaction(selectedOrder).reference}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      {paymentTransaction(selectedOrder).label}
+                      {tx(paymentTransaction(selectedOrder).label)}
                     </Typography>
                   </Card>
                 )}
@@ -1145,28 +1177,28 @@ export function MarketplaceSellerFinanceView({
                           {item.quantity > 1 ? ` × ${item.quantity}` : ''}
                         </Typography>
                         <Typography variant="body2">
-                          {formatPrice(Number(item.unit_price) * item.quantity)}
+                          {money(Number(item.unit_price) * item.quantity)}
                         </Typography>
                       </Stack>
                       {item.product?.title && item.product.title !== item.title && (
                         <Typography variant="caption" color="text.secondary">
-                          ชื่อ ณ วันที่ขาย: {item.title}
+                          {tx('ชื่อ ณ วันที่ขาย:')} {item.title}
                         </Typography>
                       )}
                     </Box>
                   ))}
                 </Stack>
                 <Card variant="outlined" sx={{ p: 2.5, borderRadius: 2.5 }}>
-                  <Typography variant="h6">สูตรคำนวณรายได้</Typography>
+                  <Typography variant="h6"> {tx('สูตรคำนวณรายได้')} </Typography>
                   <Stack spacing={1.5} sx={{ mt: 2 }}>
-                    <AmountRow label="ราคาขาย" amount={Number(selectedOrder.gross_amount)} />
+                    <AmountRow label={tx('ราคาขาย')} amount={Number(selectedOrder.gross_amount)} />
                     <AmountRow
-                      label="ค่าธรรมเนียม Stripe / ช่องทางชำระ"
+                      label={tx('ค่าธรรมเนียม Stripe / ช่องทางชำระ')}
                       amount={-Number(selectedOrder.payment_fee)}
                       color="error.main"
                     />
                     <AmountRow
-                      label="ค่าคอมมิชชัน E-KRU"
+                      label={tx('ค่าคอมมิชชัน E-KRU')}
                       amount={-Number(selectedOrder.platform_fee)}
                       color="error.main"
                     />
@@ -1177,7 +1209,7 @@ export function MarketplaceSellerFinanceView({
                           Number(selectedOrder.platform_fee))
                     ) >= 0.01 && (
                       <AmountRow
-                        label="ส่วนปรับปรุงโดย E-KRU"
+                        label={tx('ส่วนปรับปรุงโดย E-KRU')}
                         amount={
                           Number(selectedOrder.seller_net) -
                           (Number(selectedOrder.gross_amount) -
@@ -1189,7 +1221,7 @@ export function MarketplaceSellerFinanceView({
                     )}
                     <Divider />
                     <AmountRow
-                      label="รายได้สุทธิผู้ขาย"
+                      label={tx('รายได้สุทธิผู้ขาย')}
                       amount={Number(selectedOrder.seller_net)}
                       color="success.main"
                       strong
@@ -1197,11 +1229,14 @@ export function MarketplaceSellerFinanceView({
                   </Stack>
                 </Card>
                 <Alert severity="info">
-                  สถานะเงิน: {getMoneyStatus(selectedOrder, saleEntries, payoutsById).label}
+                  {tx('สถานะเงิน:')}{' '}
+                  {tx(getMoneyStatus(selectedOrder, saleEntries, payoutsById).label)}
                   {selectedOrder.available_at &&
-                    ` · พร้อมเข้ารอบจ่ายหลัง ${new Date(
-                      selectedOrder.available_at
-                    ).toLocaleDateString('th-TH', { dateStyle: 'long' })}`}
+                    tx(' · พร้อมเข้ารอบจ่ายหลัง {{v0}}', {
+                      v0: new Date(selectedOrder.available_at).toLocaleDateString(locale, {
+                        dateStyle: 'long',
+                      }),
+                    })}
                 </Alert>
               </Stack>
             </DialogContent>
@@ -1219,12 +1254,12 @@ export function MarketplaceSellerFinanceView({
         {selectedPayout && (
           <>
             <DialogTitle component="div" sx={{ pr: 7 }}>
-              <Typography variant="h5">รายละเอียดการรับเงิน</Typography>
+              <Typography variant="h5"> {tx('รายละเอียดการรับเงิน')} </Typography>
               <Typography variant="body2" color="text.secondary">
                 #{selectedPayout.id.slice(0, 12).toUpperCase()}
               </Typography>
               <IconButton
-                aria-label="ปิด"
+                aria-label={tx('ปิด')}
                 onClick={() => setSelectedPayout(null)}
                 sx={{ top: 16, right: 16, position: 'absolute' }}
               >
@@ -1248,13 +1283,15 @@ export function MarketplaceSellerFinanceView({
                     spacing={2}
                   >
                     <Box>
-                      <Typography sx={{ color: 'rgba(255,255,255,0.72)' }}>ยอดรับสุทธิ</Typography>
+                      <Typography sx={{ color: 'rgba(255,255,255,0.72)' }}>
+                        {tx('ยอดรับสุทธิ')}
+                      </Typography>
                       <Typography variant="h3">
-                        {formatPrice(Number(selectedPayout.amount), selectedPayout.currency)}
+                        {money(Number(selectedPayout.amount), selectedPayout.currency)}
                       </Typography>
                     </Box>
                     <Chip
-                      label={payoutStatus[selectedPayout.status].label}
+                      label={tx(payoutStatus[selectedPayout.status].label)}
                       color={payoutStatus[selectedPayout.status].color}
                       sx={{ alignSelf: 'flex-start' }}
                     />
@@ -1263,11 +1300,11 @@ export function MarketplaceSellerFinanceView({
 
                 <Grid container spacing={3}>
                   <Grid size={{ xs: 12, md: 6 }}>
-                    <Typography variant="h6">บัญชีที่รับเงิน</Typography>
+                    <Typography variant="h6"> {tx('บัญชีที่รับเงิน')} </Typography>
                     <Stack spacing={1.5} sx={{ mt: 2 }}>
                       <Stack direction="row" justifyContent="space-between" spacing={2}>
                         <Typography variant="body2" color="text.secondary">
-                          ธนาคาร
+                          {tx('ธนาคาร')}
                         </Typography>
                         <Stack direction="row" spacing={1} alignItems="center">
                           <ThaiBankLogo
@@ -1280,36 +1317,44 @@ export function MarketplaceSellerFinanceView({
                           </Typography>
                         </Stack>
                       </Stack>
-                      <DetailRow label="ชื่อบัญชี" value={selectedPayout.account_name_snapshot} />
-                      <DetailRow label="เลขบัญชี" value={selectedPayout.account_number_snapshot} />
                       <DetailRow
-                        label="เลขอ้างอิง"
+                        label={tx('ชื่อบัญชี')}
+                        value={selectedPayout.account_name_snapshot}
+                      />
+                      <DetailRow
+                        label={tx('เลขบัญชี')}
+                        value={selectedPayout.account_number_snapshot}
+                      />
+                      <DetailRow
+                        label={tx('เลขอ้างอิง')}
                         value={selectedPayout.transfer_reference || '-'}
                       />
                     </Stack>
                   </Grid>
                   <Grid size={{ xs: 12, md: 6 }}>
-                    <Typography variant="h6">ข้อมูลการดำเนินการ</Typography>
+                    <Typography variant="h6"> {tx('ข้อมูลการดำเนินการ')} </Typography>
                     <Stack spacing={1.5} sx={{ mt: 2 }}>
                       <DetailRow
-                        label="วันที่สร้างรายการ"
+                        label={tx('วันที่สร้างรายการ')}
                         value={new Date(
                           selectedPayout.requested_at || selectedPayout.created_at
-                        ).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}
+                        ).toLocaleString(locale, { timeZone: 'Asia/Bangkok' })}
                       />
                       <DetailRow
-                        label="วันที่ดำเนินการ"
+                        label={tx('วันที่ดำเนินการ')}
                         value={
                           selectedPayout.processed_at
-                            ? new Date(selectedPayout.processed_at).toLocaleString('th-TH', {
+                            ? new Date(selectedPayout.processed_at).toLocaleString(locale, {
                                 timeZone: 'Asia/Bangkok',
                               })
                             : '-'
                         }
                       />
                       <DetailRow
-                        label="จำนวนคำสั่งซื้อ"
-                        value={`${selectedOrders.length.toLocaleString('th-TH')} รายการ`}
+                        label={tx('จำนวนคำสั่งซื้อ')}
+                        value={tx('{{v0}} รายการ', {
+                          v0: selectedOrders.length.toLocaleString(locale),
+                        })}
                       />
                     </Stack>
                   </Grid>
@@ -1317,24 +1362,24 @@ export function MarketplaceSellerFinanceView({
 
                 {!!selectedOrders.length && (
                   <Card variant="outlined" sx={{ p: 2.5, borderRadius: 2.5 }}>
-                    <Typography variant="h6">สรุปการคำนวณ</Typography>
+                    <Typography variant="h6"> {tx('สรุปการคำนวณ')} </Typography>
                     <Stack spacing={1.25} sx={{ mt: 2 }}>
-                      <AmountRow label="ยอดขายรวม" amount={selectedGross} />
+                      <AmountRow label={tx('ยอดขายรวม')} amount={selectedGross} />
                       <AmountRow
-                        label="ค่าธรรมเนียมระบบ"
+                        label={tx('ค่าธรรมเนียมระบบ')}
                         amount={-selectedPlatformFee}
                         color="error.main"
                       />
                       {!!selectedPaymentFee && (
                         <AmountRow
-                          label="ค่าธรรมเนียมการชำระเงิน"
+                          label={tx('ค่าธรรมเนียมการชำระเงิน')}
                           amount={-selectedPaymentFee}
                           color="error.main"
                         />
                       )}
                       <Divider />
                       <AmountRow
-                        label="ยอดโอนสุทธิ"
+                        label={tx('ยอดโอนสุทธิ')}
                         amount={Number(selectedPayout.amount)}
                         color="success.main"
                         strong
@@ -1345,7 +1390,7 @@ export function MarketplaceSellerFinanceView({
 
                 {!!selectedPayout.failure_reason && (
                   <Alert severity="error">
-                    สาเหตุที่โอนไม่สำเร็จ: {selectedPayout.failure_reason}
+                    {tx('สาเหตุที่โอนไม่สำเร็จ:')} {selectedPayout.failure_reason}
                   </Alert>
                 )}
               </Stack>
@@ -1381,11 +1426,12 @@ function AmountRow({
   color?: string;
   strong?: boolean;
 }) {
+  const { money } = useDashboardLocale();
   return (
     <Stack direction="row" justifyContent="space-between" spacing={2}>
       <Typography variant={strong ? 'subtitle1' : 'body2'}>{label}</Typography>
       <Typography variant={strong ? 'h6' : 'body2'} sx={{ color, fontWeight: strong ? 800 : 600 }}>
-        {amount < 0 ? `- ${formatPrice(Math.abs(amount))}` : formatPrice(amount)}
+        {amount < 0 ? `- ${money(Math.abs(amount))}` : money(amount)}
       </Typography>
     </Stack>
   );

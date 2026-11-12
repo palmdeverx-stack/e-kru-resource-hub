@@ -9,11 +9,12 @@ import { sendEmail, getEmailSender, getEmailReplyTo } from 'src/lib/resend';
 
 import { buildSellerReminderEmail } from 'src/sections/marketplace/admin/server/seller-reminder-email';
 
-function templateFor(request: Request) {
+function templateFor(request: Request, preview = false) {
   return buildSellerReminderEmail({
     shopName: 'ร้านค้าตัวอย่าง',
     recipientName: 'ผู้ทดสอบ',
     step: 1,
+    preview,
     origin: new URL(request.url).origin,
   });
 }
@@ -22,7 +23,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ message: 'ไม่มีสิทธิ์ส่งอีเมลทดสอบ' }, { status: 403 });
   return NextResponse.json(
     {
-      ...templateFor(request),
+      ...templateFor(request, true),
       to: '',
       fromEmail: getEmailSender(),
       replyTo: getEmailReplyTo() || null,

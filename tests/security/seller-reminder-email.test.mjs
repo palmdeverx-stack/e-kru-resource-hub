@@ -42,7 +42,8 @@ test('preview uses owner email and escapes shop names without sending', async ()
   assert.equal(result.status, 200);
   assert.equal(result.body.to, 'owner@example.test');
   assert.match(result.body.html, /&lt;Store&gt;/);
-  assert.ok(result.body.html.includes('https://e-kru-marketplace.com/logo/logo-email.png'));
+  assert.ok(result.body.html.includes('/logo/logo-email.png?v=marketplace-20261113'));
+  assert.ok(!result.body.html.includes('src="https://e-kru-marketplace.com/logo/logo-email.png"'));
   assert.ok(result.body.html.includes('alt="E-KRU Marketplace"')); 
   assert.match(result.body.html, /ขออภัยในความไม่สะดวก/);
   assert.match(result.body.subject, /แก้ไขปัญหาเรียบร้อยแล้ว/);
@@ -55,6 +56,8 @@ test('explicit send delivers the server-generated template to the owner', async 
   const route = api();
   assert.equal((await route.send()).status, 200);
   assert.equal(route.sent.length, 1);
+  assert.ok(route.sent[0].html.includes('src="https://e-kru-marketplace.com/logo/logo-email.png"'));
+  assert.ok(!route.sent[0].html.includes('?v=marketplace-20261113'));
   assert.equal(route.sent[0].to, 'owner@example.test');
   assert.equal(route.sent[0].replyTo, 'ekru.team@gmail.com');
 });

@@ -25,6 +25,9 @@ export async function generateMetadata(): Promise<Metadata> {
     description,
     alternates: { canonical: '/products' },
     openGraph: {
+      type: 'website',
+      locale: lang === 'en' ? 'en_US' : 'th_TH',
+      siteName: platformName,
       title,
       description,
       url: '/products',

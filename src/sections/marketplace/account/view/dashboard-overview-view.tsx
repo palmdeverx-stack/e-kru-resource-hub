@@ -20,6 +20,8 @@ import CircularProgress from '@mui/material/CircularProgress';
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
+import { useTranslate } from 'src/locales';
+
 import {
   RiHeart3Line,
   RiStore2Line,
@@ -42,22 +44,22 @@ const MarketplaceProductDetailDialog = dynamic(() =>
 
 const actions = [
   {
-    title: 'เลือกซื้อสื่อการสอน',
-    description: 'ค้นหาใบงาน แผนการสอน และสื่อใหม่จากชุมชน',
+    title: 'dashboardUi.browseTeachingResources',
+    description: 'dashboardUi.discoverWorksheetsLessonPlansAndNewResourcesFrom',
     href: paths.marketplace.dashboardProducts,
     icon: RiBookOpenLine,
     color: 'primary.lighter',
   },
   {
-    title: 'รายการซื้อของฉัน',
-    description: 'ตรวจสอบคำสั่งซื้อและดาวน์โหลดไฟล์ที่ซื้อแล้ว',
+    title: 'dashboardUi.myPurchases',
+    description: 'dashboardUi.checkOrdersAndDownloadYourPurchasedFiles',
     href: '/dashboard/purchases',
     icon: RiShoppingBag3Line,
     color: 'info.lighter',
   },
   {
-    title: 'ร้านค้าของฉัน',
-    description: 'เปิดร้าน ลงสินค้า และจัดการผลงานของคุณ',
+    title: 'dashboardUi.myStore',
+    description: 'dashboardUi.openAStoreListResourcesAndManageYour',
     href: '/dashboard/seller',
     icon: RiStore2Line,
     color: 'warning.lighter',
@@ -65,6 +67,7 @@ const actions = [
 ] as const;
 
 export function MarketplaceDashboardOverviewView() {
+  const { t } = useTranslate('marketplace');
   const { user } = useAuthContext();
   const isPlatformAdmin = user?.role === 'master_admin' || user?.role === 'marketplace_admin';
 
@@ -97,10 +100,10 @@ export function MarketplaceDashboardOverviewView() {
             sx={{ mb: 2, color: 'common.white', bgcolor: 'rgba(255,255,255,0.16)' }}
           />
           <Typography component="h1" variant="h2" sx={{ position: 'relative' }}>
-            สวัสดีคุณ {user?.displayName || user?.username}
+            {t('dashboardUi.greeting', { name: user?.displayName || user?.username || '' })}
           </Typography>
           <Typography sx={{ mt: 1, maxWidth: 620, color: 'rgba(255,255,255,0.78)' }}>
-            ค้นพบสื่อใหม่ เก็บรายการที่สนใจ และกลับมาจัดการทุกอย่างได้จากพื้นที่ของคุณ
+            {t('dashboardUi.discoverNewResourcesSaveYourFavoritesAndManage')}
           </Typography>
           <Button
             component={RouterLink}
@@ -110,7 +113,7 @@ export function MarketplaceDashboardOverviewView() {
             endIcon={<RiArrowRightLine />}
             sx={{ mt: 3, color: 'primary.darker', bgcolor: 'common.white' }}
           >
-            เลือกดูสินค้าทั้งหมด
+            {t('dashboardUi.browseAllResources')}
           </Button>
         </Card>
 
@@ -135,7 +138,7 @@ export function MarketplaceDashboardOverviewView() {
                       <Icon size={25} />
                     </Box>
                     <Box sx={{ minWidth: 0, flexGrow: 1 }}>
-                      <Typography variant="subtitle1">{action.title}</Typography>
+                      <Typography variant="subtitle1">{t(action.title)}</Typography>
                       <Typography
                         variant="body2"
                         color="text.secondary"
@@ -147,14 +150,14 @@ export function MarketplaceDashboardOverviewView() {
                           WebkitBoxOrient: 'vertical',
                         }}
                       >
-                        {action.description}
+                        {t(action.description)}
                       </Typography>
                     </Box>
                     <Button
                       component={RouterLink}
                       href={action.href}
                       color="inherit"
-                      aria-label={`ไปที่ ${action.title}`}
+                      aria-label={t('dashboardUi.goTo', { title: t(action.title) })}
                       sx={{ minWidth: 36, px: 1 }}
                     >
                       <RiArrowRightLine />
@@ -173,6 +176,7 @@ export function MarketplaceDashboardOverviewView() {
 }
 
 export function MarketplaceDashboardCollectionsSection() {
+  const { t, currentLang } = useTranslate('marketplace');
   const { user } = useAuthContext();
   const queryClient = useQueryClient();
   const {
@@ -211,9 +215,9 @@ export function MarketplaceDashboardCollectionsSection() {
         sx={{ mb: 3 }}
       >
         <Box>
-          <Typography variant="h4">รายการที่คุณสนใจ</Typography>
+          <Typography variant="h4">{t('dashboardUi.yourSavedResources')}</Typography>
           <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-            สินค้าที่กดหัวใจและบันทึกไว้จะรวมอยู่ที่นี่
+            {t('dashboardUi.findYourLikedAndBookmarkedResourcesHere')}
           </Typography>
         </Box>
         <Button
@@ -221,7 +225,7 @@ export function MarketplaceDashboardCollectionsSection() {
           href={paths.marketplace.dashboardProducts}
           endIcon={<RiArrowRightLine />}
         >
-          ดูสินค้าทั้งหมด
+          {t('dashboardUi.viewAllResources')}
         </Button>
       </Stack>
 
@@ -233,7 +237,10 @@ export function MarketplaceDashboardCollectionsSection() {
           onClick={() => setActiveList('favorite')}
           sx={{ borderRadius: 8 }}
         >
-          ถูกใจ ({favorites.length.toLocaleString('th-TH')})
+          {t('dashboardUi.likes', {
+            count: favorites.length,
+            formattedCount: favorites.length.toLocaleString(currentLang.numberFormat.code),
+          })}
         </Button>
         <Button
           variant={activeList === 'bookmark' ? 'contained' : 'outlined'}
@@ -242,7 +249,10 @@ export function MarketplaceDashboardCollectionsSection() {
           onClick={() => setActiveList('bookmark')}
           sx={{ borderRadius: 8 }}
         >
-          บุ๊กมาร์ก ({bookmarks.length.toLocaleString('th-TH')})
+          {t('dashboardUi.bookmarks', {
+            count: bookmarks.length,
+            formattedCount: bookmarks.length.toLocaleString(currentLang.numberFormat.code),
+          })}
         </Button>
       </Stack>
 
@@ -292,10 +302,12 @@ export function MarketplaceDashboardCollectionsSection() {
             {activeList === 'favorite' ? <RiHeart3Line size={46} /> : <RiBookmarkLine size={46} />}
           </Box>
           <Typography variant="h6" sx={{ mt: 3 }}>
-            {activeList === 'favorite' ? 'ยังไม่มีสินค้าที่กดหัวใจ' : 'ยังไม่มีสินค้าที่บุ๊กมาร์ก'}
+            {activeList === 'favorite'
+              ? t('dashboardUi.noLikedResourcesYet')
+              : t('dashboardUi.noBookmarkedResourcesYet')}
           </Typography>
           <Typography color="text.secondary" sx={{ mt: 0.5, mb: 2.5 }}>
-            กดไอคอนในหน้ารายละเอียดสินค้า แล้วรายการจะมาแสดงที่ Dashboard
+            {t('dashboardUi.likeOrBookmarkAResourceOnItsDetails')}
           </Typography>
           <Button
             component={RouterLink}
@@ -303,7 +315,7 @@ export function MarketplaceDashboardCollectionsSection() {
             variant="contained"
             color="primary"
           >
-            เลือกดูสินค้า
+            {t('dashboardUi.browseResources')}
           </Button>
         </Card>
       )}

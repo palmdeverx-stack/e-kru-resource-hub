@@ -20,10 +20,11 @@ export default function Layout({ children }: Props) {
         },
         header: {
           slots: {
-            leftArea: <MarketplaceBrand />,
+            leftArea: <MarketplaceBrand width={56} height={48} />,
             rightArea: <MarketplaceHeaderActions />,
           },
           slotProps: {
+            centerArea: { sx: { ml: { md: 4 } } },
             container: {
               sx: {
                 px: { xs: 1.5, sm: 3 },

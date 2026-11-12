@@ -65,7 +65,8 @@ export function GoogleIdentityButton({
   const buttonRef = useRef<HTMLDivElement>(null);
   const credentialCallbackRef = useRef(onCredential);
   const errorCallbackRef = useRef(onError);
-  const [scriptReady, setScriptReady] = useState(false);
+  const [readyLanguage, setReadyLanguage] = useState<string | null>(null);
+  const scriptReady = readyLanguage === language;
   const clientId = CONFIG.auth.googleClientId;
 
   useEffect(() => {
@@ -119,10 +120,11 @@ export function GoogleIdentityButton({
   return (
     <>
       <Script
-        id="google-identity-services"
-        src="https://accounts.google.com/gsi/client"
+        key={language}
+        id={`google-identity-services-${language}`}
+        src={`https://accounts.google.com/gsi/client?hl=${language}`}
         strategy="afterInteractive"
-        onReady={() => setScriptReady(true)}
+        onReady={() => setReadyLanguage(language)}
         onError={() => errorCallbackRef.current(new Error('โหลด Google Sign-In ไม่สำเร็จ'))}
       />
 

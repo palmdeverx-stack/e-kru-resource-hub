@@ -9,6 +9,7 @@
     "english": "English"
   },
   "auth": {
+    "social": { "line": "ลงชื่อเข้าใช้ด้วย LINE" },
     "fields": {
       "firstName": "ชื่อ",
       "lastName": "นามสกุล",

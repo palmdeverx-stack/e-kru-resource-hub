@@ -1,6 +1,5 @@
 'use client';
 
-
 import type { MarketplaceProduct } from '../../shared/types';
 
 import dynamic from 'next/dynamic';
@@ -46,10 +45,21 @@ const MarketplaceProductDetailDialog = dynamic(() =>
   )
 );
 
+const categoryTranslationKeys: Record<string, string> = {
+  แผนการสอน: 'lessonPlans',
+  ใบงาน: 'worksheets',
+  สื่อประกอบ: 'supplementary',
+  แบบทดสอบ: 'quizzes',
+  คอร์สเรียน: 'courses',
+  ซอฟต์แวร์และระบบการศึกษา: 'educationSoftware',
+  'Prompt AI': 'aiPrompts',
+  'AI Prompts': 'aiPrompts',
+};
+
 type PriceFilter = 'all' | 'free' | 'paid';
 
 export function MarketplaceDashboardProductsView() {
-  const { currentLang } = useTranslate();
+  const { t, currentLang } = useTranslate('marketplace');
   const { user, loading: authLoading } = useAuthContext();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -193,11 +203,11 @@ export function MarketplaceDashboardProductsView() {
             severity="error"
             action={
               <Button color="inherit" onClick={() => void refetch()}>
-                ลองอีกครั้ง
+                {t('dashboardUi.tryAgain')}
               </Button>
             }
           >
-            โหลดสินค้าไม่สำเร็จ กรุณาลองอีกครั้ง
+            {t('dashboardUi.unableToLoadResourcesPleaseTryAgain')}
           </Alert>
         )}
         <Stack
@@ -210,20 +220,25 @@ export function MarketplaceDashboardProductsView() {
             <Chip
               size="medium"
               icon={<RiBookOpenLine />}
-              label="Marketplace Catalog"
+              label={t('dashboardUi.catalog')}
               color="primary"
               variant="soft"
               sx={{ mb: 1.5 }}
             />
-            <Typography variant="h3">สินค้าทั้งหมด</Typography>
+            <Typography variant="h3">{t('dashboardUi.allResources')}</Typography>
             <Typography color="text.secondary" sx={{ mt: 0.75 }}>
-              ค้นหาและเลือกซื้อสื่อการสอนด้วยบัญชี E-KRU ของคุณ
+              {t('dashboardUi.findAndBuyTeachingResourcesWithYourE')}
             </Typography>
           </Box>
 
           <Chip
             icon={<RiApps2Line />}
-            label={`${displayedProducts.length.toLocaleString('th-TH')} รายการ`}
+            label={t('dashboardUi.resourceCount', {
+              count: displayedProducts.length,
+              formattedCount: displayedProducts.length.toLocaleString(
+                currentLang.numberFormat.code
+              ),
+            })}
             variant="outlined"
           />
         </Stack>
@@ -234,7 +249,7 @@ export function MarketplaceDashboardProductsView() {
               <TextField
                 fullWidth
                 value={search}
-                placeholder="ค้นหาชื่อสินค้า วิชา หรือระดับชั้น..."
+                placeholder={t('dashboardUi.searchByTitleSubjectOrGradeLevel')}
                 onChange={(event) => {
                   setSearch(event.target.value);
                 }}
@@ -252,7 +267,7 @@ export function MarketplaceDashboardProductsView() {
 
               <Select
                 value={sort}
-                aria-label="เรียงลำดับสินค้า"
+                aria-label={t('dashboardUi.sortResources')}
                 onChange={(event) => setSort(String(event.target.value))}
                 startAdornment={<RiEqualizer2Line size={19} />}
                 sx={{
@@ -262,10 +277,10 @@ export function MarketplaceDashboardProductsView() {
                   '& .MuiSelect-select': { pl: 1 },
                 }}
               >
-                <MenuItem value="popular">ความนิยม</MenuItem>
-                <MenuItem value="latest">ใหม่ล่าสุด</MenuItem>
-                <MenuItem value="rating">คะแนนรีวิว</MenuItem>
-                <MenuItem value="price-low">ราคาต่ำสุด</MenuItem>
+                <MenuItem value="popular">{t('dashboardUi.mostPopular')}</MenuItem>
+                <MenuItem value="latest">{t('dashboardUi.newest')}</MenuItem>
+                <MenuItem value="rating">{t('dashboardUi.topRated')}</MenuItem>
+                <MenuItem value="price-low">{t('dashboardUi.lowestPrice')}</MenuItem>
               </Select>
             </Stack>
 
@@ -276,7 +291,7 @@ export function MarketplaceDashboardProductsView() {
             >
               <Box
                 component="nav"
-                aria-label="หมวดหมู่สินค้า"
+                aria-label={t('dashboardUi.resourceCategories')}
                 sx={{
                   minWidth: 0,
                   flex: 1,
@@ -298,7 +313,11 @@ export function MarketplaceDashboardProductsView() {
                         onClick={() => handleCategoryChange(item)}
                         sx={{ px: 2, flexShrink: 0, borderRadius: 8 }}
                       >
-                        {item === 'all' ? 'ทั้งหมด' : item}
+                        {item === 'all'
+                          ? t('dashboardUi.all')
+                          : categoryTranslationKeys[item]
+                            ? t(`categories.items.${categoryTranslationKeys[item]}`)
+                            : item}
                       </Button>
                     );
                   })}
@@ -309,7 +328,7 @@ export function MarketplaceDashboardProductsView() {
                 direction="row"
                 spacing={0.25}
                 role="group"
-                aria-label="กรองตามราคา"
+                aria-label={t('dashboardUi.filterByPrice')}
                 sx={{
                   p: 0.5,
                   width: { xs: 1, md: 'auto' },
@@ -320,9 +339,9 @@ export function MarketplaceDashboardProductsView() {
               >
                 {(
                   [
-                    ['all', 'ทุกราคา'],
-                    ['free', 'ฟรี 0 บาท'],
-                    ['paid', 'มีค่าใช้จ่าย'],
+                    ['all', t('dashboardUi.allPrices')],
+                    ['free', t('dashboardUi.free')],
+                    ['paid', t('dashboardUi.paid')],
                   ] as const
                 ).map(([value, label]) => {
                   const active = priceFilter === value;
@@ -417,7 +436,7 @@ export function MarketplaceDashboardProductsView() {
               <Stack direction="row" spacing={1.25} justifyContent="center" sx={{ py: 4 }}>
                 <CircularProgress size={22} />
                 <Typography variant="body2" color="text.secondary">
-                  กำลังโหลดสินค้าเพิ่ม...
+                  {t('dashboardUi.loadingMoreResources')}
                 </Typography>
               </Stack>
             )}
@@ -426,10 +445,10 @@ export function MarketplaceDashboardProductsView() {
           <Card variant="outlined" sx={{ py: 10, px: 3, textAlign: 'center', borderRadius: 3 }}>
             <RiSearchLine size={42} />
             <Typography variant="h5" sx={{ mt: 1.5 }}>
-              ไม่พบสินค้าที่ค้นหา
+              {t('dashboardUi.noMatchingResources')}
             </Typography>
             <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-              ลองเปลี่ยนคำค้นหรือเลือกหมวดหมู่อื่น
+              {t('dashboardUi.tryAnotherSearchOrChooseADifferentCategory')}
             </Typography>
           </Card>
         )}

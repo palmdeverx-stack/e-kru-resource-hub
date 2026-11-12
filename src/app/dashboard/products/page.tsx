@@ -1,11 +1,16 @@
 import type { Metadata } from 'next';
 
+import { getServerTranslations } from 'src/locales/server';
+
 import { MarketplaceDashboardProductsView } from 'src/sections/marketplace/catalog/view/dashboard-products-view';
 
-export const metadata: Metadata = {
-  title: 'สินค้าทั้งหมด | E-KRU Marketplace',
-  description: 'เลือกซื้อสื่อการสอนจาก E-KRU Marketplace',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getServerTranslations('marketplace');
+  return {
+    title: t('dashboardUi.productsPage') + ' | E-KRU Marketplace',
+    description: t('dashboardUi.productsDescription'),
+  };
+}
 
 export default function Page() {
   return <MarketplaceDashboardProductsView />;

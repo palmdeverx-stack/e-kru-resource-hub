@@ -18,6 +18,7 @@ import Typography from '@mui/material/Typography';
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
+import { useTranslate } from 'src/locales';
 import { apiFetch as fetch } from 'src/lib/api-fetch';
 
 import {
@@ -78,29 +79,30 @@ type AdminOverview = {
 };
 
 const sellerTypeLabel = {
-  individual: 'บุคคลทั่วไป',
-  teacher: 'ครู',
-  school: 'โรงเรียน',
-  company: 'บริษัท',
-  publisher: 'สำนักพิมพ์',
-  university: 'มหาวิทยาลัย',
+  individual: 'dashboardUi.individual',
+  teacher: 'dashboardUi.teacher',
+  school: 'dashboardUi.school',
+  company: 'dashboardUi.company',
+  publisher: 'dashboardUi.publisher',
+  university: 'dashboardUi.university',
 };
 
 const orderStatus: Record<
   string,
   { label: string; color: 'default' | 'warning' | 'info' | 'success' | 'error' }
 > = {
-  pending: { label: 'รอดำเนินการ', color: 'warning' },
-  pending_payment: { label: 'รอชำระเงิน', color: 'warning' },
-  payment_review: { label: 'รอตรวจสลิป', color: 'info' },
-  payment_rejected: { label: 'สลิปไม่ผ่าน', color: 'error' },
-  paid: { label: 'ชำระแล้ว', color: 'success' },
-  completed: { label: 'สำเร็จ', color: 'success' },
-  cancelled: { label: 'ยกเลิก', color: 'default' },
-  refunded: { label: 'คืนเงิน', color: 'error' },
+  pending: { label: 'dashboardUi.pending', color: 'warning' },
+  pending_payment: { label: 'dashboardUi.awaitingPayment', color: 'warning' },
+  payment_review: { label: 'dashboardUi.paymentReview', color: 'info' },
+  payment_rejected: { label: 'dashboardUi.paymentRejected', color: 'error' },
+  paid: { label: 'dashboardUi.paidLabel', color: 'success' },
+  completed: { label: 'dashboardUi.completed', color: 'success' },
+  cancelled: { label: 'dashboardUi.cancelled', color: 'default' },
+  refunded: { label: 'dashboardUi.refunded', color: 'error' },
 };
 
 export function MarketplaceAdminOverviewView() {
+  const { t, currentLang } = useTranslate('marketplace');
   const { user } = useAuthContext();
   const {
     data: overview,
@@ -130,7 +132,9 @@ export function MarketplaceAdminOverviewView() {
   if (user?.role !== 'master_admin' && user?.role !== 'marketplace_admin') {
     return (
       <Container maxWidth="lg" sx={{ py: 6 }}>
-        <Alert severity="error">หน้านี้สำหรับผู้ดูแล Marketplace เท่านั้น</Alert>
+        <Alert severity="error">
+          {t('dashboardUi.thisPageIsForMarketplaceAdministratorsOnly')}
+        </Alert>
       </Container>
     );
   }
@@ -138,49 +142,72 @@ export function MarketplaceAdminOverviewView() {
   const metrics = overview
     ? [
         {
-          label: 'ยอดขายรวม',
-          value: formatPrice(overview.metrics.grossSales),
-          description: 'คำสั่งซื้อที่รับชำระแล้ว',
+          label: t('dashboardUi.grossSales'),
+          value: formatPrice(overview.metrics.grossSales, 'THB', currentLang.numberFormat.code),
+          description: t('dashboardUi.paidOrders'),
           icon: RiMoneyDollarCircleLine,
           color: 'success.main',
           background: 'success.lighter',
         },
         {
-          label: 'รายได้แพลตฟอร์ม',
-          value: formatPrice(overview.metrics.platformRevenue),
-          description: 'ค่าธรรมเนียมสุทธิ',
+          label: t('dashboardUi.platformRevenue'),
+          value: formatPrice(
+            overview.metrics.platformRevenue,
+            'THB',
+            currentLang.numberFormat.code
+          ),
+          description: t('dashboardUi.netFees'),
           icon: RiBankLine,
           color: 'primary.main',
           background: 'primary.lighter',
         },
         {
-          label: 'คำสั่งซื้อทั้งหมด',
-          value: overview.metrics.orderCount.toLocaleString('th-TH'),
-          description: `${overview.attention.pendingOrderCount.toLocaleString('th-TH')} รายการยังไม่เสร็จ`,
+          label: t('dashboardUi.allOrders'),
+          value: overview.metrics.orderCount.toLocaleString(currentLang.numberFormat.code),
+          description: t('dashboardUi.pendingOrders', {
+            count: overview.attention.pendingOrderCount,
+            formattedCount: overview.attention.pendingOrderCount.toLocaleString(
+              currentLang.numberFormat.code
+            ),
+          }),
           icon: RiShoppingBag3Line,
           color: 'info.main',
           background: 'info.lighter',
         },
         {
-          label: 'ร้านค้าที่เปิดใช้งาน',
-          value: overview.metrics.activeSellerCount.toLocaleString('th-TH'),
-          description: `${overview.attention.pendingSellerCount.toLocaleString('th-TH')} ร้านรอตรวจ`,
+          label: t('dashboardUi.activeStores'),
+          value: overview.metrics.activeSellerCount.toLocaleString(currentLang.numberFormat.code),
+          description: t('dashboardUi.pendingStores', {
+            count: overview.attention.pendingSellerCount,
+            formattedCount: overview.attention.pendingSellerCount.toLocaleString(
+              currentLang.numberFormat.code
+            ),
+          }),
           icon: RiStore2Line,
           color: 'warning.main',
           background: 'warning.lighter',
         },
         {
-          label: 'สินค้าที่เผยแพร่',
-          value: overview.metrics.publishedProductCount.toLocaleString('th-TH'),
-          description: `${overview.attention.pendingProductCount.toLocaleString('th-TH')} รายการรอตรวจ`,
+          label: t('dashboardUi.publishedResources'),
+          value: overview.metrics.publishedProductCount.toLocaleString(
+            currentLang.numberFormat.code
+          ),
+          description: t('dashboardUi.pendingProducts', {
+            count: overview.attention.pendingProductCount,
+            formattedCount: overview.attention.pendingProductCount.toLocaleString(
+              currentLang.numberFormat.code
+            ),
+          }),
           icon: RiFileList3Line,
           color: 'secondary.main',
           background: 'secondary.lighter',
         },
         {
-          label: 'สมาชิก Marketplace',
-          value: overview.metrics.marketplaceUserCount.toLocaleString('th-TH'),
-          description: 'บัญชีผู้ใช้งานทั้งหมด',
+          label: t('dashboardUi.marketplaceMembers'),
+          value: overview.metrics.marketplaceUserCount.toLocaleString(
+            currentLang.numberFormat.code
+          ),
+          description: t('dashboardUi.allUserAccounts'),
           icon: RiUserLine,
           color: 'error.main',
           background: 'error.lighter',
@@ -234,17 +261,17 @@ export function MarketplaceAdminOverviewView() {
             </Avatar>
             <Box>
               <Typography component="h1" variant="h3">
-                ศูนย์ควบคุม Marketplace
+                {t('dashboardUi.marketplaceControlCenter')}
               </Typography>
               <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-                ติดตามงานอนุมัติ การชำระเงิน และการดำเนินงานของระบบ
+                {t('dashboardUi.trackApprovalsPaymentsAndPlatformOperations')}
               </Typography>
               <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
                 <Chip size="small" color="primary" variant="soft" label="SUPER ADMIN" />
                 {!!updatedAt && (
                   <Typography variant="caption" color="text.secondary">
-                    อัปเดตล่าสุด{' '}
-                    {updatedAt.toLocaleTimeString('th-TH', {
+                    {t('dashboardUi.lastUpdated')}{' '}
+                    {updatedAt.toLocaleTimeString(currentLang.numberFormat.code, {
                       hour: '2-digit',
                       minute: '2-digit',
                       timeZone: 'Asia/Bangkok',
@@ -261,7 +288,7 @@ export function MarketplaceAdminOverviewView() {
               variant="outlined"
               startIcon={<RiStore2Line />}
             >
-              ตรวจคำขอเปิดร้าน
+              {t('dashboardUi.reviewStoreApplications')}
             </Button>
             <Button
               component={RouterLink}
@@ -269,7 +296,7 @@ export function MarketplaceAdminOverviewView() {
               variant="contained"
               startIcon={<RiShieldCheckLine />}
             >
-              ตรวจสินค้า
+              {t('dashboardUi.reviewResources')}
             </Button>
             <Button
               color="inherit"
@@ -278,7 +305,7 @@ export function MarketplaceAdminOverviewView() {
               startIcon={<RiRefreshLine />}
               onClick={() => refetch()}
             >
-              รีเฟรช
+              {t('dashboardUi.refresh')}
             </Button>
           </Stack>
         </Stack>
@@ -291,7 +318,7 @@ export function MarketplaceAdminOverviewView() {
       )}
       {overview?.setupRequired && (
         <Alert severity="warning" sx={{ mt: 3 }}>
-          ยังไม่ได้ติดตั้ง Marketplace schema ใน Supabase
+          {t('dashboardUi.theMarketplaceSchemaHasNotBeenInstalledIn')}
         </Alert>
       )}
 
@@ -372,10 +399,11 @@ export function MarketplaceAdminOverviewView() {
 }
 
 function AttentionPanel({ overview }: { overview: AdminOverview }) {
+  const { t, currentLang } = useTranslate('marketplace');
   const items = [
     {
-      label: 'ร้านค้ารอตรวจ',
-      description: 'ตรวจข้อมูลและเอกสารผู้ขาย',
+      label: t('dashboardUi.storesAwaitingReview'),
+      description: t('dashboardUi.reviewSellerInformationAndDocuments'),
       value: overview.attention.pendingSellerCount,
       href: paths.marketplace.sellerApprovals,
       icon: RiStore2Line,
@@ -383,8 +411,8 @@ function AttentionPanel({ overview }: { overview: AdminOverview }) {
       background: 'warning.lighter',
     },
     {
-      label: 'สินค้ารออนุมัติ',
-      description: 'ตรวจคุณภาพและลิขสิทธิ์',
+      label: t('dashboardUi.resourcesAwaitingApproval'),
+      description: t('dashboardUi.reviewQualityAndCopyright'),
       value: overview.attention.pendingProductCount,
       href: paths.marketplace.productApprovals,
       icon: RiFileList3Line,
@@ -392,8 +420,8 @@ function AttentionPanel({ overview }: { overview: AdminOverview }) {
       background: 'info.lighter',
     },
     {
-      label: 'สลิปรอตรวจสอบ',
-      description: 'ยืนยันการรับชำระเงิน',
+      label: t('dashboardUi.paymentsAwaitingReview'),
+      description: t('dashboardUi.verifyReceivedPayments'),
       value: overview.attention.pendingPaymentCount,
       href: paths.marketplace.paymentReviews,
       icon: RiBankLine,
@@ -401,8 +429,8 @@ function AttentionPanel({ overview }: { overview: AdminOverview }) {
       background: 'error.lighter',
     },
     {
-      label: 'รายการโอนรอดำเนินการ',
-      description: 'จัดการรอบโอนให้ผู้ขาย',
+      label: t('dashboardUi.pendingPayouts'),
+      description: t('dashboardUi.manageSellerPayoutCycles'),
       value: overview.attention.pendingPayoutCount,
       href: paths.marketplace.payouts,
       icon: RiMoneyDollarCircleLine,
@@ -422,15 +450,22 @@ function AttentionPanel({ overview }: { overview: AdminOverview }) {
         sx={{ mb: 2.5 }}
       >
         <Box>
-          <Typography variant="h6">งานที่ต้องดำเนินการ</Typography>
+          <Typography variant="h6">{t('dashboardUi.actionRequired')}</Typography>
           <Typography variant="body2" color="text.secondary">
-            รายการรอการตรวจสอบและอนุมัติจากผู้ดูแลระบบ
+            {t('dashboardUi.itemsAwaitingAdministratorReviewAndApproval')}
           </Typography>
         </Box>
         <Chip
           color={total ? 'warning' : 'success'}
           variant="soft"
-          label={total ? `รอดำเนินการ ${total} รายการ` : 'ไม่มีงานค้าง'}
+          label={
+            total
+              ? t('dashboardUi.pendingTasks', {
+                  count: total,
+                  formattedCount: total.toLocaleString(currentLang.numberFormat.code),
+                })
+              : t('dashboardUi.noPendingTasks')
+          }
         />
       </Stack>
       <Grid container spacing={2}>
@@ -483,13 +518,14 @@ function AttentionPanel({ overview }: { overview: AdminOverview }) {
 }
 
 function RecentOrders({ orders }: { orders: AdminOverview['recentOrders'] }) {
+  const { t, currentLang } = useTranslate('marketplace');
   return (
     <Card variant="outlined" sx={{ p: 3, height: 1 }}>
       <Stack direction="row" alignItems="center" justifyContent="space-between">
         <Box>
-          <Typography variant="h6">คำสั่งซื้อล่าสุด</Typography>
+          <Typography variant="h6">{t('dashboardUi.recentOrders')}</Typography>
           <Typography variant="body2" color="text.secondary">
-            ธุรกรรมล่าสุดจาก Marketplace
+            {t('dashboardUi.latestMarketplaceTransactions')}
           </Typography>
         </Box>
         <Avatar variant="rounded" sx={{ color: 'info.main', bgcolor: 'info.lighter' }}>
@@ -516,24 +552,33 @@ function RecentOrders({ orders }: { orders: AdminOverview['recentOrders'] }) {
                 </Avatar>
                 <Box sx={{ minWidth: 0, flexGrow: 1 }}>
                   <Typography variant="subtitle2" noWrap>
-                    {order.seller?.display_name ?? `คำสั่งซื้อ #${order.id.slice(0, 8)}`}
+                    {order.seller?.display_name ??
+                      t('dashboardUi.orderNumber', { id: order.id.slice(0, 8) })}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
                     #{order.id.slice(0, 8).toUpperCase()} ·{' '}
-                    {new Date(order.created_at).toLocaleString('th-TH', {
+                    {new Date(order.created_at).toLocaleString(currentLang.numberFormat.code, {
                       timeZone: 'Asia/Bangkok',
                     })}
                   </Typography>
                 </Box>
                 <Typography variant="subtitle2">
-                  {formatPrice(Number(order.total), order.currency)}
+                  {formatPrice(Number(order.total), order.currency, currentLang.numberFormat.code)}
                 </Typography>
-                <Chip size="small" variant="soft" color={status.color} label={status.label} />
+                <Chip
+                  size="small"
+                  variant="soft"
+                  color={status.color}
+                  label={t(status.label, { defaultValue: status.label })}
+                />
               </Stack>
             );
           })
         ) : (
-          <EmptyState label="ยังไม่มีคำสั่งซื้อ" icon={<RiShoppingBag3Line size={30} />} />
+          <EmptyState
+            label={t('dashboardUi.noOrdersYet')}
+            icon={<RiShoppingBag3Line size={30} />}
+          />
         )}
       </Stack>
     </Card>
@@ -541,11 +586,12 @@ function RecentOrders({ orders }: { orders: AdminOverview['recentOrders'] }) {
 }
 
 function FinanceSummary({ overview }: { overview: AdminOverview }) {
+  const { t, currentLang } = useTranslate('marketplace');
   const items = [
-    ['ยอดขายที่รับชำระแล้ว', overview.metrics.grossSales],
-    ['รายรับผู้ขายรวม', overview.metrics.sellerRevenue],
-    ['รายได้แพลตฟอร์มสุทธิ', overview.metrics.platformRevenue],
-    ['ยอดอยู่ในรายการรอโอน', overview.metrics.pendingPayoutAmount],
+    [t('dashboardUi.paidSales'), overview.metrics.grossSales],
+    [t('dashboardUi.totalSellerRevenue'), overview.metrics.sellerRevenue],
+    [t('dashboardUi.netPlatformRevenue'), overview.metrics.platformRevenue],
+    [t('dashboardUi.amountInPendingPayouts'), overview.metrics.pendingPayoutAmount],
   ] as const;
 
   return (
@@ -561,9 +607,9 @@ function FinanceSummary({ overview }: { overview: AdminOverview }) {
     >
       <Stack direction="row" justifyContent="space-between" alignItems="center">
         <Box>
-          <Typography variant="h6">ภาพรวมการเงิน</Typography>
+          <Typography variant="h6">{t('dashboardUi.financialOverview')}</Typography>
           <Typography variant="body2" sx={{ opacity: 0.72 }}>
-            ยอดสะสมของ Marketplace
+            {t('dashboardUi.marketplaceTotals')}
           </Typography>
         </Box>
         <Avatar sx={{ bgcolor: '#ffff' }}>
@@ -579,7 +625,9 @@ function FinanceSummary({ overview }: { overview: AdminOverview }) {
             <Typography variant="body2" sx={{ opacity: 0.78 }}>
               {label}
             </Typography>
-            <Typography variant="subtitle2">{formatPrice(value)}</Typography>
+            <Typography variant="subtitle2">
+              {formatPrice(value, 'THB', currentLang.numberFormat.code)}
+            </Typography>
           </Stack>
         ))}
       </Stack>
@@ -592,20 +640,21 @@ function FinanceSummary({ overview }: { overview: AdminOverview }) {
         endIcon={<RiArrowRightLine />}
         sx={{ mt: 2, color: 'primary.darker', bgcolor: 'common.white' }}
       >
-        จัดการการโอนเงิน
+        {t('dashboardUi.managePayouts')}
       </Button>
     </Card>
   );
 }
 
 function RecentSellers({ sellers }: { sellers: AdminOverview['recentSellers'] }) {
+  const { t, currentLang } = useTranslate('marketplace');
   return (
     <Card variant="outlined" sx={{ p: 3, height: 1 }}>
       <Stack direction="row" alignItems="center" justifyContent="space-between">
         <Box>
-          <Typography variant="h6">ผู้ขายล่าสุด</Typography>
+          <Typography variant="h6">{t('dashboardUi.recentSellers')}</Typography>
           <Typography variant="body2" color="text.secondary">
-            ร้านค้าที่สมัครเข้ามาล่าสุด
+            {t('dashboardUi.latestStoreApplications')}
           </Typography>
         </Box>
         <Button
@@ -614,7 +663,7 @@ function RecentSellers({ sellers }: { sellers: AdminOverview['recentSellers'] })
           size="small"
           endIcon={<RiArrowRightLine />}
         >
-          ดูทั้งหมด
+          {t('dashboardUi.viewAll')}
         </Button>
       </Stack>
       <Stack divider={<Divider flexItem />} sx={{ mt: 2 }}>
@@ -646,19 +695,22 @@ function RecentSellers({ sellers }: { sellers: AdminOverview['recentSellers'] })
                   {seller.display_name}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  {sellerTypeLabel[seller.seller_type]} ·{' '}
-                  {new Date(seller.submitted_at ?? seller.created_at).toLocaleDateString('th-TH', {
-                    timeZone: 'Asia/Bangkok',
-                  })}
+                  {t(sellerTypeLabel[seller.seller_type])} ·{' '}
+                  {new Date(seller.submitted_at ?? seller.created_at).toLocaleDateString(
+                    currentLang.numberFormat.code,
+                    {
+                      timeZone: 'Asia/Bangkok',
+                    }
+                  )}
                 </Typography>
               </Box>
               <Chip
                 label={
                   seller.status === 'active'
-                    ? 'อนุมัติแล้ว'
+                    ? t('dashboardUi.approved')
                     : seller.status === 'rejected'
-                      ? 'ไม่อนุมัติ'
-                      : 'รอตรวจ'
+                      ? t('dashboardUi.rejected')
+                      : t('dashboardUi.awaitingReview')
                 }
                 color={
                   seller.status === 'active'
@@ -674,7 +726,7 @@ function RecentSellers({ sellers }: { sellers: AdminOverview['recentSellers'] })
             </Stack>
           ))
         ) : (
-          <EmptyState label="ยังไม่มีผู้ขาย" icon={<RiStore2Line size={30} />} />
+          <EmptyState label={t('dashboardUi.noSellersYet')} icon={<RiStore2Line size={30} />} />
         )}
       </Stack>
     </Card>
@@ -682,34 +734,35 @@ function RecentSellers({ sellers }: { sellers: AdminOverview['recentSellers'] })
 }
 
 function QuickActions() {
+  const { t } = useTranslate('marketplace');
   const actions = [
     {
-      label: 'ตรวจคำขอเปิดร้าน',
-      description: 'ข้อมูลและเอกสารผู้ขาย',
+      label: t('dashboardUi.reviewStoreApplications'),
+      description: t('dashboardUi.sellerInformationAndDocuments'),
       href: paths.marketplace.sellerApprovals,
       icon: RiStore2Line,
     },
     {
-      label: 'ตรวจอนุมัติสินค้า',
-      description: 'คุณภาพและลิขสิทธิ์สื่อ',
+      label: t('dashboardUi.reviewResourceSubmissions'),
+      description: t('dashboardUi.resourceQualityAndCopyright'),
       href: paths.marketplace.productApprovals,
       icon: RiShieldCheckLine,
     },
     {
-      label: 'ตรวจสอบการชำระเงิน',
-      description: 'ตรวจสลิปและยืนยันยอด',
+      label: t('dashboardUi.reviewPayments'),
+      description: t('dashboardUi.reviewPaymentSlipsAndVerifyAmounts'),
       href: paths.marketplace.paymentReviews,
       icon: RiBankLine,
     },
     {
-      label: 'ตั้งค่า LINE',
-      description: 'การแจ้งเตือนผู้ดูแลระบบ',
+      label: t('dashboardUi.lineSettings'),
+      description: t('dashboardUi.administratorNotifications'),
       href: paths.marketplace.lineSettings,
       icon: RiMessage2Line,
     },
     {
-      label: 'ตั้งค่าการเงิน',
-      description: 'ค่าธรรมเนียมและรอบโอน',
+      label: t('dashboardUi.financeSettings'),
+      description: t('dashboardUi.feesAndPayoutCycles'),
       href: paths.marketplace.financeSettings,
       icon: RiSettings3Line,
     },
@@ -717,9 +770,9 @@ function QuickActions() {
 
   return (
     <Card variant="outlined" sx={{ p: 3, height: 1 }}>
-      <Typography variant="h6">เมนูลัดผู้ดูแลระบบ</Typography>
+      <Typography variant="h6">{t('dashboardUi.administratorShortcuts')}</Typography>
       <Typography variant="body2" color="text.secondary">
-        เข้าถึงงานจัดการที่ใช้เป็นประจำ
+        {t('dashboardUi.quickAccessToCommonManagementTasks')}
       </Typography>
       <Box
         sx={{
@@ -760,7 +813,7 @@ function QuickActions() {
                   {action.label}
                 </Typography>
                 <Typography variant="caption" color="text.secondary" noWrap display="block">
-                  {action.description}
+                  {t(action.description)}
                 </Typography>
               </Box>
             </Box>

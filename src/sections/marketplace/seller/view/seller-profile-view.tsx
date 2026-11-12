@@ -46,6 +46,7 @@ import { useAuthContext } from 'src/auth/hooks';
 
 import { getSeller } from '../../shared/api';
 import { ThaiBankLogo } from '../../shared/bank-logo';
+import { useDashboardLocale } from '../../shared/use-dashboard-locale';
 import {
   isSellerProfileVerified,
   isSystemMarketplaceSeller,
@@ -55,13 +56,6 @@ import {
 const DocumentPreviewDialog = dynamic(() =>
   import('../../shared/document-preview-dialog').then((module) => module.DocumentPreviewDialog)
 );
-
-const documentDateFormatter = new Intl.DateTimeFormat('th-TH', {
-  day: 'numeric',
-  month: 'short',
-  year: 'numeric',
-  timeZone: 'Asia/Bangkok',
-});
 
 const sellerTypeLabel = {
   individual: 'บุคคลทั่วไป',
@@ -96,15 +90,22 @@ function maskFinancialIdentifier(value: string) {
   return `${Array.from({ length: hiddenGroups }, () => 'xxx').join('-')}-${compactValue.slice(-4)}`;
 }
 
-function formatDocumentUploadDate(value: string) {
-  const uploadedAt = new Date(value);
-  if (Number.isNaN(uploadedAt.getTime())) return 'ไม่พบวันที่อัปโหลด';
-
-  return `\u0e2d\u0e31\u0e1b\u0e42\u0e2b\u0e25\u0e14 ${documentDateFormatter.format(uploadedAt)}`;
-}
-
 export function MarketplaceSellerProfileView() {
+  const { tx, locale } = useDashboardLocale();
   const theme = useTheme();
+  const formatDocumentUploadDate = (value: string) => {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime())
+      ? tx('ไม่พบวันที่อัปโหลด')
+      : tx('อัปโหลด {{v0}}', {
+          v0: date.toLocaleDateString(locale, {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+            timeZone: 'Asia/Bangkok',
+          }),
+        });
+  };
   const { user } = useAuthContext();
   const {
     data,
@@ -161,10 +162,10 @@ export function MarketplaceSellerProfileView() {
             <RiStore2Line size={38} />
           </Avatar>
           <Typography variant="h4" sx={{ mt: 2.5 }}>
-            ยังไม่มีข้อมูลร้านค้า
+            {tx('ยังไม่มีข้อมูลร้านค้า')}
           </Typography>
           <Typography color="text.secondary" sx={{ mt: 0.75 }}>
-            เริ่มกรอกข้อมูลเพื่อส่งคำขอเปิดร้านบน E-KRU Marketplace
+            {tx('เริ่มกรอกข้อมูลเพื่อส่งคำขอเปิดร้านบน E-KRU Marketplace')}
           </Typography>
           <Button
             component={RouterLink}
@@ -172,7 +173,7 @@ export function MarketplaceSellerProfileView() {
             variant="contained"
             sx={{ mt: 3 }}
           >
-            สมัครเปิดร้าน
+            {tx('สมัครเปิดร้าน')}
           </Button>
         </Card>
       </Container>
@@ -192,10 +193,10 @@ export function MarketplaceSellerProfileView() {
       >
         <Box>
           <Typography component="h1" variant="h3" sx={{ fontSize: { xs: 28, md: 40 } }}>
-            ข้อมูลร้านค้า
+            {tx('ข้อมูลร้านค้า')}
           </Typography>
           <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-            ตรวจสอบและจัดการข้อมูลที่ใช้แสดงหน้าร้านและรับเงิน
+            {tx('ตรวจสอบและจัดการข้อมูลที่ใช้แสดงหน้าร้านและรับเงิน')}
           </Typography>
         </Box>
         <Stack
@@ -211,7 +212,7 @@ export function MarketplaceSellerProfileView() {
               variant="outlined"
               startIcon={<RiEyeLine />}
             >
-              ดูหน้าร้าน
+              {tx('ดูหน้าร้าน')}
             </Button>
           )}
           <Button
@@ -220,7 +221,7 @@ export function MarketplaceSellerProfileView() {
             variant="contained"
             startIcon={<RiEditLine />}
           >
-            แก้ไขข้อมูล
+            {tx('แก้ไขข้อมูล')}
           </Button>
         </Stack>
       </Stack>
@@ -232,12 +233,13 @@ export function MarketplaceSellerProfileView() {
       )}
       {seller.status === 'rejected' && (
         <Alert severity="error" sx={{ mb: 3 }}>
-          คำขอไม่ผ่านการอนุมัติ: {seller.rejection_reason || 'กรุณาแก้ไขข้อมูลและส่งใหม่'}
+          {tx('คำขอไม่ผ่านการอนุมัติ:')}{' '}
+          {seller.rejection_reason || tx('กรุณาแก้ไขข้อมูลและส่งใหม่')}
         </Alert>
       )}
       {seller.status === 'pending' && (
         <Alert severity="warning" sx={{ mb: 3 }}>
-          ข้อมูลร้านกำลังรอผู้ดูแลระบบตรวจสอบ คุณยังสามารถกลับไปแก้ไขข้อมูลได้
+          {tx('ข้อมูลร้านกำลังรอผู้ดูแลระบบตรวจสอบ คุณยังสามารถกลับไปแก้ไขข้อมูลได้')}
         </Alert>
       )}
 
@@ -303,18 +305,22 @@ export function MarketplaceSellerProfileView() {
                 <RiVerifiedBadgeFill
                   size={26}
                   color={theme.palette.primary.main}
-                  aria-label="ร้านค้าที่ผ่านการตรวจสอบ"
+                  aria-label={tx('ร้านค้าที่ผ่านการตรวจสอบ')}
                 />
               )}
               {isSystemMarketplaceSeller(seller) && (
                 <RiShieldStarFill
                   size={26}
                   color={theme.palette.primary.main}
-                  aria-label="ร้านค้าระบบ E-KRU"
+                  aria-label={tx('ร้านค้าระบบ E-KRU')}
                 />
               )}
               <StatusChip status={seller.status} />
-              <Chip size="small" variant="outlined" label={sellerTypeLabel[seller.seller_type]} />
+              <Chip
+                size="small"
+                variant="outlined"
+                label={tx(sellerTypeLabel[seller.seller_type])}
+              />
             </Stack>
             {seller.display_name_en && (
               <Typography color="text.secondary" sx={{ mt: 0.25 }}>
@@ -322,7 +328,7 @@ export function MarketplaceSellerProfileView() {
               </Typography>
             )}
             <Typography sx={{ mt: 1, maxWidth: 760 }}>
-              {seller.bio || 'ยังไม่ได้เพิ่มคำอธิบายร้าน'}
+              {seller.bio || tx('ยังไม่ได้เพิ่มคำอธิบายร้าน')}
             </Typography>
           </Box>
         </Stack>
@@ -333,7 +339,7 @@ export function MarketplaceSellerProfileView() {
           <Stack spacing={3} sx={{ position: { lg: 'sticky' }, top: { lg: 96 } }}>
             <Card variant="outlined" sx={{ p: 3, borderRadius: 3 }}>
               <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Typography variant="h6">ความครบถ้วนของข้อมูล</Typography>
+                <Typography variant="h6"> {tx('ความครบถ้วนของข้อมูล')} </Typography>
                 <Typography variant="h5" color="primary.main">
                   {completion}%
                 </Typography>
@@ -345,20 +351,20 @@ export function MarketplaceSellerProfileView() {
               />
               <Typography variant="body2" color="text.secondary">
                 {completion === 100
-                  ? 'ข้อมูลร้านครบถ้วน พร้อมใช้งาน'
-                  : 'เพิ่มข้อมูลและเอกสารให้ครบเพื่อสร้างความน่าเชื่อถือ'}
+                  ? tx('ข้อมูลร้านครบถ้วน พร้อมใช้งาน')
+                  : tx('เพิ่มข้อมูลและเอกสารให้ครบเพื่อสร้างความน่าเชื่อถือ')}
               </Typography>
             </Card>
 
             <SectionCard
-              title="ข้อมูลร้าน"
-              description="ข้อมูลที่แสดงบนหน้าร้าน"
+              title={tx('ข้อมูลร้าน')}
+              description={tx('ข้อมูลที่แสดงบนหน้าร้าน')}
               icon={<RiStore2Line />}
             >
-              <InfoRow label="ชื่อร้าน" value={seller.display_name} />
-              <InfoRow label="ชื่อภาษาอังกฤษ" value={seller.display_name_en} />
-              <InfoRow label="URL ร้าน" value={`/store/${seller.slug || seller.id}`} />
-              <InfoRow label="ประเภทร้าน" value={sellerTypeLabel[seller.seller_type]} />
+              <InfoRow label={tx('ชื่อร้าน')} value={seller.display_name} />
+              <InfoRow label={tx('ชื่อภาษาอังกฤษ')} value={seller.display_name_en} />
+              <InfoRow label={tx('URL ร้าน')} value={`/store/${seller.slug || seller.id}`} />
+              <InfoRow label={tx('ประเภทร้าน')} value={tx(sellerTypeLabel[seller.seller_type])} />
             </SectionCard>
           </Stack>
         </Grid>
@@ -366,22 +372,25 @@ export function MarketplaceSellerProfileView() {
         <Grid size={{ xs: 12, lg: 8 }}>
           <Stack spacing={3}>
             <SectionCard
-              title="ข้อมูลผู้ขายและการติดต่อ"
-              description="ข้อมูลสำหรับการยืนยันตัวตนและติดต่อจากระบบ"
+              title={tx('ข้อมูลผู้ขายและการติดต่อ')}
+              description={tx('ข้อมูลสำหรับการยืนยันตัวตนและติดต่อจากระบบ')}
               icon={<RiUser3Line />}
             >
               <Grid container columnSpacing={4} rowSpacing={0}>
                 <Grid size={{ xs: 12, sm: 6 }}>
-                  <ProfileField label="ชื่อ-นามสกุล" value={seller.seller_name} />
+                  <ProfileField label={tx('ชื่อ-นามสกุล')} value={seller.seller_name} />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6 }}>
-                  <ProfileField label="เบอร์โทรศัพท์" value={seller.phone} />
+                  <ProfileField label={tx('เบอร์โทรศัพท์')} value={seller.phone} />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6 }}>
-                  <ProfileField label="อีเมล" value={seller.contact_email} />
+                  <ProfileField label={tx('อีเมล')} value={seller.contact_email} />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6 }}>
-                  <ProfileField label="เลขบัตร/เลขผู้เสียภาษี" value={seller.national_tax_id} />
+                  <ProfileField
+                    label={tx('เลขบัตร/เลขผู้เสียภาษี')}
+                    value={seller.national_tax_id}
+                  />
                 </Grid>
               </Grid>
 
@@ -389,20 +398,29 @@ export function MarketplaceSellerProfileView() {
                 <Box sx={{ mt: 3 }}>
                   <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
                     <Box sx={{ width: 4, height: 18, borderRadius: 1, bgcolor: 'primary.main' }} />
-                    <Typography variant="subtitle2">ข้อมูลนิติบุคคล</Typography>
+                    <Typography variant="subtitle2"> {tx('ข้อมูลนิติบุคคล')} </Typography>
                   </Stack>
                   <Grid container columnSpacing={4} rowSpacing={0}>
                     <Grid size={{ xs: 12, sm: 6 }}>
-                      <ProfileField label="ชื่อบริษัท" value={seller.company_name} />
+                      <ProfileField label={tx('ชื่อบริษัท')} value={seller.company_name} />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 6 }}>
-                      <ProfileField label="เลขนิติบุคคล" value={seller.company_registration_no} />
+                      <ProfileField
+                        label={tx('เลขนิติบุคคล')}
+                        value={seller.company_registration_no}
+                      />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 6 }}>
-                      <ProfileField label="เลขผู้เสียภาษีบริษัท" value={seller.company_tax_id} />
+                      <ProfileField
+                        label={tx('เลขผู้เสียภาษีบริษัท')}
+                        value={seller.company_tax_id}
+                      />
                     </Grid>
                     <Grid size={{ xs: 12 }}>
-                      <ProfileField label="ที่อยู่ผู้ออกใบเสร็จ" value={seller.business_address} />
+                      <ProfileField
+                        label={tx('ที่อยู่ผู้ออกใบเสร็จ')}
+                        value={seller.business_address}
+                      />
                     </Grid>
                   </Grid>
                 </Box>
@@ -410,8 +428,8 @@ export function MarketplaceSellerProfileView() {
             </SectionCard>
 
             <SectionCard
-              title="บัญชีรับเงิน"
-              description="บัญชีที่ระบบใช้โอนรายได้จากการขายสินค้า"
+              title={tx('บัญชีรับเงิน')}
+              description={tx('บัญชีที่ระบบใช้โอนรายได้จากการขายสินค้า')}
               icon={<RiBankLine />}
               action={
                 <Stack direction="row" spacing={0.5} alignItems="center">
@@ -421,18 +439,22 @@ export function MarketplaceSellerProfileView() {
                       color="success"
                       variant="soft"
                       icon={<RiCheckboxCircleLine />}
-                      label="ยืนยันแล้ว"
+                      label={tx('ยืนยันแล้ว')}
                     />
                   ) : (
-                    <Chip size="small" color="warning" variant="soft" label="รอตรวจสอบ" />
+                    <Chip size="small" color="warning" variant="soft" label={tx('รอตรวจสอบ')} />
                   )}
                   {seller.payout_account && (
-                    <Tooltip title={showPayoutDetails ? 'ซ่อนข้อมูลบัญชี' : 'แสดงข้อมูลบัญชี'}>
+                    <Tooltip
+                      title={showPayoutDetails ? tx('ซ่อนข้อมูลบัญชี') : tx('แสดงข้อมูลบัญชี')}
+                    >
                       <IconButton
                         size="small"
                         color="primary"
                         aria-pressed={showPayoutDetails}
-                        aria-label={showPayoutDetails ? 'ซ่อนข้อมูลบัญชี' : 'แสดงข้อมูลบัญชี'}
+                        aria-label={
+                          showPayoutDetails ? tx('ซ่อนข้อมูลบัญชี') : tx('แสดงข้อมูลบัญชี')
+                        }
                         onClick={() => setShowPayoutDetails((current) => !current)}
                       >
                         {showPayoutDetails ? <RiEyeOffLine /> : <RiEyeLine />}
@@ -468,13 +490,13 @@ export function MarketplaceSellerProfileView() {
                         />
                         <Box sx={{ minWidth: 0 }}>
                           <Typography variant="caption" color="text.secondary">
-                            บัญชีหลักสำหรับรับยอดขาย
+                            {tx('บัญชีหลักสำหรับรับยอดขาย')}
                           </Typography>
                           <Typography variant="h6" noWrap>
                             {seller.payout_account.bank_name}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
-                            รหัสธนาคาร {seller.payout_account.bank_code}
+                            {tx('รหัสธนาคาร')} {seller.payout_account.bank_code}
                           </Typography>
                         </Box>
                       </Stack>
@@ -506,7 +528,7 @@ export function MarketplaceSellerProfileView() {
                     >
                       <Box>
                         <Typography variant="caption" color="text.secondary">
-                          ชื่อบัญชี
+                          {tx('ชื่อบัญชี')}
                         </Typography>
                         <Typography variant="subtitle1">
                           {seller.payout_account.account_name}
@@ -514,7 +536,7 @@ export function MarketplaceSellerProfileView() {
                       </Box>
                       <Box>
                         <Typography variant="caption" color="text.secondary">
-                          เลขบัญชี
+                          {tx('เลขบัญชี')}
                         </Typography>
                         <Typography variant="subtitle1" sx={{ letterSpacing: 0.6 }}>
                           {showPayoutDetails
@@ -526,24 +548,27 @@ export function MarketplaceSellerProfileView() {
                   </Box>
 
                   <Alert severity="info" variant="outlined">
-                    โปรดตรวจสอบชื่อบัญชี เลขบัญชี และธนาคารให้ถูกต้อง
-                    หากข้อมูลไม่ตรงกันระบบจะเลื่อนยอดไปรอบโอนถัดไป
+                    {tx(
+                      'โปรดตรวจสอบชื่อบัญชี เลขบัญชี และธนาคารให้ถูกต้อง หากข้อมูลไม่ตรงกันระบบจะเลื่อนยอดไปรอบโอนถัดไป'
+                    )}
                   </Alert>
                 </Stack>
               ) : (
-                <Alert severity="warning">ยังไม่มีข้อมูลบัญชีรับเงิน กรุณาแก้ไขข้อมูลร้านค้า</Alert>
+                <Alert severity="warning">
+                  {tx('ยังไม่มีข้อมูลบัญชีรับเงิน กรุณาแก้ไขข้อมูลร้านค้า')}
+                </Alert>
               )}
             </SectionCard>
 
             <SectionCard
-              title="เอกสารยืนยัน"
-              description="เอกสารที่ส่งให้ผู้ดูแลตรวจสอบตอนสมัครเปิดร้าน"
+              title={tx('เอกสารยืนยัน')}
+              description={tx('เอกสารที่ส่งให้ผู้ดูแลตรวจสอบตอนสมัครเปิดร้าน')}
               icon={<RiFileTextLine />}
               action={
                 <Chip
                   size="small"
                   variant="outlined"
-                  label={`${verificationDocuments.length} ไฟล์`}
+                  label={tx('{{v0}} ไฟล์', { v0: verificationDocuments.length })}
                 />
               }
             >
@@ -576,7 +601,9 @@ export function MarketplaceSellerProfileView() {
                             </Avatar>
                             <Box sx={{ minWidth: 0, flexGrow: 1 }}>
                               <Typography variant="subtitle2" noWrap>
-                                {documentLabel[document.document_type] || document.file_name}
+                                {documentLabel[document.document_type]
+                                  ? tx(documentLabel[document.document_type])
+                                  : document.file_name}
                               </Typography>
                               <Typography
                                 noWrap
@@ -606,13 +633,15 @@ export function MarketplaceSellerProfileView() {
                               if (!document.url) return;
                               setPreviewFile({
                                 url: document.url,
-                                title: documentLabel[document.document_type] || document.file_name,
+                                title: documentLabel[document.document_type]
+                                  ? tx(documentLabel[document.document_type])
+                                  : document.file_name,
                                 fileName: document.file_name,
                                 mimeType: document.mime_type,
                               });
                             }}
                           >
-                            ดูตัวอย่าง
+                            {tx('ดูตัวอย่าง')}
                           </Button>
                         </Stack>
                       </Card>
@@ -620,29 +649,29 @@ export function MarketplaceSellerProfileView() {
                   ))}
                 </Grid>
               ) : (
-                <Alert severity="info">ยังไม่มีเอกสารยืนยันในระบบ</Alert>
+                <Alert severity="info"> {tx('ยังไม่มีเอกสารยืนยันในระบบ')} </Alert>
               )}
             </SectionCard>
 
             <SectionCard
-              title="ข้อตกลงและการยินยอม"
-              description="สถานะข้อตกลงที่ยืนยันตอนส่งคำขอเปิดร้าน"
+              title={tx('ข้อตกลงและการยินยอม')}
+              description={tx('สถานะข้อตกลงที่ยืนยันตอนส่งคำขอเปิดร้าน')}
               icon={<RiShieldCheckLine />}
             >
               <Grid container columnSpacing={4} rowSpacing={0}>
                 <ConsentItem
-                  label="ข้อตกลงการเป็นผู้ขาย"
+                  label={tx('ข้อตกลงการเป็นผู้ขาย')}
                   acceptedAt={seller.seller_agreement_accepted_at}
                 />
                 <ConsentItem
-                  label="ยืนยันความเป็นเจ้าของลิขสิทธิ์"
+                  label={tx('ยืนยันความเป็นเจ้าของลิขสิทธิ์')}
                   acceptedAt={seller.copyright_confirmed_at}
                 />
                 <ConsentItem
-                  label="ยอมรับการหักค่าธรรมเนียม"
+                  label={tx('ยอมรับการหักค่าธรรมเนียม')}
                   acceptedAt={seller.fee_agreement_accepted_at}
                 />
-                <ConsentItem label="ยอมรับ PDPA" acceptedAt={seller.pdpa_accepted_at} />
+                <ConsentItem label={tx('ยอมรับ PDPA')} acceptedAt={seller.pdpa_accepted_at} />
               </Grid>
             </SectionCard>
           </Stack>
@@ -735,6 +764,7 @@ function ProfileField({ label, value }: { label: string; value?: string | null }
 }
 
 function ConsentItem({ label, acceptedAt }: { label: string; acceptedAt?: string | null }) {
+  const { tx, locale } = useDashboardLocale();
   const accepted = Boolean(acceptedAt);
   return (
     <Grid size={{ xs: 12, sm: 6 }}>
@@ -758,18 +788,20 @@ function ConsentItem({ label, acceptedAt }: { label: string; acceptedAt?: string
           <Typography variant="subtitle2">{label}</Typography>
           <Typography variant="caption" color="text.secondary">
             {acceptedAt
-              ? `ยอมรับเมื่อ ${new Date(acceptedAt).toLocaleDateString('th-TH', {
-                  dateStyle: 'medium',
-                  timeZone: 'Asia/Bangkok',
-                })}`
-              : 'ยังไม่ยอมรับ'}
+              ? tx('ยอมรับเมื่อ {{v0}}', {
+                  v0: new Date(acceptedAt).toLocaleDateString(locale, {
+                    dateStyle: 'medium',
+                    timeZone: 'Asia/Bangkok',
+                  }),
+                })
+              : tx('ยังไม่ยอมรับ')}
           </Typography>
         </Box>
         <Chip
           size="small"
           variant="soft"
           color={accepted ? 'success' : 'warning'}
-          label={accepted ? 'ยอมรับแล้ว' : 'ยังไม่ยอมรับ'}
+          label={accepted ? tx('ยอมรับแล้ว') : tx('ยังไม่ยอมรับ')}
         />
       </Stack>
     </Grid>
@@ -777,12 +809,13 @@ function ConsentItem({ label, acceptedAt }: { label: string; acceptedAt?: string
 }
 
 function StatusChip({ status }: { status: MarketplaceSeller['status'] }) {
+  const { tx } = useDashboardLocale();
   const statusMap = {
-    active: { label: 'เปิดใช้งาน', color: 'success' as const },
-    pending: { label: 'รอตรวจสอบ', color: 'warning' as const },
-    rejected: { label: 'ไม่ผ่านการตรวจสอบ', color: 'error' as const },
-    suspended: { label: 'ระงับใช้งาน', color: 'error' as const },
-    draft: { label: 'ฉบับร่าง', color: 'default' as const },
+    active: { label: tx('เปิดใช้งาน'), color: 'success' as const },
+    pending: { label: tx('รอตรวจสอบ'), color: 'warning' as const },
+    rejected: { label: tx('ไม่ผ่านการตรวจสอบ'), color: 'error' as const },
+    suspended: { label: tx('ระงับใช้งาน'), color: 'error' as const },
+    draft: { label: tx('ฉบับร่าง'), color: 'default' as const },
   };
   const item = statusMap[status];
   return <Chip size="small" color={item.color} variant="soft" label={item.label} />;

@@ -1,8 +1,15 @@
 import type { Metadata } from 'next';
 
+import { getServerTranslations } from 'src/locales/server';
+
 import { MarketplaceSellerFinanceView } from 'src/sections/marketplace/seller/view/seller-finance-view';
 
-export const metadata: Metadata = { title: 'รายได้ของร้าน | E-KRU Marketplace' };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getServerTranslations('marketplace');
+  return {
+    title: t('dashboardUi.sellerFinancePage') + ' | E-KRU Marketplace',
+  };
+}
 
 export default async function Page({
   searchParams,

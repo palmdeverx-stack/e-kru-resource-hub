@@ -4,7 +4,10 @@ import { RiLineFill } from '@remixicon/react';
 
 import Button from '@mui/material/Button';
 
+import { useTranslate } from 'src/locales';
+
 export function LineLoginButton({ returnTo }: { returnTo?: string | null }) {
+  const { t } = useTranslate();
   if (!process.env.NEXT_PUBLIC_LIFF_ID) return null;
   const destination = `/auth/line${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ''}`;
   return (
@@ -39,7 +42,7 @@ export function LineLoginButton({ returnTo }: { returnTo?: string | null }) {
         },
       }}
     >
-      ลงชื่อเข้าใช้ด้วย LINE
+      {t('auth.social.line')}
     </Button>
   );
 }

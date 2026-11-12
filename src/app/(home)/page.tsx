@@ -2,8 +2,12 @@ import type { Metadata } from 'next';
 
 import { detectLanguage, getServerTranslations } from 'src/locales/server';
 
-import { absoluteMarketplaceUrl } from 'src/sections/marketplace/seo/site-url';
 import { MarketplaceLandingView } from 'src/sections/marketplace/catalog/view/landing-view';
+import { getPublicPlatformSettings } from 'src/sections/marketplace/admin/server/platform-settings';
+import {
+  absoluteMarketplaceUrl,
+  MARKETPLACE_OG_IMAGE_URL,
+} from 'src/sections/marketplace/seo/site-url';
 import {
   MARKETPLACE_SEO_KEYWORDS,
   MARKETPLACE_BRAND_ALIASES,
@@ -12,12 +16,32 @@ import {
 // ----------------------------------------------------------------------
 
 export async function generateMetadata(): Promise<Metadata> {
-  const { t } = await getServerTranslations('marketplace');
+  const [lang, { t }, settings] = await Promise.all([
+    detectLanguage(),
+    getServerTranslations('marketplace'),
+    getPublicPlatformSettings(),
+  ]);
+  const title = t('seo.title');
+  const description = t('seo.description');
+  const siteName =
+    (lang === 'en' ? settings?.platform_name_en : settings?.platform_name_th) ||
+    'E-KRU Marketplace';
+  const image = settings?.og_image_url || MARKETPLACE_OG_IMAGE_URL;
   return {
-    title: t('seo.title'),
-    description: t('seo.description'),
+    title,
+    description,
     keywords: MARKETPLACE_SEO_KEYWORDS,
     alternates: { canonical: '/' },
+    openGraph: {
+      type: 'website',
+      locale: lang === 'en' ? 'en_US' : 'th_TH',
+      siteName,
+      title,
+      description,
+      url: '/',
+      images: [{ url: image, alt: title }],
+    },
+    twitter: { card: 'summary_large_image', title, description, images: [image] },
   };
 }
 

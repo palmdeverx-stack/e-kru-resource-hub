@@ -65,6 +65,7 @@ async function handle(request: Request, context: Context, send: boolean) {
       seller.seller_name ||
       'ผู้ขาย',
     step: Number(seller.wizard_step ?? 1),
+    preview: !send,
     origin: new URL(request.url).origin,
   });
   if (!send)

@@ -123,6 +123,13 @@ const fallbackCategories: LandingCategory[] = [
   },
 ];
 
+const additionalCategoryTranslationKeys: Record<string, string> = {
+  ซอฟต์แวร์และระบบการศึกษา: 'educationSoftware',
+  'Education software and systems': 'educationSoftware',
+  'Prompt AI': 'aiPrompts',
+  'AI Prompts': 'aiPrompts',
+};
+
 const categoryPalettes = [
   {
     background: 'linear-gradient(145deg, #E7F1FF 0%, #D6E8FF 100%)',
@@ -414,17 +421,17 @@ export function MarketplaceLandingView() {
           <Box
             key="marketplace-hero"
             sx={{
-              py: { xs: 8, md: 14 },
+              py: { xs: 5, md: 8 },
               height: 1,
-              minHeight: { sm: 620 },
+              minHeight: { md: 560 },
               background: brandColors.heroBackground,
               '[data-color-scheme="dark"] &': { background: 'none', bgcolor: 'background.neutral' },
             }}
           >
             <Container maxWidth="lg">
-              <Grid container spacing={{ xs: 6, md: 8 }} alignItems="center">
+              <Grid container spacing={{ xs: 4, md: 6 }} alignItems="center">
                 <Grid size={{ xs: 12, md: 7 }}>
-                  <Stack spacing={3.5} alignItems={{ xs: 'center', md: 'flex-start' }}>
+                  <Stack spacing={2.5} alignItems={{ xs: 'center', md: 'flex-start' }}>
                     <Chip
                       color="primary"
                       variant="soft"
@@ -441,8 +448,10 @@ export function MarketplaceLandingView() {
                       variant="h1"
                       sx={{
                         maxWidth: 760,
-                        fontSize: { xs: 42, sm: 54, md: 72 },
-                        lineHeight: 1.08,
+                        fontSize: { xs: 34, sm: 46, md: 58 },
+                        lineHeight: 1.2,
+                        letterSpacing: '-0.025em',
+                        textWrap: 'balance',
                         textAlign: { xs: 'center', md: 'left' },
                       }}
                     >
@@ -450,7 +459,7 @@ export function MarketplaceLandingView() {
                       <Box
                         component="span"
                         sx={{
-                          mt: 2,
+                          mt: 1,
                           display: 'block',
                           color: 'primary.main',
                           position: 'relative',
@@ -477,7 +486,8 @@ export function MarketplaceLandingView() {
                     <Typography
                       variant="h6"
                       sx={{
-                        maxWidth: 680,
+                        maxWidth: 560,
+                        fontSize: { xs: 16, md: 18 },
                         fontWeight: 400,
                         color: 'text.secondary',
                         lineHeight: 1.8,
@@ -486,14 +496,18 @@ export function MarketplaceLandingView() {
                     >
                       {t('hero.description')}
                     </Typography>
-                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+                    <Stack
+                      direction={{ xs: 'column', sm: 'row' }}
+                      spacing={1.5}
+                      sx={{ width: { xs: 1, sm: 'auto' } }}
+                    >
                       <Button
                         size="large"
                         variant="contained"
                         component={RouterLink}
                         href={paths.marketplace.products}
                         startIcon={<RiShoppingBag3Line />}
-                        sx={{ borderRadius: 2.5, px: 2.5 }}
+                        sx={{ borderRadius: 1, px: 3, minHeight: 48 }}
                       >
                         {t('actions.browse')}
                       </Button>
@@ -503,7 +517,7 @@ export function MarketplaceLandingView() {
                         component={RouterLink}
                         href={paths.marketplace.seller}
                         startIcon={<RiStore2Line />}
-                        sx={{ borderRadius: 2.5, px: 2.5, bgcolor: 'rgba(255,255,255,0.72)' }}
+                        sx={{ borderRadius: 1, px: 3, minHeight: 48, bgcolor: 'background.paper' }}
                       >
                         {t('actions.startSelling')}
                       </Button>
@@ -515,8 +529,8 @@ export function MarketplaceLandingView() {
                   <Box
                     sx={{
                       position: 'relative',
-                      pt: { xs: 18, md: 22 },
-                      maxWidth: 460,
+                      pt: { xs: 14, md: 18 },
+                      maxWidth: { xs: 360, md: 420 },
                       mx: 'auto',
                       width: 1,
                     }}
@@ -527,8 +541,8 @@ export function MarketplaceLandingView() {
                         top: 0,
                         left: '50%',
                         transform: 'translateX(-50%)',
-                        width: { xs: 230, md: 280 },
-                        height: { xs: 212, md: 258 },
+                        width: { xs: 190, md: 240 },
+                        height: { xs: 175, md: 220 },
                         zIndex: 2,
                         pointerEvents: 'none',
                       }}
@@ -538,20 +552,20 @@ export function MarketplaceLandingView() {
                         alt=""
                         fill
                         priority
-                        sizes="(min-width: 900px) 280px, 230px"
+                        sizes="(min-width: 900px) 240px, 190px"
                         style={{ objectFit: 'contain' }}
                       />
                     </Box>
                     <Card
                       sx={{
-                        p: { xs: 3, md: 4 },
-                        pt: { xs: 10, md: 11 },
+                        p: { xs: 2.5, md: 3 },
+                        pt: { xs: 8, md: 9 },
                         overflow: 'hidden',
                         position: 'relative',
-                        borderRadius: '36px 36px 36px 14px',
+                        borderRadius: 3,
                         color: 'common.white',
                         background: brandColors.featureBackground,
-                        boxShadow: '0 28px 70px rgba(30,84,173,0.22)',
+                        boxShadow: '0 16px 40px rgba(30,84,173,0.16)',
                         '&::before': {
                           right: -72,
                           bottom: -82,
@@ -638,7 +652,7 @@ export function MarketplaceLandingView() {
             <CarouselDotButtons
               {...heroCarousel.dots}
               variant="rounded"
-              aria-label="เลือกสไลด์หน้าหลัก"
+              aria-label={t('landingLabels.chooseSlide')}
               sx={{
                 position: 'absolute',
                 left: '50%',
@@ -657,7 +671,7 @@ export function MarketplaceLandingView() {
 
       <Box
         sx={{
-          py: { xs: 5, md: 6 },
+          py: { xs: 3, md: 4 },
           color: 'common.white',
           background: 'linear-gradient(110deg, #123E8C 0%, #185BB8 100%)',
         }}
@@ -710,9 +724,9 @@ export function MarketplaceLandingView() {
       </Box>
 
       {(officialProductsLoading || officialProducts.length > 0) && (
-        <Box sx={{ py: { xs: 7, md: 10 }, bgcolor: 'background.neutral' }}>
+        <Box sx={{ py: { xs: 5, md: 7 }, bgcolor: 'background.neutral' }}>
           <Container maxWidth="lg">
-            <Stack spacing={4.5}>
+            <Stack spacing={{ xs: 3, md: 4 }}>
               <Stack
                 direction={{ xs: 'column', sm: 'row' }}
                 spacing={2}
@@ -768,9 +782,9 @@ export function MarketplaceLandingView() {
       )}
 
       {(bestSellingProductsLoading || bestSellingProducts.length > 0) && (
-        <Box sx={{ py: { xs: 7, md: 10 } }}>
+        <Box sx={{ py: { xs: 5, md: 7 } }}>
           <Container maxWidth="lg">
-            <Stack spacing={4.5}>
+            <Stack spacing={{ xs: 3, md: 4 }}>
               <Stack
                 direction={{ xs: 'column', sm: 'row' }}
                 spacing={2}
@@ -842,10 +856,10 @@ export function MarketplaceLandingView() {
         </Box>
       )}
 
-      <Container maxWidth="lg" sx={{ py: { xs: 7, md: 10 } }}>
-        <Stack spacing={4.5}>
+      <Container maxWidth="lg" sx={{ py: { xs: 5, md: 7 } }}>
+        <Stack spacing={{ xs: 3, md: 4 }}>
           <SectionHeading
-            eyebrow="E-KRU MARKETPLACE"
+            eyebrow={t('landingLabels.benefits')}
             title={t('benefits.heading')}
             description={t('benefits.description')}
           />
@@ -895,7 +909,7 @@ export function MarketplaceLandingView() {
         </Stack>
       </Container>
 
-      <Container ref={categoriesSection.ref} maxWidth="lg" sx={{ py: { xs: 7, md: 10 } }}>
+      <Container ref={categoriesSection.ref} maxWidth="lg" sx={{ py: { xs: 5, md: 7 } }}>
         <Stack spacing={4}>
           <Box sx={{ textAlign: 'center' }}>
             <Typography variant="h3">{t('categories.heading')}</Typography>
@@ -921,7 +935,10 @@ export function MarketplaceLandingView() {
               const fallbackCategory = fallbackCategories.find(
                 (item) => item.name === category.name
               );
-              const translationKey = category.translationKey ?? fallbackCategory?.translationKey;
+              const translationKey =
+                category.translationKey ??
+                fallbackCategory?.translationKey ??
+                additionalCategoryTranslationKeys[category.name.trim()];
               const title = translationKey
                 ? t(`categories.items.${translationKey}`)
                 : category.name;
@@ -939,7 +956,7 @@ export function MarketplaceLandingView() {
                   href={`${paths.marketplace.products}?category=${encodeURIComponent(category.name)}`}
                   sx={{
                     p: { xs: 2.5, md: 2.75 },
-                    minHeight: { xs: isFeatureCard ? 310 : 240, sm: 260, md: 0 },
+                    minHeight: { xs: isFeatureCard ? 270 : 210, sm: 236, md: 0 },
                     color: palette.foreground,
                     display: 'flex',
                     overflow: 'hidden',
@@ -1108,7 +1125,7 @@ export function MarketplaceLandingView() {
 
       <Box
         sx={{
-          py: { xs: 8, md: 12 },
+          py: { xs: 5, md: 8 },
           position: 'relative',
           overflow: 'hidden',
           background: brandColors.heroBackground,
@@ -1143,14 +1160,14 @@ export function MarketplaceLandingView() {
         <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
           <Stack spacing={{ xs: 4, md: 6 }}>
             <SectionHeading
-              eyebrow="HOW IT WORKS"
+              eyebrow={t('landingLabels.process')}
               title={t('process.heading')}
               description={t('process.description')}
             />
             <Grid container spacing={{ xs: 2.5, md: 3.5 }}>
               <Grid size={{ xs: 12, md: 6 }}>
                 <ProcessCard
-                  eyebrow="I WANT TO LEARN"
+                  eyebrow={t('landingLabels.buyer')}
                   title={t('process.buyer.title')}
                   description={t('process.buyer.description')}
                   steps={buyerSteps.map((step) => ({
@@ -1166,7 +1183,7 @@ export function MarketplaceLandingView() {
               </Grid>
               <Grid size={{ xs: 12, md: 6 }}>
                 <ProcessCard
-                  eyebrow="I WANT TO SELL"
+                  eyebrow={t('landingLabels.seller')}
                   title={t('process.seller.title')}
                   description={t('process.seller.description')}
                   steps={sellerSteps.map((step) => ({
@@ -1185,10 +1202,10 @@ export function MarketplaceLandingView() {
         </Container>
       </Box>
 
-      <Container maxWidth="lg" sx={{ py: { xs: 7, md: 10 } }}>
-        <Stack spacing={4.5}>
+      <Container maxWidth="lg" sx={{ py: { xs: 5, md: 7 } }}>
+        <Stack spacing={{ xs: 3, md: 4 }}>
           <SectionHeading
-            eyebrow="FOR EVERY LEARNER"
+            eyebrow={t('landingLabels.audiences')}
             title={t('audiences.heading')}
             description={t('audiences.description')}
           />
@@ -1337,7 +1354,7 @@ export function MarketplaceLandingView() {
                         fontWeight: 800,
                       }}
                     >
-                      ฿30–40
+                      {t('landingLabels.samplePrice')}
                     </Box>
                   </Stack>
 
@@ -1399,7 +1416,7 @@ export function MarketplaceLandingView() {
           {communityReviews.length >= 3 && (
             <Box sx={{ pt: { xs: 4, md: 7 } }}>
               <SectionHeading
-                eyebrow="VOICES FROM THE CLASSROOM"
+                eyebrow={t('landingLabels.reviews')}
                 title={t('reviews.heading')}
                 description={t('reviews.description')}
               />
@@ -1520,13 +1537,13 @@ export function MarketplaceLandingView() {
               <LandingMascot pose="question" width={156} />
               <Box sx={{ minWidth: 0, maxWidth: 580 }}>
                 <SectionHeading
-                  eyebrow="FREQUENTLY ASKED QUESTIONS"
+                  eyebrow={t('landingLabels.faq')}
                   title={t('faq.heading')}
                   description={t('faq.description')}
                 />
               </Box>
             </Stack>
-            <Stack spacing={1.5} sx={{ maxWidth: '100%', mx: 'auto', mt: 3, pb: 2 }}>
+            <Stack spacing={1.5} sx={{ width: 1, maxWidth: 840, mx: 'auto', mt: 3, pb: 2 }}>
               {faqKeys.map((faqKey, index) => (
                 <Accordion
                   key={faqKey}
@@ -1679,10 +1696,10 @@ function SectionHeading({
       <Typography variant="overline" color="primary.main">
         {eyebrow}
       </Typography>
-      <Typography variant="h3" sx={{ mt: 0.5 }}>
+      <Typography variant="h3" sx={{ mt: 0.5, fontSize: { xs: 26, md: 32 }, textWrap: 'balance' }}>
         {title}
       </Typography>
-      <Typography color="text.secondary" sx={{ maxWidth: 680, mx: 'auto', mt: 1.25 }}>
+      <Typography color="text.secondary" sx={{ maxWidth: 600, mx: 'auto', mt: 1, lineHeight: 1.8 }}>
         {description}
       </Typography>
     </Box>
