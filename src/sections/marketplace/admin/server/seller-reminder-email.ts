@@ -22,8 +22,12 @@ export function buildSellerReminderEmail(input: {
   const actionUrl = new URL(`/dashboard/seller/profile/edit?step=${step}`, EMAIL_ORIGIN).href;
   const logoUrl = new URL('/logo/logo-email.png', EMAIL_ORIGIN).href;
   const subject = 'แก้ไขปัญหาเรียบร้อยแล้ว — กลับมาดำเนินการเปิดร้านบน E-KRU ได้อีกครั้ง';
-  const html = `<!doctype html><html lang="th"><head><meta charset="utf-8"></head><body style="margin:0;background:#f4f6f8;font-family:Tahoma,Arial,sans-serif;color:#1c252e">
-  <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:0 0 16px 16px;padding:20px 24px 24px">
+  const html = `<!doctype html><html lang="th"><head><meta charset="utf-8"><style>
+  @font-face{font-family:'LINE Seed Sans TH';font-style:normal;font-weight:400;src:url('https://e-kru-marketplace.com/fonts/LINESeedSansTH-Regular.woff2') format('woff2')}
+  @font-face{font-family:'LINE Seed Sans TH';font-style:normal;font-weight:700;src:url('https://e-kru-marketplace.com/fonts/LINESeedSansTH-Bold.woff2') format('woff2')}
+  </style></head><body style="margin:0;background:#f4f6f8;font-family:'LINE Seed Sans TH',Tahoma,Arial,sans-serif;color:#1c252e">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f6f8"><tr><td style="padding:28px 12px;vertical-align:top">
+  <div style="font-family:'LINE Seed Sans TH',Tahoma,Arial,sans-serif;max-width:560px;margin:0 auto;background:#fff;border-radius:16px;padding:24px">
     <a href="${escapeHtml(new URL('/', EMAIL_ORIGIN).href)}" style="display:inline-block;text-decoration:none"><img src="${escapeHtml(logoUrl)}" alt="E-KRU Marketplace" width="160" height="77" style="display:block;width:160px;max-width:100%;height:auto;border:0"></a>
     <h1 style="font-size:24px;line-height:1.5;margin:16px 0 12px">ระบบพร้อมให้คุณกลับมาเปิดร้านแล้ว</h1>
     <p style="line-height:1.8">สวัสดีคุณ ${escapeHtml(input.recipientName || 'ผู้ขาย')}</p>
@@ -36,6 +40,6 @@ export function buildSellerReminderEmail(input: {
     <p style="line-height:1.8">ขอบคุณที่ให้โอกาสเราได้ดูแลร้านค้าของท่าน และขออภัยในความไม่สะดวกอีกครั้งครับ<br>ทีมงาน E-KRU Marketplace</p>
     <hr style="border:0;border-top:1px solid #e5e8eb;margin:24px 0">
     <p style="font-size:12px;line-height:1.8;color:#919eab">อีเมลแจ้งเตือนจากผู้ดูแล E-KRU Marketplace สำหรับการดำเนินการเปิดร้านของคุณ หากคุณดำเนินการแล้ว สามารถละเว้นอีเมลนี้ได้</p>
-  </div></body></html>`;
+  </div></td></tr></table></body></html>`;
   return { subject, html, actionUrl };
 }
