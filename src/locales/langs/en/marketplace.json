@@ -35,7 +35,7 @@
     "schools": "Schools"
   },
   "official": {
-    "title": "Official resources from E-KRU",
+    "title": "E-KRU tools & resources",
     "description": "Resources and licenses created and sold directly by E-KRU."
   },
   "bestSellers": {
@@ -399,7 +399,7 @@
     },
     "card": {
       "verifiedProfile": "Store profile is complete",
-      "systemStore": "Official E-KRU store",
+      "systemStore": "E-KRU store",
       "defaultBio": "An approved teaching resource store on E-KRU Marketplace.",
       "products": "{{formattedCount}} product",
       "products_other": "{{formattedCount}} products",
@@ -423,7 +423,7 @@
     },
     "errors": { "load": "Unable to load this store" },
     "verifiedProfile": "Store profile is complete",
-    "systemStore": "Official E-KRU store",
+    "systemStore": "E-KRU store",
     "defaultBio": "Quality teaching resources for educators and schools.",
     "stats": {
       "products": "Products",
@@ -510,7 +510,7 @@
       }
     },
     "products": {
-      "heading": "Browse our resources",
+      "heading": "Find resources for your classroom",
       "description": "Find the right classroom resource across Marketplace categories."
     },
     "filters": {
@@ -660,7 +660,7 @@
       "noMoreProducts": "This store has no other products yet.",
       "fallback": "E-KRU store",
       "verified": "Store reviewed by E-KRU Marketplace",
-      "official": "Official store"
+      "official": "E-KRU store"
     },
     "related": {
       "title": "Similar products on E-KRU Marketplace",

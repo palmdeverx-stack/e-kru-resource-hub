@@ -2,6 +2,7 @@
 
 import type { MarketplaceProduct } from '../../shared/types';
 
+import Image from 'next/image';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState, useDeferredValue } from 'react';
 
@@ -14,6 +15,7 @@ import Button from '@mui/material/Button';
 import Skeleton from '@mui/material/Skeleton';
 import Container from '@mui/material/Container';
 import TextField from '@mui/material/TextField';
+import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import ToggleButton from '@mui/material/ToggleButton';
 import InputAdornment from '@mui/material/InputAdornment';
@@ -23,10 +25,12 @@ import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
 import { useTranslate } from 'src/locales';
+import { brandColors } from 'src/theme/brand-colors';
 
 import {
   RiFileLine,
   RiTeamLine,
+  RiCloseLine,
   RiApps2Line,
   RiStore2Line,
   RiSearchLine,
@@ -36,7 +40,6 @@ import {
   RiBookOpenLine,
   RiSparklingLine,
   RiArrowRightLine,
-  RiShieldStarFill,
   RiCheckboxMultipleLine,
 } from 'src/components/remix-icon';
 
@@ -49,29 +52,34 @@ type Audience = 'all' | 'individual' | 'school';
 
 const copy = {
   th: {
-    eyebrow: 'OFFICIAL E-KRU PRODUCTS',
-    title: 'เครื่องมือและทรัพยากรทางการจาก E-KRU',
-    description:
-      'เลือก Templates, Files, Forms, Learning Resources และแอปที่ออกแบบให้ครูใช้ได้ทันที ทั้งแบบบุคคลและแบบโรงเรียน',
+    eyebrow: 'E-KRU TOOLS & RESOURCES',
+    title: 'เครื่องมือดี ๆ สำหรับครูและโรงเรียน',
+    description: 'รวมสื่อการสอน เทมเพลต แบบฟอร์ม และแอปจากทีม E-KRU เลือกใช้ให้เหมาะกับงานของคุณ',
     personalTitle: 'ใช้ในนามบุคคล',
     personalDescription: 'ซื้อและใช้สิทธิ์ด้วยบัญชีของคุณ ใช้งานต่อได้แม้ย้ายโรงเรียน',
     schoolTitle: 'ใช้ร่วมกันทั้งโรงเรียน',
     schoolDescription: 'เชื่อมข้อมูลนักเรียน บุคลากร ห้องเรียน และจัดการสิทธิ์จากส่วนกลาง',
     browse: 'เลือกดูสินค้า',
+    helperTitle: 'เลือกแบบที่เหมาะกับคุณ',
+    helperDescription: 'กดเลือกบุคคลหรือโรงเรียน เพื่อดูสินค้าที่ตรงกับการใช้งาน',
     audience: 'เลือกกลุ่มผู้ใช้งาน',
     allAudience: 'ทั้งหมด',
     individual: 'บุคคล',
     school: 'โรงเรียน',
-    search: 'ค้นหาสินค้าทางการ',
+    search: 'ค้นหาสื่อหรือเครื่องมือ',
     found: 'พบ {{count}} รายการ',
     emptyTitle: 'ยังไม่พบสินค้าที่ตรงกับตัวกรอง',
     emptyDescription: 'ลองเปลี่ยนประเภท กลุ่มผู้ใช้งาน หรือคำค้นหา',
     clear: 'ล้างตัวกรอง',
-    loadError: 'ไม่สามารถโหลดสินค้าทางการได้ในขณะนี้',
+    retry: 'ลองอีกครั้ง',
+    categories: 'ประเภทสินค้า',
+    filters: 'ค้นหาและเลือกสินค้า',
+    showing: 'แสดง {{shown}} จาก {{total}} รายการ',
+    loadError: 'ไม่สามารถโหลดสื่อและเครื่องมือได้ในขณะนี้',
   },
   en: {
-    eyebrow: 'OFFICIAL E-KRU PRODUCTS',
-    title: 'Official tools and resources from E-KRU',
+    eyebrow: 'E-KRU TOOLS & RESOURCES',
+    title: 'Useful tools for teachers and schools',
     description:
       'Discover ready-to-use templates, files, forms, learning resources, and apps for individuals and schools.',
     personalTitle: 'For individuals',
@@ -79,16 +87,22 @@ const copy = {
     schoolTitle: 'For schools',
     schoolDescription: 'Connect student, staff, and classroom data with centrally managed access.',
     browse: 'Browse products',
+    helperTitle: 'Find what works for you',
+    helperDescription: 'Choose individuals or schools to explore products for your needs.',
     audience: 'Choose an audience',
     allAudience: 'All',
     individual: 'Individual',
     school: 'School',
-    search: 'Search official products',
+    search: 'Search resources or tools',
     found: '{{count}} products',
     emptyTitle: 'No products match these filters',
     emptyDescription: 'Try another type, audience, or search term.',
     clear: 'Clear filters',
-    loadError: 'Official products could not be loaded right now.',
+    retry: 'Try again',
+    categories: 'Product type',
+    filters: 'Find your products',
+    showing: 'Showing {{shown}} of {{total}} products',
+    loadError: 'Resources and tools could not be loaded right now.',
   },
 } as const;
 
@@ -127,6 +141,7 @@ export function OfficialProductsView() {
     data: products = [],
     isPending: loading,
     isError: loadError,
+    refetch,
   } = useQuery({
     queryKey: ['official-products', user?.id ?? 'guest', user?.role ?? 'guest'],
     queryFn: async () => (await getProducts({ official: true, page: 1, limit: 48 })).products,
@@ -179,246 +194,451 @@ export function OfficialProductsView() {
   };
 
   return (
-    <Box sx={{ bgcolor: 'background.default' }}>
+    <Box
+      sx={{
+        bgcolor: 'background.default',
+        color: 'text.primary',
+      }}
+    >
       <Box
-        sx={{
-          color: 'common.white',
-          overflow: 'hidden',
-          position: 'relative',
-          background:
-            'radial-gradient(circle at 82% 18%, rgba(94,234,212,0.22), transparent 27%), linear-gradient(135deg, #102A56 0%, #1555A2 54%, #087F8C 100%)',
-        }}
+        sx={(theme) => ({
+          bgcolor: brandColors.surface,
+          backgroundImage: brandColors.heroBackground,
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+          ...theme.applyStyles('dark', { bgcolor: 'background.neutral', backgroundImage: 'none' }),
+        })}
       >
-        <Container maxWidth="lg" sx={{ py: { xs: 7, md: 10 } }}>
-          <Grid container spacing={{ xs: 4, md: 7 }} alignItems="center">
-            <Grid size={{ xs: 12, md: 7 }}>
-              <Stack spacing={2.5} alignItems="flex-start">
-                <Chip
-                  icon={<RiShieldStarFill />}
-                  label={text.eyebrow}
+        <Container maxWidth="lg" sx={{ pt: { xs: 4, md: 5 }, pb: { xs: 3, md: 4 } }}>
+          <Grid container spacing={{ xs: 2, md: 5 }} alignItems="center">
+            <Grid size={{ xs: 12, md: 8 }}>
+              <Stack spacing={2} alignItems="flex-start">
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  alignItems="center"
+                  sx={{ color: 'primary.main' }}
+                >
+                  <RiBookOpenLine size={20} aria-hidden />
+                  <Typography variant="overline" sx={{ letterSpacing: 1, fontSize: 11 }}>
+                    {text.eyebrow}
+                  </Typography>
+                </Stack>
+                <Typography
+                  component="h1"
                   sx={{
-                    color: 'common.white',
-                    fontWeight: 800,
-                    bgcolor: 'rgba(255,255,255,0.13)',
-                    '& .MuiChip-icon': { color: '#72E2D1' },
+                    fontWeight: 700,
+                    fontSize: { xs: 30, sm: 36, md: 42 },
+                    lineHeight: 1.35,
+                    maxWidth: 640,
+                    textWrap: 'balance',
                   }}
-                />
-                <Typography variant="h1" sx={{ maxWidth: 760, fontSize: { xs: 38, md: 58 } }}>
+                >
                   {text.title}
                 </Typography>
-                <Typography sx={{ maxWidth: 700, fontSize: { xs: 17, md: 20 }, opacity: 0.82 }}>
+                <Typography
+                  color="text.secondary"
+                  sx={{ maxWidth: 600, fontSize: { xs: 16, md: 17 }, lineHeight: 1.8 }}
+                >
                   {text.description}
                 </Typography>
                 <Button
-                  size="large"
                   variant="contained"
-                  color="white"
                   href="#official-products"
                   endIcon={<RiArrowRightLine />}
-                  sx={{ color: '#123A72' }}
+                  sx={{
+                    minHeight: 44,
+                    boxShadow: 'none',
+                    borderRadius: 1.5,
+                    '&:hover': { boxShadow: 'none' },
+                  }}
                 >
                   {text.browse}
                 </Button>
               </Stack>
             </Grid>
-            <Grid size={{ xs: 12, md: 5 }}>
-              <Stack spacing={2}>
-                {[
-                  {
-                    icon: RiTeamLine,
-                    title: text.personalTitle,
-                    description: text.personalDescription,
-                  },
-                  {
-                    icon: RiSchoolLine,
-                    title: text.schoolTitle,
-                    description: text.schoolDescription,
-                  },
-                ].map((item) => (
-                  <Paper
-                    key={item.title}
-                    sx={{
-                      p: 2.5,
-                      color: 'common.white',
-                      border: '1px solid rgba(255,255,255,0.18)',
-                      bgcolor: 'rgba(255,255,255,0.10)',
-                      backdropFilter: 'blur(12px)',
-                    }}
-                  >
-                    <Stack direction="row" spacing={2}>
-                      <Box
-                        sx={{
-                          width: 48,
-                          height: 48,
-                          display: 'grid',
-                          flexShrink: 0,
-                          borderRadius: 1.5,
-                          placeItems: 'center',
-                          bgcolor: 'rgba(255,255,255,0.14)',
-                        }}
-                      >
-                        <item.icon size={25} />
-                      </Box>
-                      <Box>
-                        <Typography variant="h6">{item.title}</Typography>
-                        <Typography variant="body2" sx={{ mt: 0.5, opacity: 0.75 }}>
-                          {item.description}
-                        </Typography>
-                      </Box>
-                    </Stack>
-                  </Paper>
-                ))}
-              </Stack>
+            <Grid size={{ xs: 12, md: 4 }}>
+              <Box
+                sx={{
+                  position: 'relative',
+                  mx: 'auto',
+                  width: { xs: 160, sm: 200, md: 240 },
+                  aspectRatio: '1 / 1',
+                }}
+              >
+                <Image
+                  src="/assets/mascot/kumi_cute.png"
+                  alt=""
+                  fill
+                  priority
+                  sizes="(min-width: 900px) 240px, (min-width: 600px) 200px, 160px"
+                  style={{ objectFit: 'contain' }}
+                />
+              </Box>
             </Grid>
           </Grid>
+          <Box sx={{ mt: { xs: 3, md: 4 } }}>
+            <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
+              {text.helperTitle}
+            </Typography>
+            <Grid container spacing={1.5}>
+              {[
+                {
+                  icon: RiTeamLine,
+                  audience: 'individual' as const,
+                  title: text.personalTitle,
+                  description: text.personalDescription,
+                },
+                {
+                  icon: RiSchoolLine,
+                  audience: 'school' as const,
+                  title: text.schoolTitle,
+                  description: text.schoolDescription,
+                },
+              ].map((item) => (
+                <Grid key={item.audience} size={{ xs: 12, sm: 6 }}>
+                  <Paper
+                    component="a"
+                    href="#official-products"
+                    onClick={() => {
+                      setAudience(item.audience);
+                      setDisplayLimit(12);
+                    }}
+                    sx={{
+                      p: { xs: 2, md: 2.5 },
+                      height: 1,
+                      display: 'flex',
+                      gap: 1.5,
+                      alignItems: 'flex-start',
+                      borderRadius: 2,
+                      textDecoration: 'none',
+                      color: 'text.primary',
+                      bgcolor: 'background.paper',
+                      boxShadow: 'none',
+                      border: '1px solid',
+                      borderColor: audience === item.audience ? 'primary.main' : 'divider',
+                      transition: 'border-color 160ms ease',
+                      '&:hover': { borderColor: 'primary.main' },
+                      '&:focus-visible': {
+                        outline: '2px solid',
+                        outlineColor: 'primary.main',
+                        outlineOffset: 3,
+                      },
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        width: 40,
+                        height: 40,
+                        display: 'grid',
+                        placeItems: 'center',
+                        bgcolor: 'background.neutral',
+                        color: 'primary.main',
+                        borderRadius: 1.5,
+                        flexShrink: 0,
+                      }}
+                    >
+                      <item.icon size={22} />
+                    </Box>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography variant="subtitle1">{item.title}</Typography>
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{ mt: 0.5, lineHeight: 1.7 }}
+                      >
+                        {item.description}
+                      </Typography>
+                    </Box>
+                    <RiArrowRightLine
+                      size={20}
+                      style={{ flexShrink: 0, marginTop: 8 }}
+                      aria-hidden
+                    />
+                  </Paper>
+                </Grid>
+              ))}
+            </Grid>
+          </Box>
         </Container>
       </Box>
 
-      <Container id="official-products" maxWidth="lg" sx={{ py: { xs: 6, md: 9 } }}>
-        <Stack spacing={4}>
-          {!loading && !loadError && products.length > 0 && (
-            <Grid container spacing={2}>
-              {categories.map((item) => {
-                const selected = category === item;
-                const CategoryIcon = item === 'all' ? RiShieldStarFill : getCategoryIcon(item);
-                return (
-                  <Grid key={item} size={{ xs: 6, sm: 4, md: 2 }}>
-                    <Paper
-                      component="button"
-                      type="button"
-                      onClick={() => {
-                        setCategory(item);
+      <Container
+        id="official-products"
+        tabIndex={-1}
+        maxWidth="lg"
+        sx={{ py: { xs: 3, md: 5 }, scrollMarginTop: 96 }}
+      >
+        <Stack
+          direction={{ xs: 'column', md: 'row' }}
+          spacing={{ xs: 3, md: 4 }}
+          alignItems="flex-start"
+        >
+          <Paper
+            component="aside"
+            aria-label={text.filters}
+            variant="outlined"
+            sx={{
+              p: 2,
+              borderRadius: 2,
+              width: { xs: 1, md: 270 },
+              flexShrink: 0,
+              position: { md: 'sticky' },
+              top: { md: 96 },
+            }}
+          >
+            <Stack spacing={1.5}>
+              <Stack
+                direction="column"
+                spacing={1.5}
+                alignItems="stretch"
+                justifyContent="space-between"
+              >
+                <Typography component="h2" variant="subtitle1">
+                  {text.filters}
+                </Typography>
+                <Stack spacing={2}>
+                  <TextField
+                    size="small"
+                    value={search}
+                    placeholder={text.search}
+                    onChange={(event) => {
+                      setSearch(event.target.value);
+                      setDisplayLimit(12);
+                    }}
+                    slotProps={{
+                      htmlInput: { 'aria-label': text.search },
+                      input: {
+                        endAdornment: search ? (
+                          <InputAdornment position="end">
+                            <IconButton
+                              size="small"
+                              aria-label={text.clear}
+                              onClick={() => {
+                                setSearch('');
+                                setDisplayLimit(12);
+                              }}
+                            >
+                              <RiCloseLine size={18} />
+                            </IconButton>
+                          </InputAdornment>
+                        ) : undefined,
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <RiSearchLine />
+                          </InputAdornment>
+                        ),
+                      },
+                    }}
+                    fullWidth
+                    sx={{
+                      '& .MuiOutlinedInput-root': { minHeight: 38, borderRadius: 1.5 },
+                      '& input': { fontSize: 14 },
+                    }}
+                  />
+                  <Typography variant="caption" color="text.secondary">
+                    {text.audience}
+                  </Typography>
+                  <ToggleButtonGroup
+                    exclusive
+                    size="small"
+                    value={audience}
+                    aria-label={text.audience}
+                    sx={{
+                      p: 0.5,
+                      gap: 0.5,
+                      bgcolor: 'background.neutral',
+                      borderRadius: 999,
+                      border: 0,
+                      '&& .MuiToggleButton-root': {
+                        border: 0,
+                        borderRadius: 999,
+                        m: 0,
+                        flex: 1,
+                        px: 1,
+                        minHeight: 44,
+                        whiteSpace: 'nowrap',
+                        fontSize: 13,
+                        color: 'text.secondary',
+                        '&.Mui-selected': {
+                          bgcolor: 'background.paper',
+                          color: 'primary.main',
+                          boxShadow: '0 1px 4px rgba(15,23,42,0.10)',
+                          '&:hover': { bgcolor: 'background.paper' },
+                        },
+                      },
+                    }}
+                    onChange={(_, value: Audience | null) => {
+                      if (value) {
+                        setAudience(value);
                         setDisplayLimit(12);
-                      }}
-                      aria-pressed={selected}
-                      sx={{
-                        p: 2,
-                        width: 1,
-                        height: 1,
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                        color: selected ? 'primary.main' : 'text.primary',
-                        border: '1px solid',
-                        borderColor: selected ? 'primary.main' : 'divider',
-                        bgcolor: selected ? 'primary.lighter' : 'background.paper',
-                        transition: 'transform 180ms ease, border-color 180ms ease',
-                        '&:hover': { transform: 'translateY(-3px)', borderColor: 'primary.main' },
-                      }}
-                    >
-                      <CategoryIcon size={25} />
-                      <Typography variant="subtitle2" sx={{ mt: 1 }}>
-                        {item === 'all' ? text.allAudience : item}
-                      </Typography>
+                      }
+                    }}
+                  >
+                    <ToggleButton value="all">{text.allAudience}</ToggleButton>
+                    <ToggleButton value="individual">{text.individual}</ToggleButton>
+                    <ToggleButton value="school">{text.school}</ToggleButton>
+                  </ToggleButtonGroup>
+                </Stack>
+              </Stack>
+
+              {!loading && !loadError && products.length > 0 && (
+                <Box>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ display: 'block', mb: 1 }}
+                  >
+                    {text.categories}
+                  </Typography>
+                  <Stack spacing={0.75}>
+                    {categories.map((item) => {
+                      const CategoryIcon = item === 'all' ? RiApps2Line : getCategoryIcon(item);
+                      return (
+                        <Chip
+                          key={item}
+                          icon={<CategoryIcon size={18} />}
+                          label={item === 'all' ? text.allAudience : item}
+                          onClick={() => {
+                            setCategory(item);
+                            setDisplayLimit(12);
+                          }}
+                          variant="outlined"
+                          color={category === item ? 'primary' : 'default'}
+                          aria-pressed={category === item}
+                          sx={{
+                            minHeight: 40,
+                            width: 1,
+                            borderRadius: 999,
+                            justifyContent: 'flex-start',
+                            borderColor: category === item ? 'primary.light' : 'divider',
+                            bgcolor: category === item ? 'primary.lighter' : 'background.paper',
+                            color: category === item ? 'primary.dark' : 'text.secondary',
+                            '& .MuiChip-icon': { color: 'inherit', ml: 1.25 },
+                            '& .MuiChip-label': {
+                              whiteSpace: 'normal',
+                              py: 0.75,
+                              fontSize: 13,
+                              lineHeight: 1.6,
+                            },
+                            height: 'auto',
+                          }}
+                        />
+                      );
+                    })}
+                  </Stack>
+                </Box>
+              )}
+
+              {(category !== 'all' || audience !== 'all' || search) && (
+                <Button
+                  size="small"
+                  onClick={resetFilters}
+                  startIcon={<RiCloseLine />}
+                  sx={{ alignSelf: 'flex-start' }}
+                >
+                  {text.clear}
+                </Button>
+              )}
+            </Stack>
+          </Paper>
+          <Stack spacing={2.5} sx={{ flex: 1, minWidth: 0, width: 1 }}>
+            <Box>
+              <Typography component="h2" variant="h5">
+                {text.browse}
+              </Typography>
+              {!loading && !loadError && (
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  aria-live="polite"
+                  sx={{ mt: 0.5 }}
+                >
+                  {text.found.replace(
+                    '{{count}}',
+                    visibleProducts.length.toLocaleString(currentLang.numberFormat.code)
+                  )}
+                </Typography>
+              )}
+            </Box>
+
+            {loading ? (
+              <Grid container spacing={{ xs: 2, md: 2.5 }}>
+                {Array.from({ length: 8 }).map((_, index) => (
+                  <Grid key={index} size={{ xs: 12, sm: 6, lg: 4 }}>
+                    <Paper variant="outlined" sx={{ p: 1.25 }}>
+                      <Skeleton variant="rounded" sx={{ aspectRatio: '16 / 11' }} />
+                      <Skeleton width="48%" sx={{ mt: 2 }} />
+                      <Skeleton height={32} />
+                      <Skeleton width="72%" />
                     </Paper>
                   </Grid>
-                );
-              })}
-            </Grid>
-          )}
+                ))}
+              </Grid>
+            ) : loadError ? (
+              <Paper variant="outlined" sx={{ p: 5, textAlign: 'center' }}>
+                <Typography color="error.main">{text.loadError}</Typography>
+                <Button
+                  variant="outlined"
+                  onClick={() => {
+                    void refetch();
+                  }}
+                  sx={{ mt: 2 }}
+                >
+                  {text.retry}
+                </Button>
+              </Paper>
+            ) : visibleProducts.length ? (
+              <Grid container spacing={{ xs: 2, md: 2.5 }}>
+                {visibleProducts.slice(0, displayLimit).map((product, index) => (
+                  <Grid key={product.id} size={{ xs: 12, sm: 6, lg: 4 }}>
+                    <MarketplaceProductCard product={product} colorIndex={index} />
+                  </Grid>
+                ))}
+              </Grid>
+            ) : (
+              <Paper variant="outlined" sx={{ p: { xs: 4, md: 7 }, textAlign: 'center' }}>
+                <Box sx={{ width: 132, aspectRatio: '1 / 1', position: 'relative', mx: 'auto' }}>
+                  <Image
+                    src="/assets/mascot/kumi_question.png"
+                    alt=""
+                    fill
+                    sizes="132px"
+                    style={{ objectFit: 'contain' }}
+                  />
+                </Box>
+                <Typography variant="h5" sx={{ mt: 2 }}>
+                  {text.emptyTitle}
+                </Typography>
+                <Typography color="text.secondary" sx={{ mt: 1 }}>
+                  {text.emptyDescription}
+                </Typography>
+                <Button onClick={resetFilters} sx={{ mt: 2 }}>
+                  {text.clear}
+                </Button>
+              </Paper>
+            )}
 
-          <Stack
-            direction={{ xs: 'column', md: 'row' }}
-            spacing={2}
-            alignItems={{ xs: 'stretch', md: 'center' }}
-            justifyContent="space-between"
-          >
-            <Box>
-              <Typography variant="h4">{text.browse}</Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                {text.found.replace('{{count}}', String(visibleProducts.length))}
-              </Typography>
-            </Box>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-              <TextField
-                size="small"
-                value={search}
-                placeholder={text.search}
-                onChange={(event) => {
-                  setSearch(event.target.value);
-                  setDisplayLimit(12);
-                }}
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <RiSearchLine />
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-                sx={{ minWidth: { sm: 260 } }}
-              />
-              <ToggleButtonGroup
-                exclusive
-                size="small"
-                value={audience}
-                aria-label={text.audience}
-                onChange={(_, value: Audience | null) => {
-                  if (value) {
-                    setAudience(value);
-                    setDisplayLimit(12);
-                  }
-                }}
-              >
-                <ToggleButton value="all">{text.allAudience}</ToggleButton>
-                <ToggleButton value="individual">{text.individual}</ToggleButton>
-                <ToggleButton value="school">{text.school}</ToggleButton>
-              </ToggleButtonGroup>
-            </Stack>
-          </Stack>
-
-          {loading ? (
-            <Grid container spacing={2.5}>
-              {Array.from({ length: 8 }).map((_, index) => (
-                <Grid key={index} size={{ xs: 12, sm: 6, md: 3 }}>
-                  <Paper variant="outlined" sx={{ p: 1.25 }}>
-                    <Skeleton variant="rounded" sx={{ aspectRatio: '16 / 11' }} />
-                    <Skeleton width="48%" sx={{ mt: 2 }} />
-                    <Skeleton height={32} />
-                    <Skeleton width="72%" />
-                  </Paper>
-                </Grid>
-              ))}
-            </Grid>
-          ) : loadError ? (
-            <Paper variant="outlined" sx={{ p: 5, textAlign: 'center' }}>
-              <Typography color="error.main">{text.loadError}</Typography>
-            </Paper>
-          ) : visibleProducts.length ? (
-            <Grid container spacing={2.5}>
-              {visibleProducts.slice(0, displayLimit).map((product, index) => (
-                <Grid key={product.id} size={{ xs: 12, sm: 6, md: 3 }}>
-                  <MarketplaceProductCard product={product} colorIndex={index} />
-                </Grid>
-              ))}
-            </Grid>
-          ) : (
-            <Paper variant="outlined" sx={{ p: { xs: 4, md: 7 }, textAlign: 'center' }}>
-              <RiSearchLine size={40} />
-              <Typography variant="h5" sx={{ mt: 2 }}>
-                {text.emptyTitle}
-              </Typography>
-              <Typography color="text.secondary" sx={{ mt: 1 }}>
-                {text.emptyDescription}
-              </Typography>
-              <Button onClick={resetFilters} sx={{ mt: 2 }}>
-                {text.clear}
+            {!loading && !loadError && visibleProducts.length > displayLimit && (
+              <Button variant="outlined" onClick={() => setDisplayLimit((value) => value + 12)}>
+                {language === 'en' ? 'Show more products' : 'แสดงสินค้าเพิ่มเติม'}
               </Button>
-            </Paper>
-          )}
+            )}
 
-          {visibleProducts.length > displayLimit && (
-            <Button variant="outlined" onClick={() => setDisplayLimit((value) => value + 12)}>
-              {language === 'en' ? 'Show more products' : 'แสดงสินค้าเพิ่มเติม'}
-            </Button>
-          )}
-
-          <Stack direction="row" justifyContent="center">
-            <Button component={RouterLink} href={paths.marketplace.products} color="inherit">
-              {language === 'en'
-                ? 'View all marketplace products'
-                : 'ดูสินค้าทั้งหมดใน Marketplace'}
-            </Button>
+            {!loading && !loadError && visibleProducts.length > 0 && (
+              <Typography variant="caption" color="text.secondary" textAlign="center">
+                {text.showing
+                  .replace('{{shown}}', String(Math.min(displayLimit, visibleProducts.length)))
+                  .replace('{{total}}', String(visibleProducts.length))}
+              </Typography>
+            )}
+            <Stack direction="row" justifyContent="center">
+              <Button component={RouterLink} href={paths.marketplace.products} color="inherit">
+                {language === 'en'
+                  ? 'View all marketplace products'
+                  : 'ดูสินค้าทั้งหมดใน Marketplace'}
+              </Button>
+            </Stack>
           </Stack>
         </Stack>
       </Container>

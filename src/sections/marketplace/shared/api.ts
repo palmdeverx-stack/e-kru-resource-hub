@@ -96,6 +96,7 @@ export async function getProducts(
     category?: string;
     sellerId?: string;
     official?: boolean;
+    excludeOfficial?: boolean;
     bestSeller?: boolean;
     price?: 'all' | 'free' | 'paid';
     gradeGroup?: 'kindergarten' | 'primary' | 'secondary';
@@ -114,6 +115,7 @@ export async function getProducts(
   }
   if (params?.sellerId) searchParams.set('sellerId', params.sellerId);
   if (params?.official) searchParams.set('official', '1');
+  if (params?.excludeOfficial) searchParams.set('excludeOfficial', '1');
   if (params?.bestSeller) searchParams.set('bestSeller', '1');
   if (params?.price && params.price !== 'all') searchParams.set('price', params.price);
   if (params?.gradeGroup) searchParams.set('grade', params.gradeGroup);

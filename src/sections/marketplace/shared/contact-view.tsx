@@ -13,6 +13,7 @@ import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
 
 import { useTranslate } from 'src/locales';
+import { brandColors } from 'src/theme/brand-colors';
 import { apiFetch as fetch } from 'src/lib/api-fetch';
 
 import {
@@ -71,8 +72,8 @@ export function MarketplaceContactView() {
         sx={{
           borderBottom: '1px solid',
           borderColor: 'divider',
-          background:
-            'radial-gradient(circle at 14% 24%, rgba(21,101,245,0.15), transparent 30%), radial-gradient(circle at 90% 70%, rgba(36,194,142,0.13), transparent 28%), linear-gradient(135deg, #F4F8FF 0%, #FFFFFF 58%, #F2FBF8 100%)',
+          background: brandColors.heroBackground,
+          '[data-color-scheme="dark"] &': { background: 'none', bgcolor: 'background.neutral' },
         }}
       >
         <Container maxWidth="lg" sx={{ py: { xs: 7, md: 11 } }}>

@@ -4,7 +4,7 @@ import { detectLanguage, getServerTranslations } from 'src/locales/server';
 
 import { getPublicProductSeo } from 'src/sections/marketplace/seo/server';
 import { getPublicPlatformSettings } from 'src/sections/marketplace/admin/server/platform-settings';
-import { MarketplaceProductDetailView } from 'src/sections/marketplace/catalog/view/product-detail-view';
+import { MarketplaceProductPageView } from 'src/sections/marketplace/catalog/view/product-page-view';
 import {
   absoluteMarketplaceUrl,
   MARKETPLACE_OG_IMAGE_URL,
@@ -109,7 +109,7 @@ export default async function Page({ params }: Props) {
           }}
         />
       )}
-      <MarketplaceProductDetailView productId={id} />
+      <MarketplaceProductPageView productId={id} />
     </>
   );
 }

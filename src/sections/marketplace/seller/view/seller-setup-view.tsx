@@ -2095,7 +2095,12 @@ function DocumentUploadField({
             <Chip size="small" color="success" variant="soft" label="อัปโหลดแล้ว" />
           )}
           {pendingFile && (
-            <Chip size="small" color="warning" variant="soft" label="ยังไม่ได้อัปโหลด" />
+            <Chip
+              size="small"
+              color={loading ? 'info' : 'warning'}
+              variant="soft"
+              label={loading ? 'กำลังอัปโหลด' : 'รอยืนยันอัปโหลด'}
+            />
           )}
         </Stack>
         <Typography variant="caption" color="text.secondary">
@@ -2108,13 +2113,17 @@ function DocumentUploadField({
           ขนาดไม่เกิน {maxSizeMb} MB
         </Typography>
         {storedMaxSizeMb && (
-          <Typography variant="caption" color="success.main" sx={{ display: 'block' }}>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
             ระบบจะย่อไฟล์รูปก่อนบันทึกให้ไม่เกิน {storedMaxSizeMb} MB ส่วน PDF รองรับขนาดไม่เกิน{' '}
             {maxSizeMb} MB และใส่ลายน้ำก่อนบันทึก
           </Typography>
         )}
         {recommendation && (
-          <Typography variant="caption" color="primary.main" sx={{ display: 'block', mb: 1 }}>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: 'block', mt: 0.5, mb: 1 }}
+          >
             {recommendation}
           </Typography>
         )}
@@ -2136,7 +2145,11 @@ function DocumentUploadField({
                 role: 'button',
                 tabIndex: 0,
                 'aria-label': `ดูตัวอย่าง ${fileName || label}`,
-                sx: { cursor: 'pointer' },
+                sx: {
+                  cursor: 'pointer',
+                  '& img': { objectFit: previewAspectRatio ? 'cover' : 'contain' },
+                  '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main' },
+                },
                 onClick: (event) => {
                   event.preventDefault();
                   event.stopPropagation();
@@ -2187,8 +2200,10 @@ function DocumentUploadField({
         )}
 
         {pendingFile && (
-          <Alert severity="warning" sx={{ mt: 1.5 }}>
-            กด “ยืนยันอัปโหลด” เพื่อบันทึกไฟล์นี้
+          <Alert severity={loading ? 'info' : 'warning'} sx={{ mt: 1.5 }}>
+            {loading
+              ? 'กำลังประมวลผลและบันทึกไฟล์ กรุณารอจนขึ้น “อัปโหลดแล้ว”'
+              : 'กด “ยืนยันอัปโหลด” เพื่อบันทึกไฟล์นี้'}
           </Alert>
         )}
 
@@ -2198,16 +2213,19 @@ function DocumentUploadField({
           </Alert>
         )}
         <Stack
-          direction={{ xs: 'column', sm: 'row' }}
-          justifyContent="flex-end"
-          spacing={1}
-          sx={{ mt: 1.5, '& .MuiButton-root': { minHeight: 44 } }}
+          sx={{
+            mt: 1.5,
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' },
+            gap: 1,
+            '& .MuiButton-root': { minHeight: 44, whiteSpace: 'nowrap', px: 1.5 },
+          }}
         >
           <Button
             variant="outlined"
             startIcon={<RiEyeLine />}
             loading={previewLoading}
-            disabled={!pendingFile && !uploadedUrl && !samplePreviewUrl}
+            disabled={loading || (!pendingFile && !uploadedUrl && !samplePreviewUrl)}
             onClick={() => {
               if (pendingFile) void previewPending();
               else setPreviewSource(uploadedUrl ? 'uploaded' : 'sample');
@@ -2219,9 +2237,10 @@ function DocumentUploadField({
             <Button
               variant="outlined"
               startIcon={<RiEyeLine />}
+              disabled={loading}
               onClick={() => setPreviewSource('uploaded')}
             >
-              ดูไฟล์ที่อัปโหลดแล้ว
+              ดูไฟล์เดิมที่บันทึกแล้ว
             </Button>
           )}
           {uploadedUrl && (
@@ -2258,11 +2277,12 @@ function DocumentUploadField({
           <Button
             variant="contained"
             loading={loading}
+            loadingPosition="start"
             disabled={!pendingFile}
             startIcon={done && !pendingFile ? <RiCheckboxCircleLine /> : <RiUploadCloud2Line />}
             onClick={handleConfirmUpload}
           >
-            {done && !pendingFile ? 'อัปโหลดแล้ว' : 'ยืนยันอัปโหลด'}
+            {loading ? 'กำลังอัปโหลด' : done && !pendingFile ? 'อัปโหลดแล้ว' : 'ยืนยันอัปโหลด'}
           </Button>
         </Stack>
       </Card>

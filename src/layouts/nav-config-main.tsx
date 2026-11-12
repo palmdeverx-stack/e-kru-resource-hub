@@ -16,7 +16,7 @@ export const navData: NavMainProps['data'] = [
     icon: <RiHome5Line size={22} />,
   },
   {
-    title: 'สินค้าทางการ',
+    title: 'สื่อและเครื่องมือ E-KRU',
     path: '/official-products',
     icon: <RiShieldStarLine size={22} />,
   },

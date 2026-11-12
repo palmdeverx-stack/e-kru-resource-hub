@@ -14,6 +14,7 @@ import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
 import { useTranslate } from 'src/locales';
+import { brandColors } from 'src/theme/brand-colors';
 import { apiFetch as fetch } from 'src/lib/api-fetch';
 
 import { MarketplaceBrand } from 'src/components/marketplace-brand';
@@ -98,15 +99,16 @@ export function MarketplaceFooter() {
   return (
     <Box
       component="footer"
-      sx={{
+      sx={(theme) => ({
         position: 'relative',
         overflow: 'hidden',
-        color: '#1D2939',
-        bgcolor: '#F5F8FF',
-        borderTop: '1px solid #E4EBF5',
-        backgroundImage:
-          'radial-gradient(circle at 4% 6%, rgba(71, 130, 255, 0.13), transparent 34%), radial-gradient(circle at 96% 86%, rgba(80, 211, 178, 0.13), transparent 32%), linear-gradient(135deg, #F2F6FF 0%, #FFFFFF 52%, #F0FBF8 100%)',
-      }}
+        color: 'text.primary',
+        bgcolor: brandColors.surface,
+        backgroundImage: brandColors.heroBackground,
+        borderTop: '1px solid',
+        borderColor: 'divider',
+        ...theme.applyStyles('dark', { bgcolor: 'background.neutral', backgroundImage: 'none' }),
+      })}
     >
       <Container maxWidth="lg" sx={{ pt: { xs: 7, md: 9 }, pb: 3 }}>
         <Grid container spacing={{ xs: 5, md: 6 }}>
@@ -120,9 +122,10 @@ export function MarketplaceFooter() {
                     display: 'grid',
                     flexShrink: 0,
                     borderRadius: 2.5,
-                    bgcolor: 'common.white',
-                    border: '1px solid #E5ECF7',
-                    boxShadow: '0 10px 30px rgba(30, 88, 180, 0.08)',
+                    bgcolor: 'background.paper',
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    boxShadow: 'none',
                     placeItems: 'center',
                   }}
                 >
@@ -132,7 +135,7 @@ export function MarketplaceFooter() {
                   <Typography variant="h5">
                     {contact?.platformName ?? 'E-KRU Marketplace'}
                   </Typography>
-                  <Typography variant="caption" sx={{ color: '#3478F6', fontWeight: 700 }}>
+                  <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 700 }}>
                     {t('footer.tagline')}
                   </Typography>
                 </Box>
@@ -140,7 +143,7 @@ export function MarketplaceFooter() {
 
               <Typography
                 variant="body2"
-                sx={{ mt: 2.5, maxWidth: 420, color: '#66768A', lineHeight: 1.9 }}
+                sx={{ mt: 2.5, maxWidth: 420, color: 'text.secondary', lineHeight: 1.9 }}
               >
                 {currentLang.value === 'th' && contact?.footerText
                   ? contact.footerText
@@ -178,7 +181,7 @@ export function MarketplaceFooter() {
                   />
                 )}
                 {!!contact?.businessHours && (
-                  <Typography variant="caption" sx={{ color: '#7B8A9E' }}>
+                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                     {t('footer.businessHours', { hours: contact.businessHours })}
                   </Typography>
                 )}
@@ -197,7 +200,7 @@ export function MarketplaceFooter() {
           </Grid>
         </Grid>
 
-        <Divider sx={{ mt: { xs: 6, md: 8 }, mb: 3, borderColor: '#DCE5F1' }} />
+        <Divider sx={{ mt: { xs: 6, md: 8 }, mb: 3, borderColor: 'divider' }} />
 
         <Stack
           direction={{ xs: 'column', sm: 'row' }}
@@ -210,7 +213,7 @@ export function MarketplaceFooter() {
               {contact?.copyrightText ??
                 `© ${year} ${contact?.platformName ?? 'E-KRU Marketplace'}. All rights reserved.`}
             </Typography>
-            <Typography variant="caption" sx={{ color: '#8492A6' }}>
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
               Developed by EKRU
             </Typography>
           </Stack>
@@ -227,8 +230,8 @@ export function MarketplaceFooter() {
                 cursor: 'pointer',
                 bgcolor: 'transparent',
                 typography: 'caption',
-                color: '#7B8A9E',
-                '&:hover': { color: '#155EEF' },
+                color: 'text.secondary',
+                '&:hover': { color: 'primary.main' },
               }}
             >
               {t('footer.links.cookieSettings')}
@@ -239,8 +242,8 @@ export function MarketplaceFooter() {
               underline="hover"
               sx={{
                 typography: 'caption',
-                color: '#7B8A9E',
-                '&:hover': { color: '#155EEF' },
+                color: 'text.secondary',
+                '&:hover': { color: 'primary.main' },
               }}
             >
               Privacy
@@ -251,8 +254,8 @@ export function MarketplaceFooter() {
               underline="hover"
               sx={{
                 typography: 'caption',
-                color: '#7B8A9E',
-                '&:hover': { color: '#155EEF' },
+                color: 'text.secondary',
+                '&:hover': { color: 'primary.main' },
               }}
             >
               Terms
@@ -274,10 +277,11 @@ function FooterBadge({ label }: { label: string }) {
         px: 1.25,
         py: 0.75,
         borderRadius: 10,
-        color: '#40536A',
-        bgcolor: 'rgba(255,255,255,0.72)',
-        border: '1px solid #DDE7F3',
-        boxShadow: '0 4px 14px rgba(40, 82, 150, 0.05)',
+        color: 'text.secondary',
+        bgcolor: 'background.paper',
+        border: '1px solid',
+        borderColor: 'divider',
+        boxShadow: 'none',
       }}
     >
       <RiShieldCheckLine size={15} color="#18A97B" />
@@ -308,9 +312,9 @@ function ContactLink({
         width: 'fit-content',
         display: 'flex',
         alignItems: 'center',
-        color: '#66768A',
+        color: 'text.secondary',
         typography: 'body2',
-        '&:hover': { color: '#155EEF' },
+        '&:hover': { color: 'primary.main' },
       }}
     >
       {icon}
@@ -323,7 +327,7 @@ function FooterLinkGroup({ title, links }: { title: string; links: FooterLink[] 
   const { t } = useTranslate('marketplace');
   return (
     <Box component="nav" aria-label={title}>
-      <Typography variant="subtitle2" sx={{ color: '#1D2939' }}>
+      <Typography variant="subtitle2" sx={{ color: 'text.primary' }}>
         {title}
       </Typography>
       <Stack spacing={1.5} sx={{ mt: 2 }}>
@@ -335,10 +339,10 @@ function FooterLinkGroup({ title, links }: { title: string; links: FooterLink[] 
             underline="none"
             sx={{
               width: 'fit-content',
-              color: '#66768A',
+              color: 'text.secondary',
               typography: 'body2',
               transition: 'color 160ms ease, transform 160ms ease',
-              '&:hover': { color: '#155EEF', transform: 'translateX(3px)' },
+              '&:hover': { color: 'primary.main', transform: 'translateX(3px)' },
             }}
           >
             {t(`footer.links.${item.labelKey}`)}

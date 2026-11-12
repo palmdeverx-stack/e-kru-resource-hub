@@ -2,7 +2,6 @@
 
 import type { MarketplaceProduct } from '../../shared/types';
 
-import dynamic from 'next/dynamic';
 import { useRef, useMemo, useState, useEffect, useCallback } from 'react';
 import { useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 
@@ -57,12 +56,6 @@ import { getProducts, getCategories } from '../../shared/api';
 import { MARKETPLACE_CATEGORIES } from '../../shared/constants';
 import { MarketplaceProductCard } from '../../shared/product-card';
 import { MarketplaceNewProductCard } from '../components/new-product-card';
-
-const MarketplaceProductDetailDialog = dynamic(() =>
-  import('../components/product-detail-dialog').then(
-    (module) => module.MarketplaceProductDetailDialog
-  )
-);
 
 type PublicStats = {
   teachers: number;
@@ -169,7 +162,6 @@ export function MarketplaceCatalogView() {
   const [gradeGroup, setGradeGroup] = useState<GradeGroup>(requestedGradeGroup);
   const [sort, setSort] = useState('popular');
   const [priceFilter, setPriceFilter] = useState<PriceFilter>('all');
-  const [selectedProduct, setSelectedProduct] = useState<MarketplaceProduct | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const newProductsScrollRef = useRef<HTMLDivElement | null>(null);
   const { user } = useAuthContext();
@@ -189,6 +181,7 @@ export function MarketplaceCatalogView() {
         category: params?.category || 'all',
         price: params?.price ?? 'all',
         gradeGroup: params?.gradeGroup,
+        excludeOfficial: params?.excludeOfficial ?? false,
         page: params?.page ?? 1,
         limit: 12,
       };
@@ -238,6 +231,7 @@ export function MarketplaceCatalogView() {
   } = useInfiniteQuery({
     queryKey: [
       'catalog',
+      'community-products',
       user?.id ?? 'guest',
       user?.role ?? 'guest',
       debouncedSearch,
@@ -249,6 +243,7 @@ export function MarketplaceCatalogView() {
     queryFn: ({ pageParam }) =>
       fetchProductPage({
         q: debouncedSearch,
+        excludeOfficial: true,
         category,
         price: priceFilter,
         gradeGroup: gradeGroup === 'all' ? undefined : gradeGroup,
@@ -618,57 +613,74 @@ export function MarketplaceCatalogView() {
             )}
           </Stack>
 
-          <Stack spacing={1.5}>
-            <TextField
-              fullWidth
-              value={search}
-              placeholder={t('catalog.filters.searchPlaceholder')}
-              onChange={(event) => {
-                setSearch(event.target.value);
-              }}
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <RiSearchLine size={20} />
-                    </InputAdornment>
-                  ),
-                },
-              }}
+          <Stack
+            spacing={1.5}
+            sx={{
+              p: { xs: 1.5, md: 2 },
+              border: '1px solid',
+              borderColor: 'divider',
+              borderRadius: 2.5,
+              bgcolor: 'background.paper',
+            }}
+          >
+            <Box
               sx={{
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: 2.5,
-                  bgcolor: 'background.paper',
-                },
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', sm: 'minmax(0, 1fr) 180px' },
+                gap: 1.25,
+                alignItems: 'end',
               }}
-            />
-
-            <Stack
-              direction={{ xs: 'column', sm: 'row' }}
-              spacing={1.25}
-              alignItems={{ xs: 'stretch', sm: 'center' }}
             >
-              <Typography variant="subtitle2" sx={{ flexShrink: 0 }}>
-                {t('catalog.filters.gradeLabel')}
-              </Typography>
-              <Box
-                sx={{
-                  overflowX: 'auto',
-                  scrollbarWidth: 'none',
-                  '&::-webkit-scrollbar': { display: 'none' },
+              <TextField
+                fullWidth
+                size="small"
+                value={search}
+                placeholder={t('catalog.filters.searchPlaceholder')}
+                onChange={(event) => setSearch(event.target.value)}
+                slotProps={{
+                  htmlInput: { 'aria-label': t('catalog.filters.searchPlaceholder') },
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <RiSearchLine size={20} />
+                      </InputAdornment>
+                    ),
+                  },
                 }}
-              >
-                <Stack
-                  direction="row"
-                  spacing={0.5}
-                  aria-label={t('catalog.filters.gradeAria')}
-                  sx={{
-                    p: 0.5,
-                    width: 'max-content',
-                    borderRadius: 2.5,
-                    bgcolor: 'background.neutral',
-                  }}
+                sx={{ '& .MuiOutlinedInput-root': { minHeight: 42, borderRadius: 1.5 } }}
+              />
+              <Box>
+                <Select
+                  fullWidth
+                  size="small"
+                  value={sort}
+                  inputProps={{ 'aria-label': t('catalog.filters.sortAria') }}
+                  onChange={(event) => setSort(String(event.target.value))}
+                  sx={{ height: 42, borderRadius: 1.5 }}
                 >
+                  <MenuItem value="popular">{t('catalog.filters.sort.popular')}</MenuItem>
+                  <MenuItem value="latest">{t('catalog.filters.sort.latest')}</MenuItem>
+                  <MenuItem value="rating">{t('catalog.filters.sort.rating')}</MenuItem>
+                  <MenuItem value="price-low">{t('catalog.filters.sort.priceLow')}</MenuItem>
+                </Select>
+              </Box>
+            </Box>
+            <Box
+              sx={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: { xs: 1.5, md: 3 },
+              }}
+            >
+              <Box
+                role="group"
+                aria-label={t('catalog.filters.gradeAria')}
+                sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}
+              >
+                <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
+                  {t('catalog.filters.gradeLabel')}
+                </Typography>
+                <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
                   {(
                     [
                       ['all', 'all'],
@@ -681,16 +693,17 @@ export function MarketplaceCatalogView() {
                       key={value}
                       size="small"
                       type="button"
-                      variant={gradeGroup === value ? 'contained' : 'text'}
+                      aria-pressed={gradeGroup === value}
+                      variant={gradeGroup === value ? 'contained' : 'outlined'}
                       color={gradeGroup === value ? 'primary' : 'inherit'}
                       onClick={() => handleGradeGroupChange(value)}
                       sx={{
-                        px: 1.5,
-                        minWidth: 0,
-                        flexShrink: 0,
-                        borderRadius: 2,
-                        whiteSpace: 'nowrap',
-                        boxShadow: gradeGroup === value ? '0 5px 14px rgba(21,101,245,0.20)' : 0,
+                        minHeight: { xs: 40, md: 34 },
+                        px: 1.25,
+                        borderRadius: 1.5,
+                        boxShadow: 'none',
+                        borderColor: gradeGroup === value ? 'primary.main' : 'divider',
+                        '&:hover': { boxShadow: 'none' },
                       }}
                     >
                       {t(`catalog.filters.grades.${label}`)}
@@ -698,79 +711,15 @@ export function MarketplaceCatalogView() {
                   ))}
                 </Stack>
               </Box>
-            </Stack>
-
-            <Stack
-              direction={{ xs: 'column', md: 'row' }}
-              justifyContent="space-between"
-              alignItems={{ xs: 'stretch', md: 'center' }}
-              spacing={2}
-            >
               <Box
-                component="nav"
-                aria-label={t('catalog.filters.categoryAria')}
-                sx={{
-                  width: 1,
-                  overflowX: 'auto',
-                  scrollbarWidth: 'thin',
-                  '&::-webkit-scrollbar': { height: 4 },
-                  '&::-webkit-scrollbar-thumb': {
-                    borderRadius: 4,
-                    bgcolor: 'divider',
-                  },
-                }}
+                role="group"
+                aria-label={t('catalog.filters.priceAria')}
+                sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}
               >
-                <Stack direction="row" spacing={{ xs: 2, md: 3 }} sx={{ width: 'max-content' }}>
-                  {categories.map((item) => {
-                    const active = category === item;
-                    return (
-                      <Button
-                        key={item}
-                        type="button"
-                        color="inherit"
-                        variant="text"
-                        aria-current={active ? 'page' : undefined}
-                        onClick={() => handleCategoryChange(item)}
-                        sx={{
-                          px: 0,
-                          pb: 1.25,
-                          minWidth: 0,
-                          flexShrink: 0,
-                          borderRadius: 0,
-                          color: active ? 'text.primary' : 'text.secondary',
-                          fontWeight: active ? 700 : 500,
-                          borderBottom: '2px solid',
-                          borderColor: active ? 'primary.main' : 'transparent',
-                          '&:hover': {
-                            color: 'text.primary',
-                            bgcolor: 'transparent',
-                            borderColor: active ? 'primary.main' : 'divider',
-                          },
-                        }}
-                      >
-                        {item === 'all'
-                          ? t('catalog.filters.allCategories')
-                          : categoryTranslationKeys[item]
-                            ? t(`catalog.categoryLabels.${categoryTranslationKeys[item]}`)
-                            : item}
-                      </Button>
-                    );
-                  })}
-                </Stack>
-              </Box>
-
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25} sx={{ flexShrink: 0 }}>
-                <Stack
-                  direction="row"
-                  spacing={0.5}
-                  alignItems="center"
-                  aria-label={t('catalog.filters.priceAria')}
-                  sx={{
-                    p: 0.5,
-                    borderRadius: 2.5,
-                    bgcolor: 'background.neutral',
-                  }}
-                >
+                <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
+                  {t('catalog.filters.priceAria')}
+                </Typography>
+                <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
                   {(
                     [
                       ['all', 'all'],
@@ -782,45 +731,75 @@ export function MarketplaceCatalogView() {
                       key={value}
                       size="small"
                       type="button"
-                      variant={priceFilter === value ? 'contained' : 'text'}
+                      aria-pressed={priceFilter === value}
+                      variant={priceFilter === value ? 'contained' : 'outlined'}
                       color={priceFilter === value ? 'primary' : 'inherit'}
-                      onClick={() => {
-                        if (priceFilter === value) return;
-
-                        setPriceFilter(value);
-                      }}
+                      onClick={() => setPriceFilter(value)}
                       sx={{
+                        minHeight: { xs: 40, md: 34 },
                         px: 1.25,
-                        minWidth: 0,
-                        borderRadius: 2,
-                        whiteSpace: 'nowrap',
-                        boxShadow: priceFilter === value ? '0 5px 14px rgba(21,101,245,0.20)' : 0,
+                        borderRadius: 1.5,
+                        boxShadow: 'none',
+                        borderColor: priceFilter === value ? 'primary.main' : 'divider',
+                        '&:hover': { boxShadow: 'none' },
                       }}
                     >
                       {t(`catalog.filters.prices.${label}`)}
                     </Button>
                   ))}
                 </Stack>
-
-                <Select
-                  size="small"
-                  value={sort}
-                  aria-label={t('catalog.filters.sortAria')}
-                  onChange={(event) => setSort(String(event.target.value))}
-                  sx={{
-                    minWidth: { xs: 1, sm: 160 },
-                    flexShrink: 0,
-                    borderRadius: 2.5,
-                    bgcolor: 'background.paper',
-                  }}
-                >
-                  <MenuItem value="popular">{t('catalog.filters.sort.popular')}</MenuItem>
-                  <MenuItem value="latest">{t('catalog.filters.sort.latest')}</MenuItem>
-                  <MenuItem value="rating">{t('catalog.filters.sort.rating')}</MenuItem>
-                  <MenuItem value="price-low">{t('catalog.filters.sort.priceLow')}</MenuItem>
-                </Select>
+              </Box>
+            </Box>
+            <Box
+              role="group"
+              aria-label={t('catalog.filters.categoryAria')}
+              sx={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                flexWrap: { xs: 'wrap', md: 'nowrap' },
+                gap: 1,
+                pt: 1.25,
+                borderTop: '1px solid',
+                borderColor: 'divider',
+              }}
+            >
+              <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                {categories.map((item) => {
+                  const active = category === item;
+                  return (
+                    <Button
+                      key={item}
+                      type="button"
+                      size="small"
+                      aria-pressed={active}
+                      variant="outlined"
+                      color={active ? 'primary' : 'inherit'}
+                      onClick={() => handleCategoryChange(item)}
+                      sx={{
+                        minHeight: { xs: 40, md: 34 },
+                        px: 1.75,
+                        borderRadius: 999,
+                        bgcolor: active ? 'primary.lighter' : 'background.paper',
+                        borderColor: active ? 'primary.light' : 'divider',
+                        color: active ? 'primary.dark' : 'text.secondary',
+                        maxWidth: '100%',
+                        textAlign: 'left',
+                        '&:hover': {
+                          bgcolor: 'primary.lighter',
+                          borderColor: 'primary.main',
+                        },
+                      }}
+                    >
+                      {item === 'all'
+                        ? t('catalog.filters.allCategories')
+                        : categoryTranslationKeys[item]
+                          ? t(`catalog.categoryLabels.${categoryTranslationKeys[item]}`)
+                          : item}
+                    </Button>
+                  );
+                })}
               </Stack>
-            </Stack>
+            </Box>
           </Stack>
 
           {loadError && (
@@ -870,18 +849,7 @@ export function MarketplaceCatalogView() {
                 }}
               >
                 {sortedDisplayedProducts.map((product, index) => (
-                  <Grid
-                    key={product.id}
-                    size={{ xs: 12, sm: 6, md: 4, lg: 3 }}
-                    onClickCapture={(event) => {
-                      if ((event.target as HTMLElement).closest('[data-marketplace-seller-link]')) {
-                        return;
-                      }
-                      event.preventDefault();
-                      event.stopPropagation();
-                      setSelectedProduct(product);
-                    }}
-                  >
+                  <Grid key={product.id} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
                     <MarketplaceProductCard product={product} colorIndex={index} />
                   </Grid>
                 ))}
@@ -1027,16 +995,15 @@ export function MarketplaceCatalogView() {
               sx={{
                 pt: 2,
                 pb: 5.5,
-                gap: { xs: 1 },
+                gap: 2,
                 display: 'grid',
                 overflowX: 'auto',
                 scrollSnapType: 'x mandatory',
                 gridAutoFlow: 'column',
                 gridAutoColumns: {
                   xs: '100%',
-                  sm: 'calc((100% - 14px) / 2)',
-                  md: 'calc((100% - 40px) / 3)',
-                  lg: 'calc((100% - 60px) / 4)',
+                  sm: 'calc((100% - 16px) / 2)',
+                  md: 'calc((100% - 32px) / 3)',
                 },
                 scrollbarWidth: 'none',
                 '&::-webkit-scrollbar': { display: 'none' },
@@ -1045,14 +1012,6 @@ export function MarketplaceCatalogView() {
               {newProducts.map((newProduct, index) => (
                 <Box
                   key={newProduct.id}
-                  onClickCapture={(event) => {
-                    if ((event.target as HTMLElement).closest('[data-marketplace-seller-link]')) {
-                      return;
-                    }
-                    event.preventDefault();
-                    event.stopPropagation();
-                    setSelectedProduct(newProduct);
-                  }}
                   sx={{ scrollSnapAlign: 'start', scrollSnapStop: 'always' }}
                 >
                   <MarketplaceNewProductCard product={newProduct} colorIndex={index} />
@@ -1091,13 +1050,6 @@ export function MarketplaceCatalogView() {
             </Box>
           )}
         </Box>
-
-        {selectedProduct && (
-          <MarketplaceProductDetailDialog
-            product={selectedProduct}
-            onClose={() => setSelectedProduct(null)}
-          />
-        )}
       </Container>
 
       <Box component="section" aria-labelledby="grade-collections-title" sx={{ py: { xs: 5 } }}>

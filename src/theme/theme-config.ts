@@ -2,6 +2,8 @@ import type { Theme, Direction, CommonColors, ThemeProviderProps } from '@mui/ma
 import type { ThemeCssVariables } from './types';
 import type { PaletteColorKey, PaletteColorNoChannels } from './core/palette';
 
+import { brandColors } from './brand-colors';
+
 // ----------------------------------------------------------------------
 
 export type ThemeConfig = {
@@ -49,19 +51,19 @@ export const themeConfig: ThemeConfig = {
     primary: {
       lighter: '#EDF5FF',
       light: '#6CA6FF',
-      main: '#1565F5',
+      main: brandColors.main,
       dark: '#1255D4',
       darker: '#0D3F9C',
       contrastText: '#FFFFFF',
     },
 
     secondary: {
-      lighter: '#FFF5DB',
-      light: '#FFE08A',
-      main: '#FFC94A',
-      dark: '#E6A700',
-      darker: '#B97A00',
-      contrastText: '#1A1A1A',
+      lighter: '#EDF2FA',
+      light: '#8AA5CE',
+      main: '#315B96',
+      dark: '#234674',
+      darker: '#173154',
+      contrastText: '#FFFFFF',
     },
 
     info: {

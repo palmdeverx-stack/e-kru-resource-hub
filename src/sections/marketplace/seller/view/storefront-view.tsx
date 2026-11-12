@@ -20,6 +20,7 @@ import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
 
 import { useTranslate } from 'src/locales';
+import { brandColors } from 'src/theme/brand-colors';
 import { apiFetch as fetch } from 'src/lib/api-fetch';
 
 import {
@@ -259,10 +260,10 @@ export function MarketplaceStorefrontView({ slug, dashboardMode = false }: Props
                 position: 'relative',
                 overflow: 'hidden',
                 borderRadius: 3,
-                bgcolor: '#073F46',
+                bgcolor: 'primary.darker',
                 backgroundImage: seller.cover_url
                   ? `linear-gradient(90deg, rgba(1,35,40,0.2), rgba(1,35,40,0.02)), url(${seller.cover_url})`
-                  : 'radial-gradient(circle at 80% 20%, #1B8588 0%, #075158 35%, #032F35 75%)',
+                  : brandColors.featureBackground,
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
               }}
@@ -352,7 +353,7 @@ export function MarketplaceStorefrontView({ slug, dashboardMode = false }: Props
             {visibleProducts.map((product, index) => (
               <Grid
                 key={product.id}
-                size={{ xs: 12, sm: 6, md: 4, xl: 3 }}
+                size={{ xs: 12, sm: 6, md: 4 }}
                 onClickCapture={
                   dashboardMode
                     ? (event) => {

@@ -35,7 +35,7 @@
     "schools": "โรงเรียน"
   },
   "official": {
-    "title": "สินค้าทางการจาก E-KRU",
+    "title": "สื่อและเครื่องมือ E-KRU",
     "description": "สื่อและ License ที่จัดทำและจำหน่ายโดยระบบ E-KRU โดยตรง"
   },
   "bestSellers": {
@@ -492,8 +492,8 @@
       }
     },
     "products": {
-      "heading": "เลือกดูผลิตภัณฑ์ของเรา",
-      "description": "ค้นหาสื่อที่เหมาะกับห้องเรียนจากหมวดหมู่ Marketplace"
+      "heading": "เลือกสื่อที่เหมาะกับการสอน",
+      "description": "ค้นหาสื่อจากผู้สร้างใน Marketplace เลือกตามวิชา ระดับชั้น และรูปแบบที่ต้องการ"
     },
     "filters": {
       "activeGrade": "ระดับชั้น: {{grade}}",
@@ -644,7 +644,7 @@
       "noMoreProducts": "ยังไม่มีสินค้าอื่นจากร้านนี้",
       "fallback": "ร้านค้า E-KRU",
       "verified": "ร้านค้าที่ผ่านการตรวจสอบโดย E-KRU Marketplace",
-      "official": "ร้านค้าทางการ"
+      "official": "ร้าน E-KRU"
     },
     "related": {
       "title": "สินค้าใกล้เคียงใน E-KRU Marketplace",

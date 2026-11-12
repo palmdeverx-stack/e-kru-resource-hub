@@ -28,6 +28,7 @@ import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
 import { useTranslate } from 'src/locales';
+import { brandColors } from 'src/theme/brand-colors';
 import { apiFetch as fetch } from 'src/lib/api-fetch';
 
 import {
@@ -416,8 +417,8 @@ export function MarketplaceLandingView() {
               py: { xs: 8, md: 14 },
               height: 1,
               minHeight: { sm: 620 },
-              background:
-                'radial-gradient(circle at 82% 18%, rgba(21,101,245,0.18), transparent 32%), radial-gradient(circle at 15% 82%, rgba(24,185,160,0.12), transparent 30%), linear-gradient(180deg, #F5F9FF 0%, #FFFFFF 100%)',
+              background: brandColors.heroBackground,
+              '[data-color-scheme="dark"] &': { background: 'none', bgcolor: 'background.neutral' },
             }}
           >
             <Container maxWidth="lg">
@@ -549,7 +550,7 @@ export function MarketplaceLandingView() {
                         position: 'relative',
                         borderRadius: '36px 36px 36px 14px',
                         color: 'common.white',
-                        background: 'linear-gradient(145deg, #174AA5 0%, #2877F3 100%)',
+                        background: brandColors.featureBackground,
                         boxShadow: '0 28px 70px rgba(30,84,173,0.22)',
                         '&::before': {
                           right: -72,
@@ -1110,8 +1111,8 @@ export function MarketplaceLandingView() {
           py: { xs: 8, md: 12 },
           position: 'relative',
           overflow: 'hidden',
-          background:
-            'radial-gradient(circle at 8% 15%, rgba(21,101,245,0.12), transparent 25%), radial-gradient(circle at 92% 82%, rgba(22,163,106,0.12), transparent 25%), linear-gradient(180deg, #F8FBFF 0%, #F3F8FF 100%)',
+          background: brandColors.heroBackground,
+          '[data-color-scheme="dark"] &': { background: 'none', bgcolor: 'background.neutral' },
           '&::before': {
             top: 54,
             left: '6%',
@@ -1243,9 +1244,10 @@ export function MarketplaceLandingView() {
               position: 'relative',
               overflow: 'hidden',
               borderRadius: 4,
-              border: '1px solid #F0DEC7',
-              background:
-                'radial-gradient(circle at 8% 8%, rgba(255,184,107,0.25), transparent 30%), radial-gradient(circle at 92% 92%, rgba(21,101,245,0.14), transparent 31%), linear-gradient(135deg, #FFF9EF 0%, #FFFFFF 56%, #F4F8FF 100%)',
+              border: '1px solid',
+              borderColor: 'divider',
+              background: brandColors.heroBackground,
+              '[data-color-scheme="dark"] &': { background: 'none', bgcolor: 'background.neutral' },
             }}
           >
             <Grid container spacing={{ xs: 4, md: 6 }} alignItems="center">
@@ -1255,10 +1257,11 @@ export function MarketplaceLandingView() {
                   <Chip
                     label={t('community.eyebrow')}
                     sx={{
-                      color: '#9A5B16',
+                      color: 'primary.dark',
                       fontWeight: 800,
-                      bgcolor: '#FFF0D5',
-                      border: '1px solid #F5D49D',
+                      bgcolor: 'primary.lighter',
+                      border: '1px solid',
+                      borderColor: 'primary.light',
                     }}
                   />
                 </Stack>
@@ -1328,8 +1331,8 @@ export function MarketplaceLandingView() {
                         height: 'fit-content',
                         flexShrink: 0,
                         borderRadius: 2,
-                        color: '#9A5B16',
-                        bgcolor: '#FFF0D5',
+                        color: 'primary.dark',
+                        bgcolor: 'primary.lighter',
                         typography: 'subtitle1',
                         fontWeight: 800,
                       }}

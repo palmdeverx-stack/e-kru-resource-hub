@@ -188,12 +188,14 @@ const MuiButtonBase: Components<Theme>['MuiButtonBase'] = {
 const MuiButton: Components<Theme>['MuiButton'] = {
   // ▼▼▼▼▼▼▼▼ ⚙️ PROPS ▼▼▼▼▼▼▼▼
   defaultProps: {
-    color: 'inherit',
+    color: 'primary',
     disableElevation: true,
   },
   // ▼▼▼▼▼▼▼▼ 🎨 STYLE ▼▼▼▼▼▼▼▼
   styleOverrides: {
     root: {
+      // Keep action buttons pill-shaped even when a screen sets a local radius.
+      '&&': { borderRadius: 999 },
       variants: [
         ...containedVariants,
         ...outlinedVariants,

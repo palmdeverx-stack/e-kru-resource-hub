@@ -93,6 +93,7 @@ export async function GET(request: Request) {
   const mine = url.searchParams.get('mine') === '1';
   const cards = url.searchParams.get('cards') === '1';
   const official = url.searchParams.get('official') === '1';
+  const excludeOfficial = !official && url.searchParams.get('excludeOfficial') === '1';
   const bestSeller = url.searchParams.get('bestSeller') === '1';
   const priceFilter = url.searchParams.get('price');
   const requestedGradeGroup = url.searchParams.get('grade');
@@ -180,12 +181,13 @@ export async function GET(request: Request) {
   }
 
   let officialSellerIds: string[] | null = null;
-  if (!mine && official) {
-    const { data: officialSellers, error: officialSellersError } = await supabaseAdmin
+  if (!mine && (official || excludeOfficial)) {
+    let officialSellerQuery = supabaseAdmin
       .from('marketplace_sellers')
       .select('id')
-      .eq('owner_role', 'master_admin')
-      .eq('status', 'active');
+      .eq('owner_role', 'master_admin');
+    if (official) officialSellerQuery = officialSellerQuery.eq('status', 'active');
+    const { data: officialSellers, error: officialSellersError } = await officialSellerQuery;
 
     if (officialSellersError) {
       if (officialSellersError.code === '42P01') {
@@ -195,7 +197,7 @@ export async function GET(request: Request) {
     }
 
     officialSellerIds = (officialSellers ?? []).map((seller) => seller.id);
-    if (!officialSellerIds.length) {
+    if (official && !officialSellerIds.length) {
       return NextResponse.json({ products: [], hasMore: false, nextPage: null });
     }
   }
@@ -284,7 +286,11 @@ export async function GET(request: Request) {
       ? query.or(`resource_type.neq.physical,seller_id.in.(${shippingOfficialSellerIds.join(',')})`)
       : query.neq('resource_type', 'physical');
   }
-  if (officialSellerIds) query = query.in('seller_id', officialSellerIds);
+  if (officialSellerIds?.length) {
+    query = excludeOfficial
+      ? query.not('seller_id', 'in', `(${officialSellerIds.join(',')})`)
+      : query.in('seller_id', officialSellerIds);
+  }
   if (bestSellingProductIds) {
     query = query.in('id', bestSellingProductIds.slice(0, offset + limit + 1));
   }

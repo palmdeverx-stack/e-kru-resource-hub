@@ -273,7 +273,13 @@ export function JwtSignInView() {
   );
 
   return (
-    <Box sx={{ width: 1, color: 'text.primary' }}>
+    <Box
+      sx={{
+        width: 1,
+        color: 'text.primary',
+        '&& .MuiButton-root': { borderRadius: '4px' },
+      }}
+    >
       <MarketplaceAuthBrand />
 
       <FormHead

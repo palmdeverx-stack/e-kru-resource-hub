@@ -3,9 +3,9 @@ import type { Metadata } from 'next';
 import { OfficialProductsView } from 'src/sections/marketplace/catalog/view/official-products-view';
 
 export const metadata: Metadata = {
-  title: 'สินค้าทางการ | E-KRU Marketplace',
+  title: 'สื่อและเครื่องมือ E-KRU | E-KRU Marketplace',
   description:
-    'เลือกใช้ Templates, Files, Forms, Learning Resources และแอปทางการจาก E-KRU สำหรับบุคคลหรือโรงเรียน',
+    'เลือกสื่อการสอน เทมเพลต แบบฟอร์ม และแอปที่เหมาะกับครูและโรงเรียน',
   alternates: { canonical: '/official-products' },
 };
 

@@ -10,6 +10,7 @@ import { varAlpha, createPaletteChannel } from 'minimal-shared/utils';
 
 import { opacity } from './opacity';
 import { themeConfig } from '../theme-config';
+import { brandColors } from '../brand-colors';
 
 // ----------------------------------------------------------------------
 
@@ -102,7 +103,11 @@ export const text = {
 };
 
 export const background = {
-  light: createPaletteChannel({ paper: '#FFFFFF', default: '#FFFFFF', neutral: grey[200] }),
+  light: createPaletteChannel({
+    paper: brandColors.paper,
+    default: brandColors.paper,
+    neutral: brandColors.surface,
+  }),
   dark: createPaletteChannel({ paper: grey[800], default: grey[900], neutral: '#28323D' }),
 };
 

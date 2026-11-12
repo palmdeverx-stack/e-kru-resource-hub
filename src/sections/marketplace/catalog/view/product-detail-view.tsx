@@ -105,14 +105,21 @@ const featureLabels = new Map<string, string>(
 export function MarketplaceProductDetailView({
   productId,
   modalMode = false,
+  expanded = false,
   onSelectProduct,
 }: {
   productId: string;
   modalMode?: boolean;
+  expanded?: boolean;
   onSelectProduct?: (product: MarketplaceProduct) => void;
 }) {
   const { t, currentLang } = useTranslate('marketplace');
   const router = useRouter();
+  const expandedLayout = expanded || modalMode;
+  const selectProduct = (nextProduct: MarketplaceProduct) => {
+    if (onSelectProduct) onSelectProduct(nextProduct);
+    else router.push(paths.marketplace.product(nextProduct.id));
+  };
   const pathname = usePathname();
   const { authenticated } = useAuthContext();
   const { items, addItem } = useMarketplaceCart();
@@ -222,7 +229,7 @@ export function MarketplaceProductDetailView({
   }, [authenticated, product?.id]);
 
   useEffect(() => {
-    if (!modalMode || !product?.seller_id) return undefined;
+    if (!expandedLayout || !product?.seller_id) return undefined;
     let active = true;
     setSellerProductsLoading(true);
 
@@ -242,10 +249,10 @@ export function MarketplaceProductDetailView({
     return () => {
       active = false;
     };
-  }, [modalMode, product?.id, product?.seller_id]);
+  }, [expandedLayout, product?.id, product?.seller_id]);
 
   useEffect(() => {
-    if (!modalMode || !product?.id) return undefined;
+    if (!expandedLayout || !product?.id) return undefined;
     let active = true;
     setRelatedProductsLoading(true);
 
@@ -271,7 +278,7 @@ export function MarketplaceProductDetailView({
     return () => {
       active = false;
     };
-  }, [modalMode, product?.id]);
+  }, [expandedLayout, product?.id]);
 
   useEffect(
     () => () => reviewImagePreviews.forEach((preview) => URL.revokeObjectURL(preview)),
@@ -599,9 +606,9 @@ export function MarketplaceProductDetailView({
     }
   };
 
-  if (modalMode) {
+  if (expandedLayout) {
     return (
-      <Container maxWidth="lg" sx={{ py: { xs: 3, sm: 4, md: 7 } }}>
+      <Container maxWidth="lg" sx={{ pt: { xs: 2, md: 3 }, pb: { xs: 5, md: 7 } }}>
         {FACEBOOK_APP_ID && (
           <Script
             id="facebook-jssdk"
@@ -1343,7 +1350,7 @@ export function MarketplaceProductDetailView({
                       <Box
                         component="button"
                         type="button"
-                        onClick={() => onSelectProduct?.(sellerProduct)}
+                        onClick={() => selectProduct(sellerProduct)}
                         sx={{
                           p: 0,
                           width: 1,
@@ -1460,7 +1467,7 @@ export function MarketplaceProductDetailView({
                           <Box
                             component="button"
                             type="button"
-                            onClick={() => onSelectProduct?.(relatedProduct)}
+                            onClick={() => selectProduct(relatedProduct)}
                             sx={{
                               p: 0,
                               width: 1,
@@ -1495,7 +1502,7 @@ export function MarketplaceProductDetailView({
                           <Typography
                             component="button"
                             type="button"
-                            onClick={() => onSelectProduct?.(relatedProduct)}
+                            onClick={() => selectProduct(relatedProduct)}
                             variant="subtitle2"
                             sx={{
                               p: 0,
