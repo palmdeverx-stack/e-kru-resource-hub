@@ -1011,11 +1011,11 @@
     },
     "newProducts": {
       "heading": "What's new in E-KRU Marketplace",
-      "description": "The latest teaching resources and products from community sellers.",
+      "description": "The latest teaching resources and products from official stores.",
       "previous": "View previous products",
       "next": "View next products",
       "emptyTitle": "No new products right now",
-      "emptyDescription": "New products will appear here when sellers add them."
+      "emptyDescription": "New products will appear here when official stores add them."
     },
     "gradeCollections": {
       "heading": "Collections by grade level",

@@ -173,7 +173,7 @@ export function MarketplaceCatalogView() {
     return () => window.clearTimeout(timer);
   }, [search]);
 
-  // Both the latest row and the catalog reuse the same page request/cache.
+  // Include seller filters so official and community pages have separate caches.
   const fetchProductPage = useCallback(
     (params: Parameters<typeof getProducts>[0]) => {
       const normalized = {
@@ -181,6 +181,7 @@ export function MarketplaceCatalogView() {
         category: params?.category || 'all',
         price: params?.price ?? 'all',
         gradeGroup: params?.gradeGroup,
+        official: params?.official ?? false,
         excludeOfficial: params?.excludeOfficial ?? false,
         page: params?.page ?? 1,
         limit: 12,
@@ -214,8 +215,8 @@ export function MarketplaceCatalogView() {
     staleTime: 5 * 60_000,
   });
   const { data: latestPage, isPending: newProductsLoading } = useQuery({
-    queryKey: ['catalog-latest', user?.id ?? 'guest', user?.role ?? 'guest'],
-    queryFn: () => fetchProductPage({ page: 1 }),
+    queryKey: ['catalog-latest', user?.id ?? 'guest', user?.role ?? 'guest', { official: true }],
+    queryFn: () => fetchProductPage({ page: 1, official: true }),
     staleTime: 60_000,
   });
   const newProducts = latestPage?.products ?? [];

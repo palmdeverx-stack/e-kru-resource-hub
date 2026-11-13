@@ -33,6 +33,7 @@ export async function GET(request: Request) {
     )
     .order('submitted_at', { ascending: false, nullsFirst: false })
     .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
     .range(from, from + pageSize - 1);
   if (status !== 'all') query = query.eq('status', status);
 

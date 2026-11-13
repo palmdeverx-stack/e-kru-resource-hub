@@ -12,6 +12,7 @@ import { useTheme, type Theme, type SxProps } from '@mui/material/styles';
 import { usePathname } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 
+import { useMarketplaceBrand } from 'src/components/marketplace-brand';
 import { RiStore2Line, RiShieldStarFill, RiVerifiedBadgeFill } from 'src/components/remix-icon';
 
 import { isSellerProfileVerified, isSystemMarketplaceSeller } from './seller-completion';
@@ -49,8 +50,12 @@ export function MarketplaceSellerLink({
   nameSx,
 }: Props) {
   const theme = useTheme();
+  const brand = useMarketplaceBrand();
   const pathname = usePathname();
   const name = seller?.display_name || fallbackName;
+  const logoUrl =
+    seller?.logo_url?.trim() ||
+    (isSystemMarketplaceSeller(seller) ? brand?.logoUrl || brand?.transparentLogoUrl : undefined);
   const sellerId = seller?.id && /^[0-9a-f-]{36}$/i.test(seller.id) ? seller.id : '';
   const storeIdentifier = seller?.slug || sellerId;
   const href = storeIdentifier
@@ -63,7 +68,7 @@ export function MarketplaceSellerLink({
     <Stack direction="row" spacing={1} alignItems="center" sx={sx}>
       {showAvatar && (
         <Avatar
-          src={seller?.logo_url ?? undefined}
+          src={logoUrl ?? undefined}
           alt={name}
           sx={{
             width: avatarSize,

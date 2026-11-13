@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react';
 import type { MarketplaceProduct } from '../../shared/types';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -114,8 +114,10 @@ export function MarketplaceProductApprovalView() {
   const [reviewRulesError, setReviewRulesError] = useState('');
   const [selectedRuleId, setSelectedRuleId] = useState('');
   const [reason, setReason] = useState('');
+  const loadRequestId = useRef(0);
 
   const load = useCallback(async () => {
+    const requestId = ++loadRequestId.current;
     setLoading(true);
     setError('');
     try {
@@ -128,19 +130,24 @@ export function MarketplaceProductApprovalView() {
         cache: 'no-store',
       });
       const result = await response.json();
+      if (requestId !== loadRequestId.current) return;
       if (!response.ok) throw new Error(result.message ?? 'โหลดรายการสินค้าไม่สำเร็จ');
       setProducts(result.products);
       setCounts(result.counts);
       setTotal(result.pagination.total);
     } catch (loadError) {
+      if (requestId !== loadRequestId.current) return;
       setError(loadError instanceof Error ? loadError.message : 'โหลดรายการสินค้าไม่สำเร็จ');
     } finally {
-      setLoading(false);
+      if (requestId === loadRequestId.current) setLoading(false);
     }
   }, [page, rowsPerPage, status]);
 
   useEffect(() => {
     if (user?.role === 'master_admin') load();
+    return () => {
+      loadRequestId.current += 1;
+    };
   }, [load, user?.role]);
 
   useEffect(() => {
@@ -262,16 +269,18 @@ export function MarketplaceProductApprovalView() {
 
       <Card variant="outlined">
         <TableContainer>
-          <Table sx={{ minWidth: 1080 }}>
+          <Table sx={{ minWidth: 1280, tableLayout: 'fixed' }}>
             <TableHead>
               <TableRow>
-                <TableCell>สินค้า</TableCell>
-                <TableCell>ร้านค้า</TableCell>
-                <TableCell>หมวดหมู่/ประเภท</TableCell>
-                <TableCell>ราคา</TableCell>
-                <TableCell>วันที่ส่งตรวจ</TableCell>
-                <TableCell>สถานะ</TableCell>
-                <TableCell align="right">จัดการ</TableCell>
+                <TableCell sx={{ width: '26%' }}>สินค้า</TableCell>
+                <TableCell sx={{ width: '19%' }}>ร้านค้า</TableCell>
+                <TableCell sx={{ width: '12%' }}>หมวดหมู่/ประเภท</TableCell>
+                <TableCell sx={{ width: '8%' }}>ราคา</TableCell>
+                <TableCell sx={{ width: '11%' }}>วันที่ส่งตรวจ</TableCell>
+                <TableCell sx={{ width: '10%' }}>สถานะ</TableCell>
+                <TableCell align="right" sx={{ width: '14%' }}>
+                  จัดการ
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -302,15 +311,25 @@ export function MarketplaceProductApprovalView() {
                           <Avatar
                             src={coverUrl}
                             variant="rounded"
-                            sx={{ width: 56, height: 56, bgcolor: 'primary.lighter' }}
+                            sx={{
+                              width: 56,
+                              height: 56,
+                              flexShrink: 0,
+                              bgcolor: 'primary.lighter',
+                            }}
                           >
                             <RiBookOpenLine />
                           </Avatar>
-                          <Box sx={{ minWidth: 0, maxWidth: 300 }}>
-                            <Typography variant="subtitle2" noWrap>
+                          <Box sx={{ minWidth: 0, flex: 1 }}>
+                            <Typography variant="subtitle2" noWrap title={product.title}>
                               {product.title}
                             </Typography>
-                            <Typography variant="caption" color="text.secondary" noWrap>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              display="block"
+                              noWrap
+                            >
                               {product.short_description ||
                                 stripHtml(product.description).slice(0, 80) ||
                                 'ไม่ได้ระบุคำอธิบาย'}
@@ -325,18 +344,33 @@ export function MarketplaceProductApprovalView() {
                       </TableCell>
                       <TableCell>
                         <Stack direction="row" spacing={0.75} alignItems="center">
-                          <RiStore2Line size={16} />
-                          <Typography variant="body2">
+                          <Box component={RiStore2Line} size={16} sx={{ flexShrink: 0 }} />
+                          <Typography
+                            variant="body2"
+                            sx={{ minWidth: 0, overflowWrap: 'anywhere' }}
+                          >
                             {product.seller?.display_name ?? 'ไม่พบชื่อร้าน'}
                           </Typography>
                         </Stack>
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          display="block"
+                          sx={{ overflowWrap: 'anywhere' }}
+                        >
                           {product.seller?.contact_email ?? '-'}
                         </Typography>
                       </TableCell>
                       <TableCell>
-                        <Typography variant="body2">{product.category}</Typography>
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
+                          {product.category}
+                        </Typography>
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          display="block"
+                          sx={{ overflowWrap: 'anywhere' }}
+                        >
                           {product.media_type?.name ?? product.resource_type}
                         </Typography>
                       </TableCell>
@@ -372,6 +406,7 @@ export function MarketplaceProductApprovalView() {
                           variant={product.status === 'pending_review' ? 'contained' : 'outlined'}
                           loading={detailLoadingId === product.id}
                           startIcon={<RiEyeLine />}
+                          sx={{ whiteSpace: 'nowrap' }}
                           onClick={() => openDetails(product)}
                         >
                           ดูรายละเอียด

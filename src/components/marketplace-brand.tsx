@@ -30,6 +30,10 @@ export type PublicBrand = {
 
 const MarketplaceBrandContext = createContext<PublicBrand | undefined>(undefined);
 
+export function useMarketplaceBrand() {
+  return useContext(MarketplaceBrandContext);
+}
+
 export function MarketplaceBrandProvider({
   brand,
   children,

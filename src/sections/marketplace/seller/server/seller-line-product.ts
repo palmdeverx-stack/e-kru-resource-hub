@@ -2,8 +2,8 @@ import 'server-only';
 
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 
-import { provisionEkruSystemSeller } from './system-seller';
 import {
+  MARKETPLACE_SELLER_LINE_STORE_ID,
   MARKETPLACE_SELLER_LINE_FEATURE_KEY,
   MARKETPLACE_SELLER_LINE_TRIAL_FEATURE_KEY,
   MARKETPLACE_SELLER_LINE_MANAGED_FEATURE_KEY,
@@ -29,10 +29,17 @@ export async function syncSellerLineFeatureProducts({
   managed: { price: number; description: string; quota: number };
   trial: { description: string; durationDays: number; quota: number };
 }) {
-  const sellerResult = await provisionEkruSystemSeller(adminUserId);
+  const sellerResult = await supabaseAdmin
+    .from('marketplace_sellers')
+    .select('id')
+    .eq('id', MARKETPLACE_SELLER_LINE_STORE_ID)
+    .eq('owner_role', 'master_admin')
+    .eq('status', 'active')
+    .maybeSingle();
   if (sellerResult.error || !sellerResult.data) {
-    throw sellerResult.error ?? new Error('ไม่สามารถเตรียมร้านระบบ E-KRU ได้');
+    throw sellerResult.error ?? new Error('ไม่พบร้านค้าทางการ E-KRU ที่เปิดใช้งาน');
   }
+  const sellerId = sellerResult.data.id;
 
   const [{ data: mediaType }, { data: saleTypes }] = await Promise.all([
     supabaseAdmin
@@ -53,7 +60,7 @@ export async function syncSellerLineFeatureProducts({
 
   const now = new Date().toISOString();
   const sharedProduct = {
-    seller_id: sellerResult.data.id,
+    seller_id: sellerId,
     category: 'เครื่องมือผู้ขาย',
     media_type_id: mediaType?.id ?? null,
     resource_type: 'feature_unlock',
@@ -62,9 +69,6 @@ export async function syncSellerLineFeatureProducts({
     status: enabled ? 'published' : 'archived',
     license_scope: 'individual',
     license_seat_count: 1,
-    submitted_at: now,
-    reviewed_at: now,
-    reviewed_by: adminUserId,
     updated_at: now,
   };
 
@@ -100,13 +104,18 @@ export async function syncSellerLineFeatureProducts({
       const { data: existing, error: findError } = await supabaseAdmin
         .from('marketplace_products')
         .select('id')
-        .eq('seller_id', sellerResult.data.id)
+        .eq('seller_id', sellerId)
         .contains('grants_feature_keys', [item.key])
         .limit(1)
         .maybeSingle();
       if (findError) throw findError;
       const product = {
         ...sharedProduct,
+        ...(!existing && {
+          submitted_at: now,
+          reviewed_at: now,
+          reviewed_by: adminUserId,
+        }),
         title: item.title,
         short_description: item.description,
         description: `<p>${item.description}</p>`,

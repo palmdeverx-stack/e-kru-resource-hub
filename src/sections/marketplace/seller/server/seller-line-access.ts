@@ -5,6 +5,7 @@ import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { syncSellerLineFeatureProducts } from './seller-line-product';
 import { hasPurchasedProduct } from '../../catalog/server/product-engagement';
 import {
+  MARKETPLACE_SELLER_LINE_STORE_ID,
   MARKETPLACE_SELLER_LINE_FEATURE_KEY,
   MARKETPLACE_SELLER_LINE_TRIAL_FEATURE_KEY,
   MARKETPLACE_SELLER_LINE_MANAGED_FEATURE_KEY,
@@ -112,6 +113,7 @@ export async function getSellerLineFeatureAccess(
           'id, price, grants_feature_keys, short_description, license_line_quota, grant_duration_days'
         )
         .eq('status', 'published')
+        .eq('seller_id', MARKETPLACE_SELLER_LINE_STORE_ID)
         .eq('resource_type', 'feature_unlock')
         .eq('license_scope', 'individual')
         .overlaps('grants_feature_keys', keys)

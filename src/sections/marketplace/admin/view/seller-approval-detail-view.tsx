@@ -413,13 +413,23 @@ export function MarketplaceSellerApprovalDetailView({
                 seller.documents.map((document) => (
                   <Box
                     key={document.id}
-                    sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}
+                    sx={{
+                      p: 2,
+                      minWidth: 0,
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      borderRadius: 2,
+                      overflowWrap: 'anywhere',
+                    }}
                   >
                     <Typography variant="subtitle2">
                       {documentLabel[document.document_type] || document.file_name}
                     </Typography>
                     <Typography variant="caption" color="text.secondary" display="block">
-                      {document.file_name} · {formatFileSize(document.file_size)}
+                      {document.file_name}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" display="block">
+                      {formatFileSize(document.file_size)}
                     </Typography>
                     {document.url ? (
                       <Button

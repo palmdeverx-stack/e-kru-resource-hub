@@ -1,3 +1,6 @@
+// Canonical E-KRU store; package ownership must not depend on the admin making the request.
+export const MARKETPLACE_SELLER_LINE_STORE_ID = '62a778c6-955a-4702-bd0e-fb7123203090';
+
 export const MARKETPLACE_SELLER_LINE_FEATURE = {
   key: 'marketplace.seller_line_notifications',
   group: 'Marketplace ผู้ขาย',
