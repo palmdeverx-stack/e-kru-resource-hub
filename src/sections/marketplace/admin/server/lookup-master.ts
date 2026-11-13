@@ -5,6 +5,8 @@ import { NextResponse } from 'next/server';
 import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 
+import { cleanupUnusedSellerLookups } from '../../seller/server/seller-categories';
+
 type LookupConfig = {
   table:
     | 'marketplace_media_types'
@@ -70,7 +72,19 @@ export async function listLookup(request: Request, config: LookupConfig) {
     return NextResponse.json({ message: `ไม่มีสิทธิ์ดู${config.label}ทั้งหมด` }, { status: 403 });
   }
 
-  let query = supabaseAdmin.from(config.table).select('*').order('sort_order').order('name');
+  const communityLookup = ['marketplace_grade_levels', 'marketplace_curricula'].includes(
+    config.table
+  );
+  if (communityLookup) {
+    const cleanup = await cleanupUnusedSellerLookups();
+    if (cleanup.error)
+      return NextResponse.json({ message: 'โหลดรายการไม่สำเร็จ' }, { status: 500 });
+  }
+  let query = supabaseAdmin
+    .from(config.table)
+    .select(communityLookup ? 'id,code,name,description,sort_order,is_active' : '*')
+    .order('sort_order')
+    .order('name');
   if (!includeInactive) query = query.eq('is_active', true);
   const { data, error } = await query;
 
@@ -108,11 +122,7 @@ export async function createLookup(request: Request, config: LookupConfig) {
   return NextResponse.json({ item: data }, { status: 201 });
 }
 
-export async function updateLookup(
-  request: Request,
-  id: string,
-  config: LookupConfig
-) {
+export async function updateLookup(request: Request, id: string, config: LookupConfig) {
   if (!requireMaster(request)) {
     return NextResponse.json({ message: `ไม่มีสิทธิ์แก้ไข${config.label}` }, { status: 403 });
   }

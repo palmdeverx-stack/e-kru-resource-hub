@@ -30,7 +30,12 @@ import CircularProgress from '@mui/material/CircularProgress';
 
 import { apiFetch as fetch } from 'src/lib/api-fetch';
 
-import { RiFileCopyLine, RiMoneyDollarCircleLine } from 'src/components/remix-icon';
+import {
+  RiLink,
+  RiCheckLine,
+  RiFileCopyLine,
+  RiMoneyDollarCircleLine,
+} from 'src/components/remix-icon';
 
 type ReferralData = {
   enabled: boolean;
@@ -39,6 +44,7 @@ type ReferralData = {
     attributionDays: number;
     holdDays: number;
     minimumPayout: number;
+    maxRewardPerOrder: number;
   };
   code: { value: string; link: string } | null;
   summary: { clicks: number; pending: number; available: number; paid: number };
@@ -148,35 +154,86 @@ export function MarketplaceReferralView() {
         Marketplace
       </Typography>
 
-      <Alert severity="info" sx={{ mt: 3 }}>
-        รับ {data.settings.rewardRate}% ของค่าธรรมเนียมแพลตฟอร์ม · ลิงก์มีผล{' '}
-        {data.settings.attributionDays} วัน · พักยอด {data.settings.holdDays} วัน
-      </Alert>
-
-      <Card sx={{ p: { xs: 2.5, md: 4 }, mt: 3 }}>
-        <Typography variant="h6">ลิงก์แนะนำของคุณ</Typography>
-        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-          Referral Code: {data.code?.value}
-        </Typography>
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} sx={{ mt: 2 }}>
-          <TextField
-            fullWidth
-            label="ลิงก์แนะนำของคุณ"
-            value={data.code?.link ?? ''}
-            slotProps={{ input: { readOnly: true } }}
-          />
-          <Button
-            variant="outlined"
-            startIcon={<RiFileCopyLine />}
-            onClick={copyLink}
-            disabled={!data.code}
-            sx={{ flexShrink: 0 }}
+      <Card variant="outlined" sx={{ p: { xs: 2, md: 3 }, mt: 3, borderRadius: 3 }}>
+        <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2.5 }}>
+          <Box
+            sx={{
+              width: 44,
+              height: 44,
+              borderRadius: 2,
+              display: 'grid',
+              placeItems: 'center',
+              bgcolor: 'primary.lighter',
+              color: 'primary.main',
+              flexShrink: 0,
+            }}
           >
-            {copied ? 'คัดลอกแล้ว' : 'คัดลอกลิงก์'}
-          </Button>
+            <RiLink size={24} />
+          </Box>
+          <Box sx={{ minWidth: 0, flex: 1 }}>
+            <Typography variant="h6">ลิงก์แนะนำของคุณ</Typography>
+            <Typography variant="body2" color="text.secondary">
+              คัดลอกลิงก์หรือเลือกช่องทางเพื่อแชร์ให้เพื่อน
+            </Typography>
+          </Box>
         </Stack>
+        <Box sx={{ p: { xs: 1.5, sm: 2 }, borderRadius: 2, bgcolor: 'background.neutral' }}>
+          <Stack
+            direction="row"
+            spacing={1}
+            alignItems="center"
+            useFlexGap
+            flexWrap="wrap"
+            sx={{ mb: 1.5 }}
+          >
+            <Typography variant="caption" color="text.secondary">
+              รหัสแนะนำของคุณ
+            </Typography>
+            <Chip
+              size="small"
+              label={data.code?.value || '—'}
+              variant="soft"
+              color="primary"
+              sx={{ fontWeight: 700, letterSpacing: 1 }}
+            />
+          </Stack>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+            <TextField
+              fullWidth
+              size="small"
+              label="ลิงก์สำหรับแชร์"
+              value={shareUrl}
+              slotProps={{
+                input: { readOnly: true },
+                htmlInput: { dir: 'ltr', 'aria-label': 'ลิงก์แนะนำสำหรับคัดลอก' },
+              }}
+              onFocus={(event) => event.target.select()}
+              sx={{ '& .MuiOutlinedInput-root': { bgcolor: 'background.paper' } }}
+            />
+            <Button
+              variant="contained"
+              color={copied ? 'success' : 'primary'}
+              startIcon={copied ? <RiCheckLine /> : <RiFileCopyLine />}
+              onClick={copyLink}
+              disabled={!data.code}
+              sx={{ flexShrink: 0, minWidth: 150, minHeight: 40 }}
+            >
+              {copied ? 'คัดลอกแล้ว' : 'คัดลอกลิงก์'}
+            </Button>
+          </Stack>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            aria-live="polite"
+            sx={{ display: 'block', mt: 1 }}
+          >
+            {copied
+              ? 'คัดลอกลิงก์แล้ว นำไปวางในแชตหรือโพสต์ได้เลย'
+              : 'ให้เพื่อนเปิดลิงก์นี้ก่อนซื้อสินค้า เพื่อให้ระบบบันทึกผู้แนะนำ'}
+          </Typography>
+        </Box>
         <Typography variant="subtitle2" sx={{ mt: 2.5, mb: 1.25 }}>
-          เชิญเพื่อนผ่าน
+          แชร์ผ่านช่องทางที่สะดวก
         </Typography>
         <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
           <Box sx={{ textAlign: 'center' }}>
@@ -224,7 +281,7 @@ export function MarketplaceReferralView() {
               subject="ขอแนะนำ E-KRU Marketplace"
               body={shareTitle}
               disabled={!data.code}
-              aria-label="ส่งลิงก์แนะนำทางอีเมล"
+              aria-label="แชร์ลิงก์แนะนำผ่าน อีเมล"
             >
               <EmailIcon size={44} round aria-hidden="true" />
             </EmailShareButton>
@@ -259,7 +316,7 @@ export function MarketplaceReferralView() {
         <Stack direction="row" justifyContent="space-between" sx={{ p: 3, pb: 1.5 }}>
           <Typography variant="h6">ประวัติรางวัล</Typography>
           <Typography variant="body2" color="text.secondary">
-            ยอดขั้นต่ำสำหรับรอบจ่าย {money(data.settings.minimumPayout)}
+            ยอดพร้อมรับขั้นต่ำสำหรับรอบจ่าย {money(data.settings.minimumPayout)}
           </Typography>
         </Stack>
         {data.rewards.length ? (
@@ -301,6 +358,53 @@ export function MarketplaceReferralView() {
             <Typography color="text.secondary">แชร์ลิงก์ให้เพื่อนเพื่อเริ่มรับรางวัล</Typography>
           </Stack>
         )}
+      </Card>
+      <Card variant="outlined" sx={{ p: { xs: 2, md: 3 }, mt: 3 }}>
+        <Typography variant="h6">วิธีรับรางวัลและเงื่อนไข</Typography>
+        <Box component="ol" sx={{ pl: 2.5, mb: 0, '& > li': { pl: 0.5, mt: 1.25 } }}>
+          <Typography component="li" variant="body2">
+            แชร์ลิงก์แนะนำของคุณด้านล่างให้เพื่อน เพื่อนต้องเปิดลิงก์และสร้างคำสั่งซื้อภายใน{' '}
+            {data.settings.attributionDays} วัน
+            โดยใช้เบราว์เซอร์ที่เปิดลิงก์และยังเก็บคุกกี้แนะนำไว้ หากเปิดลิงก์แนะนำของคนอื่นภายหลัง
+            ระบบจะใช้ลิงก์ล่าสุด
+          </Typography>
+          <Typography component="li" variant="body2">
+            ได้รางวัลเมื่อคำสั่งซื้อได้รับการยืนยันชำระเงินแล้ว การคลิกลิงก์ สมัครสมาชิก
+            หรือสร้างคำสั่งซื้อโดยยังไม่ชำระ ยังไม่ทำให้ได้รับรางวัล
+          </Typography>
+          <Typography component="li" variant="body2">
+            รางวัลเท่ากับ {data.settings.rewardRate}% ของค่าคอมมิชชันที่ E-KRU
+            ได้รับจากคำสั่งซื้อนั้น ไม่ได้คิดจากราคาสินค้า และไม่รวมค่าธรรมเนียม Stripe
+            หรือช่องทางชำระเงิน
+            {data.settings.maxRewardPerOrder > 0 && (
+              <> โดยรับได้สูงสุด {money(data.settings.maxRewardPerOrder)} ต่อคำสั่งซื้อ</>
+            )}
+          </Typography>
+          <Typography component="li" variant="body2">
+            ซื้อผ่านลิงก์ของตัวเอง หรือแนะนำให้ซื้อสินค้าจากร้านของตัวเอง จะไม่ได้รางวัล
+            สินค้าฟรีหรือรายการที่ E-KRU ไม่ได้รับค่าคอมมิชชัน ก็ไม่มีรางวัล
+          </Typography>
+          <Typography component="li" variant="body2">
+            รางวัลจะอยู่ใน “รอพักยอด” เป็นเวลา {data.settings.holdDays} วันหลังยืนยันการชำระ
+            ก่อนเปลี่ยนเป็น “พร้อมรับเงิน” ยอดรอพักยังไม่นับรวมในยอดพร้อมรับ
+          </Typography>
+          <Typography component="li" variant="body2">
+            ต้องสะสมยอด “พร้อมรับเงิน” อย่างน้อย {money(data.settings.minimumPayout)}{' '}
+            จึงถึงเกณฑ์ขั้นต่ำสำหรับรอบจ่าย ตัวเลขนี้เป็นยอดขั้นต่ำที่ผู้ดูแลกำหนด
+            ไม่ใช่รางวัลเริ่มต้นหรือเงินที่ต้องชำระ
+            และการถึงขั้นต่ำไม่ได้หมายความว่าระบบโอนเงินให้ทันที
+          </Typography>
+        </Box>
+        <Alert severity="info" sx={{ mt: 2 }}>
+          ตัวอย่างสมมติ: เพื่อนซื้อสินค้า 1,000 บาท และ E-KRU ได้ค่าคอมมิชชัน 100 บาท
+          รางวัลของคุณจะเท่ากับ 100 × {data.settings.rewardRate}% ={' '}
+          {money(
+            data.settings.maxRewardPerOrder > 0
+              ? Math.min((100 * data.settings.rewardRate) / 100, data.settings.maxRewardPerOrder)
+              : (100 * data.settings.rewardRate) / 100
+          )}{' '}
+          หลังใช้เพดานรางวัล ไม่ใช่ {data.settings.rewardRate}% ของยอดซื้อ 1,000 บาท
+        </Alert>
       </Card>
     </Container>
   );

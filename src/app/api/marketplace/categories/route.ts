@@ -4,15 +4,21 @@ import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { rejectCrossSiteMutation } from 'src/lib/request-security';
 
+import { cleanupUnusedSellerCategories } from 'src/sections/marketplace/seller/server/seller-categories';
+
 export async function GET(request: Request) {
   const includeInactive = new URL(request.url).searchParams.get('all') === '1';
   if (includeInactive && !requireRole(request, ['master_admin'])) {
     return NextResponse.json({ message: 'ไม่มีสิทธิ์ดูหมวดหมู่ทั้งหมด' }, { status: 403 });
   }
 
+  const cleanup = await cleanupUnusedSellerCategories();
+  if (cleanup.error)
+    return NextResponse.json({ message: 'โหลดหมวดหมู่ไม่สำเร็จ' }, { status: 500 });
+
   let query = supabaseAdmin
     .from('marketplace_categories')
-    .select('*')
+    .select('id,name,description,sort_order,is_active,created_at,updated_at')
     .order('sort_order')
     .order('name');
   if (!includeInactive) query = query.eq('is_active', true);
@@ -41,10 +47,7 @@ export async function POST(request: Request) {
   const sortOrder = Math.max(0, Number(body.sortOrder) || 0);
 
   if (name.length < 2 || name.length > 80) {
-    return NextResponse.json(
-      { message: 'ชื่อหมวดหมู่ต้องมี 2–80 ตัวอักษร' },
-      { status: 400 }
-    );
+    return NextResponse.json({ message: 'ชื่อหมวดหมู่ต้องมี 2–80 ตัวอักษร' }, { status: 400 });
   }
 
   const { data: category, error } = await supabaseAdmin

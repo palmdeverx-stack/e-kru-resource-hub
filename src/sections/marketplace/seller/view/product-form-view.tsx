@@ -63,6 +63,7 @@ import {
   RiImageAddLine,
   RiFileList3Line,
   RiPriceTag3Line,
+  RiInformationLine,
   RiCheckboxCircleLine,
   RiCheckboxBlankCircleLine,
 } from 'src/components/remix-icon';
@@ -73,6 +74,7 @@ import { getMarketplacePricing } from '../../shared/pricing';
 import { MARKETPLACE_CATEGORIES } from '../../shared/constants';
 import { MARKETPLACE_SELLER_LINE_FEATURE } from '../line-feature';
 import { isSubscriptionSaleType } from '../../shared/sale-type-access';
+import { SellerLookupSchema } from '../../shared/seller-category-schema';
 import { MARKETPLACE_MINIMUM_PAID_PRICE_THB } from '../../shared/payment';
 import { MAX_PURCHASE_BENEFITS_HTML_LENGTH } from '../../shared/purchase-benefits';
 import {
@@ -102,7 +104,9 @@ import {
   getManagedProduct,
   uploadProductFiles,
   deleteProductImage,
+  createSellerLookup,
   uploadProductImages,
+  createSellerCategory,
   getSubscriptionPlans,
   setProductCoverImage,
   setProductFilePreview,
@@ -165,7 +169,8 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
   const { user } = useAuthContext();
   const [productId, setProductId] = useState(initialProductId);
   const [initializing, setInitializing] = useState(Boolean(initialProductId));
-  const [saving, setSaving] = useState(false);
+  const [saveAction, setSaveAction] = useState<'draft' | 'submit' | null>(null);
+  const saving = saveAction !== null;
   const saveInProgressRef = useRef(false);
   const pendingCoverIdRef = useRef<string | null>(null);
   const [lookupError, setLookupError] = useState('');
@@ -184,6 +189,23 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
   const [tags, setTags] = useState<MarketplaceTag[]>([]);
   const [newTagName, setNewTagName] = useState('');
   const [tagSaving, setTagSaving] = useState(false);
+  const categoryCreateRef = useRef(false);
+  const [lookupDialogKind, setLookupDialogKind] = useState<
+    'category' | 'grade-levels' | 'curricula' | null
+  >(null);
+  const lookupLabel =
+    lookupDialogKind === 'grade-levels'
+      ? 'ระดับชั้น'
+      : lookupDialogKind === 'curricula'
+        ? 'หลักสูตร'
+        : 'หมวดหมู่';
+  const categoryForm = useForm<{
+    name: string;
+    gradeGroup: 'kindergarten' | 'primary' | 'secondary' | 'other';
+  }>({
+    resolver: zodResolver(SellerLookupSchema),
+    defaultValues: { name: '', gradeGroup: 'other' },
+  });
   const [deletingTagId, setDeletingTagId] = useState('');
   const [tagToDelete, setTagToDelete] = useState<MarketplaceTag | null>(null);
   const [submissionDialogOpen, setSubmissionDialogOpen] = useState(false);
@@ -200,6 +222,8 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
   const [subscriptionPlansLoading, setSubscriptionPlansLoading] = useState(false);
   const [subscriptionPlansError, setSubscriptionPlansError] = useState('');
   const [commissionRate, setCommissionRate] = useState(0);
+  const [commissionRateKnown, setCommissionRateKnown] = useState(false);
+  const [feeNoteOpen, setFeeNoteOpen] = useState(false);
   const [shippingEnabled, setShippingEnabled] = useState(false);
   const [officialShippingEnabled, setOfficialShippingEnabled] = useState(false);
   const [images, setImages] = useState<MarketplaceProductImage[]>([]);
@@ -311,17 +335,32 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
   }, [user?.role]);
 
   useEffect(() => {
-    if (!user) return;
+    let active = true;
+    setCommissionRateKnown(false);
+    if (!user) return undefined;
     if (user.role === 'master_admin') {
       setCommissionRate(0);
-      return;
+      setCommissionRateKnown(true);
+      return undefined;
     }
     fetch('/api/marketplace/payment-methods')
-      .then((response) => response.json())
-      .then((result: { commissionRate?: number }) =>
-        setCommissionRate(Math.min(100, Math.max(0, Number(result.commissionRate) || 0)))
-      )
-      .catch(() => setCommissionRate(0));
+      .then(async (response) => {
+        if (!response.ok) throw new Error('โหลดค่าธรรมเนียมไม่สำเร็จ');
+        const result = await response.json();
+        if (typeof result.commissionRate !== 'number' || !Number.isFinite(result.commissionRate)) {
+          throw new Error('ไม่พบอัตราคอมมิชชัน');
+        }
+        if (active) {
+          setCommissionRate(Math.min(100, Math.max(0, result.commissionRate)));
+          setCommissionRateKnown(true);
+        }
+      })
+      .catch(() => {
+        if (active) setCommissionRateKnown(false);
+      });
+    return () => {
+      active = false;
+    };
   }, [user]);
 
   const hydrate = useCallback(
@@ -773,57 +812,56 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
 
   const saveProduct = async (submit = false) => {
     if (saveInProgressRef.current) return false;
-    if (!(await trigger())) {
-      setError('กรุณาตรวจสอบข้อมูลในช่องที่ระบุ');
-      return false;
-    }
-    if (submit) {
-      const validation = ProductSubmissionSchema.safeParse(getValues());
-      if (!validation.success) {
-        for (const issue of validation.error.issues) {
-          setFieldError(issue.path.join('.') as keyof ProductFormValues, {
-            type: 'zod',
-            message: issue.message,
-          });
-        }
-        setError(validation.error.issues[0]?.message ?? 'กรุณากรอกข้อมูลให้ครบ');
-        return false;
-      }
-    }
-    if (saveInProgressRef.current) return false;
-    if (
-      user?.role !== 'master_admin' &&
-      selectedSaleType &&
-      isSubscriptionSaleType(selectedSaleType)
-    ) {
-      setError('Subscription ใช้ได้เฉพาะร้านค้าทางการ กรุณาเลือกประเภทการจำหน่ายอื่น');
-      return false;
-    }
-    if (form.title.trim().length < 3) {
-      setError('กรุณากรอกชื่อสินค้าอย่างน้อย 3 ตัวอักษร');
-      return false;
-    }
-    if (
-      form.externalLinks.some(
-        (link) =>
-          !link.label.trim() ||
-          link.label.trim().length > 80 ||
-          link.url.trim().length > 2048 ||
-          !isValidExternalUrl(link.url.trim())
-      )
-    ) {
-      setError('กรุณากรอกชื่อและ URL ของลิงก์ส่งมอบให้ถูกต้อง');
-      return false;
-    }
-    if (submit && requirements.length) {
-      setError('กรุณากรอกข้อมูลที่จำเป็นให้ครบก่อนส่งตรวจ');
-      return false;
-    }
     saveInProgressRef.current = true;
-    setSaving(true);
+    setSaveAction(submit ? 'submit' : 'draft');
     setError('');
     setMessage('');
     try {
+      if (!(await trigger())) {
+        setError('กรุณาตรวจสอบข้อมูลในช่องที่ระบุ');
+        return false;
+      }
+      if (submit) {
+        const validation = ProductSubmissionSchema.safeParse(getValues());
+        if (!validation.success) {
+          for (const issue of validation.error.issues) {
+            setFieldError(issue.path.join('.') as keyof ProductFormValues, {
+              type: 'zod',
+              message: issue.message,
+            });
+          }
+          setError(validation.error.issues[0]?.message ?? 'กรุณากรอกข้อมูลให้ครบ');
+          return false;
+        }
+      }
+      if (
+        user?.role !== 'master_admin' &&
+        selectedSaleType &&
+        isSubscriptionSaleType(selectedSaleType)
+      ) {
+        setError('Subscription ใช้ได้เฉพาะร้านค้าทางการ กรุณาเลือกประเภทการจำหน่ายอื่น');
+        return false;
+      }
+      if (form.title.trim().length < 3) {
+        setError('กรุณากรอกชื่อสินค้าอย่างน้อย 3 ตัวอักษร');
+        return false;
+      }
+      if (
+        form.externalLinks.some(
+          (link) =>
+            !link.label.trim() ||
+            link.label.trim().length > 80 ||
+            link.url.trim().length > 2048 ||
+            !isValidExternalUrl(link.url.trim())
+        )
+      ) {
+        setError('กรุณากรอกชื่อและ URL ของลิงก์ส่งมอบให้ถูกต้อง');
+        return false;
+      }
+      if (submit && requirements.length) {
+        setError('กรุณากรอกข้อมูลที่จำเป็นให้ครบก่อนส่งตรวจ');
+        return false;
+      }
       const id = await ensureDraft();
       await updateProduct(id, productInput(false));
       setTags((current) =>
@@ -856,9 +894,52 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
       return false;
     } finally {
       saveInProgressRef.current = false;
-      setSaving(false);
+      setSaveAction(null);
     }
   };
+
+  const handleCreateCategory = categoryForm.handleSubmit(async ({ name, gradeGroup }) => {
+    if (categoryCreateRef.current || !lookupDialogKind) return;
+    categoryCreateRef.current = true;
+    try {
+      if (lookupDialogKind === 'category') {
+        const { category } = await createSellerCategory(name);
+        setCategories((current) =>
+          [...new Set([...current, category.name])].sort((a, b) => a.localeCompare(b, 'th'))
+        );
+        setForm((current) => ({ ...current, category: category.name }));
+      } else {
+        const { item } = await createSellerLookup(lookupDialogKind, name, gradeGroup);
+        if (lookupDialogKind === 'grade-levels') {
+          setGradeLevels((current) =>
+            [...current.filter((entry) => entry.id !== item.id), item].sort((a, b) =>
+              a.name.localeCompare(b.name, 'th')
+            )
+          );
+          setForm((current) => ({
+            ...current,
+            gradeLevelIds: [...new Set([...current.gradeLevelIds, item.id])],
+          }));
+        } else {
+          setCurricula((current) =>
+            [...current.filter((entry) => entry.id !== item.id), item].sort((a, b) =>
+              a.name.localeCompare(b.name, 'th')
+            )
+          );
+          setForm((current) => ({ ...current, curriculumId: item.id }));
+        }
+      }
+      categoryForm.reset();
+      setLookupDialogKind(null);
+      setMessage(`เพิ่มและเลือก${lookupLabel}แล้ว`);
+    } catch (creationError) {
+      categoryForm.setError('name', {
+        message: creationError instanceof Error ? creationError.message : 'เพิ่มรายการไม่สำเร็จ',
+      });
+    } finally {
+      categoryCreateRef.current = false;
+    }
+  });
 
   const handleCreateSellerTag = async () => {
     const name = newTagName.trim().replace(/\s+/g, ' ');
@@ -1005,7 +1086,9 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
       count >= (isPreview ? MAX_PREVIEW_FILES : MAX_PRODUCT_FILES)
     ) {
       setError(
-        isPreview ? 'ไฟล์ตัวอย่างสูงสุด 1 ไฟล์ ขนาดไม่เกิน 10 MB' : 'ไฟล์จริงสูงสุด 5 ไฟล์ ไฟล์ละไม่เกิน 10 MB'
+        isPreview
+          ? 'ไฟล์ตัวอย่างสูงสุด 1 ไฟล์ ขนาดไม่เกิน 10 MB'
+          : 'ไฟล์จริงสูงสุด 5 ไฟล์ ไฟล์ละไม่เกิน 10 MB'
       );
       return false;
     }
@@ -1075,7 +1158,8 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
         PDF, DOC/DOCX, PPT/PPTX, XLS/XLSX, ZIP หรือรูปภาพ ไม่เกิน 10 MB ต่อไฟล์
       </Typography>
       <Typography variant="caption" color="text.secondary">
-        {isPreviewGroup ? 'ไฟล์ตัวอย่างสูงสุด 1 ไฟล์' : 'ไฟล์จริงอย่างน้อย 1 ไฟล์ สูงสุด 5 ไฟล์'} ต่อสินค้า
+        {isPreviewGroup ? 'ไฟล์ตัวอย่างสูงสุด 1 ไฟล์' : 'ไฟล์จริงอย่างน้อย 1 ไฟล์ สูงสุด 5 ไฟล์'}{' '}
+        ต่อสินค้า
       </Typography>
       <Alert severity={isPreviewGroup ? 'warning' : 'info'} variant="outlined">
         {isPreviewGroup
@@ -1346,8 +1430,8 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
             >
               <Stack spacing={2.5}>
                 <Alert severity="info" variant="outlined">
-                  ทุกคนเห็นส่วนนี้ก่อนซื้อ ใช้อธิบายจุดเด่น เหมาะกับใคร และนำไปใช้อย่างไร เช่น “ใบงานเศษส่วน ป.4
-                  สำหรับทบทวน พร้อมเฉลย”
+                  ทุกคนเห็นส่วนนี้ก่อนซื้อ ใช้อธิบายจุดเด่น เหมาะกับใคร และนำไปใช้อย่างไร เช่น
+                  “ใบงานเศษส่วน ป.4 สำหรับทบทวน พร้อมเฉลย”
                 </Alert>
 
                 <Stack direction="row" spacing={1} alignItems="center">
@@ -1383,7 +1467,9 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                   }
                 />
                 <Stack spacing={1}>
-                  <Typography variant="subtitle2">คำอธิบายบนหน้าขาย (ทุกคนเห็นก่อนซื้อ) *</Typography>
+                  <Typography variant="subtitle2">
+                    คำอธิบายบนหน้าขาย (ทุกคนเห็นก่อนซื้อ) *
+                  </Typography>
                   <Editor
                     error={Boolean(errors.description)}
                     value={form.description}
@@ -1448,9 +1534,12 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                 </Stack>
                 <Divider />
                 <Box>
-                  <Typography variant="subtitle1">รายการที่ลูกค้าจะได้รับ — แสดงบนหน้าขาย *</Typography>
+                  <Typography variant="subtitle1">
+                    รายการที่ลูกค้าจะได้รับ — แสดงบนหน้าขาย *
+                  </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    ทุกคนอ่านรายการนี้ได้ก่อนซื้อ เช่น “ไฟล์ PDF พร้อมเฉลย 30 หน้า” ส่วนไฟล์จริงให้แนบในส่วนที่ 05
+                    ทุกคนอ่านรายการนี้ได้ก่อนซื้อ เช่น “ไฟล์ PDF พร้อมเฉลย 30 หน้า”
+                    ส่วนไฟล์จริงให้แนบในส่วนที่ 05
                   </Typography>
                 </Box>
 
@@ -1544,6 +1633,19 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                       </MenuItem>
                     ))}
                   </TextField>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<RiAddLine />}
+                    disabled={saving}
+                    sx={{ mt: 1 }}
+                    onClick={() => {
+                      categoryForm.reset();
+                      setLookupDialogKind('category');
+                    }}
+                  >
+                    เพิ่มหมวดหมู่
+                  </Button>
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6 }}>
                   <Autocomplete
@@ -1584,6 +1686,19 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                     }
                     renderInput={(params) => <TextField {...params} label="ระดับชั้น" />}
                   />
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<RiAddLine />}
+                    disabled={saving}
+                    sx={{ mt: 1 }}
+                    onClick={() => {
+                      categoryForm.reset();
+                      setLookupDialogKind('grade-levels');
+                    }}
+                  >
+                    เพิ่มระดับชั้น
+                  </Button>
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
@@ -1602,6 +1717,19 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                       </MenuItem>
                     ))}
                   </TextField>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<RiAddLine />}
+                    disabled={saving}
+                    sx={{ mt: 1 }}
+                    onClick={() => {
+                      categoryForm.reset();
+                      setLookupDialogKind('curricula');
+                    }}
+                  >
+                    เพิ่มหลักสูตร
+                  </Button>
                 </Grid>
                 <Grid size={12}>
                   <Autocomplete
@@ -1663,8 +1791,8 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                     </Stack>
 
                     <Typography variant="caption" color="text.secondary" display="block">
-                      ผู้ขายทุกคนใช้แท็กเดียวกันได้ หากชื่อซ้ำระบบจะเลือกแท็กเดิมให้ แท็กที่ยังไม่เคยใช้จะถูกลบอัตโนมัติหลัง
-                      24 ชั่วโมง
+                      ผู้ขายทุกคนใช้แท็กเดียวกันได้ หากชื่อซ้ำระบบจะเลือกแท็กเดิมให้
+                      แท็กที่ยังไม่เคยใช้จะถูกลบอัตโนมัติหลัง 24 ชั่วโมง
                     </Typography>
                     {!!ownTags.length && (
                       <Stack direction="row" flexWrap="wrap" gap={1} sx={{ mt: 1.5 }}>
@@ -1895,24 +2023,43 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                     }
                   />
                 </Grid>
+                <Grid size={12} sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<RiInformationLine />}
+                    onClick={() => setFeeNoteOpen(true)}
+                  >
+                    ดูค่าธรรมเนียมและตัวอย่างรายรับ
+                  </Button>
+                </Grid>
                 {selectedSaleType?.pricing_mode === 'paid' && (
                   <Grid size={12}>
                     <Alert severity="info">
-                      ราคาขาย {previewPricing.salePrice.toLocaleString('th-TH')} บาท ·
-                      ค่าธรรมเนียมแพลตฟอร์ม {commissionRate}% ={' '}
-                      {((previewPricing.salePrice * commissionRate) / 100).toLocaleString('th-TH', {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}{' '}
-                      บาท · ผู้ขายได้รับประมาณ{' '}
-                      {(previewPricing.salePrice * (1 - commissionRate / 100)).toLocaleString(
-                        'th-TH',
-                        {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        }
-                      )}{' '}
-                      บาท
+                      {commissionRateKnown ? (
+                        <>
+                          ราคาขาย {previewPricing.salePrice.toLocaleString('th-TH')} บาท ·
+                          ค่าธรรมเนียมแพลตฟอร์ม {commissionRate}% ={' '}
+                          {((previewPricing.salePrice * commissionRate) / 100).toLocaleString(
+                            'th-TH',
+                            {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            }
+                          )}{' '}
+                          บาท · ผู้ขายได้รับประมาณ{' '}
+                          {(previewPricing.salePrice * (1 - commissionRate / 100)).toLocaleString(
+                            'th-TH',
+                            {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            }
+                          )}{' '}
+                          บาท (ยังไม่หักค่าธรรมเนียมช่องทางชำระเงิน)
+                        </>
+                      ) : (
+                        'ยังไม่สามารถแสดงอัตราคอมมิชชันของร้านได้ กรุณาตรวจสอบที่หน้าการเงินและรับเงิน'
+                      )}
                     </Alert>
                   </Grid>
                 )}
@@ -1926,7 +2073,10 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                         value={form.licenseBillingCycle}
                         onChange={(event) => {
                           const cycle = event.target.value as
-                            'one_time' | 'monthly' | 'yearly' | 'contract';
+                            | 'one_time'
+                            | 'monthly'
+                            | 'yearly'
+                            | 'contract';
                           setForm((current) => ({
                             ...current,
                             licenseBillingCycle: cycle,
@@ -1995,7 +2145,10 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                         disabled={form.licenseTargetSystem === 'marketplace'}
                         onChange={(event) => {
                           const licenseScope = event.target.value as
-                            'individual' | 'school' | 'teacher' | 'platform';
+                            | 'individual'
+                            | 'school'
+                            | 'teacher'
+                            | 'platform';
                           setForm((current) => ({
                             ...current,
                             licenseScope,
@@ -2306,8 +2459,8 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                     <Typography variant="subtitle1">04.1 ภาพพรีวิวสินค้า — เห็นก่อนซื้อ</Typography>
                   </Stack>
                   <Typography variant="body2" color="text.secondary">
-                    เพิ่มภาพรายละเอียดหรือภาพตัวอย่างที่ผู้ซื้อจะเห็นถัดจากภาพปก · อย่างน้อย 1 รูป · สูงสุด 8 รูป ·
-                    ภาพละไม่เกิน 3 MB
+                    เพิ่มภาพรายละเอียดหรือภาพตัวอย่างที่ผู้ซื้อจะเห็นถัดจากภาพปก · อย่างน้อย 1 รูป ·
+                    สูงสุด 8 รูป · ภาพละไม่เกิน 3 MB
                   </Typography>
                   <Upload
                     multiple
@@ -2413,7 +2566,9 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                       <RemixIcon icon="eva:link-2-fill" width={18} />
                     </Box>
                     <Box>
-                      <Typography variant="subtitle1">05.2 ลิงก์สำหรับลูกค้าหลังซื้อ (ไม่บังคับ)</Typography>
+                      <Typography variant="subtitle1">
+                        05.2 ลิงก์สำหรับลูกค้าหลังซื้อ (ไม่บังคับ)
+                      </Typography>
                     </Box>
                   </Stack>
                   <Box>
@@ -2463,7 +2618,9 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                           placeholder="https://example.com"
                           value={link.url}
                           error={urlError}
-                          helperText={urlError ? 'กรุณากรอก URL ที่ขึ้นต้นด้วย http:// หรือ https://' : ' '}
+                          helperText={
+                            urlError ? 'กรุณากรอก URL ที่ขึ้นต้นด้วย http:// หรือ https://' : ' '
+                          }
                           slotProps={{ htmlInput: { maxLength: 2048 } }}
                           onChange={(event) =>
                             setForm((current) => ({
@@ -2547,7 +2704,8 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                     </Box>
                   </Stack>
                   <Alert severity="info" variant="outlined">
-                    ใช้สำหรับ Prompt, Template, รหัส, ขั้นตอนเข้าใช้งาน หรือเนื้อหาที่ต้องส่งมอบเพิ่มเติมจากไฟล์และลิงก์
+                    ใช้สำหรับ Prompt, Template, รหัส, ขั้นตอนเข้าใช้งาน
+                    หรือเนื้อหาที่ต้องส่งมอบเพิ่มเติมจากไฟล์และลิงก์
                   </Alert>
                   <Editor
                     fullItem
@@ -2794,7 +2952,8 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                 <Button
                   fullWidth
                   variant="outlined"
-                  loading={saving}
+                  loading={saveAction === 'draft'}
+                  disabled={saving}
                   startIcon={<RiSaveLine />}
                   onClick={() => saveProduct(false)}
                 >
@@ -2803,10 +2962,11 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
                 <Button
                   fullWidth
                   variant="contained"
-                  loading={saving}
-                  disabled={Boolean(requirements.length)}
+                  loading={saveAction === 'submit'}
+                  disabled={saving || Boolean(requirements.length)}
                   startIcon={<RiCheckboxCircleLine />}
                   onClick={() => {
+                    if (saveInProgressRef.current) return;
                     setError('');
                     setSubmissionAcceptance(initialProductSubmissionAcceptance);
                     setSubmissionDialogOpen(true);
@@ -2824,6 +2984,177 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
           </Stack>
         </Grid>
       </Grid>
+      <Dialog
+        open={feeNoteOpen}
+        onClose={() => setFeeNoteOpen(false)}
+        maxWidth="md"
+        fullWidth
+        aria-labelledby="product-fee-note-title"
+      >
+        <DialogTitle id="product-fee-note-title">ค่าธรรมเนียมและตัวอย่างรายรับผู้ขาย</DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            ตัวอย่างขายสินค้า 100 บาท โดยหักค่าดำเนินการ Stripe และค่าคอมมิชชัน E-KRU
+            ตามอัตราของร้าน
+          </Typography>
+          {!commissionRateKnown && (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              ยังไม่ทราบอัตราคอมมิชชันของร้าน จึงยังประมาณรายรับสุทธิไม่ได้
+            </Alert>
+          )}
+          <Stack spacing={2}>
+            {[
+              {
+                label: 'ตัวอย่างที่ 1: บัตรผ่าน Stripe',
+                detail: 'บัตรเครดิต/เดบิตในประเทศ',
+                fee: 13.65,
+                rate: '3.65% + 10 บาท',
+              },
+              {
+                label: 'ตัวอย่างที่ 2: PromptPay ผ่าน Stripe',
+                detail: 'ผู้ซื้อเลือก PromptPay บนหน้า Stripe แล้วสแกน QR ด้วยแอปธนาคาร',
+                fee: 1.65,
+                rate: '1.65% ของยอดชำระ',
+              },
+            ].map((example) => (
+              <Card
+                key={example.label}
+                variant="outlined"
+                sx={{ p: 2, bgcolor: 'warning.lighter', borderColor: 'warning.light' }}
+              >
+                <Typography variant="subtitle1">{example.label}</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  {example.detail}
+                </Typography>
+                <Box
+                  sx={{
+                    display: 'grid',
+                    gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, minmax(0, 1fr))' },
+                    gap: 2,
+                  }}
+                >
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Stripe ได้รับโดยประมาณ
+                    </Typography>
+                    <Typography variant="h6" color="error.main">
+                      ฿{example.fee.toFixed(2)}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {example.rate}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      ระบบ E-KRU ได้รับ
+                    </Typography>
+                    <Typography variant="h6" color="warning.dark">
+                      {commissionRateKnown ? `฿${commissionRate.toFixed(2)}` : '—'}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      คอมมิชชัน {commissionRateKnown ? `${commissionRate}%` : 'ยังไม่ทราบอัตรา'}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      ผู้ขายได้รับประมาณ
+                    </Typography>
+                    <Typography variant="h5" color="success.main">
+                      {commissionRateKnown
+                        ? `฿${Math.max(0, 100 - example.fee - commissionRate).toFixed(2)}`
+                        : '—'}
+                    </Typography>
+                  </Box>
+                </Box>
+              </Card>
+            ))}
+          </Stack>
+          <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 2 }}>
+            ตัวเลขเป็นตัวอย่างก่อนทำรายการ ค่าธรรมเนียมจริงให้ยึดจาก Stripe Balance Transaction
+            ของรายการนั้น และอาจต่างกันตามประเภทการชำระ ประเทศของบัตร การแปลงสกุลเงิน
+            อัตราเฉพาะบัญชี หรือค่าบริการและภาษีที่เกี่ยวข้อง
+          </Typography>
+          <Stack direction="row" spacing={2} useFlexGap flexWrap="wrap" sx={{ mt: 2 }}>
+            <Link component={RouterLink} href={`${paths.marketplace.sellerFinance}?tab=sales`}>
+              ดูยอดหักจริงในรายการขาย
+            </Link>
+            <Link href="https://stripe.com/th/pricing" target="_blank" rel="noopener noreferrer">
+              อัตราค่าบริการ Stripe
+            </Link>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setFeeNoteOpen(false)}>ปิด</Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog
+        open={lookupDialogKind !== null}
+        maxWidth="xs"
+        fullWidth
+        onClose={() => {
+          if (!categoryForm.formState.isSubmitting) setLookupDialogKind(null);
+        }}
+        aria-labelledby="create-category-title"
+      >
+        <DialogTitle id="create-category-title">เพิ่ม{lookupLabel}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {lookupLabel}ใช้ร่วมกันได้ทุกคน หากชื่อซ้ำจะเลือกรายการเดิม
+            รายการที่ยังไม่เคยบันทึกกับสินค้าจะถูกลบหลัง 24 ชั่วโมง
+          </Typography>
+          <TextField
+            fullWidth
+            autoFocus
+            label={`ชื่อ${lookupLabel}`}
+            sx={{ mt: 1 }}
+            {...categoryForm.register('name')}
+            disabled={categoryForm.formState.isSubmitting}
+            error={Boolean(categoryForm.formState.errors.name)}
+            helperText={categoryForm.formState.errors.name?.message || '2–80 ตัวอักษร'}
+            slotProps={{ htmlInput: { maxLength: 80 } }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                void handleCreateCategory();
+              }
+            }}
+          />
+          {lookupDialogKind === 'grade-levels' && (
+            <TextField
+              select
+              fullWidth
+              label="กลุ่มระดับชั้น"
+              {...categoryForm.register('gradeGroup')}
+              defaultValue="other"
+              disabled={categoryForm.formState.isSubmitting}
+              sx={{ mt: 2 }}
+              helperText="ใช้จัดกลุ่มตัวกรองค้นหาสินค้า"
+            >
+              <MenuItem value="kindergarten">อนุบาล</MenuItem>
+              <MenuItem value="primary">ประถมศึกษา</MenuItem>
+              <MenuItem value="secondary">มัธยมศึกษา</MenuItem>
+              <MenuItem value="other">อื่น ๆ</MenuItem>
+            </TextField>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button
+            color="inherit"
+            disabled={categoryForm.formState.isSubmitting}
+            onClick={() => setLookupDialogKind(null)}
+          >
+            ยกเลิก
+          </Button>
+          <Button
+            variant="contained"
+            loading={categoryForm.formState.isSubmitting}
+            startIcon={<RiAddLine />}
+            onClick={() => void handleCreateCategory()}
+          >
+            สร้าง{lookupLabel}
+          </Button>
+        </DialogActions>
+      </Dialog>
       <Dialog
         fullWidth
         maxWidth="xs"
@@ -2959,7 +3290,7 @@ export function MarketplaceProductFormView({ productId: initialProductId }: Prop
           <Button
             variant="contained"
             loading={saving}
-            disabled={!submissionTerms || !submissionAcceptance.accepted}
+            disabled={saving || !submissionTerms || !submissionAcceptance.accepted}
             startIcon={<RiCheckboxCircleLine />}
             onClick={async () => {
               const submitted = await saveProduct(true);

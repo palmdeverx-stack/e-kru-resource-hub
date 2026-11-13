@@ -39,6 +39,28 @@ export async function getMediaTypes(includeInactive = false) {
   return parseResponse<{ items: MarketplaceMediaType[]; setupRequired?: boolean }>(response);
 }
 
+export async function createSellerCategory(name: string) {
+  const response = await fetch('/api/marketplace/seller/categories', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  });
+  return parseResponse<{ category: MarketplaceCategory; reused: boolean }>(response);
+}
+
+export async function createSellerLookup(
+  kind: 'grade-levels' | 'curricula',
+  name: string,
+  gradeGroup: 'kindergarten' | 'primary' | 'secondary' | 'other'
+) {
+  const response = await fetch(`/api/marketplace/seller/lookups/${kind}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, gradeGroup }),
+  });
+  return parseResponse<{ item: MarketplaceGradeLevel; reused: boolean }>(response);
+}
+
 export async function getSaleTypes(includeInactive = false) {
   const response = await fetch(`/api/marketplace/sale-types${includeInactive ? '?all=1' : ''}`);
   return parseResponse<{ items: MarketplaceSaleType[]; setupRequired?: boolean }>(response);

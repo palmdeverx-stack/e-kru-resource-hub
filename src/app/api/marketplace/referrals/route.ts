@@ -21,6 +21,7 @@ export async function GET(request: Request) {
         attributionDays: Number(settings.attribution_days),
         holdDays: Number(settings.hold_days),
         minimumPayout: Number(settings.minimum_payout),
+        maxRewardPerOrder: Number(settings.max_reward_per_order),
       },
       code: null,
       summary: { clicks: 0, pending: 0, available: 0, paid: 0 },
@@ -76,6 +77,7 @@ export async function GET(request: Request) {
       attributionDays: Number(settings.attribution_days),
       holdDays: Number(settings.hold_days),
       minimumPayout: Number(settings.minimum_payout),
+      maxRewardPerOrder: Number(settings.max_reward_per_order),
     },
     code: {
       value: code.code,
