@@ -2,14 +2,12 @@
 
 import type { MarketplaceSeller } from '../../shared/types';
 
-import { useState, useEffect } from 'react';
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import { useRef, useState, useEffect } from 'react';
+import { useInfiniteQuery } from '@tanstack/react-query';
 
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import Card from '@mui/material/Card';
-import Chip from '@mui/material/Chip';
-import Alert from '@mui/material/Alert';
 import Stack from '@mui/material/Stack';
 import Avatar from '@mui/material/Avatar';
 import Rating from '@mui/material/Rating';
@@ -18,10 +16,9 @@ import Skeleton from '@mui/material/Skeleton';
 import Container from '@mui/material/Container';
 import TextField from '@mui/material/TextField';
 import IconButton from '@mui/material/IconButton';
-import Pagination from '@mui/material/Pagination';
 import Typography from '@mui/material/Typography';
-import LinearProgress from '@mui/material/LinearProgress';
 import InputAdornment from '@mui/material/InputAdornment';
+import CircularProgress from '@mui/material/CircularProgress';
 
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
@@ -78,7 +75,7 @@ export function MarketplaceStoreListView({
 }) {
   const { t, currentLang } = useTranslate('marketplace');
   const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const [debouncedSearch, setDebouncedSearch] = useState('');
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 250);
@@ -91,15 +88,20 @@ export function MarketplaceStoreListView({
     isError,
     isFetching,
     refetch,
-  } = useQuery({
-    queryKey: ['public-stores', debouncedSearch, page],
-    initialData: page === 1 && !debouncedSearch ? (initialStores ?? undefined) : undefined,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isFetchNextPageError,
+  } = useInfiniteQuery({
+    queryKey: ['public-stores', 'infinite', debouncedSearch],
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined,
+    initialData: !debouncedSearch && initialStores ? { pages: [initialStores], pageParams: [1] } : undefined,
     initialDataUpdatedAt: initialStores?.updatedAt
       ? Date.parse(initialStores.updatedAt)
       : undefined,
-    placeholderData: keepPreviousData,
-    queryFn: async ({ signal }): Promise<StoreResponse> => {
-      const params = new URLSearchParams({ page: String(page), limit: '24' });
+    queryFn: async ({ pageParam, signal }): Promise<StoreResponse> => {
+      const params = new URLSearchParams({ page: String(pageParam), limit: '24' });
       if (debouncedSearch) params.set('q', debouncedSearch);
       const response = await fetch(`/api/marketplace/stores?${params}`, { signal });
       const result = await response.json();
@@ -109,12 +111,21 @@ export function MarketplaceStoreListView({
     staleTime: 60_000,
     enabled: search.trim() === debouncedSearch,
   });
-  const stores = data?.stores ?? [];
-  const totalPages = data?.totalPages ?? 0;
+  const stores = data?.pages.flatMap((result) => result.stores) ?? [];
+  const total = data?.pages[0]?.total ?? 0;
+
+  useEffect(() => {
+    const target = loadMoreRef.current;
+    if (!target || !hasNextPage || isFetching || isError || search.trim() !== debouncedSearch || !('IntersectionObserver' in window)) return undefined;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) void fetchNextPage();
+    }, { rootMargin: '300px' });
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetching, isError, search, debouncedSearch, fetchNextPage]);
 
   const handleSearch = (value: string) => {
     setSearch(value);
-    setPage(1);
   };
 
   return (
@@ -133,9 +144,9 @@ export function MarketplaceStoreListView({
         >
           <Box sx={{ maxWidth: 680 }}>
             <Typography
-              component="h1"
               variant="h2"
-              sx={{ typography: { xs: 'h3', md: 'h2' }, color: 'grey.900' }}
+              color="primary.dark"
+              sx={{ typography: { xs: 'h3', md: 'h2' } }}
             >
               {t('stores.heading')}
             </Typography>
@@ -171,8 +182,8 @@ export function MarketplaceStoreListView({
               {!loading && !isError && (
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
                   {t('stores.resultCount', {
-                    count: data?.total ?? 0,
-                    formattedCount: (data?.total ?? 0).toLocaleString(
+                    count: total,
+                    formattedCount: (total).toLocaleString(
                       currentLang.numberFormat.code
                     ),
                   })}
@@ -209,24 +220,6 @@ export function MarketplaceStoreListView({
             />
           </Stack>
 
-          {isFetching && !loading && <LinearProgress aria-label={t('stores.heading')} />}
-          {isError && (
-            <Alert
-              severity="error"
-              action={
-                <Button
-                  color="inherit"
-                  onClick={() => {
-                    void refetch();
-                  }}
-                >
-                  {t('errors.retry')}
-                </Button>
-              }
-            >
-              {t('stores.errors.load')}
-            </Alert>
-          )}
           <Grid container spacing={{ xs: 2, md: 2.5 }} aria-busy={loading}>
             {loading
               ? Array.from({ length: 6 }).map((_, index) => (
@@ -262,24 +255,22 @@ export function MarketplaceStoreListView({
           )}
         </Stack>
 
-        {!loading && !isError && totalPages > 1 && (
-          <Pagination
-            page={page}
-            count={totalPages}
-            color="primary"
-            shape="rounded"
-            sx={{ alignSelf: 'center', '& .MuiPagination-ul': { justifyContent: 'center' } }}
-            getItemAriaLabel={(type, itemPage) =>
-              type === 'page'
-                ? t('stores.pagination.page', { page: itemPage })
-                : t(`stores.pagination.${type}`)
-            }
-            onChange={(_, nextPage) => {
-              setPage(nextPage);
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-          />
-        )}
+        <Box ref={loadMoreRef} sx={{ display: 'flex', justifyContent: 'center', minHeight: 1 }}>
+          {isFetchingNextPage ? (
+            <CircularProgress size={28} aria-label={t('stores.loadingMore')} />
+          ) : isError ? (
+            <Stack alignItems="center" spacing={1}>
+              <Typography role="alert" color="error.main">{t('stores.loadError')}</Typography>
+              <Button onClick={() => { void (isFetchNextPageError ? fetchNextPage() : refetch()); }}>
+                {t('stores.retry')}
+              </Button>
+            </Stack>
+          ) : hasNextPage ? (
+            <Button disabled={isFetching || search.trim() !== debouncedSearch} onClick={() => { void fetchNextPage(); }}>
+              {t('stores.loadMore')}
+            </Button>
+          ) : null}
+        </Box>
       </Stack>
     </Container>
   );
@@ -428,14 +419,6 @@ function StoreCard({ store }: { store: PublicStore }) {
               />
             )}
           </Stack>
-          <Chip
-            size="small"
-            variant="soft"
-            label={t(`stores.sellerTypes.${store.seller_type}`, {
-              defaultValue: t('stores.sellerTypes.seller'),
-            })}
-            sx={{ mt: 1 }}
-          />
         </Box>
 
         <Typography

@@ -828,6 +828,10 @@
     }
   },
   "stores": {
+    "loadingMore": "Loading more stores",
+    "loadError": "Unable to load stores",
+    "retry": "Try again",
+    "loadMore": "Load more stores",
     "allStores": "All stores",
     "searchResults": "Store search results",
     "resultCount": "{{formattedCount}} store",
@@ -875,6 +879,7 @@
     }
   },
   "storefront": {
+    "backToStores": "Back to all stores",
     "editStore": "Edit official store",
     "seo": {
       "notFoundTitle": "Store not found | {{platformName}}",

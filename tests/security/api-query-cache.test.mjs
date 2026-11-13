@@ -157,3 +157,18 @@ test('a mutation during the first screen load cancels stale work and refetches t
   await new Promise(resolve => setTimeout(resolve, 10));
   assert.equal(observer.getCurrentResult().data.version, 2);
 });
+
+
+test('notification read receipts retain unrelated cached pages and active work', async t => {
+  let reads = 0;
+  const api = gateway(t, async (_, options) => options?.method === 'POST' ? json({ ok: true }) : json({ version: ++reads }));
+  await api.apiFetch('/api/products');
+  await api.apiFetch('/api/notifications');
+  const observer = new QueryObserver(api.client, { queryKey: ['purchase-screen'], queryFn: async () => 'ready', staleTime: Infinity });
+  const unsubscribe = observer.subscribe(() => {});
+  t.after(unsubscribe);
+  await api.apiFetch('/api/notifications/mark-read?scope=marketplace', { method: 'POST' });
+  assert.equal((await (await api.apiFetch('/api/products')).json()).version, 1);
+  assert.equal(api.client.getQueryCache().find({ queryKey: ['purchase-screen'] }).state.isInvalidated, false);
+  assert.equal(api.client.getQueryCache().getAll().filter(q => q.queryKey[0] === 'api-response' && String(q.queryKey[3]).includes('/api/notifications')).length, 0);
+});

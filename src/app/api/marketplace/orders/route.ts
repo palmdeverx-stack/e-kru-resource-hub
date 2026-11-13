@@ -75,6 +75,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ message: 'กรุณาเข้าสู่ระบบ' }, { status: 401 });
   }
 
+  const queryStarted = performance.now();
   const summary = new URL(request.url).searchParams.get('summary') === '1';
   const columns: string = summary
     ? 'id, payment_session_id, total, currency, status, created_at, seller:marketplace_sellers(id, display_name, slug, logo_url, owner_role), items:marketplace_order_items(id, title, product:marketplace_products(id, title, title_en, short_description, short_description_en, cover_url, resource_type, license_target_system, grants_feature_key, grants_feature_keys, images:marketplace_product_images(id, is_cover, storage_bucket, storage_path)))'
@@ -95,6 +96,8 @@ export async function GET(request: Request) {
 
   if (error) return NextResponse.json({ message: error.message }, { status: 500 });
 
+  const queryMs = performance.now() - queryStarted;
+  const mediaStarted = performance.now();
   let fallbackPromise: Promise<string | null> | undefined;
   const officialCoverFallback = () => (fallbackPromise ??= getOfficialProductCoverFallback());
   const mediaByProduct = new Map<string, ReturnType<typeof withMediaUrls>>();
@@ -151,7 +154,12 @@ export async function GET(request: Request) {
     })
   );
 
-  return NextResponse.json({ orders: safeOrders });
+  return NextResponse.json({ orders: safeOrders }, {
+    headers: {
+      'Cache-Control': 'private, no-store',
+      'Server-Timing': `orders;dur=${queryMs.toFixed(1)}, media;dur=${(performance.now() - mediaStarted).toFixed(1)}`,
+    },
+  });
 }
 
 export async function POST(request: Request) {

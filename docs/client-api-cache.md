@@ -19,7 +19,8 @@ and service integrations continue to use native fetch.
   non-JSON responses are not reused from this cache.
 - Successful POST/PUT/PATCH/DELETE requests invalidate read caches and refetch active
   query observers. Failed writes do not invalidate. Preview and view-tracking
-  requests do not flush unrelated page data.
+  requests do not flush unrelated page data. Notification read receipts invalidate
+  only notification transport entries; the menu refreshes its own observer.
 - Login, logout or identity/role changes clear caches before the new identity is
   committed. The provider shares a singleton only in the browser; server renders
   receive independent clients. No private cache is persisted to localStorage.

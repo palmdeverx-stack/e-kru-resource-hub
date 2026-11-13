@@ -38,7 +38,7 @@ function loadOrders({ summary = true, authorized = true, error = null } = {}) {
   const source = readFileSync(new URL('../../src/app/api/marketplace/orders/route.ts', import.meta.url), 'utf8');
   const exports = {};
   vm.runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, {
-    exports, URL, require: name => mocks[name] ?? {},
+    exports, URL, performance, require: name => mocks[name] ?? {},
   });
   return { GET: exports.GET, stats: () => ({ selected, mediaCalls, fallbackCalls }) };
 }

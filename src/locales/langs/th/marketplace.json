@@ -811,6 +811,10 @@
     }
   },
   "stores": {
+    "loadingMore": "กำลังโหลดร้านค้าเพิ่มเติม",
+    "loadError": "โหลดรายการร้านค้าไม่สำเร็จ",
+    "retry": "ลองอีกครั้ง",
+    "loadMore": "โหลดร้านค้าเพิ่มเติม",
     "allStores": "ร้านค้าทั้งหมด",
     "searchResults": "ผลการค้นหาร้านค้า",
     "resultCount": "{{formattedCount}} ร้าน",
@@ -855,6 +859,7 @@
     }
   },
   "storefront": {
+    "backToStores": "กลับไปร้านค้าทั้งหมด",
     "editStore": "แก้ไขร้านทางการ",
     "seo": {
       "notFoundTitle": "ไม่พบร้านค้า | {{platformName}}",

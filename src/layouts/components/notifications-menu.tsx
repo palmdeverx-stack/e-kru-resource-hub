@@ -17,6 +17,8 @@ import { apiFetch as fetch } from 'src/lib/api-fetch';
 
 import { RiSchoolLine, RiArrowRightLine, RiNotification3Line } from 'src/components/remix-icon';
 
+import { useAuthContext } from 'src/auth/hooks';
+
 // ----------------------------------------------------------------------
 
 type AppNotification = {
@@ -71,11 +73,14 @@ type NotificationsMenuProps = {
 
 export function NotificationsMenu({ scope = 'all' }: NotificationsMenuProps) {
   const router = useRouter();
+  const { user, authenticated } = useAuthContext();
+  const notificationKey = ['notifications', scope, user?.id, user?.role];
   const queryClient = useQueryClient();
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
 
   const { data } = useQuery({
-    queryKey: ['notifications', scope],
+    queryKey: notificationKey,
+    enabled: authenticated && Boolean(user?.id),
     queryFn: () => fetchNotifications(scope),
     refetchInterval: 30_000,
   });
@@ -85,12 +90,12 @@ export function NotificationsMenu({ scope = 'all' }: NotificationsMenuProps) {
 
   const markAllReadMutation = useMutation({
     mutationFn: () => markRead(scope),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications', scope] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: notificationKey }),
   });
 
   const markOneReadMutation = useMutation({
     mutationFn: (id: string) => markRead(scope, [id]),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications', scope] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: notificationKey }),
   });
 
   const handleClick = (notification: AppNotification) => {

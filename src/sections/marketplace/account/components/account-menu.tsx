@@ -41,8 +41,24 @@ export function MarketplaceAccountMenu() {
   const { user, authenticated, setSessionUser } = useAuthContext();
   const [pendingSignOut, setPendingSignOut] = useState(false);
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+  const [failedAvatar, setFailedAvatar] = useState<string | null>(null);
 
   if (!authenticated || !user) return null;
+
+  const avatarUrl = user.photoURL || user.avatar_url || undefined;
+  const isGoogleAvatar = (() => {
+    try {
+      const url = new URL(avatarUrl ?? '');
+      return url.protocol === 'https:' && ['googleusercontent.com', 'ggpht.com'].some(
+        (host) => url.hostname === host || url.hostname.endsWith(`.${host}`)
+      );
+    } catch {
+      return false;
+    }
+  })();
+  const avatarSrc = avatarUrl && failedAvatar === avatarUrl && isGoogleAvatar
+    ? `/api/marketplace/account/avatar?user=${encodeURIComponent(user.id)}`
+    : avatarUrl;
 
   const displayName = user.displayName || user.username || t('สมาชิก Marketplace');
   const initials = String(displayName).trim().charAt(0).toUpperCase();
@@ -95,7 +111,18 @@ export function MarketplaceAccountMenu() {
             anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
           >
             <Avatar
-              src={user.photoURL || user.avatar_url || undefined}
+              src={avatarSrc}
+              alt={displayName}
+              slotProps={{
+                img: {
+                  loading: 'eager',
+                  fetchPriority: 'high',
+                  referrerPolicy: 'no-referrer',
+                  onError: () => {
+                    if (avatarUrl && isGoogleAvatar) setFailedAvatar(avatarUrl);
+                  },
+                },
+              }}
               sx={{
                 width: { xs: 34, sm: 38 },
                 height: { xs: 34, sm: 38 },

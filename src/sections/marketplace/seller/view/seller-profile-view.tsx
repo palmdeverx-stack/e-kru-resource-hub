@@ -249,11 +249,11 @@ export function MarketplaceSellerProfileView() {
       >
         <Box
           sx={{
-            height: { xs: 150, sm: 190, md: 250 },
+            aspectRatio: '16 / 6',
             position: 'relative',
             bgcolor: '#0A4D68',
             backgroundImage: seller.cover_url
-              ? `linear-gradient(180deg, rgba(3,31,48,0.08), rgba(3,31,48,0.52)), url(${seller.cover_url})`
+              ? `url(${JSON.stringify(seller.cover_url)})`
               : 'linear-gradient(125deg, #0A4D68 0%, #147E96 55%, #45B7B8 100%)',
             backgroundSize: 'cover',
             backgroundPosition: 'center',

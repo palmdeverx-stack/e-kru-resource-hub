@@ -3,7 +3,7 @@
 import type { MarketplaceProduct } from '../../shared/types';
 
 import Image from 'next/image';
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { useMemo, useState, useDeferredValue } from 'react';
 
 import Box from '@mui/material/Box';
@@ -76,6 +76,9 @@ const copy = {
     filters: 'ค้นหาและเลือกสินค้า',
     showing: 'แสดง {{shown}} จาก {{total}} รายการ',
     loadError: 'โหลดรายการไม่สำเร็จ กรุณาลองอีกครั้ง',
+    loadedOnly: 'ตัวกรองใช้กับสินค้าที่โหลดแล้ว โหลดเพิ่มเติมเพื่อดูรายการอื่น',
+    loadMore: 'โหลดสินค้าเพิ่มเติม',
+    loadingMore: 'กำลังโหลด...',
   },
   en: {
     eyebrow: 'MADE BY E-KRU',
@@ -103,6 +106,9 @@ const copy = {
     filters: 'Find your products',
     showing: 'Showing {{shown}} of {{total}} products',
     loadError: 'Resources and tools could not be loaded right now.',
+    loadedOnly: 'Filters apply to loaded products. Load more to explore other items.',
+    loadMore: 'Load more products',
+    loadingMore: 'Loading...',
   },
 } as const;
 
@@ -138,15 +144,24 @@ export function OfficialProductsView() {
   const text = copy[language];
   const { user } = useAuthContext();
   const {
-    data: products = [],
+    data,
     isPending: loading,
     isError: loadError,
     refetch,
-  } = useQuery({
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isFetchNextPageError,
+  } = useInfiniteQuery({
     queryKey: ['official-products', user?.id ?? 'guest', user?.role ?? 'guest'],
-    queryFn: async () => (await getProducts({ official: true, page: 1, limit: 48 })).products,
+    initialPageParam: 1,
+    queryFn: ({ pageParam, signal }) =>
+      getProducts({ official: true, page: pageParam, limit: 48 }, { signal }),
+    getNextPageParam: (lastPage) =>
+      lastPage.hasMore ? (lastPage.nextPage ?? undefined) : undefined,
     staleTime: 60_000,
   });
+  const products = useMemo(() => data?.pages.flatMap((result) => result.products) ?? [], [data]);
   const [category, setCategory] = useState('all');
   const [audience, setAudience] = useState<Audience>('all');
   const [search, setSearch] = useState('');
@@ -383,6 +398,8 @@ export function OfficialProductsView() {
               borderRadius: 2,
               width: { xs: 1, md: 270 },
               flexShrink: 0,
+              minWidth: 0,
+              maxWidth: 1,
               position: { md: 'sticky' },
               top: { md: 96 },
             }}
@@ -515,13 +532,15 @@ export function OfficialProductsView() {
                             bgcolor: category === item ? 'primary.lighter' : 'background.paper',
                             color: category === item ? 'primary.dark' : 'text.secondary',
                             '& .MuiChip-icon': { color: 'inherit', ml: 1.25 },
+                            height: 'auto',
+                            minWidth: 0,
                             '& .MuiChip-label': {
                               whiteSpace: 'normal',
+                              overflowWrap: 'anywhere',
                               py: 0.75,
                               fontSize: 13,
                               lineHeight: 1.6,
                             },
-                            height: 'auto',
                           }}
                         />
                       );
@@ -575,7 +594,7 @@ export function OfficialProductsView() {
                   </Grid>
                 ))}
               </Grid>
-            ) : loadError ? (
+            ) : loadError && !products.length ? (
               <Paper variant="outlined" sx={{ p: 5, textAlign: 'center' }}>
                 <Typography color="error.main">{text.loadError}</Typography>
                 <Button
@@ -623,6 +642,27 @@ export function OfficialProductsView() {
               <Button variant="outlined" onClick={() => setDisplayLimit((value) => value + 12)}>
                 {language === 'en' ? 'Show more products' : 'แสดงสินค้าเพิ่มเติม'}
               </Button>
+            )}
+
+            {hasNextPage && (
+              <Stack spacing={1} alignItems="center">
+                <Typography variant="caption" color="text.secondary" textAlign="center">
+                  {text.loadedOnly}
+                </Typography>
+                {isFetchNextPageError && (
+                  <Typography role="alert" variant="body2" color="error.main">
+                    {text.loadError}
+                  </Typography>
+                )}
+                <Button
+                  variant="outlined"
+                  disabled={isFetchingNextPage}
+                  onClick={() => { void fetchNextPage(); }}
+                  sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}
+                >
+                  {isFetchingNextPage ? text.loadingMore : isFetchNextPageError ? text.retry : text.loadMore}
+                </Button>
+              </Stack>
             )}
 
             {!loading && !loadError && visibleProducts.length > 0 && (

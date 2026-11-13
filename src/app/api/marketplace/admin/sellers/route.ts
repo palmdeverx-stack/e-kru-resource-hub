@@ -13,6 +13,24 @@ export async function GET(request: Request) {
 
   const requestedStatus = new URL(request.url).searchParams.get('status') ?? 'pending';
   const searchParams = new URL(request.url).searchParams;
+  // Header badge needs only a count, not seller profiles or all status totals.
+  if (searchParams.get('notification') === '1') {
+    const seenAt = Number(searchParams.get('seenAt') ?? 0);
+    let query = supabaseAdmin
+      .from('marketplace_sellers')
+      .select('id', { count: 'exact', head: true })
+      .neq('owner_role', 'master_admin')
+      .or('status.eq.pending,profile_review_status.eq.pending');
+    if (Number.isFinite(seenAt) && seenAt > 0 && seenAt <= 8_640_000_000_000_000) {
+      const since = new Date(seenAt).toISOString();
+      query = query.or(`submitted_at.gt.${since},profile_submitted_at.gt.${since}`);
+    }
+    const { count, error } = await query;
+    if (error) return NextResponse.json({ message: error.message }, { status: 500 });
+    return NextResponse.json({ unreadCount: count ?? 0 }, {
+      headers: { 'Cache-Control': 'private, no-store' },
+    });
+  }
   const status: SellerStatus = allowedStatuses.includes(requestedStatus as SellerStatus)
     ? (requestedStatus as SellerStatus)
     : 'pending';

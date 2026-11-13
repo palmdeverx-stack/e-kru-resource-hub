@@ -293,7 +293,7 @@ export function MarketplaceSellerApprovalDetailView({
             component="img"
             src={seller.cover_url}
             alt={`ภาพปกร้าน ${seller.display_name}`}
-            sx={{ width: '100%', height: { xs: 150, md: 220 }, objectFit: 'cover' }}
+            sx={{ width: '100%', aspectRatio: '16 / 6', display: 'block', objectFit: 'cover' }}
           />
         )}
         <Stack
@@ -305,13 +305,13 @@ export function MarketplaceSellerApprovalDetailView({
           <Avatar
             src={seller.logo_url ?? undefined}
             variant="rounded"
-            sx={{ width: 88, height: 88 }}
+            sx={{ width: 88, height: 88, flexShrink: 0 }}
           >
             <RiStore2Line size={40} />
           </Avatar>
-          <Box sx={{ flexGrow: 1 }}>
+          <Box sx={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere' }}>
             <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-              <Typography component="h1" variant="h3">
+              <Typography component="h1" variant="h3" sx={{ minWidth: 0, overflowWrap: 'anywhere' }}>
                 {seller.display_name}
               </Typography>
               <SellerStatusChip status={seller.status} />
@@ -331,6 +331,13 @@ export function MarketplaceSellerApprovalDetailView({
               rel="noopener noreferrer"
               variant="outlined"
               startIcon={<RiExternalLinkLine />}
+              sx={{
+                flexShrink: 0,
+                whiteSpace: 'nowrap',
+                alignSelf: { xs: 'flex-start', md: 'center' },
+                minHeight: 40,
+                px: 2,
+              }}
             >
               ดูหน้าร้าน
             </Button>

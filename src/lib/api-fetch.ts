@@ -95,6 +95,17 @@ export async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Pr
 
   if (method !== 'GET') {
     const response = await fetch(input, init);
+    // Read receipts affect notification queries only. The menu invalidates its own
+    // observer; unrelated purchase, finance and form queries must keep running.
+    const isNotificationReceipt = url.pathname.replace(/\/$/, '') === '/api/notifications/mark-read';
+    if (response.ok && isNotificationReceipt) {
+      getQueryClient().removeQueries({
+        predicate: (query) => query.queryKey[0] === API_QUERY_KEY &&
+          typeof query.queryKey[3] === 'string' &&
+          new URL(query.queryKey[3]).pathname.replace(/\/$/, '') === '/api/notifications',
+      });
+      return response;
+    }
     const isPreview = url.searchParams.get('preview') === '1';
     const isTelemetry = /\/(?:view|views|track|tracking|click|consent)$/.test(url.pathname);
     if (response.ok && method !== 'HEAD' && method !== 'OPTIONS' && !isPreview && !isTelemetry)

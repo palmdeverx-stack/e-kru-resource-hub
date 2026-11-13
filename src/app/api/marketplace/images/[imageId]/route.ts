@@ -13,7 +13,7 @@ export async function GET(request: Request, { params }: Context) {
   const { imageId } = await params;
   const { data: image, error: imageError } = await supabaseAdmin
     .from('marketplace_product_images')
-    .select('id, product_id, storage_bucket, storage_path, mime_type')
+    .select('id, product_id, storage_bucket, storage_path, mime_type, product:marketplace_products!inner(id, status, seller:marketplace_sellers!inner(owner_id))')
     .eq('id', imageId)
     .maybeSingle();
 
@@ -24,15 +24,7 @@ export async function GET(request: Request, { params }: Context) {
     return NextResponse.json({ message: 'ไม่พบรูปภาพ' }, { status: 404 });
   }
 
-  const { data: product, error: productError } = await supabaseAdmin
-    .from('marketplace_products')
-    .select('id, status, seller:marketplace_sellers!inner(owner_id)')
-    .eq('id', image.product_id)
-    .maybeSingle();
-
-  if (productError) {
-    return NextResponse.json({ message: productError.message }, { status: 500 });
-  }
+  const product = Array.isArray(image.product) ? image.product[0] : image.product;
   if (!product) {
     return NextResponse.json({ message: 'ไม่พบรูปภาพ' }, { status: 404 });
   }

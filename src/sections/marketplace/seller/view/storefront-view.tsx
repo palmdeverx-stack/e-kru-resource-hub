@@ -11,13 +11,15 @@ import Chip from '@mui/material/Chip';
 import Alert from '@mui/material/Alert';
 import Stack from '@mui/material/Stack';
 import Avatar from '@mui/material/Avatar';
-import Rating from '@mui/material/Rating';
 import Button from '@mui/material/Button';
+import Tooltip from '@mui/material/Tooltip';
 import Divider from '@mui/material/Divider';
 import Container from '@mui/material/Container';
 import { useTheme } from '@mui/material/styles';
+import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
+import ClickAwayListener from '@mui/material/ClickAwayListener';
 
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
@@ -28,6 +30,7 @@ import { apiFetch as fetch } from 'src/lib/api-fetch';
 
 import {
   RiStore2Line,
+  RiArrowLeftLine,
   RiShieldStarFill,
   RiShoppingBag3Line,
   RiVerifiedBadgeFill,
@@ -38,8 +41,8 @@ import { useAuthContext } from 'src/auth/hooks';
 import { hasAnalyticsConsent } from '../../legal/cookie-consent';
 import { MarketplaceProductCard } from '../../shared/product-card';
 import { MarketplaceSellerBadges } from '../../shared/seller-badges';
+import { isSystemMarketplaceSeller } from '../../shared/seller-completion';
 import { MarketplaceProductDetailDialog } from '../../catalog/components/product-detail-dialog';
-import { isSellerProfileVerified, isSystemMarketplaceSeller } from '../../shared/seller-completion';
 
 type Props = {
   slug: string;
@@ -57,6 +60,7 @@ export function MarketplaceStorefrontView({ slug, dashboardMode = false }: Props
   const [selectedProduct, setSelectedProduct] = useState<MarketplaceProduct | null>(null);
   const [category, setCategory] = useState('all');
   const [error, setError] = useState(false);
+  const [verificationOpen, setVerificationOpen] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -104,13 +108,6 @@ export function MarketplaceStorefrontView({ slug, dashboardMode = false }: Props
     (total, product) => total + (product.engagement?.reviewCount ?? 0),
     0
   );
-  const averageRating = totalReviews
-    ? products.reduce(
-        (total, product) =>
-          total + (product.engagement?.averageRating ?? 0) * (product.engagement?.reviewCount ?? 0),
-        0
-      ) / totalReviews
-    : 0;
 
   if (error) {
     return (
@@ -141,6 +138,17 @@ export function MarketplaceStorefrontView({ slug, dashboardMode = false }: Props
       maxWidth={dashboardMode ? false : 'lg'}
       sx={{ py: { xs: 3, md: dashboardMode ? 3 : 7 } }}
     >
+      {!dashboardMode && (
+        <Button
+          component={RouterLink}
+          href={paths.marketplace.stores}
+          startIcon={<RiArrowLeftLine />}
+          color="inherit"
+          sx={{ mb: 2, whiteSpace: 'nowrap' }}
+        >
+          {t('storefront.backToStores')}
+        </Button>
+      )}
       <Card
         variant="outlined"
         sx={{
@@ -150,141 +158,24 @@ export function MarketplaceStorefrontView({ slug, dashboardMode = false }: Props
           bgcolor: 'background.paper',
         }}
       >
-        <Grid container spacing={{ xs: 4, lg: 7 }} alignItems="stretch">
-          <Grid size={{ xs: 12, lg: 6 }}>
-            <Stack sx={{ height: 1 }} justifyContent="center" alignItems="flex-start">
-              <Stack
-                direction="row"
-                spacing={2}
-                alignItems="center"
-                flexWrap="wrap"
-                useFlexGap
-                sx={{ mb: 2.5 }}
-              >
-                <Avatar
-                  src={seller.logo_url ?? undefined}
-                  alt={storeName}
-                  sx={{
-                    width: { xs: 72, md: 88 },
-                    height: { xs: 72, md: 88 },
-                    bgcolor: 'primary.lighter',
-                    color: 'primary.main',
-                    border: '1px solid',
-                    borderColor: 'divider',
-                  }}
-                >
-                  <RiStore2Line size={38} />
-                </Avatar>
-              </Stack>
-
-              <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                <Typography component="h1" variant="h3">
-                  {storeName}
-                </Typography>
-                {isSellerProfileVerified(seller.profile_completion) && (
-                  <RiVerifiedBadgeFill
-                    size={26}
-                    color={theme.palette.primary.main}
-                    aria-label={t('storefront.verifiedProfile')}
-                  />
-                )}
-                {isSystemMarketplaceSeller(seller) && (
-                  <RiShieldStarFill
-                    size={26}
-                    color={theme.palette.primary.main}
-                    aria-label={t('storefront.systemStore')}
-                  />
-                )}
-              </Stack>
-
-              {user?.role === 'master_admin' && isSystemMarketplaceSeller(seller) && (
-                <Button
-                  component={RouterLink}
-                  href={`${paths.marketplace.sellerProfileEdit}?sellerId=${encodeURIComponent(seller.id)}`}
-                  variant="outlined"
-                  sx={{ mt: 2, alignSelf: 'flex-start' }}
-                >
-                  {t('storefront.editStore')}
-                </Button>
-              )}
-
-              {alternateStoreName && alternateStoreName !== storeName && (
-                <Typography variant="h6" color="text.secondary" sx={{ mt: 0.5 }}>
-                  {alternateStoreName}
-                </Typography>
-              )}
-
-              <Typography
-                variant="h5"
-                sx={{ mt: 2.5, maxWidth: 620, lineHeight: 1.35, whiteSpace: 'pre-line' }}
-              >
-                {seller.bio || t('storefront.defaultBio')}
-              </Typography>
-
-              <Stack
-                direction="row"
-                spacing={{ xs: 2.5, md: 4 }}
-                sx={{ mt: 3, color: 'text.secondary' }}
-              >
-                <Box>
-                  <Typography variant="h6" color="text.primary">
-                    {products.length.toLocaleString(numberLocale)}
-                  </Typography>
-                  <Typography variant="body2">{t('storefront.stats.products')}</Typography>
-                </Box>
-                <Box>
-                  <Typography variant="h6" color="text.primary">
-                    {totalReviews.toLocaleString(numberLocale)}
-                  </Typography>
-                  <Typography variant="body2">{t('storefront.stats.reviews')}</Typography>
-                </Box>
-                <Box>
-                  <Stack direction="row" spacing={0.75} alignItems="center">
-                    <Typography variant="h6" color="text.primary">
-                      {averageRating ? averageRating.toFixed(1) : t('storefront.stats.new')}
-                    </Typography>
-                    {!!averageRating && <Rating size="small" value={averageRating} readOnly />}
-                  </Stack>
-                  <Typography variant="body2">{t('storefront.stats.rating')}</Typography>
-                </Box>
-              </Stack>
-
-              <Stack direction="row" alignItems="center" spacing={1.25} sx={{ mt: 3.5 }}>
-                <MarketplaceSellerBadges badges={seller.badges} limit={3} variant="seal" />
-
-                <Chip
-                  icon={<RiVerifiedBadgeFill />}
-                  color="primary"
-                  variant="soft"
-                  size="medium"
-                  label={t('storefront.verifiedStore')}
-                />
-                <Chip
-                  variant="outlined"
-                  label={t(`stores.sellerTypes.${seller.seller_type}`, {
-                    defaultValue: t('stores.sellerTypes.seller'),
-                  })}
-                />
-              </Stack>
-            </Stack>
-          </Grid>
-
-          <Grid size={{ xs: 12, lg: 6 }}>
-            <Box
-              sx={{
-                height: 1,
-                minHeight: { xs: 240, md: 360 },
-                position: 'relative',
-                overflow: 'hidden',
-                borderRadius: 3,
-                bgcolor: 'primary.darker',
-                backgroundImage: seller.cover_url
-                  ? `linear-gradient(90deg, rgba(1,35,40,0.2), rgba(1,35,40,0.02)), url(${seller.cover_url})`
-                  : brandColors.featureBackground,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-              }}
-            >
+        <Box
+          sx={{
+            width: 1,
+            aspectRatio: '16 / 4',
+            mb: 0,
+            position: 'relative',
+            overflow: 'hidden',
+            borderRadius: 3,
+            bgcolor: 'primary.darker',
+            backgroundImage: seller.cover_url
+              ? `url(${JSON.stringify(seller.cover_url)})`
+              : brandColors.featureBackground,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          }}
+        >
+          {!seller.cover_url && (
+            <>
               <Box
                 sx={{
                   inset: 0,
@@ -309,7 +200,168 @@ export function MarketplaceStorefrontView({ slug, dashboardMode = false }: Props
                   {t('storefront.banner.description')}
                 </Typography>
               </Stack>
-            </Box>
+            </>
+          )}
+        </Box>
+
+        <Grid container spacing={{ xs: 4, lg: 7 }} alignItems="stretch">
+          <Grid size={{ xs: 12 }}>
+            <Stack
+              sx={{ height: 1, px: { xs: 0, md: 1 } }}
+              justifyContent="center"
+              alignItems="flex-start"
+            >
+              <Stack
+                direction="row"
+                spacing={2}
+                alignItems="center"
+                flexWrap="wrap"
+                useFlexGap
+                sx={{
+                  mb: 2,
+                  mt: { xs: '-36px', md: '-44px' },
+                  ml: { xs: 2, md: 3 },
+                  position: 'relative',
+                  zIndex: 1,
+                }}
+              >
+                <Avatar
+                  src={seller.logo_url ?? undefined}
+                  alt={storeName}
+                  sx={{
+                    width: { xs: 72, md: 88 },
+                    height: { xs: 72, md: 88 },
+                    bgcolor: 'primary.lighter',
+                    color: 'primary.main',
+                    border: '4px solid',
+                    borderColor: 'background.paper',
+                    boxShadow: 2,
+                    flexShrink: 0,
+                  }}
+                >
+                  <RiStore2Line size={38} />
+                </Avatar>
+              </Stack>
+
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) 320px' },
+                  gap: { xs: 3, md: 4 },
+                  width: 1,
+                  alignItems: 'start',
+                }}
+              >
+                <Box sx={{ minWidth: 0 }}>
+                  <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                    <Typography
+                      component="h1"
+                      variant="h3"
+                      sx={{ fontSize: { xs: 26, md: 34 }, overflowWrap: 'anywhere' }}
+                    >
+                      {storeName}
+                    </Typography>
+                    <ClickAwayListener onClickAway={() => setVerificationOpen(false)}>
+                      <Tooltip
+                        title={t('storefront.verifiedStore')}
+                        arrow
+                        open={verificationOpen}
+                        onOpen={() => setVerificationOpen(true)}
+                        onClose={() => setVerificationOpen(false)}
+                        disableTouchListener
+                      >
+                        <IconButton
+                          size="small"
+                          aria-label={t('storefront.verifiedStore')}
+                          onClick={() => setVerificationOpen(true)}
+                          sx={{ color: 'primary.main', flexShrink: 0 }}
+                        >
+                          <RiVerifiedBadgeFill size={24} />
+                        </IconButton>
+                      </Tooltip>
+                    </ClickAwayListener>
+                    {isSystemMarketplaceSeller(seller) && (
+                      <RiShieldStarFill
+                        size={26}
+                        color={theme.palette.primary.main}
+                        aria-label={t('storefront.systemStore')}
+                      />
+                    )}
+                  </Stack>
+
+                  {user?.role === 'master_admin' && isSystemMarketplaceSeller(seller) && (
+                    <Button
+                      component={RouterLink}
+                      href={`${paths.marketplace.sellerProfileEdit}?sellerId=${encodeURIComponent(seller.id)}`}
+                      variant="outlined"
+                      sx={{ mt: 2, alignSelf: 'flex-start' }}
+                    >
+                      {t('storefront.editStore')}
+                    </Button>
+                  )}
+
+                  {alternateStoreName && alternateStoreName !== storeName && (
+                    <Typography variant="body1" color="text.secondary" sx={{ mt: 0.5 }}>
+                      {alternateStoreName}
+                    </Typography>
+                  )}
+
+                  <Typography
+                    variant="body1"
+                    color="text.secondary"
+                    sx={{
+                      mt: 1.5,
+                      maxWidth: 760,
+                      lineHeight: 1.8,
+                      whiteSpace: 'pre-line',
+                      overflowWrap: 'anywhere',
+                    }}
+                  >
+                    {seller.bio || t('storefront.defaultBio')}
+                  </Typography>
+
+
+                </Box>
+                <Box sx={{ minWidth: 0, pt: { md: 0.5 } }}>
+                  <Stack
+                    direction="row"
+                    spacing={0}
+                    sx={{
+                      width: 1,
+                      color: 'text.secondary',
+                      bgcolor: 'background.neutral',
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      borderRadius: 2,
+                      p: 2,
+                      '& > .MuiBox-root': { flex: 1, minWidth: 0, px: 1, textAlign: 'center' },
+                      '& > .MuiBox-root + .MuiBox-root': {
+                        borderLeft: '1px solid',
+                        borderColor: 'divider',
+                      },
+                    }}
+                  >
+                    <Box>
+                      <Typography variant="h6" color="text.primary">
+                        {products.length.toLocaleString(numberLocale)}
+                      </Typography>
+                      <Typography variant="body2">{t('storefront.stats.products')}</Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="h6" color="text.primary">
+                        {totalReviews.toLocaleString(numberLocale)}
+                      </Typography>
+                      <Typography variant="body2">{t('storefront.stats.reviews')}</Typography>
+                    </Box>
+                    {!!seller.badges?.length && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <MarketplaceSellerBadges badges={seller.badges} limit={1} variant="seal" />
+                      </Box>
+                    )}
+                  </Stack>
+                </Box>
+              </Box>
+            </Stack>
           </Grid>
         </Grid>
       </Card>

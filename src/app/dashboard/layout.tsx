@@ -435,6 +435,7 @@ export default function Layout({ children }: Props) {
     canUseSellerLine = false,
   } = menuFlags.data ?? {};
   const [sellerApprovalNotificationCount, setSellerApprovalNotificationCount] = useState(0);
+  const approvalsOpen = pathname.startsWith(SELLER_APPROVALS_PATH);
 
   useEffect(() => {
     if (!user?.id || !isMarketplaceAdmin(user.role)) {
@@ -443,7 +444,6 @@ export default function Layout({ children }: Props) {
     }
 
     const storageKey = `${SELLER_APPROVALS_SEEN_AT_KEY}:${user.id}`;
-    const approvalsOpen = pathname.startsWith(SELLER_APPROVALS_PATH);
     if (approvalsOpen) {
       window.localStorage.setItem(storageKey, String(Date.now()));
       setSellerApprovalNotificationCount(0);
@@ -454,25 +454,14 @@ export default function Layout({ children }: Props) {
 
     const loadPendingSellerApprovals = async () => {
       try {
+        const seenAt = Number(window.localStorage.getItem(storageKey) ?? 0);
         const response = await fetch(
-          '/api/marketplace/admin/sellers?status=pending&page=1&pageSize=50',
+          `/api/marketplace/admin/sellers?notification=1&seenAt=${Number.isFinite(seenAt) ? seenAt : 0}`,
           { cache: 'no-store', signal: controller.signal }
         );
         if (!response.ok) return;
-        const result = (await response.json()) as {
-          sellers?: Array<{ submitted_at?: string | null }>;
-          pagination?: { total?: number };
-        };
-
-        const seenAt = Number(window.localStorage.getItem(storageKey) ?? 0);
-        const sellers = result.sellers ?? [];
-        const unreadCount = seenAt
-          ? sellers.filter((seller) => {
-              const submittedAt = seller.submitted_at ? new Date(seller.submitted_at).getTime() : 0;
-              return submittedAt > seenAt;
-            }).length
-          : Number(result.pagination?.total ?? sellers.length);
-        setSellerApprovalNotificationCount(unreadCount);
+        const result = (await response.json()) as { unreadCount?: number };
+        setSellerApprovalNotificationCount(Number(result.unreadCount ?? 0));
       } catch (loadError) {
         if ((loadError as Error).name !== 'AbortError') {
           setSellerApprovalNotificationCount(0);
@@ -489,7 +478,7 @@ export default function Layout({ children }: Props) {
       window.clearInterval(intervalId);
       window.removeEventListener('focus', loadPendingSellerApprovals);
     };
-  }, [pathname, user?.id, user?.role]);
+  }, [approvalsOpen, user?.id, user?.role]);
 
   const roleFilteredAdminNavigation =
     user?.role === 'marketplace_admin'
