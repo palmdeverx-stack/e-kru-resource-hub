@@ -6,6 +6,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState, useDeferredValue } from 'react';
 
 import Box from '@mui/material/Box';
+import Tab from '@mui/material/Tab';
+import Tabs from '@mui/material/Tabs';
 import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
 import Grid from '@mui/material/Grid';
@@ -13,7 +15,6 @@ import Alert from '@mui/material/Alert';
 import Stack from '@mui/material/Stack';
 import Avatar from '@mui/material/Avatar';
 import Button from '@mui/material/Button';
-import Divider from '@mui/material/Divider';
 import Container from '@mui/material/Container';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
@@ -21,7 +22,6 @@ import InputAdornment from '@mui/material/InputAdornment';
 import CircularProgress from '@mui/material/CircularProgress';
 
 import { paths } from 'src/routes/paths';
-import { useRouter } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 
 import { useTranslate } from 'src/locales';
@@ -52,7 +52,6 @@ const purchaseDateFormatter = new Intl.DateTimeFormat('th-TH', {
 type PurchaseFilter = 'all' | 'ready' | 'pending' | 'closed';
 
 export function MarketplacePurchasesView() {
-  const router = useRouter();
   const { currentLang } = useTranslate();
   const isEnglish = currentLang.value === 'en';
   const { user } = useAuthContext();
@@ -70,6 +69,7 @@ export function MarketplacePurchasesView() {
   const orders = data?.orders ?? EMPTY_ORDERS;
   const error = loadError?.message ?? '';
   const [query, setQuery] = useState('');
+  const [activeTab, setActiveTab] = useState<'orders' | 'items'>('orders');
   const [activeFilter, setActiveFilter] = useState<PurchaseFilter>('all');
 
   const { indexedOrders, paidCount, pendingCount, closedCount, paidTotal } = useMemo(() => {
@@ -128,6 +128,29 @@ export function MarketplacePurchasesView() {
         })
         .map((entry) => entry.order),
     [activeFilter, normalizedQuery, indexedOrders]
+  );
+
+  const purchasedItems = useMemo(
+    () =>
+      orders
+        .filter((order) => ['paid', 'completed'].includes(order.status))
+        .flatMap((order) => (order.items ?? []).map((item) => ({ order, item })))
+        .filter(
+          ({ order, item }) =>
+            !normalizedQuery ||
+            [
+              item.title,
+              item.product?.title,
+              item.product?.title_en,
+              order.seller?.display_name,
+              order.id,
+            ]
+              .filter(Boolean)
+              .join(' ')
+              .toLocaleLowerCase()
+              .includes(normalizedQuery)
+        ),
+    [orders, normalizedQuery]
   );
 
   const filters: Array<{ value: PurchaseFilter; label: string; count: number }> = [
@@ -222,6 +245,16 @@ export function MarketplacePurchasesView() {
           {error}
         </Alert>
       )}
+
+      <Tabs
+        value={activeTab}
+        onChange={(_, value) => setActiveTab(value)}
+        aria-label="มุมมองรายการซื้อ"
+        sx={{ mb: 2 }}
+      >
+        <Tab value="orders" label="คำสั่งซื้อ" />
+        <Tab value="items" label="สินค้าที่ซื้อ" />
+      </Tabs>
 
       {!loading && orders.length > 0 && (
         <Grid container spacing={{ xs: 1.25, sm: 2 }} sx={{ mb: { xs: 2, md: 3 } }}>
@@ -338,24 +371,25 @@ export function MarketplacePurchasesView() {
                 '&::-webkit-scrollbar': { display: 'none' },
               }}
             >
-              {filters.map((filter) => {
-                const selected = activeFilter === filter.value;
-                return (
-                  <Button
-                    key={filter.value}
-                    size="small"
-                    variant={selected ? 'contained' : 'soft'}
-                    color={selected ? 'primary' : 'inherit'}
-                    onClick={() => setActiveFilter(filter.value)}
-                    sx={{ flexShrink: 0, whiteSpace: 'nowrap' }}
-                  >
-                    {filter.label}
-                    <Box component="span" sx={{ ml: 0.75, opacity: 0.72 }}>
-                      {filter.count}
-                    </Box>
-                  </Button>
-                );
-              })}
+              {activeTab === 'orders' &&
+                filters.map((filter) => {
+                  const selected = activeFilter === filter.value;
+                  return (
+                    <Button
+                      key={filter.value}
+                      size="small"
+                      variant={selected ? 'contained' : 'soft'}
+                      color={selected ? 'primary' : 'inherit'}
+                      onClick={() => setActiveFilter(filter.value)}
+                      sx={{ flexShrink: 0, whiteSpace: 'nowrap' }}
+                    >
+                      {filter.label}
+                      <Box component="span" sx={{ ml: 0.75, opacity: 0.72 }}>
+                        {filter.count}
+                      </Box>
+                    </Button>
+                  );
+                })}
             </Stack>
           </Stack>
         </Card>
@@ -365,222 +399,176 @@ export function MarketplacePurchasesView() {
         <Box sx={{ py: 10, textAlign: 'center' }}>
           <CircularProgress />
         </Box>
-      ) : filteredOrders.length ? (
-        <Grid container spacing={{ xs: 1.5, sm: 2.5, lg: 3 }}>
-          {filteredOrders.map((order) => {
-            const firstItem = order.items?.[0];
-            const product = firstItem?.product;
-            const cover =
-              product?.images?.find((image) => image.is_cover)?.url ??
-              product?.images?.[0]?.url ??
-              product?.cover_url ??
-              null;
-            const moreItems = Math.max(0, (order.items?.length ?? 0) - 1);
-            const needsPayment = Boolean(
-              order.payment_session_id &&
-              ['pending_payment', 'payment_review', 'payment_rejected'].includes(order.status)
-            );
-            const isReady = ['paid', 'completed'].includes(order.status);
-            const detailHref = paths.marketplace.purchase(order.id);
-
-            return (
-              <Grid key={order.id} size={{ xs: 12, md: 6, lg: 4, xl: 3 }}>
-                <Card
-                  variant="outlined"
-                  sx={{
-                    height: 1,
-                    display: 'flex',
-                    overflow: 'hidden',
-                    borderRadius: { xs: 2.5, md: 3 },
-                    flexDirection: 'column',
-                    transition: 'transform 160ms ease, box-shadow 160ms ease',
-                    '&:hover': { transform: 'translateY(-3px)', boxShadow: 5 },
-                  }}
-                >
-                  <Box
-                    role="link"
-                    tabIndex={0}
-                    aria-label={`ดูรายละเอียดคำสั่งซื้อ ${order.id.slice(0, 8).toUpperCase()}`}
-                    onClick={() => router.push(detailHref)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        router.push(detailHref);
-                      }
-                    }}
-                    sx={{
-                      flexGrow: 1,
-                      cursor: 'pointer',
-                      '&:focus-visible': {
-                        outline: '3px solid',
-                        outlineColor: 'primary.main',
-                        outlineOffset: -3,
-                      },
-                    }}
+      ) : activeTab === 'items' ? (
+        purchasedItems.length ? (
+          <Grid container spacing={2}>
+            {purchasedItems.map(({ order, item }) => {
+              const product = item.product;
+              const cover =
+                product?.images?.find((image) => image.is_cover)?.url ||
+                product?.images?.[0]?.url ||
+                product?.cover_url;
+              const title =
+                (isEnglish && product?.title_en) || item.title || product?.title || 'รายการสินค้า';
+              const detailHref = paths.marketplace.purchase(order.id);
+              return (
+                <Grid key={`${order.id}-${item.id}`} size={{ xs: 12, sm: 6, lg: 4, xl: 3 }}>
+                  <Card
+                    variant="outlined"
+                    sx={{ height: 1, display: 'flex', flexDirection: 'column', borderRadius: 2.5 }}
                   >
                     <Box
+                      component={RouterLink}
+                      href={detailHref}
                       sx={{
-                        aspectRatio: { xs: '16 / 8', sm: '16 / 10' },
+                        height: 140,
                         bgcolor: 'background.neutral',
                         display: 'grid',
                         placeItems: 'center',
-                        position: 'relative',
+                        overflow: 'hidden',
                       }}
                     >
                       {cover ? (
                         <Box
                           component="img"
                           src={cover}
-                          alt=""
+                          alt={title}
                           loading="lazy"
-                          decoding="async"
-                          sx={{
-                            position: 'absolute',
-                            inset: 0,
-                            width: 1,
-                            height: 1,
-                            objectFit: 'cover',
-                          }}
+                          sx={{ width: 1, height: 1, objectFit: 'cover' }}
                         />
                       ) : (
-                        <RiShoppingBag3Line size={52} />
+                        <RiShoppingBag3Line size={40} />
                       )}
-                      <Box sx={{ position: 'absolute', top: 12, right: 12 }}>
-                        <OrderStatusChip status={order.status} />
-                      </Box>
-                      {moreItems > 0 && (
-                        <Chip
+                    </Box>
+                    <Stack spacing={1} sx={{ p: 1.75, flex: 1 }}>
+                      <Typography variant="subtitle1" sx={{ overflowWrap: 'anywhere' }}>
+                        {title}
+                      </Typography>
+                      <MarketplaceSellerLink seller={order.seller} avatarSize={24} />
+                      <Typography variant="caption" color="text.secondary">
+                        คำสั่งซื้อ #{order.id.slice(0, 8).toUpperCase()} · จำนวน{' '}
+                        {item.quantity ?? '—'}
+                      </Typography>
+                      <Typography variant="subtitle1" color="primary.main">
+                        {item.unit_price != null && item.quantity != null
+                          ? formatPrice(
+                              Number(item.unit_price) * Number(item.quantity),
+                              order.currency
+                            )
+                          : '—'}
+                      </Typography>
+                    </Stack>
+                    <Stack spacing={1} sx={{ p: 1.25 }}>
+                      <Button
+                        component={RouterLink}
+                        href={detailHref}
+                        size="small"
+                        variant="outlined"
+                        startIcon={<RiEyeLine />}
+                      >
+                        ดูรายละเอียด
+                      </Button>
+                      {product?.resource_type === 'feature_unlock' ? (
+                        <PurchasedAppButton product={product} fullWidth />
+                      ) : (
+                        <Button
+                          component={RouterLink}
+                          href={detailHref}
                           size="small"
-                          label={`+${moreItems} สินค้า`}
-                          sx={{
-                            position: 'absolute',
-                            right: 12,
-                            bottom: 12,
-                            color: 'common.white',
-                            bgcolor: 'rgba(0,0,0,0.68)',
-                          }}
-                        />
-                      )}
-                    </Box>
-                    <Box sx={{ p: { xs: 2, sm: 2.5 } }}>
-                      <Typography
-                        variant="h6"
-                        sx={{
-                          minHeight: { xs: 0, sm: 56 },
-                          display: '-webkit-box',
-                          overflow: 'hidden',
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: 'vertical',
-                        }}
-                      >
-                        {(isEnglish && product?.title_en) ||
-                          product?.title ||
-                          firstItem?.title ||
-                          'รายการสินค้า'}
-                      </Typography>
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{
-                          mt: 0.5,
-                          minHeight: { xs: 0, sm: 40 },
-                          display: '-webkit-box',
-                          overflow: 'hidden',
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: 'vertical',
-                        }}
-                      >
-                        {(isEnglish && product?.short_description_en) ||
-                          product?.short_description ||
-                          `${order.items?.length ?? 0} รายการจาก ${order.seller?.display_name ?? 'ร้านค้า eKru'}`}
-                      </Typography>
-                      <Box
-                        sx={{ mt: 2, width: 'fit-content' }}
-                        onClick={(event) => event.stopPropagation()}
-                        onKeyDown={(event) => event.stopPropagation()}
-                      >
-                        <MarketplaceSellerLink
-                          seller={order.seller}
-                          avatarSize={28}
-                          fallbackName="ร้านค้า eKru"
-                        />
-                      </Box>
-                      <Divider sx={{ my: 2 }} />
-                      <Stack
-                        direction="row"
-                        justifyContent="space-between"
-                        alignItems="flex-end"
-                        spacing={1.5}
-                      >
-                        <Box>
-                          <Typography variant="caption" color="text.secondary">
-                            เลขที่ #{order.id.slice(0, 8).toUpperCase()}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary" display="block">
-                            {purchaseDateFormatter.format(new Date(order.created_at))}
-                          </Typography>
-                        </Box>
-                        <Typography
-                          variant="h5"
-                          color="primary.main"
-                          sx={{ flexShrink: 0, fontSize: { xs: '1.15rem', sm: '1.5rem' } }}
+                          variant="contained"
+                          startIcon={<RiDownloadLine />}
                         >
-                          {formatPrice(Number(order.total), order.currency)}
-                        </Typography>
-                      </Stack>
-                    </Box>
+                          ดูไฟล์และดาวน์โหลด
+                        </Button>
+                      )}
+                    </Stack>
+                  </Card>
+                </Grid>
+              );
+            })}
+          </Grid>
+        ) : (
+          <Card variant="outlined" sx={{ p: 5, textAlign: 'center' }}>
+            <Typography variant="h6">
+              {normalizedQuery ? 'ไม่พบสินค้าที่ค้นหา' : 'ยังไม่มีสินค้าที่ชำระสำเร็จ'}
+            </Typography>
+            <Typography color="text.secondary" sx={{ mt: 1 }}>
+              ติดตามรายการรอชำระหรือยกเลิกได้ในแท็บคำสั่งซื้อ
+            </Typography>
+          </Card>
+        )
+      ) : filteredOrders.length ? (
+        <Stack spacing={1.5}>
+          {filteredOrders.map((order) => {
+            const needsPayment = Boolean(
+              order.payment_session_id &&
+              ['pending_payment', 'payment_review', 'payment_rejected'].includes(order.status)
+            );
+            return (
+              <Card
+                key={order.id}
+                variant="outlined"
+                sx={{ p: { xs: 2, md: 2.5 }, borderRadius: 2.5 }}
+              >
+                <Stack
+                  direction={{ xs: 'column', md: 'row' }}
+                  spacing={2}
+                  alignItems={{ md: 'center' }}
+                >
+                  <Stack spacing={0.75} sx={{ flex: 1, minWidth: 0 }}>
+                    <Stack
+                      direction="row"
+                      spacing={1}
+                      alignItems="center"
+                      useFlexGap
+                      flexWrap="wrap"
+                    >
+                      <Typography variant="subtitle1">
+                        คำสั่งซื้อ #{order.id.slice(0, 8).toUpperCase()}
+                      </Typography>
+                      <OrderStatusChip status={order.status} />
+                    </Stack>
+                    <MarketplaceSellerLink seller={order.seller} avatarSize={24} />
+                    <Typography variant="caption" color="text.secondary">
+                      {purchaseDateFormatter.format(new Date(order.created_at))} ·{' '}
+                      {order.items?.length ?? 0} รายการ
+                    </Typography>
+                  </Stack>
+                  <Box sx={{ textAlign: { xs: 'left', md: 'right' } }}>
+                    <Typography variant="caption" color="text.secondary">
+                      ยอดรวมคำสั่งซื้อ
+                    </Typography>
+                    <Typography variant="h6" color="primary.main">
+                      {formatPrice(Number(order.total), order.currency)}
+                    </Typography>
                   </Box>
-
-                  <Divider />
-                  <Stack
-                    direction={{ xs: 'column', sm: 'row' }}
-                    spacing={1}
-                    sx={{ p: { xs: 1.25, sm: 1.5 } }}
-                  >
+                  <Stack direction={{ xs: 'row', md: 'column' }} spacing={1}>
                     <Button
                       component={RouterLink}
-                      href={detailHref}
-                      fullWidth
+                      href={paths.marketplace.purchase(order.id)}
+                      size="small"
                       variant="outlined"
                       startIcon={<RiEyeLine />}
                     >
                       ดูรายละเอียด
                     </Button>
-                    {isReady && product?.resource_type === 'feature_unlock' && (
-                      <PurchasedAppButton product={product} fullWidth />
-                    )}
-                    {isReady && product?.resource_type !== 'feature_unlock' && (
-                      <Button
-                        component={RouterLink}
-                        href={detailHref}
-                        fullWidth
-                        variant="contained"
-                        startIcon={<RiDownloadLine />}
-                      >
-                        ดาวน์โหลด
-                      </Button>
-                    )}
                     {needsPayment && (
                       <Button
                         component={RouterLink}
                         href={paths.marketplace.dashboardPayment(order.payment_session_id!)}
-                        fullWidth
+                        size="small"
                         variant="contained"
                         startIcon={<RiBankCardLine />}
                       >
-                        {order.status === 'pending_payment'
-                          ? 'ชำระเงิน'
-                          : order.status === 'payment_rejected'
-                            ? 'ส่งหลักฐานใหม่'
-                            : 'ดูการตรวจสอบ'}
+                        {order.status === 'pending_payment' ? 'ชำระเงิน' : 'ดูสถานะการชำระ'}
                       </Button>
                     )}
                   </Stack>
-                </Card>
-              </Grid>
+                </Stack>
+              </Card>
             );
           })}
-        </Grid>
+        </Stack>
       ) : orders.length ? (
         <Card
           variant="outlined"

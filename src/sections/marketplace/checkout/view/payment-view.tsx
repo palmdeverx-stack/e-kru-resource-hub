@@ -17,13 +17,14 @@ import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
 
 import { paths } from 'src/routes/paths';
-import { useRouter } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
+import { useRouter, useSearchParams } from 'src/routes/hooks';
 
 import { SplashScreen } from 'src/components/loading-screen';
 import {
   RiQrCodeLine,
   RiBankCardLine,
+  RiArrowLeftLine,
   RiUploadCloud2Line,
   RiCheckboxCircleLine,
 } from 'src/components/remix-icon';
@@ -40,6 +41,8 @@ export function MarketplacePaymentView({
   dashboardMode?: boolean;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnedFromStripe = searchParams.get('stripe') === 'cancelled';
   const { authenticated, loading: authLoading } = useAuthContext();
   const [session, setSession] = useState<MarketplacePaymentSession | null>(null);
   const [qrImage, setQrImage] = useState('');
@@ -63,9 +66,11 @@ export function MarketplacePaymentView({
 
   useEffect(() => {
     if (!dashboardMode && !authLoading && authenticated) {
-      router.replace(paths.marketplace.dashboardPayment(paymentId));
+      router.replace(
+        `${paths.marketplace.dashboardPayment(paymentId)}${returnedFromStripe ? '?stripe=cancelled' : ''}`
+      );
     }
-  }, [authenticated, authLoading, dashboardMode, paymentId, router]);
+  }, [authenticated, authLoading, dashboardMode, paymentId, returnedFromStripe, router]);
 
   useEffect(() => {
     if (!session?.promptpayPayload) return;
@@ -116,6 +121,15 @@ export function MarketplacePaymentView({
   return (
     <Container maxWidth={false} sx={{ py: { xs: 3 } }}>
       <Stack spacing={3}>
+        <Button
+          component={RouterLink}
+          href={dashboardMode ? paths.marketplace.dashboardProducts : paths.marketplace.products}
+          startIcon={<RiArrowLeftLine />}
+          color="inherit"
+          sx={{ alignSelf: 'flex-start' }}
+        >
+          กลับไปเลือกสินค้า
+        </Button>
         <Box>
           <Typography component="h1" variant="h3">
             {isStripe ? 'ชำระผ่านระบบออนไลน์' : 'ชำระด้วย PromptPay'}
@@ -149,7 +163,9 @@ export function MarketplacePaymentView({
           </Alert>
         ) : isStripe && session.status === 'pending_payment' ? (
           <Alert severity="info">
-            หากชำระแล้ว ระบบกำลังรอการยืนยันยอดอัตโนมัติ คุณสามารถกดรีเฟรชสถานะได้
+            {returnedFromStripe
+              ? 'คุณย้อนกลับจากหน้าชำระเงิน รายการนี้ยังรอชำระ สามารถชำระต่อหรือกลับไปเลือกสินค้าได้ หากชำระแล้วให้กดรีเฟรชสถานะ'
+              : 'หากชำระแล้ว ระบบกำลังรอการยืนยันยอดอัตโนมัติ คุณสามารถกดรีเฟรชสถานะได้'}
           </Alert>
         ) : isStripe && ['rejected', 'expired'].includes(session.status) ? (
           <Alert severity="error">

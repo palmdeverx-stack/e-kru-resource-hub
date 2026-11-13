@@ -63,6 +63,9 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
   const [order, setOrder] = useState<MarketplaceOrder | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelNotice, setCancelNotice] = useState('');
   const [receiptPreviewOpen, setReceiptPreviewOpen] = useState(false);
   const [receiptFormOpen, setReceiptFormOpen] = useState(false);
   const [receiptIssuing, setReceiptIssuing] = useState(false);
@@ -112,6 +115,65 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
 
   const isPaid = ['paid', 'completed'].includes(order.status);
   const payment = order.payment_session;
+  const canCancelPayment =
+    order.status === 'pending_payment' &&
+    payment?.payment_method === 'stripe' &&
+    payment.status === 'pending_payment';
+  const cancelPayment = async () => {
+    if (!order.payment_session_id) return;
+    setCancelling(true);
+    setError('');
+    try {
+      const response = await fetch(`/api/marketplace/payments/${order.payment_session_id}/cancel`, {
+        method: 'POST',
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || 'ยกเลิกการชำระเงินไม่สำเร็จ');
+      setCancelOpen(false);
+      setOrder((current) =>
+        current
+          ? {
+              ...current,
+              status: 'cancelled',
+              payment_session: current.payment_session
+                ? {
+                    ...current.payment_session,
+                    status: 'expired',
+                    rejection_reason: 'ผู้ซื้อยกเลิกการชำระเงิน',
+                  }
+                : current.payment_session,
+            }
+          : current
+      );
+      try {
+        const refreshed = await getMyOrder(orderId);
+        setOrder(refreshed.order);
+      } catch {
+        setCancelNotice('ยกเลิกสำเร็จแล้ว แต่โหลดรายละเอียดล่าสุดไม่สำเร็จ กรุณารีเฟรชหน้า');
+      }
+    } catch (cancelError) {
+      // A lost response may follow a successful mutation. Check before offering a retry.
+      try {
+        const refreshed = await getMyOrder(orderId);
+        setOrder(refreshed.order);
+        if (refreshed.order.status === 'cancelled') {
+          setCancelOpen(false);
+          return;
+        }
+      } catch {
+        // The outcome is unknown until the server can be reached again.
+      }
+      setError(
+        cancelError instanceof TypeError
+          ? 'การเชื่อมต่อขัดข้อง ยังยืนยันผลการยกเลิกไม่ได้ กรุณารีเฟรชสถานะก่อนลองใหม่'
+          : cancelError instanceof Error
+            ? cancelError.message
+            : 'ยกเลิกการชำระเงินไม่สำเร็จ'
+      );
+    } finally {
+      setCancelling(false);
+    }
+  };
   const needsPayment = Boolean(
     order.payment_session_id &&
     ['pending_payment', 'payment_review', 'payment_rejected'].includes(order.status)
@@ -206,6 +268,34 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
       >
         กลับไปรายการซื้อ
       </Button>
+
+      <Dialog
+        open={cancelOpen}
+        onClose={() => !cancelling && setCancelOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>ยกเลิกการชำระเงิน?</DialogTitle>
+        <DialogContent>
+          <Typography>
+            ลิงก์ชำระเงินเดิมจะใช้ไม่ได้ และรายการที่ยังไม่ชำระทั้งหมดในการชำระครั้งนี้จะถูกยกเลิก
+            หากต้องการซื้อภายหลัง สามารถเลือกสินค้าใหม่ได้
+          </Typography>
+          {!!error && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {error}
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button disabled={cancelling} onClick={() => setCancelOpen(false)}>
+            กลับ
+          </Button>
+          <Button color="error" variant="contained" loading={cancelling} onClick={cancelPayment}>
+            ยืนยันยกเลิก
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {order.status === 'disputed' && (
         <Alert
@@ -387,30 +477,16 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
         </Card>
       )}
 
-      {!!error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
+      {!!cancelNotice && (
+        <Alert severity="warning" sx={{ mb: 3 }}>
+          {cancelNotice}
         </Alert>
       )}
-      {!!payment?.rejection_reason && (
-        <Alert
-          severity="error"
-          action={
-            <Button
-              component={RouterLink}
-              href={paths.marketplace.dashboardPayment(order.payment_session_id!)}
-              size="small"
-              color="error"
-            >
-              ส่งใหม่
-            </Button>
-          }
-          sx={{ mb: 3 }}
-        >
-          การชำระเงินไม่ผ่าน: {payment.rejection_reason}
+      {order.status === 'cancelled' && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          รายการนี้ถูกยกเลิกแล้ว ลิงก์ชำระเงินเดิมไม่สามารถใช้ได้
         </Alert>
       )}
-
       <Box
         sx={{
           gap: 3,
@@ -679,7 +755,8 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                             </Box>
                           ) : (
                             <Alert severity="warning" sx={{ mt: 2 }}>
-                              ชำระเงินแล้ว แต่ยังไม่พบข้อมูล License กรุณารีเฟรชหรือติดต่อผู้ดูแลระบบ
+                              ชำระเงินแล้ว แต่ยังไม่พบข้อมูล License
+                              กรุณารีเฟรชหรือติดต่อผู้ดูแลระบบ
                             </Alert>
                           ))}
                         {showDownloads && (
@@ -862,7 +939,10 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
             </Stack>
             <Divider sx={{ my: 2.5 }} />
             <Stack spacing={1.75}>
-              <InfoRow label="เลขที่คำสั่งซื้อ" value={`ORD-${order.id.slice(0, 12).toUpperCase()}`} />
+              <InfoRow
+                label="เลขที่คำสั่งซื้อ"
+                value={`ORD-${order.id.slice(0, 12).toUpperCase()}`}
+              />
               <InfoRow
                 label="วันที่สั่งซื้อ"
                 value={new Date(order.created_at).toLocaleString('th-TH', {
@@ -928,6 +1008,17 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                     : order.status === 'payment_rejected'
                       ? 'ส่งหลักฐานใหม่'
                       : 'ดูสถานะการตรวจสอบ'}
+                </Button>
+              )}
+              {canCancelPayment && (
+                <Button
+                  fullWidth
+                  color="error"
+                  variant="outlined"
+                  startIcon={<RiCloseLine />}
+                  onClick={() => setCancelOpen(true)}
+                >
+                  ยกเลิกการชำระเงิน
                 </Button>
               )}
             </Stack>
@@ -1101,7 +1192,8 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
             />
             {receiptIssueError && <Alert severity="error">{receiptIssueError}</Alert>}
             <Typography variant="caption" color="text.secondary">
-              โปรดตรวจสอบข้อมูลให้ถูกต้องก่อนออกใบเสร็จ เนื่องจากเอกสารจะเก็บข้อมูล ณ วันที่ออกไว้เป็นหลักฐาน
+              โปรดตรวจสอบข้อมูลให้ถูกต้องก่อนออกใบเสร็จ เนื่องจากเอกสารจะเก็บข้อมูล ณ
+              วันที่ออกไว้เป็นหลักฐาน
             </Typography>
           </Stack>
         </DialogContent>
@@ -1276,12 +1368,22 @@ function licenseStatusLabel(status: string) {
 function OrderStatusChip({ status }: { status: MarketplaceOrder['status'] }) {
   if (['paid', 'completed'].includes(status)) {
     return (
-      <Chip color="success" label="พร้อมใช้งาน" variant="soft" sx={{ bgcolor: 'background.paper' }} />
+      <Chip
+        color="success"
+        label="พร้อมใช้งาน"
+        variant="soft"
+        sx={{ bgcolor: 'background.paper' }}
+      />
     );
   }
   if (status === 'payment_review') {
     return (
-      <Chip color="warning" label="รอตรวจสลิป" variant="soft" sx={{ bgcolor: 'background.paper' }} />
+      <Chip
+        color="warning"
+        label="รอตรวจสลิป"
+        variant="soft"
+        sx={{ bgcolor: 'background.paper' }}
+      />
     );
   }
   if (status === 'payment_rejected') {

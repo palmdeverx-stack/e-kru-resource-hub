@@ -78,7 +78,7 @@ export async function GET(request: Request) {
   const queryStarted = performance.now();
   const summary = new URL(request.url).searchParams.get('summary') === '1';
   const columns: string = summary
-    ? 'id, payment_session_id, total, currency, status, created_at, seller:marketplace_sellers(id, display_name, slug, logo_url, owner_role), items:marketplace_order_items(id, title, product:marketplace_products(id, title, title_en, short_description, short_description_en, cover_url, resource_type, license_target_system, grants_feature_key, grants_feature_keys, images:marketplace_product_images(id, is_cover, storage_bucket, storage_path)))'
+    ? 'id, payment_session_id, total, currency, status, created_at, seller:marketplace_sellers(id, display_name, slug, logo_url, owner_role), items:marketplace_order_items(id, title, unit_price, quantity, product:marketplace_products(id, title, title_en, short_description, short_description_en, cover_url, resource_type, license_target_system, grants_feature_key, grants_feature_keys, images:marketplace_product_images(id, is_cover, storage_bucket, storage_path)))'
     : '*, seller:marketplace_sellers(id, display_name, slug, logo_url, owner_role), items:marketplace_order_items(*, product:marketplace_products(id, title, title_en, short_description, short_description_en, file_url, cover_url, resource_type, license_target_system, grants_feature_key, grants_feature_keys, license_scope, images:marketplace_product_images(*), files:marketplace_product_files(*)))';
   const { data: orders, error } = await supabaseAdmin
     .from('marketplace_orders')

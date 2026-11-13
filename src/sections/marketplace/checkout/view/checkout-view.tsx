@@ -338,11 +338,11 @@ export function MarketplaceCheckoutView({ dashboardMode = false }: { dashboardMo
 
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} alignItems="flex-start">
         <Stack spacing={3} sx={{ flex: 1, width: 1 }}>
-          {hasIndividualLicense && (
+          {/* {hasIndividualLicense && (
             <Alert severity="success" icon={<RiShieldCheckLine />}>
               License แบบบุคคลจะผูกกับบัญชีนี้โดยตรง ไม่ต้องเลือกโรงเรียน
             </Alert>
-          )}
+          )} */}
 
           {isFree && (
             <Card variant="outlined" sx={{ p: { xs: 2.5, sm: 3 } }}>
