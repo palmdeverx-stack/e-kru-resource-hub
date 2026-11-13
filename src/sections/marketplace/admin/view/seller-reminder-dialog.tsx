@@ -91,7 +91,21 @@ export function SellerReminderDialog({ sellerId, shopName, testOnly = false, onC
       </DialogTitle>
       <DialogContent dividers>
         {!!error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
+          <Alert
+            severity="error"
+            sx={{ mb: 2 }}
+            action={
+              <Button
+                href="/dashboard/settings/security-audit"
+                target="_blank"
+                rel="noopener noreferrer"
+                color="inherit"
+                size="small"
+              >
+                ดูบันทึกการส่ง
+              </Button>
+            }
+          >
             {error}
           </Alert>
         )}

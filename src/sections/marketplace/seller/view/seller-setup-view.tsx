@@ -36,6 +36,7 @@ import { apiFetch as fetch } from 'src/lib/api-fetch';
 
 import { toast } from 'src/components/snackbar';
 import { Field } from 'src/components/hook-form';
+import { useSettingsContext } from 'src/components/settings';
 import {
   RiEyeLine,
   RiBankLine,
@@ -58,6 +59,11 @@ import { getSeller, saveSeller } from '../../shared/api';
 import { AgreementReadDialog } from './agreement-read-dialog';
 import { ThaiBankAutocomplete } from '../../shared/bank-autocomplete';
 import { DocumentPreviewDialog } from '../../shared/document-preview-dialog';
+import {
+  SELLER_ASSET_UPLOAD_ACCEPT,
+  SELLER_ASSET_UPLOAD_MAX_MB,
+  validateSellerUploadSelection,
+} from '../../shared/seller-document-upload-policy';
 
 const STEPS = [
   {
@@ -308,10 +314,15 @@ function DigitsField({
 
 export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' | 'edit' }) {
   const router = useRouter();
+  const settings = useSettingsContext();
   const searchParams = useSearchParams();
+  const targetSellerId = mode === 'edit' ? searchParams.get('sellerId') : null;
   const { user } = useAuthContext();
   const isSystemStore = user?.role === 'master_admin' || user?.role === 'marketplace_admin';
   const [seller, setSeller] = useState<MarketplaceSeller | null>(null);
+  const managedSellerId =
+    targetSellerId ||
+    (user?.role === 'master_admin' && seller?.owner_role === 'master_admin' ? seller.id : null);
   const [activeStep, setActiveStep] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -362,7 +373,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
   }, []);
 
   useEffect(() => {
-    getSeller({ edit: mode === 'edit' })
+    getSeller({ edit: mode === 'edit', sellerId: targetSellerId })
       .then(({ seller: current }) => {
         setSeller(current);
         if (!current) {
@@ -413,7 +424,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
       })
       .catch((loadError) => setError(loadError.message))
       .finally(() => setLoading(false));
-  }, [mode, searchParams, user?.email, user?.role, reset, resetDocuments]);
+  }, [mode, searchParams, targetSellerId, user?.email, user?.role, reset, resetDocuments]);
 
   const save = async (
     action: 'save_draft' | 'submit',
@@ -423,7 +434,12 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
     setSaving(true);
     setError('');
     try {
-      const result = await saveSeller({ ...getValues(), action, wizardStep: step });
+      const result = await saveSeller({
+        ...getValues(),
+        action,
+        wizardStep: step,
+        ...(managedSellerId && { sellerId: managedSellerId }),
+      });
       setSeller(result.seller);
       if (showSuccessMessage) toast.success(result.message);
       if (mode === 'edit') router.refresh();
@@ -462,13 +478,21 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
     try {
       const data = new FormData();
       data.set('documentType', documentType);
+      if (managedSellerId) data.set('sellerId', managedSellerId);
       data.set('file', file);
       const response = await fetch('/api/marketplace/seller/documents', {
         method: 'POST',
         body: data,
       });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.message);
+      const result = await response.json().catch(() => null);
+      if (!response.ok)
+        throw new Error(
+          result?.message ||
+            (response.status === 413
+              ? 'ไฟล์มีขนาดเกินที่ระบบรับได้ กรุณาลดขนาดไฟล์แล้วลองใหม่'
+              : 'อัปโหลดไฟล์ไม่สำเร็จ กรุณาลองอีกครั้ง')
+        );
+      if (!result?.document) throw new Error('ระบบไม่ได้รับข้อมูลไฟล์ กรุณาลองอัปโหลดอีกครั้ง');
       setSeller((value) =>
         value
           ? {
@@ -487,7 +511,9 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
       toast.success(result.message ?? 'อัปโหลดไฟล์เรียบร้อยแล้ว');
       return result.document.url || true;
     } catch (uploadError) {
-      setError(uploadError instanceof Error ? uploadError.message : 'อัปโหลดไม่สำเร็จ');
+      const message = uploadError instanceof Error ? uploadError.message : 'อัปโหลดไม่สำเร็จ';
+      setError(message);
+      toast.error(message);
       return false;
     } finally {
       setUploading('');
@@ -560,23 +586,58 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
     );
   }
 
+  const fixedActionsSx = {
+    position: 'fixed',
+    left: {
+      xs: 0,
+      lg:
+        settings.state.navLayout === 'horizontal'
+          ? 0
+          : settings.state.navLayout === 'mini'
+            ? 'var(--layout-nav-mini-width)'
+            : 'var(--layout-nav-vertical-width)',
+    },
+    right: 0,
+    bottom: {
+      xs: 'calc(var(--dashboard-bottom-nav-height, 66px) + env(safe-area-inset-bottom, 0px))',
+      lg: 0,
+    },
+    zIndex: 1100,
+    px: { xs: 2, sm: 3 },
+    py: 1.5,
+    bgcolor: 'background.paper',
+    borderTop: '1px solid',
+    borderColor: 'divider',
+    boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.06)',
+    '& .MuiButton-root': { minHeight: 44 },
+  } as const;
+
   const backToSeller =
     mode === 'edit' ? (
       <Button
         component={RouterLink}
-        href={paths.marketplace.seller}
+        href={targetSellerId ? paths.marketplace.store(targetSellerId) : paths.marketplace.seller}
         color="inherit"
         startIcon={<RiArrowLeftLine />}
         disabled={saving || Boolean(uploading)}
         sx={{ mb: 2, minHeight: 44 }}
       >
-        กลับไปภาพรวมร้านค้า
+        {targetSellerId ? 'กลับไปหน้าร้าน' : 'กลับไปภาพรวมร้านค้า'}
       </Button>
     ) : null;
 
+  if (isSystemStore && targetSellerId && !seller) {
+    return (
+      <Container maxWidth={false} sx={{ py: 3 }}>
+        {backToSeller}
+        <Alert severity="error">{error || 'ไม่พบร้านทางการที่มีสิทธิ์แก้ไข'}</Alert>
+      </Container>
+    );
+  }
+
   if (isSystemStore) {
     return (
-      <Container maxWidth={false} sx={{ py: { xs: 3, md: 4 } }}>
+      <Container maxWidth={false} sx={{ pt: { xs: 3, md: 4 }, pb: 14 }}>
         {backToSeller}
         <Stack
           direction={{ xs: 'column', sm: 'row' }}
@@ -605,20 +666,48 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
           <Chip color="primary" variant="soft" label="ร้านระบบ E-KRU" />
         </Stack>
 
+        {!!error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
         <Alert severity="info" sx={{ mb: 3 }}>
           ร้านเจ้าของระบบเปิดใช้งานอัตโนมัติและไม่ต้องผ่านขั้นตอนสมัครผู้ขาย
         </Alert>
+
+        <Stack
+          component="nav"
+          aria-label="หมวดข้อมูลร้านค้า"
+          direction="row"
+          spacing={1}
+          sx={{ mb: 3, overflowX: 'auto', pb: 0.5 }}
+        >
+          {[
+            ['store-info', '1. หน้าร้าน'],
+            ['store-brand', '2. รูปภาพ'],
+            ['store-payout', '3. บัญชีรับเงิน'],
+            ['store-receipt', '4. ใบเสร็จ'],
+          ].map(([id, label]) => (
+            <Button key={id} href={`#${id}`} variant="outlined" size="small" sx={{ flexShrink: 0 }}>
+              {label}
+            </Button>
+          ))}
+        </Stack>
 
         <Box
           sx={{
             display: 'grid',
             gap: 3,
             alignItems: 'start',
-            gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1.35fr) minmax(380px, 0.65fr)' },
+            gridTemplateColumns: 'minmax(0, 1fr)',
           }}
         >
           <Stack spacing={3}>
-            <Card sx={{ p: { xs: 2.5, md: 3.5 } }}>
+            <Card
+              id="store-info"
+              variant="outlined"
+              sx={{ p: { xs: 2.5, md: 3.5 }, borderRadius: 3, scrollMarginTop: 100 }}
+            >
               <Stack spacing={2.5}>
                 <Stack direction="row" spacing={1.5} alignItems="center">
                   <Avatar
@@ -633,7 +722,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                     <RiStore2Line size={22} />
                   </Avatar>
                   <Box>
-                    <Typography variant="h6">ข้อมูลพื้นฐาน</Typography>
+                    <Typography variant="h6">1. ข้อมูลหน้าร้าน</Typography>
                     <Typography variant="body2" color="text.secondary">
                       ข้อมูลที่ลูกค้าจะเห็นบนหน้าร้านและสินค้า
                     </Typography>
@@ -698,7 +787,11 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
               </Stack>
             </Card>
 
-            <Card sx={{ p: { xs: 2.5, md: 3.5 } }}>
+            <Card
+              id="store-brand"
+              variant="outlined"
+              sx={{ p: { xs: 2.5, md: 3.5 }, borderRadius: 3, scrollMarginTop: 100 }}
+            >
               <Stack spacing={2.5}>
                 <Stack direction="row" spacing={1.5} alignItems="center">
                   <Avatar
@@ -708,7 +801,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                     <RiImageLine size={22} />
                   </Avatar>
                   <Box>
-                    <Typography variant="h6">รูปภาพและแบรนด์</Typography>
+                    <Typography variant="h6">2. รูปภาพและแบรนด์</Typography>
                     <Typography variant="body2" color="text.secondary">
                       โลโก้และภาพปกที่แสดงในส่วนต่าง ๆ ของ Marketplace
                     </Typography>
@@ -717,6 +810,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                 <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="flex-start">
                   <Box sx={{ width: { xs: 1, md: '36%' } }}>
                     <DocumentUploadField
+                      sellerId={managedSellerId}
                       methods={documentsMethods}
                       name="storeLogo"
                       label="รูปโปรไฟล์ร้าน (โลโก้) (ไม่บังคับ)"
@@ -724,14 +818,15 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                       document={getDocument('store_logo')}
                       currentUrl={defaultStoreLogoPreviewUrl}
                       loading={uploading === 'store_logo'}
-                      accept="image/*"
+                      accept={SELLER_ASSET_UPLOAD_ACCEPT}
                       previewAspectRatio="1 / 1"
-                      maxSizeMb={5}
+                      maxSizeMb={SELLER_ASSET_UPLOAD_MAX_MB}
                       onFile={(file) => upload('store_logo', file)}
                     />
                   </Box>
                   <Box sx={{ flex: 1, width: 1 }}>
                     <DocumentUploadField
+                      sellerId={managedSellerId}
                       methods={documentsMethods}
                       name="storeCover"
                       label="ภาพปกร้าน (ไม่บังคับ)"
@@ -739,9 +834,9 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                       document={getDocument('store_cover')}
                       currentUrl={seller?.cover_url}
                       loading={uploading === 'store_cover'}
-                      accept="image/*"
+                      accept={SELLER_ASSET_UPLOAD_ACCEPT}
                       previewAspectRatio="16 / 6"
-                      maxSizeMb={5}
+                      maxSizeMb={SELLER_ASSET_UPLOAD_MAX_MB}
                       onFile={(file) => upload('store_cover', file)}
                     />
                   </Box>
@@ -751,7 +846,11 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
           </Stack>
 
           <Stack spacing={3}>
-            <Card sx={{ p: { xs: 2.5, md: 3.5 } }}>
+            <Card
+              id="store-payout"
+              variant="outlined"
+              sx={{ p: { xs: 2.5, md: 3.5 }, borderRadius: 3, scrollMarginTop: 100 }}
+            >
               <Stack spacing={2.5}>
                 <Stack direction="row" spacing={1.5} alignItems="center">
                   <Avatar
@@ -766,7 +865,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                     <RiBankLine size={22} />
                   </Avatar>
                   <Box>
-                    <Typography variant="h6">บัญชีรับเงิน</Typography>
+                    <Typography variant="h6">3. บัญชีรับเงิน</Typography>
                     <Typography variant="body2" color="text.secondary">
                       บัญชีปลายทางสำหรับรับยอดขายร้าน E-KRU
                     </Typography>
@@ -871,6 +970,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                   </Typography>
                 </Box>
                 <DocumentUploadField
+                  sellerId={managedSellerId}
                   methods={documentsMethods}
                   name="bankBook"
                   label="หน้าสมุดบัญชี (ไม่บังคับ)"
@@ -885,7 +985,11 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
               </Stack>
             </Card>
 
-            <Card sx={{ p: { xs: 2.5, md: 3.5 } }}>
+            <Card
+              id="store-receipt"
+              variant="outlined"
+              sx={{ p: { xs: 2.5, md: 3.5 }, borderRadius: 3, scrollMarginTop: 100 }}
+            >
               <Stack spacing={2.5}>
                 <Stack direction="row" spacing={1.5} alignItems="center">
                   <Avatar
@@ -900,7 +1004,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                     <RiFileShield2Line size={22} />
                   </Avatar>
                   <Box>
-                    <Typography variant="h6">ข้อมูลออกใบเสร็จ</Typography>
+                    <Typography variant="h6">4. ข้อมูลออกใบเสร็จ</Typography>
                     <Typography variant="body2" color="text.secondary">
                       ข้อมูลผู้รับเงินที่แสดงบนเอกสารของระบบ
                     </Typography>
@@ -944,6 +1048,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                   )}
                 />
                 <DocumentUploadField
+                  sellerId={managedSellerId}
                   methods={documentsMethods}
                   name="receiptSignature"
                   label="ลายเซ็นอิเล็กทรอนิกส์"
@@ -962,17 +1067,30 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
           </Stack>
         </Box>
 
-        <Stack direction="row" justifyContent="flex-end" sx={{ mt: 3 }}>
-          <Button
-            size="large"
-            variant="contained"
-            loading={saving}
-            onClick={() => save('save_draft')}
-            sx={{ minWidth: { xs: 1, sm: 220 } }}
+        <Box component="nav" aria-label="บันทึกข้อมูลร้านค้า" sx={{ ...fixedActionsSx, px: 0 }}>
+          <Container
+            maxWidth={false}
+            sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}
           >
-            บันทึกข้อมูลร้าน
-          </Button>
-        </Stack>
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ display: { xs: 'none', sm: 'block' } }}
+            >
+              ไฟล์แนบต้องกด “ยืนยันอัปโหลด” ในแต่ละช่องก่อนบันทึก
+            </Typography>
+            <Button
+              size="large"
+              variant="contained"
+              loading={saving}
+              disabled={Boolean(uploading)}
+              onClick={() => save('save_draft')}
+              sx={{ minWidth: { xs: 1, sm: 220 } }}
+            >
+              บันทึกข้อมูลร้าน
+            </Button>
+          </Container>
+        </Box>
       </Container>
     );
   }
@@ -998,7 +1116,8 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
       <Container
         maxWidth={false}
         sx={{
-          py: { xs: 2, sm: 3 },
+          pt: { xs: 2, sm: 3 },
+          pb: { xs: 22, sm: 14 },
           px: { xs: 2, sm: 3 },
           '& .MuiInputBase-input': { fontSize: { xs: 16, sm: 'inherit' } },
           '& .MuiButton-root': { minHeight: { xs: 44, sm: 36 } },
@@ -1428,6 +1547,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                   <Stack spacing={2.5}>
                     <Box>
                       <DocumentUploadField
+                        sellerId={managedSellerId}
                         methods={documentsMethods}
                         name="storeCover"
                         label="ภาพหน้าปกร้าน (ไม่บังคับ)"
@@ -1435,9 +1555,9 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                         done={hasDocument('store_cover')}
                         document={getDocument('store_cover')}
                         loading={uploading === 'store_cover'}
-                        accept="image/*"
+                        accept={SELLER_ASSET_UPLOAD_ACCEPT}
                         previewAspectRatio="16 / 6"
-                        maxSizeMb={2}
+                        maxSizeMb={SELLER_ASSET_UPLOAD_MAX_MB}
                         onFile={(file) => upload('store_cover', file)}
                       />
                     </Box>
@@ -1454,6 +1574,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                   </Box>
                   <Box>
                     <DocumentUploadField
+                      sellerId={managedSellerId}
                       methods={documentsMethods}
                       name="storeLogo"
                       label="โลโก้ร้าน (ไม่บังคับ)"
@@ -1462,9 +1583,9 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                       document={getDocument('store_logo')}
                       currentUrl={defaultStoreLogoPreviewUrl}
                       loading={uploading === 'store_logo'}
-                      accept="image/*"
+                      accept={SELLER_ASSET_UPLOAD_ACCEPT}
                       previewAspectRatio="1 / 1"
-                      maxSizeMb={2}
+                      maxSizeMb={SELLER_ASSET_UPLOAD_MAX_MB}
                       onFile={(file) => upload('store_logo', file)}
                     />
                   </Box>
@@ -1692,6 +1813,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                     </Typography>
                   </Box>
                   <DocumentUploadField
+                    sellerId={managedSellerId}
                     methods={documentsMethods}
                     name="bankBook"
                     label="หน้าสมุดบัญชี (ไม่บังคับ)"
@@ -1718,6 +1840,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                 }}
               >
                 <DocumentUploadField
+                  sellerId={managedSellerId}
                   methods={documentsMethods}
                   name="identityCard"
                   samplePreviewUrl="/assets/examples/identity-document.svg"
@@ -1729,6 +1852,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                   onFile={(file) => upload('identity_card', file)}
                 />
                 <DocumentUploadField
+                  sellerId={managedSellerId}
                   methods={documentsMethods}
                   name="companyCertificate"
                   label="หนังสือรับรองบริษัท (ถ้ามี)"
@@ -1740,6 +1864,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
                   onFile={(file) => upload('company_certificate', file)}
                 />
                 <DocumentUploadField
+                  sellerId={managedSellerId}
                   methods={documentsMethods}
                   name="vatCertificate"
                   label="ภ.พ.20 (ถ้ามี)"
@@ -1822,16 +1947,12 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
           )}
 
           <Stack
-            direction={{ xs: 'column', sm: 'row' }}
+            component="nav"
+            aria-label="ขั้นตอนและการบันทึกข้อมูลร้านค้า"
+            direction="row"
             justifyContent="space-between"
-            spacing={1.5}
-            sx={{
-              pt: 2.5,
-              mt: { xs: 3, sm: 4 },
-              '& .MuiButton-root': { minHeight: 44 },
-              borderTop: '1px solid',
-              borderColor: 'divider',
-            }}
+            spacing={1}
+            sx={{ ...fixedActionsSx, flexWrap: 'wrap', gap: 1 }}
           >
             <Button
               color="inherit"
@@ -1841,7 +1962,7 @@ export function MarketplaceSellerSetupView({ mode = 'setup' }: { mode?: 'setup' 
             >
               ย้อนกลับ
             </Button>
-            <Stack direction={{ xs: 'column-reverse', sm: 'row' }} spacing={1}>
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
               <Button variant="outlined" loading={saving} onClick={() => save('save_draft')}>
                 {mode === 'edit' ? 'บันทึกการแก้ไข' : 'บันทึกร่าง'}
               </Button>
@@ -1932,6 +2053,7 @@ function TrustItem({
 }
 
 function DocumentUploadField({
+  sellerId: targetSellerId,
   methods,
   name,
   label,
@@ -1949,6 +2071,7 @@ function DocumentUploadField({
   maxSizeMb = 5,
   storedMaxSizeMb,
 }: {
+  sellerId?: string | null;
   methods: UseFormReturn<SellerDocumentsSchemaType>;
   name: FieldPath<SellerDocumentsSchemaType>;
   label: string;
@@ -1966,7 +2089,7 @@ function DocumentUploadField({
   maxSizeMb?: number;
   storedMaxSizeMb?: number;
 }) {
-  const { control, setValue } = methods;
+  const { control, setValue, getValues } = methods;
   const value = useWatch({ control, name });
   const pendingFile = value instanceof File ? value : null;
   const [previewSource, setPreviewSource] = useState<'pending' | 'uploaded' | 'sample' | null>(
@@ -2016,6 +2139,7 @@ function DocumentUploadField({
       };
       const data = new FormData();
       data.set('documentType', documentTypes[name]);
+      if (targetSellerId) data.set('sellerId', targetSellerId);
       data.set('file', pendingFile);
       const response = await fetch('/api/marketplace/seller/documents?preview=1', {
         method: 'POST',
@@ -2047,8 +2171,10 @@ function DocumentUploadField({
   // Keep the field in sync with the server's copy of the document, without
   // clobbering a file the user has staged locally but not confirmed yet.
   useEffect(() => {
-    setValue(name, uploadedUrl, { shouldValidate: false });
-  }, [uploadedUrl, name, setValue]);
+    if (!(getValues(name) instanceof File)) {
+      setValue(name, uploadedUrl, { shouldValidate: false });
+    }
+  }, [uploadedUrl, name, setValue, getValues]);
 
   const acceptTypes = accept.split(',').map((type) => type.trim());
   const acceptsOnlyImages = acceptTypes.every((type) => type.startsWith('image/'));
@@ -2060,10 +2186,25 @@ function DocumentUploadField({
   const fileSize = pendingFile?.size ?? document?.file_size ?? 0;
   const showRequiredError = error && !done && !pendingFile;
 
+  const stageFile = (file?: File) => {
+    if (!file) return;
+    const validationError = validateSellerUploadSelection(file, accept, maxSizeMb);
+    if (validationError) {
+      setPreviewError(validationError);
+      return;
+    }
+    setPreviewError('');
+    setValue(name, file, { shouldValidate: true, shouldDirty: true });
+  };
+
   const handleConfirmUpload = async () => {
     if (!pendingFile) return;
     const uploaded = await onFile(pendingFile);
-    if (uploaded && methods.getValues(name) === pendingFile) {
+    if (!uploaded) {
+      setPreviewError('อัปโหลดไฟล์ไม่สำเร็จ กรุณาตรวจสอบข้อความแจ้งเตือนแล้วลองอีกครั้ง');
+      return;
+    }
+    if (getValues(name) === pendingFile) {
       setValue(name, typeof uploaded === 'string' ? uploaded : uploadedUrl, {
         shouldValidate: false,
         shouldDirty: false,
@@ -2133,6 +2274,16 @@ function DocumentUploadField({
             name={name}
             accept={acceptOption}
             maxSize={maxSizeMb * 1024 * 1024}
+            onDrop={(files) => stageFile(files[0])}
+            onDropRejected={(rejections) => {
+              const file = rejections[0]?.file;
+              if (file)
+                setPreviewError(
+                  validateSellerUploadSelection(file, accept, maxSizeMb) ||
+                    'กรุณาเลือกไฟล์ครั้งละ 1 ไฟล์'
+                );
+            }}
+            hideFilesRejected
             disabled={loading}
             loading={loading}
             error={showRequiredError}
@@ -2214,11 +2365,12 @@ function DocumentUploadField({
         )}
         <Stack
           sx={{
-            mt: 1.5,
-            display: 'grid',
-            gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' },
-            gap: 1,
-            '& .MuiButton-root': { minHeight: 44, whiteSpace: 'nowrap', px: 1.5 },
+            mt: 1,
+            display: 'flex',
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            gap: 0.75,
+            '& .MuiButton-root': { flex: '1 1 120px', minHeight: 44, whiteSpace: 'nowrap', px: 1 },
           }}
         >
           <Button
@@ -2254,36 +2406,22 @@ function DocumentUploadField({
                 onChange={(event) => {
                   const nextFile = event.target.files?.[0];
                   event.target.value = '';
-                  if (!nextFile) return;
-                  if (nextFile.size > maxSizeMb * 1024 * 1024) {
-                    setPreviewError(`ไฟล์ต้องมีขนาดไม่เกิน ${maxSizeMb} MB`);
-                    return;
-                  }
-                  const validType = acceptTypes.some(
-                    (type) =>
-                      type === nextFile.type ||
-                      (type === 'image/*' && nextFile.type.startsWith('image/')) ||
-                      (type === 'application/pdf' && /\.pdf$/i.test(nextFile.name))
-                  );
-                  if (!validType) {
-                    setPreviewError('ชนิดไฟล์ไม่รองรับ กรุณาเลือกไฟล์ตามรูปแบบที่ระบุ');
-                    return;
-                  }
-                  setValue(name, nextFile, { shouldValidate: true, shouldDirty: true });
+                  stageFile(nextFile);
                 }}
               />
             </Button>
           )}
-          <Button
-            variant="contained"
-            loading={loading}
-            loadingPosition="start"
-            disabled={!pendingFile}
-            startIcon={done && !pendingFile ? <RiCheckboxCircleLine /> : <RiUploadCloud2Line />}
-            onClick={handleConfirmUpload}
-          >
-            {loading ? 'กำลังอัปโหลด' : done && !pendingFile ? 'อัปโหลดแล้ว' : 'ยืนยันอัปโหลด'}
-          </Button>
+          {pendingFile && (
+            <Button
+              variant="contained"
+              loading={loading}
+              loadingPosition="start"
+              startIcon={<RiUploadCloud2Line />}
+              onClick={handleConfirmUpload}
+            >
+              {loading ? 'กำลังอัปโหลด' : 'ยืนยันอัปโหลด'}
+            </Button>
+          )}
         </Stack>
       </Card>
       <DocumentPreviewDialog

@@ -83,7 +83,7 @@ test(`opening a ${status} system store does not provision or write the seller ag
   const seller = { id: 'seller', owner_role: 'master_admin', status };
   const database = { from: table => {
     const query = {
-      select: () => query, eq: () => query,
+      select: () => query, eq: () => query, limit: () => query,
       maybeSingle: async () => ({ data: table === 'marketplace_sellers' ? seller : null }),
       then: resolve => resolve({ data: [] }),
     };

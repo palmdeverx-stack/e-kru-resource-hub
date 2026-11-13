@@ -875,6 +875,7 @@
     }
   },
   "storefront": {
+    "editStore": "Edit official store",
     "seo": {
       "notFoundTitle": "Store not found | {{platformName}}",
       "title": "{{storeName}} | {{platformName}}",

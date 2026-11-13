@@ -255,11 +255,13 @@ export async function replyProductReview(id: string, reviewId: string, comment: 
 }
 
 export async function getSeller(options?: {
+  sellerId?: string | null;
   edit?: boolean;
   summary?: boolean;
   signal?: AbortSignal;
 }) {
   const params = new URLSearchParams();
+  if (options?.sellerId) params.set('sellerId', options.sellerId);
   if (options?.edit) params.set('edit', '1');
   if (options?.summary) params.set('summary', '1');
   const response = await fetch(`/api/marketplace/seller${params.size ? `?${params}` : ''}`, {

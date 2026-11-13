@@ -19,6 +19,9 @@ import { useTheme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
 
+import { paths } from 'src/routes/paths';
+import { RouterLink } from 'src/routes/components';
+
 import { useTranslate } from 'src/locales';
 import { brandColors } from 'src/theme/brand-colors';
 import { apiFetch as fetch } from 'src/lib/api-fetch';
@@ -29,6 +32,8 @@ import {
   RiShoppingBag3Line,
   RiVerifiedBadgeFill,
 } from 'src/components/remix-icon';
+
+import { useAuthContext } from 'src/auth/hooks';
 
 import { hasAnalyticsConsent } from '../../legal/cookie-consent';
 import { MarketplaceProductCard } from '../../shared/product-card';
@@ -45,6 +50,7 @@ const VISITOR_STORAGE_KEY = 'ekru_marketplace_visitor_id';
 
 export function MarketplaceStorefrontView({ slug, dashboardMode = false }: Props) {
   const { t, currentLang } = useTranslate('marketplace');
+  const { user } = useAuthContext();
   const theme = useTheme();
   const [seller, setSeller] = useState<MarketplaceSeller | null>(null);
   const [products, setProducts] = useState<MarketplaceProduct[]>([]);
@@ -190,6 +196,17 @@ export function MarketplaceStorefrontView({ slug, dashboardMode = false }: Props
                   />
                 )}
               </Stack>
+
+              {user?.role === 'master_admin' && isSystemMarketplaceSeller(seller) && (
+                <Button
+                  component={RouterLink}
+                  href={`${paths.marketplace.sellerProfileEdit}?sellerId=${encodeURIComponent(seller.id)}`}
+                  variant="outlined"
+                  sx={{ mt: 2, alignSelf: 'flex-start' }}
+                >
+                  {t('storefront.editStore')}
+                </Button>
+              )}
 
               {alternateStoreName && alternateStoreName !== storeName && (
                 <Typography variant="h6" color="text.secondary" sx={{ mt: 0.5 }}>

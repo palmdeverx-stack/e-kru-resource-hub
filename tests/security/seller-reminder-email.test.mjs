@@ -15,14 +15,15 @@ function load(file, mocks = {}, env = {}) {
 const template = load('src/sections/marketplace/admin/server/seller-reminder-email.ts');
 function api({ authorized = true, status = 'draft', ownerEmail = 'owner@example.test', allowed = true, mailFailure = false, sender = 'E-KRU <noreply@example.test>', crossSite = false, testBody } = {}) {
   const sent = [];
+  const audits = [];
   const mocks = {
     'zod': { z },
     'next/server': { NextResponse: { json: (body, options = {}) => ({ body, status: options.status ?? 200 }) } },
     'src/lib/auth-token': { requireRole: () => authorized ? { sub: 'admin', role: 'master_admin' } : null },
     'src/lib/request-security': { rejectCrossSiteMutation: () => crossSite ? { status: 403 } : null },
-    'src/lib/auth-rate-limit': { isActionAllowed: async (args) => { assert.equal(args.action, testBody ? 'seller-reminder-test' : 'seller-reminder:seller'); return allowed; } },
-    'src/lib/security-audit': { writeSecurityAudit: async () => {} },
-    'src/lib/resend': { getEmailSender: () => sender, getEmailReplyTo: () => 'ekru.team@gmail.com', sendEmail: async (message) => { if (mailFailure) throw new Error('unavailable'); sent.push(message); } },
+    'src/lib/auth-rate-limit': { isActionAllowed: async (args) => { assert.equal(args.action, testBody ? 'seller-reminder-test' : 'seller-reminder:seller'); assert.equal(args.maxAttempts, 1); assert.equal(args.windowSeconds, 300); return allowed; } },
+    'src/lib/security-audit': { writeSecurityAudit: async event => audits.push(event) },
+    'src/lib/resend': { getEmailSender: () => sender, getEmailReplyTo: () => 'ekru.team@gmail.com', sendEmail: async (message) => { if (mailFailure) throw Object.assign(new Error('unavailable'), { providerCode: typeof mailFailure === 'string' ? mailFailure : undefined }); sent.push(message); } },
     'src/sections/marketplace/admin/server/seller-reminder-email': template,
     'src/lib/supabase-admin': { supabaseAdmin: { from: table => {
       assert.ok(['marketplace_sellers', 'marketplace_users'].includes(table));
@@ -33,7 +34,7 @@ function api({ authorized = true, status = 'draft', ownerEmail = 'owner@example.
   const routes = load('src/app/api/marketplace/admin/seller-accounts/[id]/reminder/route.ts', mocks, { RESEND_FROM_EMAIL: sender, RESEND_REPLY_TO_EMAIL: 'ekru.team@gmail.com' });
   const request = { url: 'https://example.test/reminder', headers: new Headers(testBody ? { 'content-type': 'application/json' } : {}), json: async () => testBody };
   const context = { params: Promise.resolve({ id: 'seller' }) };
-  return { preview: () => routes.GET(request, context), send: () => routes.POST(request, context), sent };
+  return { preview: () => routes.GET(request, context), send: () => routes.POST(request, context), sent, audits };
 }
 
 test('preview uses owner email and escapes shop names without sending', async () => {
@@ -110,7 +111,12 @@ test('page-level test email needs no seller and enforces admin, CSRF, recipient 
     const result = await route.POST(request);
     assert.equal(result.status, { success: 200, unauthorized: 403, csrf: 403, invalid: 400, limited: 429, provider: 502 }[scenario]);
     assert.equal(sent.length, scenario === 'success' ? 1 : 0);
-    assert.equal(audits.length, scenario === 'success' ? 1 : 0);
+    assert.equal(audits.length, ['success', 'limited', 'provider'].includes(scenario) ? 1 : 0);
+    if (audits.length) {
+      assert.equal(audits[0].result, { success: 'success', limited: 'denied', provider: 'failure' }[scenario]);
+      assert.equal(audits[0].metadata.reason, { success: 'provider_accepted', limited: 'rate_limit', provider: 'unknown' }[scenario]);
+      assert.equal(audits[0].metadata.provider, 'resend');
+    }
     if (scenario === 'success') {
       assert.equal(sent[0].to, 'tester@example.test');
       assert.match(sent[0].subject, /^\[ตัวอย่าง\]/);
@@ -124,4 +130,32 @@ test('emails generated on localhost always link to the production website', () =
   assert.equal(result.actionUrl, 'https://e-kru-marketplace.com/dashboard/seller/profile/edit?step=1');
   assert.ok(!result.html.includes('localhost'));
   assert.ok(result.html.includes('margin:0 auto'));
+});
+
+
+test('seller reminder records provider failure and rate-limit rejection without claiming delivery', async () => {
+  const failed = api({ mailFailure: 'gmail_auth_error' });
+  assert.equal((await failed.send()).status, 502);
+  assert.equal(failed.sent.length, 0);
+  assert.equal(failed.audits.length, 1);
+  assert.equal(failed.audits[0].result, 'failure');
+  assert.equal(failed.audits[0].metadata.reason, 'gmail_auth_error');
+
+  const limited = api({ allowed: false });
+  const result = await limited.send();
+  assert.equal(result.status, 429);
+  assert.match(result.body.message, /ไม่ยืนยันว่ารอบก่อนส่งสำเร็จ/);
+  assert.equal(limited.sent.length, 0);
+  assert.equal(limited.audits[0].result, 'denied');
+  assert.equal(limited.audits[0].metadata.reason, 'rate_limit');
+});
+
+test('missing sender is audited and preview never creates a send event', async () => {
+  const missing = api({ sender: null });
+  assert.equal((await missing.send()).status, 503);
+  assert.equal(missing.audits[0].metadata.reason, 'sender_not_configured');
+  assert.equal(missing.sent.length, 0);
+  const preview = api();
+  await preview.preview();
+  assert.equal(preview.audits.length, 0);
 });

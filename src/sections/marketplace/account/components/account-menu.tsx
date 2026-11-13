@@ -12,7 +12,6 @@ import MenuItem from '@mui/material/MenuItem';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 
-import { useRouter } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 
 import { useTranslate } from 'src/locales';
@@ -40,7 +39,6 @@ const memberMenuItems = [
 export function MarketplaceAccountMenu() {
   const { t } = useTranslate('navbar');
   const { user, authenticated, setSessionUser } = useAuthContext();
-  const router = useRouter();
   const [pendingSignOut, setPendingSignOut] = useState(false);
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
 
@@ -67,7 +65,7 @@ export function MarketplaceAccountMenu() {
       await signOut();
       setSessionUser?.(null);
       setAnchorEl(null);
-      router.replace('/');
+      window.location.replace('/');
     } catch {
       toast.error(t('ออกจากระบบไม่สำเร็จ กรุณาลองใหม่'));
     } finally {

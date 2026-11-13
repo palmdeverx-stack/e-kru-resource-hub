@@ -171,3 +171,38 @@ test('logout without a Supabase browser session makes only the application logou
   await action.signOut();
   assert.equal(requests, 1);
 });
+
+for (const scenario of ['hanging', 'failure', 'success']) {
+  test(`logout finishes and clears persisted OAuth credentials when optional SDK cleanup is ${scenario}`, async () => {
+    const removed = [];
+    let releaseTimeout;
+    const action = loadModule('src/auth/context/jwt/action.ts', {
+      'src/global-config': { CONFIG: { supabase: { url: 'https://test-project.supabase.co' } } },
+      'src/lib/supabase-browser': { getSupabaseBrowserClient: () => ({ auth: { signOut: async () => {
+        if (scenario === 'hanging') await new Promise(() => {});
+        if (scenario === 'failure') throw new Error('fixture');
+      } } }) },
+    }, {
+      window: { localStorage: { getItem: () => 'fixture-session', removeItem: key => removed.push(key) } },
+      setTimeout: (callback, ms) => { assert.equal(ms, 1500); releaseTimeout = callback; return 1; },
+      clearTimeout: () => {},
+      fetch: async () => ({ ok: true }),
+    });
+    const pending = action.signOut();
+    await new Promise(resolve => setImmediate(resolve));
+    if (scenario === 'hanging') releaseTimeout();
+    await pending;
+    assert.ok(removed.includes('sb-test-project-auth-token'));
+    assert.ok(removed.includes('sb-test-project-auth-token-code-verifier'));
+  });
+}
+
+test('a rejected application logout does not clear optional credentials or report success', async () => {
+  const action = loadModule('src/auth/context/jwt/action.ts', {
+    'src/global-config': { CONFIG: { supabase: { url: 'https://test-project.supabase.co' } } },
+  }, {
+    window: { localStorage: { removeItem: () => assert.fail('Failed logout must not report local success') } },
+    fetch: async () => ({ ok: false }),
+  });
+  await assert.rejects(action.signOut());
+});

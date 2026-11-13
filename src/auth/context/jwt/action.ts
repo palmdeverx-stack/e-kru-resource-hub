@@ -230,11 +230,32 @@ export const signOut = async (): Promise<void> => {
     // If storage cannot be inspected, let the SDK perform its normal cleanup.
   }
 
+  let cleanupTimer: ReturnType<typeof setTimeout> | undefined;
   try {
-    const { getSupabaseBrowserClient } = await import('src/lib/supabase-browser');
-    await getSupabaseBrowserClient().auth.signOut({ scope: 'local' });
+    const cleanup = (async () => {
+      const { getSupabaseBrowserClient } = await import('src/lib/supabase-browser');
+      await getSupabaseBrowserClient().auth.signOut({ scope: 'local' });
+    })();
+    // The app cookie has already been removed. Optional OAuth cleanup must not
+    // hold logout/navigation indefinitely when the SDK or its network call hangs.
+    await Promise.race([
+      cleanup,
+      new Promise<void>((resolve) => {
+        cleanupTimer = setTimeout(resolve, 1500);
+      }),
+    ]);
   } catch {
-    // The application cookie is already cleared. A missing/expired optional
-    // Supabase browser session must not prevent a normal sign-out.
+    // An expired optional Supabase session must not prevent application logout.
+  } finally {
+    if (cleanupTimer) clearTimeout(cleanupTimer);
+    try {
+      const projectRef = new URL(CONFIG.supabase.url).hostname.split('.')[0];
+      const key = `sb-${projectRef}-auth-token`;
+      window.localStorage.removeItem(key);
+      window.localStorage.removeItem(`${key}-code-verifier`);
+      window.localStorage.removeItem(`${key}-user`);
+    } catch {
+      // Browsers may restrict storage; the server cookie remains cleared.
+    }
   }
 };

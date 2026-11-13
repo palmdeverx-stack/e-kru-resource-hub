@@ -49,7 +49,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authenticated, loading]);
 
-  if (isChecking) {
+  if (isChecking || loading || !authenticated) {
     return <SplashScreen />;
   }
 

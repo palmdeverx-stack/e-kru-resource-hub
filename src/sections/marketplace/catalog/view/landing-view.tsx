@@ -12,6 +12,7 @@ import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Grid from '@mui/material/Grid';
 import Chip from '@mui/material/Chip';
+import Alert from '@mui/material/Alert';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Avatar from '@mui/material/Avatar';
@@ -179,6 +180,7 @@ function categoryIcon(name: string): RemixiconComponentType {
 }
 
 type PublicStats = {
+  updatedAt?: string;
   teachers: number;
   products: number;
   schools: number;
@@ -200,7 +202,7 @@ type LandingReview = {
   };
 };
 
-const trustMetrics: Array<{ key: keyof PublicStats; labelKey: string }> = [
+const trustMetrics: Array<{ key: keyof Omit<PublicStats, 'updatedAt'>; labelKey: string }> = [
   { key: 'teachers', labelKey: 'teachers' },
   { key: 'externalMembers', labelKey: 'members' },
   { key: 'products', labelKey: 'products' },
@@ -356,15 +358,23 @@ function LandingBannerSlide({ banner }: { banner: MarketplaceLandingBanner }) {
   );
 }
 
-export function MarketplaceLandingView() {
+export function MarketplaceLandingView({ initialStats }: { initialStats?: PublicStats | null }) {
   const theme = useTheme();
   const { t, currentLang } = useTranslate('marketplace');
   const formatCount = (value: number) =>
     new Intl.NumberFormat(currentLang.numberFormat.code).format(value);
   const categoriesSection = useNearViewport();
   const reviewsSection = useNearViewport();
-  const { data: publicStats } = useQuery({
+  const {
+    data: publicStats,
+    isError: statsError,
+    refetch: retryStats,
+  } = useQuery({
     queryKey: ['landing', 'stats'],
+    initialData: initialStats ?? undefined,
+    initialDataUpdatedAt: initialStats?.updatedAt
+      ? new Date(initialStats.updatedAt).getTime()
+      : undefined,
     queryFn: () => fetchLandingData<PublicStats>('public-stats'),
     staleTime: 5 * 60_000,
   });
@@ -601,6 +611,8 @@ export function MarketplaceLandingView() {
                               <Typography variant="h4">
                                 {formatCount(publicStats.activeSellers)}
                               </Typography>
+                            ) : statsError ? (
+                              <Typography variant="h4">—</Typography>
                             ) : (
                               <Skeleton
                                 width={72}
@@ -615,6 +627,8 @@ export function MarketplaceLandingView() {
                               <Typography variant="h4">
                                 {formatCount(publicStats.completedOrders)}
                               </Typography>
+                            ) : statsError ? (
+                              <Typography variant="h4">—</Typography>
                             ) : (
                               <Skeleton
                                 width={72}
@@ -683,6 +697,19 @@ export function MarketplaceLandingView() {
           >
             {t('stats.eyebrow')}
           </Typography>
+          {statsError && (
+            <Alert
+              severity="warning"
+              sx={{ mb: 2 }}
+              action={
+                <Button color="inherit" onClick={() => void retryStats()}>
+                  {t('errors.retry')}
+                </Button>
+              }
+            >
+              {t('errors.stats')}
+            </Alert>
+          )}
           <Grid container>
             {trustMetrics.map((metric, index) => (
               <Grid key={metric.key} size={{ xs: 6, md: 3 }}>
@@ -705,6 +732,8 @@ export function MarketplaceLandingView() {
                     <Typography variant="h2" sx={{ color: 'common.white' }}>
                       {formatCount(publicStats[metric.key] ?? 0)}
                     </Typography>
+                  ) : statsError ? (
+                    <Typography variant="h2">—</Typography>
                   ) : (
                     <Skeleton
                       width={120}

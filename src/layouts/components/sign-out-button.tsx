@@ -4,8 +4,6 @@ import { useState, useCallback } from 'react';
 
 import Button from '@mui/material/Button';
 
-import { useRouter } from 'src/routes/hooks';
-
 import { useTranslate } from 'src/locales';
 
 import { toast } from 'src/components/snackbar';
@@ -20,7 +18,6 @@ type Props = ButtonProps & {
 };
 
 export function SignOutButton({ onClose, sx, ...other }: Props) {
-  const router = useRouter();
   const { t } = useTranslate();
 
   const { setSessionUser } = useAuthContext();
@@ -34,14 +31,14 @@ export function SignOutButton({ onClose, sx, ...other }: Props) {
       setSessionUser?.(null);
 
       onClose?.();
-      router.replace('/');
+      window.location.replace('/');
     } catch (error) {
       console.error(error);
       toast.error(t('errors.signOut'));
     } finally {
       setPending(false);
     }
-  }, [pending, setSessionUser, onClose, router, t]);
+  }, [pending, setSessionUser, onClose, t]);
 
   return (
     <Button

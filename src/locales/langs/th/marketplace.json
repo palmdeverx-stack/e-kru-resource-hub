@@ -855,6 +855,7 @@
     }
   },
   "storefront": {
+    "editStore": "แก้ไขร้านทางการ",
     "seo": {
       "notFoundTitle": "ไม่พบร้านค้า | {{platformName}}",
       "title": "{{storeName}} | {{platformName}}",

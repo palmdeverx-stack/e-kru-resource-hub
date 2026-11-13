@@ -54,6 +54,26 @@ export async function GET(request: Request) {
   const caller = requireAuthenticated(request);
   if (!caller) return NextResponse.json({ message: 'กรุณาเข้าสู่ระบบ' }, { status: 401 });
 
+  const targetSellerId = new URL(request.url).searchParams.get('sellerId');
+  if (targetSellerId) {
+    if (caller.role !== 'master_admin')
+      return NextResponse.json({ message: 'ไม่มีสิทธิ์แก้ไขร้านทางการนี้' }, { status: 403 });
+    const { data: target, error: targetError } = await supabaseAdmin
+      .from('marketplace_sellers')
+      .select('*')
+      .eq('id', targetSellerId)
+      .maybeSingle();
+    if (targetError)
+      return NextResponse.json({ message: 'โหลดข้อมูลร้านค้าไม่สำเร็จ' }, { status: 500 });
+    if (!target) return NextResponse.json({ message: 'ไม่พบร้านค้า' }, { status: 404 });
+    if (target.owner_role !== 'master_admin')
+      return NextResponse.json(
+        { message: 'เส้นทางนี้ใช้แก้ไขได้เฉพาะร้านทางการ' },
+        { status: 403 }
+      );
+    return NextResponse.json({ seller: await withSellerRelations(target) });
+  }
+
   if (new URL(request.url).searchParams.get('summary') === '1') {
     const { data: summary, error: summaryError } = await supabaseAdmin
       .from('marketplace_sellers')
@@ -63,7 +83,7 @@ export async function GET(request: Request) {
       .eq('owner_id', caller.sub)
       .maybeSingle();
     if (summaryError) return NextResponse.json({ message: summaryError.message }, { status: 500 });
-    if (summary) {
+    if (summary && !(caller.role === 'master_admin' && summary.status === 'suspended')) {
       const { document_count, payout_count, ...seller } = summary;
       const count = (value: unknown) => {
         const row = Array.isArray(value) ? value[0] : value;
@@ -87,6 +107,20 @@ export async function GET(request: Request) {
     .eq('owner_id', caller.sub)
     .maybeSingle();
   if (error) return NextResponse.json({ message: error.message }, { status: 500 });
+
+  if (caller.role === 'master_admin' && existingSeller?.status === 'suspended') {
+    const { data: sharedStores, error: sharedError } = await supabaseAdmin
+      .from('marketplace_sellers')
+      .select('*')
+      .eq('owner_role', 'master_admin')
+      .eq('status', 'active')
+      .limit(2);
+    if (sharedError)
+      return NextResponse.json({ message: 'โหลดร้านทางการไม่สำเร็จ' }, { status: 500 });
+    // Resolve only an unambiguous active official store; never reactivate the suspended store.
+    if (sharedStores?.length === 1)
+      return NextResponse.json({ seller: await withSellerRelations(sharedStores[0]) });
+  }
 
   if (caller.role === 'master_admin' || caller.role === 'marketplace_admin') {
     if (existingSeller?.owner_role === 'master_admin') {
@@ -139,6 +173,54 @@ export async function POST(request: Request) {
   }
   const body = await request.json().catch(() => null);
 
+  let systemSellerOwnerId = caller.sub;
+  if (body?.sellerId) {
+    if (caller.role !== 'master_admin' || typeof body.sellerId !== 'string')
+      return NextResponse.json({ message: 'ไม่มีสิทธิ์แก้ไขร้านทางการนี้' }, { status: 403 });
+    const { data: target, error: targetError } = await supabaseAdmin
+      .from('marketplace_sellers')
+      .select('id, owner_id, owner_role, status')
+      .eq('id', body.sellerId)
+      .maybeSingle();
+    if (targetError)
+      return NextResponse.json({ message: 'โหลดข้อมูลร้านค้าไม่สำเร็จ' }, { status: 500 });
+    if (!target) return NextResponse.json({ message: 'ไม่พบร้านค้า' }, { status: 404 });
+    if (target.owner_role !== 'master_admin')
+      return NextResponse.json(
+        { message: 'เส้นทางนี้ใช้แก้ไขได้เฉพาะร้านทางการ' },
+        { status: 403 }
+      );
+    if (target.status === 'suspended')
+      return NextResponse.json({ message: 'ร้านถูกระงับการใช้งาน' }, { status: 403 });
+    systemSellerOwnerId = target.owner_id;
+  }
+
+  if (caller.role === 'master_admin' && !body?.sellerId) {
+    const { data: ownSeller, error: ownError } = await supabaseAdmin
+      .from('marketplace_sellers')
+      .select('id, status')
+      .eq('owner_id', caller.sub)
+      .maybeSingle();
+    if (ownError)
+      return NextResponse.json({ message: 'โหลดข้อมูลร้านค้าไม่สำเร็จ' }, { status: 500 });
+    if (ownSeller?.status === 'suspended') {
+      const { data: sharedStores, error: sharedError } = await supabaseAdmin
+        .from('marketplace_sellers')
+        .select('id, owner_id')
+        .eq('owner_role', 'master_admin')
+        .eq('status', 'active')
+        .limit(2);
+      if (sharedError)
+        return NextResponse.json({ message: 'โหลดร้านทางการไม่สำเร็จ' }, { status: 500 });
+      if (sharedStores?.length !== 1)
+        return NextResponse.json(
+          { message: 'กรุณาเลือกแก้ไขร้านทางการที่เปิดใช้งานจากหน้าร้าน' },
+          { status: 409 }
+        );
+      systemSellerOwnerId = sharedStores[0].owner_id;
+    }
+  }
+
   if (caller.role === 'master_admin' || caller.role === 'marketplace_admin') {
     const displayName = String(body?.displayName ?? '').trim();
     const companyName = String(body?.companyName ?? '').trim();
@@ -170,7 +252,7 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
-    const result = await provisionEkruSystemSeller(caller.sub, {
+    const result = await provisionEkruSystemSeller(systemSellerOwnerId, {
       bio: String(body?.bio ?? '').trim(),
       businessAddress,
       companyName,

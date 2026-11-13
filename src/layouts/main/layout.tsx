@@ -96,7 +96,11 @@ export function MainLayout({
       ),
       centerArea: (
         <NavDesktop
-          data={navData}
+          data={
+            rawNavData === mainNavData
+              ? [...navData, { title: t('ติดต่อสอบถาม'), path: '/contact' }]
+              : navData
+          }
           sx={(theme) => ({
             display: 'none',
             [theme.breakpoints.up(layoutQuery)]: { display: 'flex' },

@@ -87,7 +87,9 @@ const ItemRoot = styled(ButtonBase, { shouldForwardProp })<StyledState>(({
     color: theme.vars.palette.primary.main,
     '&:hover': {
       color: theme.vars.palette.primary.dark,
-      backgroundColor: varAlpha(theme.vars.palette.primary.mainChannel, 0.08),
+      backgroundColor: varAlpha(theme.vars.palette.primary.mainChannel, 0.1),
+      boxShadow: `0 0 0 6px ${varAlpha(theme.vars.palette.primary.mainChannel, 0.1)}`,
+      borderRadius: 4,
     },
     ...(open && { '&::before': { ...dotTransitions.out } }),
     ...(active && {
@@ -102,7 +104,7 @@ const ItemRoot = styled(ButtonBase, { shouldForwardProp })<StyledState>(({
   };
 
   return {
-    transition: theme.transitions.create(['color'], {
+    transition: theme.transitions.create(['color', 'background-color', 'box-shadow'], {
       duration: theme.transitions.duration.shorter,
     }),
     '&::before': dotStyles,

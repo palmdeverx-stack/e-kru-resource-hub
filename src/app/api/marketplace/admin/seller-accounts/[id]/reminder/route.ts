@@ -78,8 +78,30 @@ async function handle(request: Request, context: Context, send: boolean) {
       },
       { headers: { 'Cache-Control': 'private, no-store' } }
     );
-  if (!getEmailSender())
+  const auditSend = (result: 'success' | 'failure' | 'denied', reason?: string) =>
+    writeSecurityAudit({
+      request,
+      actorId: caller.sub,
+      actorRole: caller.role,
+      actorUsername: caller.username,
+      category: 'admin',
+      action: testRecipient
+        ? 'marketplace.seller_reminder_test_email'
+        : 'marketplace.seller_reminder_email',
+      targetType: 'marketplace_seller',
+      targetId: id,
+      result,
+      metadata: {
+        template: 'seller_issue_resolved',
+        wizard_step: seller.wizard_step,
+        provider: process.env.EMAIL_PROVIDER === 'gmail' ? 'gmail' : 'resend',
+        ...(reason && { reason }),
+      },
+    });
+  if (!getEmailSender()) {
+    await auditSend('failure', 'sender_not_configured');
     return NextResponse.json({ message: 'กรุณาตั้งค่าอีเมลผู้ส่งก่อนส่ง' }, { status: 503 });
+  }
   const allowed = await isActionAllowed({
     request,
     action: testRecipient ? 'seller-reminder-test' : `seller-reminder:${id}`,
@@ -87,11 +109,16 @@ async function handle(request: Request, context: Context, send: boolean) {
     maxAttempts: 1,
     windowSeconds: 300,
   });
-  if (!allowed)
+  if (!allowed) {
+    await auditSend('denied', 'rate_limit');
     return NextResponse.json(
-      { message: 'เพิ่งส่งอีเมล กรุณารอ 5 นาทีก่อนส่งซ้ำ' },
+      {
+        message:
+          'ระบบจำกัดความถี่การส่ง กรุณารอ 5 นาทีแล้วลองใหม่ ข้อความนี้ไม่ยืนยันว่ารอบก่อนส่งสำเร็จ',
+      },
       { status: 429 }
     );
+  }
   try {
     await sendEmail({
       to,
@@ -119,6 +146,7 @@ async function handle(request: Request, context: Context, send: boolean) {
       daily_quota_exceeded: 'ใช้โควตาส่งอีเมลรายวันของ Resend ครบแล้ว',
       monthly_quota_exceeded: 'ใช้โควตาส่งอีเมลรายเดือนของ Resend ครบแล้ว',
     };
+    await auditSend('failure', Object.hasOwn(messages, code) ? code : 'unknown');
     console.error('Seller reminder email failed', {
       sellerId: id,
       providerCode: Object.hasOwn(messages, code) ? code : 'unknown',
@@ -133,21 +161,10 @@ async function handle(request: Request, context: Context, send: boolean) {
       { status: 502 }
     );
   }
-  await writeSecurityAudit({
-    request,
-    actorId: caller.sub,
-    actorRole: caller.role,
-    actorUsername: caller.username,
-    category: 'admin',
-    action: testRecipient
-      ? 'marketplace.seller_reminder_test_email'
-      : 'marketplace.seller_reminder_email',
-    targetType: 'marketplace_seller',
-    targetId: id,
-    result: 'success',
-    metadata: { template: 'seller_issue_resolved', wizard_step: seller.wizard_step },
+  await auditSend('success', 'provider_accepted');
+  return NextResponse.json({
+    message: 'ผู้ให้บริการรับคำขอส่งอีเมลแล้ว กรุณาตรวจกล่องจดหมายและสแปมของผู้รับ',
   });
-  return NextResponse.json({ message: 'ส่งอีเมลแจ้งแก้ไขปัญหาและเชิญเปิดร้านต่อแล้ว' });
 }
 export async function GET(request: Request, context: Context) {
   return handle(request, context, false);

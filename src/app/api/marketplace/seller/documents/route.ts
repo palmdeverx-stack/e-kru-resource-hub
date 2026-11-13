@@ -7,6 +7,11 @@ import { optimizeUploadedImage } from 'src/lib/server-image-optimizer';
 import { watermarkPdfDocument } from 'src/lib/server-document-watermark';
 import { SELLER_DOCUMENT_WATERMARK_LINES } from 'src/lib/document-watermark-copy';
 
+import {
+  SELLER_ASSET_UPLOAD_MAX_MB,
+  SELLER_ASSET_UPLOAD_MIME_TYPES,
+} from 'src/sections/marketplace/shared/seller-document-upload-policy';
+
 const TYPES = new Set([
   'store_logo',
   'store_cover',
@@ -94,6 +99,9 @@ export async function POST(request: Request) {
   const previewOnly = new URL(request.url).searchParams.get('preview') === '1';
   const formData = await request.formData();
   const documentType = String(formData.get('documentType') ?? '');
+  const targetSellerId = String(formData.get('sellerId') ?? '');
+  if (targetSellerId && caller.role !== 'master_admin')
+    return NextResponse.json({ message: 'ไม่มีสิทธิ์แก้ไขร้านทางการนี้' }, { status: 403 });
   const file = formData.get('file');
   if (!TYPES.has(documentType) || !(file instanceof File)) {
     return NextResponse.json({ message: 'ประเภทเอกสารหรือไฟล์ไม่ถูกต้อง' }, { status: 400 });
@@ -109,11 +117,11 @@ export async function POST(request: Request) {
   const accepted = isReceiptSignature
     ? ['image/jpeg', 'image/png']
     : isAsset
-      ? ['image/jpeg', 'image/png', 'image/webp']
+      ? SELLER_ASSET_UPLOAD_MIME_TYPES
       : ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
-  const maxSizeMb = isVerificationDocument ? 5 : isReceiptSignature || isAsset ? 2 : 5;
+  const maxSizeMb = isAsset ? SELLER_ASSET_UPLOAD_MAX_MB : isReceiptSignature ? 2 : 5;
   const maxSize = isVerificationDocument ? VERIFICATION_SOURCE_MAX_BYTES : maxSizeMb * 1024 * 1024;
-  if (!accepted.includes(contentType) || file.size > maxSize) {
+  if (!accepted.includes(contentType) || file.size === 0 || file.size > maxSize) {
     return NextResponse.json(
       {
         message: `ไฟล์ไม่ถูกต้องหรือมีขนาดเกิน ${maxSizeMb} MB`,
@@ -136,9 +144,11 @@ export async function POST(request: Request) {
   }
   const { data: seller } = await supabaseAdmin
     .from('marketplace_sellers')
-    .select('id, owner_id, status, pending_profile_data')
-    .eq('owner_id', caller.sub)
+    .select('id, owner_id, owner_role, status, pending_profile_data')
+    .eq(targetSellerId ? 'id' : 'owner_id', targetSellerId || caller.sub)
     .maybeSingle();
+  if (targetSellerId && (!seller || seller.owner_role !== 'master_admin'))
+    return NextResponse.json({ message: 'ไม่พบร้านทางการที่มีสิทธิ์แก้ไข' }, { status: 403 });
   if (!seller && !previewOnly) {
     return NextResponse.json({ message: 'กรุณาบันทึกข้อมูลร้านก่อนอัปโหลดไฟล์' }, { status: 409 });
   }

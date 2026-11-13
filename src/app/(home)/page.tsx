@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { detectLanguage, getServerTranslations } from 'src/locales/server';
 
 import { MarketplaceLandingView } from 'src/sections/marketplace/catalog/view/landing-view';
+import { getPublicMarketplaceStats } from 'src/sections/marketplace/catalog/server/public-stats';
 import { getPublicPlatformSettings } from 'src/sections/marketplace/admin/server/platform-settings';
 import {
   absoluteMarketplaceUrl,
@@ -46,7 +47,11 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function Page() {
-  const [lang, { t }] = await Promise.all([detectLanguage(), getServerTranslations('marketplace')]);
+  const [lang, { t }, publicStats] = await Promise.all([
+    detectLanguage(),
+    getServerTranslations('marketplace'),
+    getPublicMarketplaceStats().catch(() => null),
+  ]);
   const siteUrl = absoluteMarketplaceUrl('/');
   const searchUrlTemplate = `${siteUrl.replace(/\/$/, '')}/products?q={search_term_string}`;
   const structuredData = {
@@ -97,7 +102,7 @@ export default async function Page() {
           __html: JSON.stringify(structuredData).replace(/</g, '\\u003c'),
         }}
       />
-      <MarketplaceLandingView />
+      <MarketplaceLandingView initialStats={publicStats} />
     </>
   );
 }

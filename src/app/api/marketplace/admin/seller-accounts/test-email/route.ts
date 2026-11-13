@@ -42,8 +42,25 @@ export async function POST(request: Request) {
     .safeParse(await request.json().catch(() => null));
   if (!parsed.success)
     return NextResponse.json({ message: 'กรุณาระบุอีเมลรับตัวอย่างให้ถูกต้อง' }, { status: 400 });
-  if (!getEmailSender())
+  const auditSend = (result: 'success' | 'failure' | 'denied', reason?: string) =>
+    writeSecurityAudit({
+      request,
+      actorId: caller.sub,
+      actorRole: caller.role,
+      actorUsername: caller.username,
+      category: 'admin',
+      action: 'marketplace.seller_reminder_test_email',
+      result,
+      metadata: {
+        template: 'seller_issue_resolved',
+        provider: process.env.EMAIL_PROVIDER === 'gmail' ? 'gmail' : 'resend',
+        ...(reason && { reason }),
+      },
+    });
+  if (!getEmailSender()) {
+    await auditSend('failure', 'sender_not_configured');
     return NextResponse.json({ message: 'กรุณาตั้งค่าอีเมลผู้ส่งก่อนส่ง' }, { status: 503 });
+  }
   const allowed = await isActionAllowed({
     request,
     action: 'seller-reminder-test',
@@ -51,8 +68,16 @@ export async function POST(request: Request) {
     maxAttempts: 1,
     windowSeconds: 300,
   });
-  if (!allowed)
-    return NextResponse.json({ message: 'กรุณารอ 5 นาทีก่อนส่งตัวอย่างซ้ำ' }, { status: 429 });
+  if (!allowed) {
+    await auditSend('denied', 'rate_limit');
+    return NextResponse.json(
+      {
+        message:
+          'ระบบจำกัดความถี่การส่ง กรุณารอ 5 นาทีแล้วลองใหม่ ข้อความนี้ไม่ยืนยันว่ารอบก่อนส่งสำเร็จ',
+      },
+      { status: 429 }
+    );
+  }
   const template = templateFor(request);
   try {
     await sendEmail({
@@ -81,6 +106,7 @@ export async function POST(request: Request) {
       daily_quota_exceeded: 'ใช้โควตาส่งอีเมลรายวันของ Resend ครบแล้ว',
       monthly_quota_exceeded: 'ใช้โควตาส่งอีเมลรายเดือนของ Resend ครบแล้ว',
     };
+    await auditSend('failure', Object.hasOwn(messages, code) ? code : 'unknown');
     console.error('Seller reminder email failed', {
       action: 'seller-reminder-test',
       providerCode: Object.hasOwn(messages, code) ? code : 'unknown',
@@ -95,15 +121,6 @@ export async function POST(request: Request) {
       { status: 502 }
     );
   }
-  await writeSecurityAudit({
-    request,
-    actorId: caller.sub,
-    actorRole: caller.role,
-    actorUsername: caller.username,
-    category: 'admin',
-    action: 'marketplace.seller_reminder_test_email',
-    result: 'success',
-    metadata: { template: 'seller_issue_resolved' },
-  });
+  await auditSend('success', 'provider_accepted');
   return NextResponse.json({ message: 'ผู้ให้บริการรับคำขอส่งตัวอย่างแล้ว' });
 }

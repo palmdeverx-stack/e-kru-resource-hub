@@ -286,25 +286,32 @@ export function MarketplaceSellerAccountListView() {
           <Typography variant="h6">รายการร้านค้า</Typography>
           <Chip size="small" variant="soft" label={`${total.toLocaleString('th-TH')} ร้าน`} />
         </Stack>
-        <TableContainer sx={{ maxHeight: 720 }}>
+        <TableContainer
+          tabIndex={0}
+          role="region"
+          aria-label="ตารางบัญชีร้านค้า เลื่อนแนวนอนเพื่อดูข้อมูลเพิ่มเติม"
+          sx={{ maxHeight: 720, overflowX: 'auto', overscrollBehaviorX: 'contain' }}
+        >
           <Table
             stickyHeader
             aria-label="บัญชีร้านค้าในระบบ"
-            sx={{ minWidth: 1180, '& td': { py: 2, verticalAlign: 'top' } }}
+            sx={{
+              width: 'max-content',
+              minWidth: 1600,
+              '& th, & td': { whiteSpace: 'nowrap' },
+              '& td': { py: 2, verticalAlign: 'top' },
+            }}
           >
             <TableHead>
               <TableRow>
                 <TableCell sx={{ width: 64 }}>ลำดับ</TableCell>
-                <TableCell sx={{ minWidth: 220 }}>ร้านค้า / ประเภท</TableCell>
-                <TableCell sx={{ minWidth: 210 }}>ผู้ขาย / การติดต่อ</TableCell>
-                <TableCell sx={{ minWidth: 175 }}>สถานะ / การเปิดร้าน</TableCell>
+                <TableCell sx={{ minWidth: 280 }}>ร้านค้า / ประเภท</TableCell>
+                <TableCell sx={{ minWidth: 280 }}>ผู้ขาย / การติดต่อ</TableCell>
+                <TableCell sx={{ minWidth: 230 }}>สถานะ / การเปิดร้าน</TableCell>
                 <TableCell>ค่าธรรมเนียม</TableCell>
                 <TableCell sx={{ minWidth: 180 }}>สถิติร้านค้า</TableCell>
                 <TableCell sx={{ whiteSpace: 'nowrap' }}>อัปเดตล่าสุด</TableCell>
-                <TableCell
-                  align="right"
-                  sx={{ position: 'sticky', right: 0, zIndex: 3, minWidth: 160 }}
-                >
+                <TableCell align="right" sx={{ minWidth: 260 }}>
                   จัดการ
                 </TableCell>
               </TableRow>
@@ -343,9 +350,7 @@ export function MarketplaceSellerAccountListView() {
                             <RiStore3Line />
                           </Avatar>
                           <Box sx={{ minWidth: 0 }}>
-                            <Typography variant="subtitle2" sx={{ overflowWrap: 'anywhere' }}>
-                              {seller.display_name}
-                            </Typography>
+                            <Typography variant="subtitle2">{seller.display_name}</Typography>
                             <Typography variant="caption" color="text.secondary">
                               /store/{seller.slug || '-'}
                             </Typography>
@@ -425,16 +430,8 @@ export function MarketplaceSellerAccountListView() {
                           })}
                         </Typography>
                       </TableCell>
-                      <TableCell
-                        align="right"
-                        sx={{
-                          position: 'sticky',
-                          right: 0,
-                          bgcolor: 'background.paper',
-                          boxShadow: '-8px 0 12px -12px rgba(0,0,0,0.3)',
-                        }}
-                      >
-                        <Stack alignItems="stretch" spacing={0.75}>
+                      <TableCell align="right">
+                        <Stack direction="row" justifyContent="flex-end" spacing={1}>
                           <Button
                             component={RouterLink}
                             href={paths.marketplace.sellerAccount(seller.id)}
