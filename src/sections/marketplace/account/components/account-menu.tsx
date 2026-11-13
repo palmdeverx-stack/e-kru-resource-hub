@@ -62,10 +62,9 @@ export function MarketplaceAccountMenu() {
     if (pendingSignOut) return;
     setPendingSignOut(true);
     try {
-      await signOut();
+      await signOut({ redirectToHome: true });
       setSessionUser?.(null);
       setAnchorEl(null);
-      window.location.replace('/');
     } catch {
       toast.error(t('ออกจากระบบไม่สำเร็จ กรุณาลองใหม่'));
     } finally {

@@ -5,6 +5,7 @@ import { detectLanguage, getServerTranslations } from 'src/locales/server';
 import { MARKETPLACE_OG_IMAGE_URL } from 'src/sections/marketplace/seo/site-url';
 import { MarketplaceStoreListView } from 'src/sections/marketplace/seller/view/store-list-view';
 import { getPublicPlatformSettings } from 'src/sections/marketplace/admin/server/platform-settings';
+import { getPublicStoreDirectory } from 'src/sections/marketplace/seller/server/public-store-directory';
 
 export async function generateMetadata(): Promise<Metadata> {
   const [lang, { t }, settings] = await Promise.all([
@@ -36,6 +37,7 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default function Page() {
-  return <MarketplaceStoreListView />;
+export default async function Page() {
+  const stores = await getPublicStoreDirectory('', 1, 24).catch(() => null);
+  return <MarketplaceStoreListView initialStores={stores} />;
 }

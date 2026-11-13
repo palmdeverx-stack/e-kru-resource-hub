@@ -3,7 +3,7 @@
 import type { MarketplaceSeller } from '../../shared/types';
 
 import { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
@@ -20,6 +20,7 @@ import TextField from '@mui/material/TextField';
 import IconButton from '@mui/material/IconButton';
 import Pagination from '@mui/material/Pagination';
 import Typography from '@mui/material/Typography';
+import LinearProgress from '@mui/material/LinearProgress';
 import InputAdornment from '@mui/material/InputAdornment';
 
 import { paths } from 'src/routes/paths';
@@ -63,13 +64,18 @@ type PublicStore = Pick<
 };
 
 type StoreResponse = {
+  updatedAt?: string;
   stores: PublicStore[];
   total: number;
   page: number;
   totalPages: number;
 };
 
-export function MarketplaceStoreListView() {
+export function MarketplaceStoreListView({
+  initialStores,
+}: {
+  initialStores?: StoreResponse | null;
+}) {
   const { t, currentLang } = useTranslate('marketplace');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -83,9 +89,15 @@ export function MarketplaceStoreListView() {
     data,
     isPending: loading,
     isError,
+    isFetching,
     refetch,
   } = useQuery({
     queryKey: ['public-stores', debouncedSearch, page],
+    initialData: page === 1 && !debouncedSearch ? (initialStores ?? undefined) : undefined,
+    initialDataUpdatedAt: initialStores?.updatedAt
+      ? Date.parse(initialStores.updatedAt)
+      : undefined,
+    placeholderData: keepPreviousData,
     queryFn: async ({ signal }): Promise<StoreResponse> => {
       const params = new URLSearchParams({ page: String(page), limit: '24' });
       if (debouncedSearch) params.set('q', debouncedSearch);
@@ -197,6 +209,7 @@ export function MarketplaceStoreListView() {
             />
           </Stack>
 
+          {isFetching && !loading && <LinearProgress aria-label={t('stores.heading')} />}
           {isError && (
             <Alert
               severity="error"

@@ -206,3 +206,46 @@ test('a rejected application logout does not clear optional credentials or repor
   });
   await assert.rejects(action.signOut());
 });
+
+test('menu logout navigates after cookie confirmation without waiting for OAuth network cleanup', async () => {
+  const removed = [], redirected = [], requests = [];
+  let confirmCookie;
+  const action = loadModule('src/auth/context/jwt/action.ts', {
+    'src/global-config': { CONFIG: { supabase: { url: 'https://test-project.supabase.co', key: 'fixture-public-key' } } },
+  }, {
+    window: {
+      localStorage: { getItem: () => JSON.stringify({ access_token: 'fixture-access-token' }), removeItem: key => removed.push(key) },
+      location: { replace: path => redirected.push(path) },
+    },
+    fetch: async (url, options) => {
+      requests.push({ url, options });
+      if (url === '/api/auth/sign-out') return new Promise(resolve => { confirmCookie = resolve; });
+      return new Promise(() => {});
+    },
+  });
+  const pending = action.signOut({ redirectToHome: true });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(removed.length, 0);
+  assert.equal(redirected.length, 0);
+  confirmCookie({ ok: true });
+  await pending;
+  assert.deepEqual(redirected, ['/']);
+  assert.ok(removed.includes('sb-test-project-auth-token'));
+  const revocation = requests.find(entry => entry.url.includes('/auth/v1/logout?scope=local'));
+  assert.ok(revocation);
+  assert.equal(revocation.options.keepalive, true);
+  assert.equal(revocation.options.headers.Authorization, 'Bearer fixture-access-token');
+});
+
+test('menu logout does not navigate or remove credentials if the application rejects logout', async () => {
+  const action = loadModule('src/auth/context/jwt/action.ts', {
+    'src/global-config': { CONFIG: { supabase: { url: 'https://test-project.supabase.co', key: 'fixture-public-key' } } },
+  }, {
+    window: {
+      localStorage: { removeItem: () => assert.fail('Must retain credentials on failure') },
+      location: { replace: () => assert.fail('Must not navigate on failure') },
+    },
+    fetch: async () => ({ ok: false }),
+  });
+  await assert.rejects(action.signOut({ redirectToHome: true }));
+});

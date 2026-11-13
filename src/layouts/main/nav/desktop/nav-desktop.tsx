@@ -18,7 +18,7 @@ export function NavDesktop({ data, sx, ...other }: NavMainProps) {
     >
       <NavUl
         sx={{
-          gap: { md: 1, lg: 2, xl: 3 },
+          gap: { md: 3, lg: 4, xl: 5 },
           height: 1,
           flexDirection: 'row',
           alignItems: 'center',

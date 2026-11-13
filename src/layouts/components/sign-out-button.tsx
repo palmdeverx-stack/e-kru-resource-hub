@@ -27,11 +27,10 @@ export function SignOutButton({ onClose, sx, ...other }: Props) {
     if (pending) return;
     setPending(true);
     try {
-      await signOut();
+      await signOut({ redirectToHome: true });
       setSessionUser?.(null);
 
       onClose?.();
-      window.location.replace('/');
     } catch (error) {
       console.error(error);
       toast.error(t('errors.signOut'));

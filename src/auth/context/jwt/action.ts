@@ -210,7 +210,7 @@ export const acceptLegal = async (): Promise<AppUser> => {
 /** **************************************
  * Sign out
  *************************************** */
-export const signOut = async (): Promise<void> => {
+export const signOut = async (options?: { redirectToHome?: boolean }): Promise<void> => {
   const response = await fetch('/api/auth/sign-out', {
     method: 'POST',
     cache: 'no-store',
@@ -218,6 +218,38 @@ export const signOut = async (): Promise<void> => {
 
   if (!response.ok) {
     throw new Error('ไม่สามารถออกจากระบบได้');
+  }
+
+  if (options?.redirectToHome && typeof window !== 'undefined') {
+    // The server has confirmed cookie removal. Revoke the optional OAuth session
+    // without downloading/locking the SDK or delaying full-page navigation.
+    try {
+      if (CONFIG.supabase.url) {
+        const projectRef = new URL(CONFIG.supabase.url).hostname.split('.')[0];
+        const key = `sb-${projectRef}-auth-token`;
+        const stored = window.localStorage.getItem(key);
+        let accessToken: unknown;
+        try {
+          accessToken = stored ? JSON.parse(stored)?.access_token : undefined;
+        } catch {
+          // Invalid persisted state still needs to be removed.
+        }
+        if (typeof accessToken === 'string' && accessToken && CONFIG.supabase.key) {
+          void fetch(`${CONFIG.supabase.url.replace(/\/$/, '')}/auth/v1/logout?scope=local`, {
+            method: 'POST',
+            headers: { apikey: CONFIG.supabase.key, Authorization: `Bearer ${accessToken}` },
+            keepalive: true,
+          }).catch(() => undefined);
+        }
+        window.localStorage.removeItem(key);
+        window.localStorage.removeItem(`${key}-code-verifier`);
+        window.localStorage.removeItem(`${key}-user`);
+      }
+    } catch {
+      // Restricted browser storage must not delay logout after cookie removal.
+    }
+    window.location.replace('/');
+    return;
   }
 
   // Password/PIN accounts often have no Supabase browser session. Avoid
