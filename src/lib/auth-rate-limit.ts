@@ -1,5 +1,7 @@
 import 'server-only';
 
+import { createHash } from 'node:crypto';
+
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 
 // ----------------------------------------------------------------------
@@ -21,7 +23,13 @@ async function checkRateLimit(
 ): Promise<boolean> {
   try {
     const { data, error } = await supabaseAdmin.rpc('check_rate_limit', {
-      p_identifier: identifier,
+      // The database rejects identifiers longer than 100 characters. Preserve
+      // existing short keys and hash the full long key so distinct users/actions
+      // never collapse into a truncated shared bucket.
+      p_identifier:
+        identifier.length <= 100
+          ? identifier
+          : `${identifier.slice(0, 32)}:${createHash('sha256').update(identifier).digest('hex')}`,
       p_max_attempts: maxAttempts,
       p_window_seconds: windowSeconds,
     });
