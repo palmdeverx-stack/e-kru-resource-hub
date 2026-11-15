@@ -547,7 +547,7 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                   <Box
                     key={item.id}
                     sx={{
-                      p: { xs: 1.5, md: 2 },
+                      p: { xs: 2, md: 2.5 },
                       border: '1px solid',
                       borderColor: 'divider',
                       borderRadius: 2.5,
@@ -555,13 +555,19 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                     }}
                   >
                     <Stack
-                      direction={{ xs: 'column', sm: 'row' }}
-                      spacing={2}
-                      alignItems={{ sm: 'flex-start' }}
+                      sx={{
+                        display: 'grid',
+                        gridTemplateColumns: {
+                          xs: 'minmax(0, 1fr)',
+                          sm: '112px minmax(0, 1fr)',
+                        },
+                        gap: { xs: 2, sm: 2.5 },
+                        alignItems: 'start',
+                      }}
                     >
                       <Box
                         sx={{
-                          width: { xs: '100%', sm: 120 },
+                          width: { xs: 88, sm: '100%' },
                           aspectRatio: '1 / 1',
                           flexShrink: 0,
                           borderRadius: 2,
@@ -576,8 +582,8 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                       >
                         {!cover && <RiShoppingBag3Line size={34} />}
                       </Box>
-                      <Box sx={{ minWidth: 0, flexGrow: 1 }}>
-                        <Typography variant="h6">
+                      <Box sx={{ minWidth: 0, gridColumn: { sm: 2 }, gridRow: { sm: 1 } }}>
+                        <Typography variant="h6" sx={{ overflowWrap: 'anywhere', lineHeight: 1.4 }}>
                           {(isEnglish && product?.title_en) || product?.title || item.title}
                         </Typography>
                         {!!(
@@ -589,6 +595,25 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                               product?.short_description}
                           </Typography>
                         )}
+                        <Box sx={{ mt: 1.5 }}>
+                          <Typography variant="h6" color="primary.main">
+                            {formatPrice(unitPrice * item.quantity, order.currency)}
+                          </Typography>
+                          {itemDiscount > 0 && (
+                            <>
+                              <Typography
+                                variant="caption"
+                                color="text.disabled"
+                                sx={{ display: 'block', textDecoration: 'line-through' }}
+                              >
+                                {formatPrice(listUnitPrice * item.quantity, order.currency)}
+                              </Typography>
+                              <Typography variant="caption" color="success.main">
+                                ประหยัด {formatPrice(itemDiscount, order.currency)}
+                              </Typography>
+                            </>
+                          )}
+                        </Box>
                         <Stack
                           direction="row"
                           spacing={1}
@@ -683,7 +708,12 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                             </Stack>
                           )}
                         {product?.resource_type === 'feature_unlock' && isPaid && (
-                          <Box sx={{ mt: 2 }}>
+                          <Box
+                            sx={{
+                              mt: 2,
+                              '& .MuiButton-root': { minHeight: 44, borderRadius: 1.5 },
+                            }}
+                          >
                             <PurchasedAppButton product={product} />
                           </Box>
                         )}
@@ -692,10 +722,12 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                           (license ? (
                             <Box
                               sx={{
-                                p: 1.5,
+                                p: { xs: 1.5, sm: 2 },
                                 mt: 2,
-                                borderRadius: 1.5,
-                                bgcolor: 'success.lighter',
+                                borderRadius: 2,
+                                bgcolor: 'background.neutral',
+                                border: '1px solid',
+                                borderColor: 'divider',
                               }}
                             >
                               <Stack
@@ -705,7 +737,7 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                               >
                                 <Chip
                                   size="small"
-                                  color="success"
+                                  color={license.status === 'active' ? 'success' : 'warning'}
                                   variant="soft"
                                   label={licenseStatusLabel(license.status)}
                                 />
@@ -720,7 +752,8 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                               <Stack
                                 direction={{ xs: 'column', sm: 'row' }}
                                 spacing={{ xs: 0.5, sm: 2 }}
-                                sx={{ mt: 1 }}
+                                sx={{ mt: 1.5, flexWrap: 'wrap', rowGap: 0.5 }}
+                                useFlexGap
                               >
                                 <Typography variant="caption" color="text.secondary">
                                   เริ่ม {formatDateTime(license.starts_at)}
@@ -744,7 +777,8 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                                     ? paths.marketplace.personalEntitlements
                                     : paths.marketplace.licenses
                                 }
-                                sx={{ mt: 0.5 }}
+                                variant="outlined"
+                                sx={{ mt: 1.5, minHeight: 36, bgcolor: 'background.paper' }}
                               >
                                 {product.license_scope === 'platform'
                                   ? 'ดูสิทธิ์สำหรับทุกคน'
@@ -902,25 +936,6 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                               ))}
                             </Stack>
                           </Box>
-                        )}
-                      </Box>
-                      <Box sx={{ textAlign: { sm: 'right' }, whiteSpace: 'nowrap' }}>
-                        <Typography variant="h6" color="primary.main">
-                          {formatPrice(unitPrice * item.quantity, order.currency)}
-                        </Typography>
-                        {itemDiscount > 0 && (
-                          <>
-                            <Typography
-                              variant="caption"
-                              color="text.disabled"
-                              sx={{ display: 'block', textDecoration: 'line-through' }}
-                            >
-                              {formatPrice(listUnitPrice * item.quantity, order.currency)}
-                            </Typography>
-                            <Typography variant="caption" color="success.main">
-                              ประหยัด {formatPrice(itemDiscount, order.currency)}
-                            </Typography>
-                          </>
                         )}
                       </Box>
                     </Stack>
