@@ -188,6 +188,9 @@ export type MarketplaceLicenseTeacher = {
 };
 
 export type MarketplaceSeller = {
+  account_status?: 'draft' | 'pending' | 'active' | 'suspended' | 'rejected';
+  is_hidden?: boolean;
+  moderation_reason?: string | null;
   id: string;
   owner_id: string;
   owner_role: string;

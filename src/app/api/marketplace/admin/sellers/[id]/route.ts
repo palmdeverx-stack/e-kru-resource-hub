@@ -95,6 +95,7 @@ export async function GET(request: Request, { params }: Context) {
     seller: {
       ...effectiveSeller,
       status: profileReviewStatus ?? seller.status,
+      account_status: seller.status,
       submitted_at: isProfileRevision ? seller.profile_submitted_at : seller.submitted_at,
       rejection_reason: isProfileRevision
         ? seller.profile_rejection_reason

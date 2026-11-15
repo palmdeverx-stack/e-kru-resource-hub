@@ -22,14 +22,16 @@ function bearerToken(request: Request) {
 }
 
 function googleProfile(authUser: User) {
-  const metadata = authUser.user_metadata ?? {};
+  const metadata = authUser.identities?.find((identity) => identity.provider === 'google')?.identity_data
+    ?? authUser.user_metadata ?? {};
   const fullName = String(metadata.full_name ?? metadata.name ?? '').trim();
   const [fallbackFirstName = 'Google', ...fallbackLastName] = fullName.split(/\s+/);
   const avatarUrl = String(metadata.avatar_url ?? metadata.picture ?? '').trim() || null;
 
   return {
+    hasName: Boolean(fullName || String(metadata.given_name ?? '').trim()),
     firstName: String(metadata.given_name ?? fallbackFirstName).trim() || 'Google',
-    lastName: String(metadata.family_name ?? fallbackLastName.join(' ')).trim() || 'User',
+    lastName: String(metadata.family_name ?? fallbackLastName.join(' ')).trim(),
     avatarUrl,
   };
 }
@@ -150,6 +152,33 @@ async function handleGoogleSignIn(request: Request) {
   if (appUserByAuth) {
     const access = await validateSchoolUser(appUserByAuth);
     if (access.error) return NextResponse.json({ message: access.error }, { status: 403 });
+
+    // Sync presentation fields only for the already linked, verified Google
+    // identity. School-managed names and all permission fields remain intact.
+    if (['master_admin', 'marketplace_admin'].includes(appUserByAuth.role)) {
+      const profile = googleProfile(authUser);
+      if (profile.hasName && (
+        appUserByAuth.first_name !== profile.firstName ||
+        appUserByAuth.last_name !== profile.lastName ||
+        (profile.avatarUrl && appUserByAuth.avatar_url !== profile.avatarUrl)
+      )) {
+        const { error: profileError } = await supabaseAdmin.from('app_users')
+          .update({
+            first_name: profile.firstName.slice(0, 200),
+            last_name: profile.lastName.slice(0, 200),
+            ...(profile.avatarUrl ? { avatar_url: profile.avatarUrl } : {}),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', appUserByAuth.id)
+          .eq('auth_user_id', authUser.id);
+        if (profileError) {
+          return NextResponse.json({ message: 'อัปเดตชื่อจาก Google ไม่สำเร็จ กรุณาลองใหม่' }, { status: 500 });
+        }
+        appUserByAuth.first_name = profile.firstName.slice(0, 200);
+        appUserByAuth.last_name = profile.lastName.slice(0, 200);
+        if (profile.avatarUrl) appUserByAuth.avatar_url = profile.avatarUrl;
+      }
+    }
 
     await supabaseAdmin.auth.admin.updateUserById(authUser.id, {
       app_metadata: { ...authUser.app_metadata, role: appUserByAuth.role },

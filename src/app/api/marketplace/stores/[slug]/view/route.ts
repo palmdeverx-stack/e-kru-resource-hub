@@ -25,7 +25,8 @@ export async function POST(request: Request, { params }: Context) {
   let sellerQuery = supabaseAdmin
     .from('marketplace_sellers')
     .select('id,owner_id')
-    .eq('status', 'active');
+    .eq('status', 'active')
+    .eq('is_hidden', false);
   sellerQuery = UUID_PATTERN.test(identifier)
     ? sellerQuery.eq('id', identifier)
     : sellerQuery.eq('slug', identifier);

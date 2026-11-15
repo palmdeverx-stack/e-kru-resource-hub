@@ -39,6 +39,7 @@ import {
 import { useAuthContext } from 'src/auth/hooks';
 
 import { ThaiBankLogo } from '../../shared/bank-logo';
+import { SellerModerationCard } from './seller-moderation-card';
 import {
   DocumentPreviewDialog,
   type DocumentPreviewFile,
@@ -101,12 +102,14 @@ type Props = {
   sellerId: string;
   backHref?: string;
   backLabel?: string;
+  allowModeration?: boolean;
 };
 
 export function MarketplaceSellerApprovalDetailView({
   sellerId,
   backHref = paths.marketplace.sellerApprovals,
   backLabel = 'กลับไปคำขอเปิดร้าน',
+  allowModeration = false,
 }: Props) {
   const { user } = useAuthContext();
   const [seller, setSeller] = useState<MarketplaceSeller | null>(null);
@@ -286,6 +289,7 @@ export function MarketplaceSellerApprovalDetailView({
           เหตุผลที่ไม่อนุมัติ: {seller.rejection_reason}
         </Alert>
       )}
+
 
       <Card variant="outlined" sx={{ overflow: 'hidden', mb: 3 }}>
         {seller.cover_url && (
@@ -601,6 +605,12 @@ export function MarketplaceSellerApprovalDetailView({
           )}
         </Stack>
       </Box>
+
+      {allowModeration && user?.role === 'master_admin' && (
+        <Box sx={{ mt: 3 }}>
+          <SellerModerationCard seller={seller} onUpdated={load} />
+        </Box>
+      )}
 
       <Dialog open={rejectOpen} onClose={() => setRejectOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>

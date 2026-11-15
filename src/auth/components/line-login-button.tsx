@@ -24,7 +24,7 @@ export function LineLoginButton({ returnTo }: { returnTo?: string | null }) {
         maxWidth: 400,
         height: 40,
         px: 5,
-        borderRadius: '4px',
+        borderRadius: '999px',
         borderColor: '#dadce0',
         bgcolor: '#fff',
         color: '#3c4043',

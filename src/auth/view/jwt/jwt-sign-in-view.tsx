@@ -8,15 +8,12 @@ import { useMutation } from '@tanstack/react-query';
 import { zodResolver } from '@hookform/resolvers/zod';
 
 import Box from '@mui/material/Box';
-import Link from '@mui/material/Link';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import InputAdornment from '@mui/material/InputAdornment';
 
-import { paths } from 'src/routes/paths';
-import { RouterLink } from 'src/routes/components';
-import { useRouter, useSearchParams } from 'src/routes/hooks';
+import { useSearchParams } from 'src/routes/hooks';
 
 import { useTranslate } from 'src/locales';
 
@@ -24,9 +21,7 @@ import { Logo } from 'src/components/logo';
 import { Form, Field } from 'src/components/hook-form';
 import { RiEyeLine, RemixIcon, RiEyeOffLine } from 'src/components/remix-icon';
 
-import { useAuthContext } from '../../hooks';
 import { FormHead } from '../../components/form-head';
-import { FormDivider } from '../../components/form-divider';
 import { getErrorMessage, getHomePathForRole } from '../../utils';
 import { LineLoginButton } from '../../components/line-login-button';
 import { GoogleIdentityButton } from '../../components/google-identity-button';
@@ -50,7 +45,6 @@ export const SignInSchema = z.object({
 // ----------------------------------------------------------------------
 
 export function JwtSignInView() {
-  const router = useRouter();
   const { t, currentLang } = useTranslate();
   const searchParams = useSearchParams();
   const requestedReturnTo = searchParams.get('returnTo');
@@ -66,7 +60,15 @@ export function JwtSignInView() {
   } | null>(null);
   const [googleClientError, setGoogleClientError] = useState<Error | null>(null);
 
-  const { setSessionUser } = useAuthContext();
+  const [isRedirecting, setIsRedirecting] = useState(false);
+
+  const completeSignIn = (role: string) => {
+    setIsRedirecting(true);
+    // The cookie was set by the auth response. Start a fresh document so a
+    // prefetched anonymous redirect cannot be reused after signing in. The new
+    // AuthProvider loads the session once; GuestGuard does not race navigation.
+    window.location.replace(returnTo ?? getHomePathForRole(role));
+  };
 
   const defaultValues: SignInSchemaType = {
     username: '',
@@ -110,20 +112,14 @@ export function JwtSignInView() {
         return;
       }
 
-      const destination = returnTo ?? getHomePathForRole(result.role);
-      setSessionUser?.(result);
-      router.prefetch(destination);
-      router.replace(destination);
+      completeSignIn(result.role);
     },
   });
 
   const verifyPinMutation = useMutation({
     mutationFn: verifySignInPin,
     onSuccess: async (user) => {
-      const destination = returnTo ?? getHomePathForRole(user.role);
-      setSessionUser?.(user);
-      router.prefetch(destination);
-      router.replace(destination);
+      completeSignIn(user.role);
     },
   });
 
@@ -135,14 +131,12 @@ export function JwtSignInView() {
         return;
       }
 
-      const destination = returnTo ?? getHomePathForRole(result.role);
-      setSessionUser?.(result);
-      router.prefetch(destination);
-      router.replace(destination);
+      completeSignIn(result.role);
     },
   });
 
   const onSubmit = handleSubmit(async (data) => {
+    if (isRedirecting || signInMutation.isPending || verifyPinMutation.isPending) return;
     if (pinChallenge) {
       if (!/^\d{8}$/.test(data.pin)) {
         methods.setError('pin', { message: t('auth.validation.pinInvalid') });
@@ -242,7 +236,7 @@ export function JwtSignInView() {
         size="large"
         type="submit"
         variant="contained"
-        loading={signInMutation.isPending || verifyPinMutation.isPending}
+        loading={isRedirecting || signInMutation.isPending || verifyPinMutation.isPending}
         loadingIndicator={
           pinChallenge ? t('auth.signIn.verifyingPin') : t('auth.signIn.submitting')
         }
@@ -265,13 +259,14 @@ export function JwtSignInView() {
       {pinChallenge && (
         <Button
           color="inherit"
+          disabled={isRedirecting || verifyPinMutation.isPending}
           onClick={() => {
             setPinChallenge(null);
             methods.setValue('pin', '');
             verifyPinMutation.reset();
           }}
         >
-          {t('auth.signIn.backToCredentials')}
+          {currentLang.value === 'en' ? 'Back to sign in' : 'กลับไปเลือกวิธีเข้าสู่ระบบ'}
         </Button>
       )}
     </Box>
@@ -282,13 +277,15 @@ export function JwtSignInView() {
       sx={{
         width: 1,
         color: 'text.primary',
-        '&& .MuiButton-root': { borderRadius: '4px' },
+        maxWidth: 360,
+        mx: 'auto',
+        py: { xs: 1, sm: 1.5 },
       }}
     >
-      <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
         <Logo
           isSingle={false}
-          sx={{ width: 220, height: 104, '& img': { objectPosition: 'center' } }}
+          sx={{ width: { xs: 160, sm: 180 }, height: { xs: 80, sm: 90 }, '& img': { objectPosition: 'center' } }}
         />
       </Box>
 
@@ -300,15 +297,17 @@ export function JwtSignInView() {
           ) : pinChallenge ? (
             t('auth.signIn.adminPinDescription')
           ) : (
-            <>
-              {t('auth.signIn.noAccount')}{' '}
-              <Link component={RouterLink} href={paths.auth.jwt.signUp} variant="subtitle2">
-                {t('auth.signIn.createAccount')}
-              </Link>
-            </>
+            currentLang.value === 'en'
+              ? 'Choose an account to continue'
+              : 'เลือกบัญชีที่คุณต้องการใช้เข้าสู่ระบบ'
           )
         }
-        sx={{ mb: 2.5, gap: 0.75, textAlign: 'center' }}
+        sx={{
+          mb: 3,
+          gap: 1,
+          textAlign: 'center',
+          '& h5': { fontSize: { xs: 22, sm: 24 } },
+        }}
       />
 
       {!!errorMessage && (
@@ -317,13 +316,16 @@ export function JwtSignInView() {
         </Alert>
       )}
 
-      <Form methods={methods} onSubmit={onSubmit}>
-        {renderForm()}
-      </Form>
+      {pinChallenge && (
+        <Form methods={methods} onSubmit={onSubmit}>
+          {renderForm()}
+        </Form>
+      )}
 
       {!pinChallenge && (
-        <>
-          <FormDivider label={t('auth.signIn.divider')} sx={{ my: 2 }} />
+        <Box sx={{
+          '& .MuiButton-root': { borderRadius: '999px', minHeight: 40 },
+        }}>
           <GoogleIdentityButton
             mode="signin"
             language={currentLang.value === 'en' ? 'en' : 'th'}
@@ -335,7 +337,7 @@ export function JwtSignInView() {
             onError={setGoogleClientError}
           />
           <LineLoginButton returnTo={returnTo} />
-        </>
+        </Box>
       )}
     </Box>
   );

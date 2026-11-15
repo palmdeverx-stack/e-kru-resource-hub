@@ -34,6 +34,7 @@ export const getPublicProductSeo = cache(async (id: string) => {
     .eq('status', 'published')
     .neq('category', SELLER_TOOLS_CATEGORY)
     .eq('seller.status', 'active')
+    .eq('seller.is_hidden', false)
     .maybeSingle();
 
   if (error || !product) return null;
@@ -85,7 +86,8 @@ export const getPublicStoreSeo = cache(async (identifier: string) => {
     .select(
       'id, display_name, display_name_en, slug, bio, logo_url, cover_url, seller_type, updated_at'
     )
-    .eq('status', 'active');
+    .eq('status', 'active')
+    .eq('is_hidden', false);
 
   query = /^[0-9a-f-]{36}$/i.test(decodedIdentifier)
     ? query.eq('id', decodedIdentifier)

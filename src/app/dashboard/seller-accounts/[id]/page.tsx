@@ -15,6 +15,7 @@ export default async function Page({ params }: Props) {
   return (
     <MarketplaceSellerApprovalDetailView
       sellerId={id}
+      allowModeration
       backHref={paths.marketplace.sellerAccounts}
       backLabel="กลับไปบัญชีร้านค้าในระบบ"
     />

@@ -383,6 +383,16 @@ export function MarketplaceLandingView({ initialStats }: { initialStats?: Public
     queryFn: async () => (await getProducts({ official: true, page: 1, limit: 4 })).products,
     staleTime: 60_000,
   });
+  const {
+    data: newSellerProducts = [],
+    isPending: newSellerProductsLoading,
+    isError: newSellerProductsError,
+  } = useQuery({
+    queryKey: ['landing', 'new-seller-products'],
+    queryFn: async ({ signal }) =>
+      (await getProducts({ excludeOfficial: true, cards: true, page: 1, limit: 4 }, { signal })).products,
+    staleTime: 60_000,
+  });
   const { data: bestSellingProducts = [], isPending: bestSellingProductsLoading } = useQuery({
     queryKey: ['landing', 'best-selling-products'],
     queryFn: async () => (await getProducts({ bestSeller: true, page: 1, limit: 4 })).products,
@@ -809,6 +819,67 @@ export function MarketplaceLandingView({ initialStats }: { initialStats?: Public
           </Container>
         </Box>
       )}
+
+      <Box sx={{ py: { xs: 5, md: 7 }, bgcolor: 'background.neutral' }}>
+        <Container maxWidth="lg">
+          <Stack spacing={{ xs: 3, md: 4 }}>
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={2}
+              alignItems={{ xs: 'flex-start', sm: 'flex-end' }}
+              justifyContent="space-between"
+            >
+              <Box>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Typography variant="overline" color={theme.palette.primary.main}>
+                    NEW TEACHING RESOURCES
+                  </Typography>
+                </Stack>
+                <Typography variant="h3" sx={{ mt: 0.75 }}>
+                  {t('newSellerMedia.title')}
+                </Typography>
+                <Typography color="text.secondary" sx={{ mt: 1.25 }}>
+                  {t('newSellerMedia.description')}
+                </Typography>
+              </Box>
+              <Button
+                component={RouterLink}
+                href={paths.marketplace.products}
+                endIcon={<RiArrowRightLine />}
+                sx={{ flexShrink: 0 }}
+              >
+                {t('actions.viewAll')}
+              </Button>
+            </Stack>
+
+            {newSellerProductsError ? (
+              <Alert severity="warning">{t('newSellerMedia.error')}</Alert>
+            ) : !newSellerProductsLoading && newSellerProducts.length === 0 ? (
+              <Alert severity="info">{t('newSellerMedia.empty')}</Alert>
+            ) : (
+            <Grid container spacing={2.5}>
+              {newSellerProductsLoading
+                ? Array.from({ length: 4 }).map((_, index) => (
+                    <Grid key={index} size={{ xs: 12, sm: 6, md: 3 }}>
+                      <Card variant="outlined" sx={{ p: 1.5, borderRadius: 2.5 }}>
+                        <Skeleton variant="rounded" sx={{ aspectRatio: '4 / 3' }} />
+                        <Skeleton width="55%" sx={{ mt: 2 }} />
+                        <Skeleton height={28} />
+                        <Skeleton width="75%" />
+                        <Skeleton variant="rounded" height={44} sx={{ mt: 2 }} />
+                      </Card>
+                    </Grid>
+                  ))
+                : newSellerProducts.map((product, index) => (
+                    <Grid key={product.id} size={{ xs: 12, sm: 6, md: 3 }}>
+                      <MarketplaceProductCard product={product} colorIndex={index} />
+                    </Grid>
+                  ))}
+            </Grid>
+            )}
+          </Stack>
+        </Container>
+      </Box>
 
       {(bestSellingProductsLoading || bestSellingProducts.length > 0) && (
         <Box sx={{ py: { xs: 5, md: 7 } }}>
@@ -1572,7 +1643,7 @@ export function MarketplaceLandingView({ initialStats }: { initialStats?: Public
                 />
               </Box>
             </Stack>
-            <Stack spacing={1.5} sx={{ width: 1, maxWidth: 840, mx: 'auto', mt: 3, pb: 2 }}>
+            <Stack spacing={1.5} sx={{ width: 1, mt: 3, pb: 2 }}>
               {faqKeys.map((faqKey, index) => (
                 <Accordion
                   key={faqKey}

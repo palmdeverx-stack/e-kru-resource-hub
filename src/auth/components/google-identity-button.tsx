@@ -29,7 +29,7 @@ type GoogleIdentityApi = {
       theme: 'outline';
       size: 'large';
       text: 'signin_with' | 'signup_with';
-      shape: 'rectangular';
+      shape: 'pill';
       logo_alignment: 'left';
       width: number;
       locale: string;
@@ -77,7 +77,7 @@ export function GoogleIdentityButton({
   useEffect(() => {
     const googleIdentity = window.google?.accounts.id;
     const button = buttonRef.current;
-    if (!scriptReady || !clientId || !googleIdentity || !button) return;
+    if (!scriptReady || !clientId || !googleIdentity || !button) return undefined;
 
     googleIdentity.initialize({
       client_id: clientId,
@@ -94,17 +94,29 @@ export function GoogleIdentityButton({
       },
     });
 
-    button.replaceChildren();
-    googleIdentity.renderButton(button, {
-      type: 'standard',
-      theme: 'outline',
-      size: 'large',
-      text: mode === 'signup' ? 'signup_with' : 'signin_with',
-      shape: 'rectangular',
-      logo_alignment: 'left',
-      width: Math.min(400, Math.max(240, Math.round(button.getBoundingClientRect().width))),
-      locale: language === 'th' ? 'th' : 'en',
-    });
+    let renderedWidth = 0;
+    const renderButton = () => {
+      const availableWidth = button.getBoundingClientRect().width;
+      if (availableWidth <= 0) return;
+      const width = Math.min(400, Math.floor(availableWidth));
+      if (width === renderedWidth) return;
+      renderedWidth = width;
+      button.replaceChildren();
+      googleIdentity.renderButton(button, {
+        type: 'standard',
+        theme: 'outline',
+        size: 'large',
+        text: mode === 'signup' ? 'signup_with' : 'signin_with',
+        shape: 'pill',
+        logo_alignment: 'left',
+        width,
+        locale: language === 'th' ? 'th' : 'en',
+      });
+    };
+    renderButton();
+    const observer = new ResizeObserver(renderButton);
+    observer.observe(button);
+    return () => observer.disconnect();
   }, [clientId, language, mode, scriptReady]);
 
   if (!clientId) {
@@ -131,6 +143,8 @@ export function GoogleIdentityButton({
       <Box
         sx={{
           width: 1,
+          maxWidth: 400,
+          mx: 'auto',
           minHeight: 44,
           display: 'grid',
           placeItems: 'center',

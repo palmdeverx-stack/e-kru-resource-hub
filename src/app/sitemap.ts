@@ -49,6 +49,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .select('id, updated_at, seller:marketplace_sellers!inner(status)')
       .eq('status', 'published')
       .eq('seller.status', 'active')
+    .eq('seller.is_hidden', false)
       .neq('category', SELLER_TOOLS_CATEGORY)
       .order('updated_at', { ascending: false })
       .limit(10000),
@@ -56,6 +57,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .from('marketplace_sellers')
       .select('id, slug, updated_at')
       .eq('status', 'active')
+    .eq('is_hidden', false)
       .order('updated_at', { ascending: false })
       .limit(10000),
   ]);

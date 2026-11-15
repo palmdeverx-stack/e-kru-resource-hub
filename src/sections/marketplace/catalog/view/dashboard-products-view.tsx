@@ -64,17 +64,21 @@ export function MarketplaceDashboardProductsView() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestedCategory = searchParams.get('category') || 'all';
+  const requestedSearch = searchParams.get('q')?.trim() || '';
   const [category, setCategory] = useState(requestedCategory);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(requestedSearch);
   const [sort, setSort] = useState('popular');
   const [priceFilter, setPriceFilter] = useState<PriceFilter>('all');
   const [selectedProduct, setSelectedProduct] = useState<MarketplaceProduct | null>(null);
-  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState(requestedSearch);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setCategory(requestedCategory);
   }, [requestedCategory]);
+  useEffect(() => {
+    setSearch(requestedSearch);
+  }, [requestedSearch]);
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 250);
     return () => window.clearTimeout(timer);

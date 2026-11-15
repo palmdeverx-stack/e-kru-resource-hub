@@ -211,10 +211,12 @@ export async function POST(request: Request) {
   const { data: products, error: productError } = await supabaseAdmin
     .from('marketplace_products')
     .select(
-      'id, seller_id, title, title_en, category, short_description, description, price, list_price, currency, status, resource_type, shipping_weight_grams, shipping_width_cm, shipping_length_cm, shipping_height_cm, grants_feature_key, grants_feature_keys, grants_plan_code, grant_duration_days, license_billing_cycle, license_scope, license_seat_count, license_max_teachers, license_max_students, license_max_school_admins, license_line_quota, license_quota, purchase_benefits, purchase_benefits_html, seller:marketplace_sellers(owner_role, commission_rate_override, display_name, shipping_contact_name, shipping_phone, shipping_address_line, shipping_subdistrict, shipping_district, shipping_province, shipping_postal_code)'
+      'id, seller_id, title, title_en, category, short_description, description, price, list_price, currency, status, resource_type, shipping_weight_grams, shipping_width_cm, shipping_length_cm, shipping_height_cm, grants_feature_key, grants_feature_keys, grants_plan_code, grant_duration_days, license_billing_cycle, license_scope, license_seat_count, license_max_teachers, license_max_students, license_max_school_admins, license_line_quota, license_quota, purchase_benefits, purchase_benefits_html, seller:marketplace_sellers!inner(owner_role, commission_rate_override, display_name, shipping_contact_name, shipping_phone, shipping_address_line, shipping_subdistrict, shipping_district, shipping_province, shipping_postal_code)'
     )
     .in('id', uniqueProductIds)
-    .eq('status', 'published');
+    .eq('status', 'published')
+    .eq('seller.status', 'active')
+    .eq('seller.is_hidden', false);
 
   if (productError || !products || products.length !== uniqueProductIds.length) {
     return NextResponse.json(

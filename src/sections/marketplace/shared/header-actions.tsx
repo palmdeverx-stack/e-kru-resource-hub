@@ -14,8 +14,6 @@ import { useTranslate, languageOptions } from 'src/locales';
 import { LanguagePopover } from 'src/layouts/components/language-popover';
 
 import {
-  RiUserAddLine,
-  RiLoginBoxLine,
   RiDashboardLine,
   RiShoppingCart2Line,
 } from 'src/components/remix-icon';
@@ -58,34 +56,39 @@ export function MarketplaceHeaderActions() {
           href={signInHref}
           component={RouterLink}
           color="inherit"
-          startIcon={<RiLoginBoxLine />}
-          sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
+          variant="text"
+          sx={{
+            minHeight: { xs: 36, sm: 40 },
+            px: { xs: 1.75, sm: 2.5 },
+            borderRadius: '999px',
+            fontWeight: 600,
+            whiteSpace: 'nowrap',
+            color: 'text.primary',
+            bgcolor: 'transparent',
+            '&:hover': { bgcolor: 'transparent', color: 'primary.main' },
+          }}
         >
           {t('header.signIn')}
         </Button>
       )}
 
-      {!authenticated && (
-        <>
-          <Tooltip title={t('header.signUp')}>
-            <IconButton
-              component={RouterLink}
-              href={paths.auth.jwt.signUp}
-              aria-label={t('header.signUp')}
-              sx={{ display: { xs: 'inline-flex', sm: 'none' }, width: 36, height: 36 }}
-            >
-              <RiUserAddLine color="text.primary" />
-            </IconButton>
-          </Tooltip>
-          <Button
-            href={paths.auth.jwt.signUp}
-            component={RouterLink}
-            variant="contained"
-            sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
-          >
-            {t('header.signUp')}
-          </Button>
-        </>
+      {!loading && !authenticated && (
+        <Button
+          href={paths.auth.jwt.signUp}
+          component={RouterLink}
+          variant="contained"
+          disableElevation
+          sx={{
+            display: { xs: 'none', sm: 'inline-flex' },
+            minHeight: 40,
+            px: 2.5,
+            borderRadius: '999px',
+            whiteSpace: 'nowrap',
+            fontWeight: 600,
+          }}
+        >
+          {t('header.signUp')}
+        </Button>
       )}
 
       <MarketplaceAccountMenu />

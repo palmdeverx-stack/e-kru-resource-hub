@@ -319,11 +319,15 @@ export function MarketplaceProductDetailView({
       ?.map((item) => item.grade_level.name?.trim())
       .filter(Boolean)
       .join(', ') ?? '';
-  const tagHighlight =
-    product.tags
-      ?.map((item) => item.tag.name?.trim())
-      .filter(Boolean)
-      .join(', ') ?? '';
+  const productTags = (product.tags ?? [])
+    .map((item) => item.tag)
+    .filter((tag) => Boolean(tag?.name?.trim()));
+  const getTagSearchHref = (tag: { id: string; name: string }) => {
+    const destination = authenticated
+      ? paths.marketplace.dashboardProducts
+      : paths.marketplace.products;
+    return `${destination}?${new URLSearchParams({ q: tag.name.trim() })}`;
+  };
   const productHighlights = [
     {
       icon: <RiDownloadCloud2Line />,
@@ -344,11 +348,6 @@ export function MarketplaceProductDetailView({
       icon: <RiFileLine />,
       label: t('productDetail.highlights.curriculum'),
       value: product.curriculum?.name?.trim() ?? '',
-    },
-    {
-      icon: <RiPriceTag3Line />,
-      label: t('productDetail.highlights.tags'),
-      value: tagHighlight,
     },
   ].filter((item) => Boolean(item.value));
   const licenseHighlight =
@@ -381,6 +380,65 @@ export function MarketplaceProductDetailView({
           }`,
         }
       : null;
+  const tagsCard = productTags.length ? (
+    <Card variant="outlined" sx={{ p: { xs: 2, sm: 2.5 }, borderRadius: 2.5 }}>
+      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}>
+        <Box
+          sx={{
+            width: 30,
+            height: 30,
+            display: 'grid',
+            placeItems: 'center',
+            borderRadius: 1,
+            color: 'primary.main',
+            bgcolor: 'primary.lighter',
+          }}
+        >
+          <RiPriceTag3Line size={18} />
+        </Box>
+        <Typography variant="subtitle2">{t('productDetail.highlights.tags')}</Typography>
+        <Typography variant="caption" color="text.secondary">
+          ({productTags.length})
+        </Typography>
+      </Stack>
+      <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+        {productTags.map((tag) => (
+          <Chip
+            key={tag.id}
+            component={RouterLink}
+            href={getTagSearchHref(tag)}
+            clickable
+            size="small"
+            variant="soft"
+            color="primary"
+            label={tag.name}
+            aria-label={`ค้นหาสินค้าจากแท็ก ${tag.name}`}
+            sx={{
+              maxWidth: '100%',
+              height: 'auto',
+              minHeight: 34,
+              borderRadius: '999px',
+              color: 'primary.dark',
+              bgcolor: 'primary.lighter',
+              '& .MuiChip-label': {
+                px: 1.5,
+                py: 0.75,
+                whiteSpace: 'normal',
+                overflowWrap: 'anywhere',
+                fontWeight: 500,
+              },
+              '&:hover': { bgcolor: 'primary.light' },
+              '&:focus-visible': {
+                outline: '2px solid',
+                outlineColor: 'primary.main',
+                outlineOffset: 2,
+              },
+            }}
+          />
+        ))}
+      </Stack>
+    </Card>
+  ) : null;
   const modalProductHighlights = licenseHighlight
     ? [...productHighlights, licenseHighlight]
     : productHighlights;
@@ -1024,6 +1082,7 @@ export function MarketplaceProductDetailView({
                   {t('productDetail.actions.goToCart')}
                 </Button>
               </Card>
+              {tagsCard && <Box sx={{ mt: 2 }}>{tagsCard}</Box>}
             </Grid>
           </Grid>
 
@@ -1985,6 +2044,8 @@ export function MarketplaceProductDetailView({
                 {t('productDetail.actions.goToCart')}
               </Button>
             </Stack>
+
+            {tagsCard}
 
             {product.resource_type === 'feature_unlock' && purchaseAccess?.hasPurchased && (
               <PurchasedAppButton product={product} fullWidth />

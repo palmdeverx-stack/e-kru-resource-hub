@@ -328,7 +328,7 @@ export function MarketplaceSellerDashboardView() {
       ) : !isSystemStore && seller.status !== 'active' ? (
         <SellerReviewState seller={seller} />
       ) : (
-        <Stack spacing={4}>
+        <Stack spacing={{ xs: 3, sm: 4 }}>
           {seller.profile_review_status === 'pending' && (
             <Alert severity="info">
               {tx(
@@ -350,7 +350,7 @@ export function MarketplaceSellerDashboardView() {
           >
             <Box>
               <Stack direction="row" spacing={1} alignItems="center">
-                <Typography component="h1" variant="h3">
+                <Typography component="h1" variant="h3" sx={{ fontSize: { xs: 26, sm: 32 }, overflowWrap: 'anywhere' }}>
                   {seller.display_name}
                 </Typography>
                 {isSellerProfileVerified(sellerCompletion) && (
@@ -381,11 +381,13 @@ export function MarketplaceSellerDashboardView() {
                 {seller.bio || tx('ร้านค้าบน E-KRU Marketplace')}
               </Typography>
             </Box>
-            <Stack direction="row" spacing={1}>
+            <Stack direction="row" spacing={1} sx={{ width: { xs: 1, sm: 'auto' } }}>
               <Button
                 component={RouterLink}
                 href={paths.marketplace.sellerProfileEdit}
                 color="inherit"
+                variant="outlined"
+                sx={{ flex: { xs: 1, sm: 'initial' }, minHeight: 44 }}
               >
                 {tx('แก้ไขร้าน')}
               </Button>
@@ -393,6 +395,7 @@ export function MarketplaceSellerDashboardView() {
                 component={RouterLink}
                 href="/dashboard/seller/products/new"
                 variant="contained"
+                sx={{ flex: { xs: 1.5, sm: 'initial' }, minHeight: 44 }}
                 startIcon={<RiAddLine />}
               >
                 {tx('ลงสินค้าใหม่')}
@@ -951,7 +954,7 @@ const SellerBusinessOverview = memo(function SellerBusinessOverview({
         spacing={1}
       >
         <Box>
-          <Typography variant="h4"> {tx('ภาพรวมธุรกิจ')} </Typography>
+          <Typography variant="h4" sx={{ fontSize: { xs: 22, sm: 28 } }}> {tx('ภาพรวมธุรกิจ')} </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
             {tx('ยอดขาย รายได้ และสิ่งที่ต้องจัดการล่าสุดของร้าน')}
           </Typography>
@@ -984,7 +987,7 @@ const SellerBusinessOverview = memo(function SellerBusinessOverview({
 
       <Grid container spacing={2}>
         {metrics.map((metric, index) => (
-          <Grid key={metric.label} size={{ xs: 12, sm: 6, lg: 3 }}>
+          <Grid key={metric.label} size={{ xs: 6, md: 3 }}>
             <DashboardMetricCard
               {...metric}
               loading={index < 2 ? analyticsLoading : financeLoading}
@@ -993,8 +996,15 @@ const SellerBusinessOverview = memo(function SellerBusinessOverview({
         ))}
       </Grid>
 
-      <Grid container spacing={2}>
-        <Grid size={{ xs: 12, lg: 5 }}>
+      <Box
+        sx={{
+          display: 'grid',
+          gap: 2,
+          gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: 'repeat(2, minmax(0, 1fr))', lg: '5fr 4fr 3fr' },
+          alignItems: 'start',
+        }}
+      >
+        <Box sx={{ minWidth: 0 }}>
           <Card variant="outlined" sx={{ p: { xs: 2.25, md: 2.75 }, height: 1 }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center">
               <Box>
@@ -1061,9 +1071,9 @@ const SellerBusinessOverview = memo(function SellerBusinessOverview({
               )}
             </Stack>
           </Card>
-        </Grid>
+        </Box>
 
-        <Grid size={{ xs: 12, md: 7, lg: 4 }}>
+        <Box sx={{ minWidth: 0, gridColumn: { sm: 1, lg: 'auto' } }}>
           <Card variant="outlined" sx={{ p: { xs: 2.25, md: 2.75 }, height: 1 }}>
             <Typography variant="h6"> {tx('รีวิวล่าสุด')} </Typography>
             <Typography variant="caption" color="text.secondary">
@@ -1139,9 +1149,9 @@ const SellerBusinessOverview = memo(function SellerBusinessOverview({
               )}
             </Stack>
           </Card>
-        </Grid>
+        </Box>
 
-        <Grid size={{ xs: 12, md: 5, lg: 3 }}>
+        <Box sx={{ minWidth: 0, gridColumn: { sm: 2, lg: 'auto' }, gridRow: { sm: '1 / span 2', lg: 'auto' } }}>
           <Card variant="outlined" sx={{ p: { xs: 2.25, md: 2.75 }, height: 1 }}>
             <Typography variant="h6"> {tx('สิ่งที่ต้องจัดการ')} </Typography>
             <Typography variant="caption" color="text.secondary">
@@ -1173,8 +1183,8 @@ const SellerBusinessOverview = memo(function SellerBusinessOverview({
               </Button>
             </Stack>
           </Card>
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
     </Stack>
   );
 });
@@ -1195,12 +1205,16 @@ function DashboardMetricCard({
   loading: boolean;
 }) {
   return (
-    <Card variant="outlined" sx={{ p: 2.5, height: 1 }}>
-      <Stack direction="row" spacing={1.75} alignItems="center">
+    <Card variant="outlined" sx={{ p: { xs: 1.75, sm: 2.5 }, height: 1, borderRadius: 2.5 }}>
+      <Stack
+        direction={{ xs: 'column', sm: 'row', md: 'column', lg: 'row' }}
+        spacing={{ xs: 1.25, sm: 1.75 }}
+        alignItems={{ xs: 'flex-start', sm: 'center', md: 'flex-start', lg: 'center' }}
+      >
         <Box
           sx={{
-            width: 48,
-            height: 48,
+            width: { xs: 36, sm: 48 },
+            height: { xs: 36, sm: 48 },
             flexShrink: 0,
             display: 'grid',
             placeItems: 'center',
@@ -1216,11 +1230,11 @@ function DashboardMetricCard({
             {label}
           </Typography>
           {loading ? (
-            <Skeleton width={110} height={34} />
+            <Skeleton sx={{ width: { xs: 80, sm: 110 } }} height={34} />
           ) : (
-            <Typography variant="h4">{value}</Typography>
+            <Typography variant="h4" sx={{ fontSize: { xs: 24, sm: 28 }, overflowWrap: 'anywhere' }}>{value}</Typography>
           )}
-          <Typography variant="caption" color="text.secondary" noWrap>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', overflowWrap: 'anywhere' }}>
             {detail}
           </Typography>
         </Box>

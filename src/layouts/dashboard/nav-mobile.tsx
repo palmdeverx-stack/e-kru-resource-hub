@@ -97,7 +97,15 @@ export function NavMobile({
             justifyContent: 'space-between',
           }}
         >
-          <Logo />
+          <Logo
+            isSingle={false}
+            sx={{
+              width: 132,
+              height: 64,
+              maxWidth: 'calc(100% - 48px)',
+              '& img': { objectPosition: 'left center' },
+            }}
+          />
           {anchor !== 'left' && (
             <IconButton onClick={onClose} aria-label={t('ปิดเมนู')}>
               <RiCloseLine size={24} />

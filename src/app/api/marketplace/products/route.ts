@@ -271,14 +271,15 @@ export async function GET(request: Request) {
   }
 
   const columns = cards
-    ? `${mine ? 'rejection_reason,' : ''}id, seller_id, title, title_en, short_description, short_description_en, category, resource_type, price, list_price, currency, cover_url, created_at, status, seller:marketplace_sellers(id, display_name, display_name_en, slug, logo_url, owner_role), media_type:marketplace_media_types(id, name, delivery_mode), sale_type:marketplace_sale_types(id, name, pricing_mode), ${gradeLevelsSelect}, images:marketplace_product_images(id, is_cover, storage_bucket, storage_path), reviews:marketplace_product_reviews(rating)`
-    : `*, seller:marketplace_sellers(id, display_name, display_name_en, seller_type, slug, logo_url, bio, owner_role), media_type:marketplace_media_types(id, name, delivery_mode), sale_type:marketplace_sale_types(id, name, pricing_mode), ${gradeLevelsSelect}, images:marketplace_product_images(*), reviews:marketplace_product_reviews(rating)`;
+    ? `${mine ? 'rejection_reason,' : ''}id, seller_id, title, title_en, short_description, short_description_en, category, resource_type, price, list_price, currency, cover_url, created_at, status, seller:marketplace_sellers!inner(id, display_name, display_name_en, slug, logo_url, owner_role), media_type:marketplace_media_types(id, name, delivery_mode), sale_type:marketplace_sale_types(id, name, pricing_mode), ${gradeLevelsSelect}, images:marketplace_product_images(id, is_cover, storage_bucket, storage_path), reviews:marketplace_product_reviews(rating)`
+    : `*, seller:marketplace_sellers!inner(id, display_name, display_name_en, seller_type, slug, logo_url, bio, owner_role), media_type:marketplace_media_types(id, name, delivery_mode), sale_type:marketplace_sale_types(id, name, pricing_mode), ${gradeLevelsSelect}, images:marketplace_product_images(*), reviews:marketplace_product_reviews(rating)`;
   let query = supabaseAdmin
     .from('marketplace_products')
     .select(columns, { count: mine ? 'exact' : undefined })
     .order('created_at', { ascending: false })
     .order('id', { ascending: false });
   query = mine ? query.eq('seller_id', sellerId) : query.eq('status', 'published');
+  if (!mine) query = query.eq('seller.status', 'active').eq('seller.is_hidden', false);
   if (mine && mineStatus) query = query.eq('status', mineStatus);
   if (!mine && !sellerToolsVisible) query = query.neq('category', SELLER_TOOLS_CATEGORY);
   if (!mine && !shippingEnabled) {

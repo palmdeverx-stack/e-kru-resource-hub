@@ -24,6 +24,7 @@ async function loadLegacyPublicStoreDirectory(search: string, page: number, limi
       { count: 'exact' }
     )
     .eq('status', 'active')
+    .eq('is_hidden', false)
     .neq('owner_role', 'master_admin')
     .order('display_name', { ascending: true })
     .range(offset, offset + limit - 1);
@@ -151,5 +152,5 @@ async function loadPublicStoreDirectory(search: string, page: number, limit: num
 export const getPublicStoreDirectory = unstable_cache(
   loadPublicStoreDirectory,
   ['public-store-directory-rpc-v2'],
-  { revalidate: 60 }
+  { revalidate: 60, tags: ['public-store-directory'] }
 );

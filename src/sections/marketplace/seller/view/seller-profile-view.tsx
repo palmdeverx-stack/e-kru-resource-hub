@@ -21,6 +21,7 @@ import Container from '@mui/material/Container';
 import { useTheme } from '@mui/material/styles';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
+import { amber, deepOrange } from '@mui/material/colors';
 import LinearProgress from '@mui/material/LinearProgress';
 import CircularProgress from '@mui/material/CircularProgress';
 
@@ -120,6 +121,16 @@ export function MarketplaceSellerProfileView() {
   const seller = data?.seller ?? null;
   const error = loadError?.message ?? '';
   const completion = useMemo(() => (seller ? getSellerProfileCompletion(seller) : 0), [seller]);
+  const completionTone =
+    completion <= 20
+      ? { main: theme.vars.palette.error.main, text: theme.vars.palette.error.dark, light: theme.vars.palette.error.lighter }
+      : completion <= 40
+        ? { main: deepOrange[500], text: deepOrange[800], light: deepOrange[50] }
+        : completion <= 60
+          ? { main: amber[500], text: amber[900], light: amber[50] }
+          : completion <= 80
+            ? { main: theme.vars.palette.success.main, text: theme.vars.palette.success.dark, light: theme.vars.palette.success.lighter }
+            : { main: theme.vars.palette.info.main, text: theme.vars.palette.info.dark, light: theme.vars.palette.info.lighter };
   const verificationDocuments = useMemo(
     () =>
       seller?.documents?.filter((document) =>
@@ -337,17 +348,41 @@ export function MarketplaceSellerProfileView() {
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, lg: 4 }}>
           <Stack spacing={3} sx={{ position: { lg: 'sticky' }, top: { lg: 96 } }}>
-            <Card variant="outlined" sx={{ p: 3, borderRadius: 3 }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Typography variant="h6"> {tx('ความครบถ้วนของข้อมูล')} </Typography>
-                <Typography variant="h5" color="primary.main">
-                  {completion}%
+            <Card
+              variant="outlined"
+              sx={{ p: { xs: 2.5, sm: 3 }, borderRadius: 2.5, boxShadow: 'none' }}
+            >
+              <Stack direction="row" spacing={2} justifyContent="space-between" alignItems="center">
+                <Typography variant="subtitle1" sx={{ lineHeight: 1.5 }}>
+                  {tx('ความครบถ้วนของข้อมูล')}
                 </Typography>
+                <Box
+                  sx={{
+                    px: 1.25,
+                    py: 0.5,
+                    flexShrink: 0,
+                    borderRadius: 1.5,
+                    bgcolor: completionTone.light,
+                    color: completionTone.text,
+                  }}
+                >
+                  <Typography variant="subtitle1" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                    {completion}%
+                  </Typography>
+                </Box>
               </Stack>
               <LinearProgress
                 variant="determinate"
                 value={completion}
-                sx={{ height: 9, mt: 2, mb: 1.25, borderRadius: 8 }}
+                aria-label={tx('ความครบถ้วนของข้อมูล')}
+                sx={{
+                  height: 8,
+                  mt: 2,
+                  mb: 1.5,
+                  borderRadius: 8,
+                  bgcolor: completionTone.light,
+                  '& .MuiLinearProgress-bar': { borderRadius: 8, bgcolor: completionTone.main },
+                }}
               />
               <Typography variant="body2" color="text.secondary">
                 {completion === 100

@@ -11,10 +11,11 @@ function fixture(directoryResult) {
     { id: 'member-2', display_name: 'C Creator', owner_role: 'marketplace_user', status: 'active' },
     { id: 'official-2', display_name: 'D Official', owner_role: 'master_admin', status: 'active' },
     { id: 'member-3', display_name: 'E Publisher', owner_role: 'marketplace_user', status: 'active' },
+    { id: 'hidden', display_name: 'G Private', owner_role: 'teacher', status: 'active', hiddenFixture: true },
     { id: 'suspended', display_name: 'F Hidden', owner_role: 'teacher', status: 'suspended' },
   ];
   for (const row of rows) Object.assign(row, {
-    bio: 'Public bio', logo_url: '/logo.png', cover_url: '/cover.png', seller_name: 'Private name',
+    is_hidden: row.hiddenFixture === true, bio: 'Public bio', logo_url: '/logo.png', cover_url: '/cover.png', seller_name: 'Private name',
     phone: '0000000000', contact_email: 'private@example.test',
     seller_agreement_accepted_at: '2026-01-01', copyright_confirmed_at: '2026-01-01',
     fee_agreement_accepted_at: '2026-01-01', pdpa_accepted_at: '2026-01-01',

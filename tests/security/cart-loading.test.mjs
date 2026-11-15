@@ -8,7 +8,7 @@ function loadProduct(overrides = {}, { purchased = false, sellerTools = false } 
   const product = {
     id: 'product', status: 'published', category: 'resource', resource_type: 'digital',
     title: 'Test', price: 150, list_price: 200, file_url: '/private', external_links: ['private'],
-    purchase_benefits_html: '<p>details</p>', seller: { id: 'seller', owner_role: 'master_admin', display_name: 'Store' },
+    purchase_benefits_html: '<p>details</p>', seller: { status: 'active', is_hidden: false, id: 'seller', owner_role: 'master_admin', display_name: 'Store' },
     ...overrides,
   };
   let queried = 0;
@@ -58,3 +58,10 @@ test('cart refresh preserves product visibility and seller-tool restrictions', a
 test('previously purchased archived products remain visible for refresh', async () => {
   assert.equal((await loadProduct({ status: 'archived' }, { purchased: true }).GET()).status, 200);
 });
+
+for (const seller of [{ status: 'suspended', is_hidden: false }, { status: 'active', is_hidden: true }]) {
+  test(`unavailable seller ${JSON.stringify(seller)} blocks new access while preserving prior purchases`, async () => {
+    assert.equal((await loadProduct({ seller }).GET()).status, 404);
+    assert.equal((await loadProduct({ seller }, { purchased: true }).GET()).status, 200);
+  });
+}

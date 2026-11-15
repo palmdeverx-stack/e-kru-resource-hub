@@ -24,6 +24,7 @@ export async function GET(request: Request, { params }: Context) {
     )
     .eq('slug', identifier)
     .eq('status', 'active')
+    .eq('is_hidden', false)
     .maybeSingle();
 
   if (!seller && !error && /^[0-9a-f-]{36}$/i.test(identifier)) {
@@ -34,6 +35,7 @@ export async function GET(request: Request, { params }: Context) {
       )
       .eq('id', identifier)
       .eq('status', 'active')
+    .eq('is_hidden', false)
       .maybeSingle();
     seller = sellerById.data;
     error = sellerById.error;

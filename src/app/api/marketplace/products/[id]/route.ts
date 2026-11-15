@@ -27,7 +27,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const { data: product, error } = await supabaseAdmin
     .from('marketplace_products')
     .select(
-      '*, seller:marketplace_sellers(id, display_name, display_name_en, seller_type, slug, logo_url, bio, owner_role), media_type:marketplace_media_types(id, name, delivery_mode), sale_type:marketplace_sale_types(id, name, pricing_mode), curriculum:marketplace_curricula(id, name), grade_levels:marketplace_product_grade_levels(grade_level:marketplace_grade_levels(id, name)), tags:marketplace_product_tags(tag:marketplace_tags(id, name)), images:marketplace_product_images(*)'
+      '*, seller:marketplace_sellers(id, display_name, display_name_en, seller_type, slug, logo_url, bio, owner_role, status, is_hidden), media_type:marketplace_media_types(id, name, delivery_mode), sale_type:marketplace_sale_types(id, name, pricing_mode), curriculum:marketplace_curricula(id, name), grade_levels:marketplace_product_grade_levels(grade_level:marketplace_grade_levels(id, name)), tags:marketplace_product_tags(tag:marketplace_tags(id, name)), images:marketplace_product_images(*)'
     )
     .eq('id', id)
     .maybeSingle();
@@ -50,6 +50,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     product.status === 'archived' && caller
       ? await hasPurchasedProduct(product.id, caller.sub)
       : false;
+  const sellerUnavailable = !product.seller || product.seller.status !== 'active' || product.seller.is_hidden;
+  if (sellerUnavailable && !hasArchivedPurchase && !(caller && await hasPurchasedProduct(product.id, caller.sub))) {
+    return NextResponse.json({ message: 'ไม่พบสินค้า' }, { status: 404 });
+  }
   if (product.status !== 'published' && !hasArchivedPurchase) {
     return NextResponse.json({ message: 'ไม่พบสินค้า' }, { status: 404 });
   }
@@ -66,7 +70,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   delete publicProduct.external_links;
   delete publicProduct.purchase_benefits_html;
   if (product.seller?.id) {
-    const { owner_role: ownerRole, ...sellerDetails } = product.seller;
+    const { owner_role: ownerRole, status: sellerStatus, is_hidden: sellerHidden, ...sellerDetails } = product.seller;
+    void sellerStatus;
+    void sellerHidden;
     publicProduct.seller = {
       ...sellerDetails,
       is_system_store: ownerRole === 'master_admin',

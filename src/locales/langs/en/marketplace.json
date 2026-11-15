@@ -1,4 +1,10 @@
 {
+  "newSellerMedia": {
+  "title": "New teaching resources",
+  "description": "Discover the latest teaching resources from sellers in the E-KRU Marketplace community.",
+  "empty": "No new teaching resources from sellers yet.",
+  "error": "Unable to load new teaching resources. Please try again."
+},
   "dashboardText": {
     "โหลดสถิติไม่สำเร็จ": "Unable to load statistics",
     "โหลดการเงินไม่สำเร็จ": "Unable to load financial information",
