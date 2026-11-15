@@ -8,11 +8,14 @@ import { useMutation } from '@tanstack/react-query';
 import { zodResolver } from '@hookform/resolvers/zod';
 
 import Box from '@mui/material/Box';
+import Link from '@mui/material/Link';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import InputAdornment from '@mui/material/InputAdornment';
 
+import { paths } from 'src/routes/paths';
+import { RouterLink } from 'src/routes/components';
 import { useSearchParams } from 'src/routes/hooks';
 
 import { useTranslate } from 'src/locales';
@@ -297,9 +300,12 @@ export function JwtSignInView() {
           ) : pinChallenge ? (
             t('auth.signIn.adminPinDescription')
           ) : (
-            currentLang.value === 'en'
-              ? 'Choose an account to continue'
-              : 'เลือกบัญชีที่คุณต้องการใช้เข้าสู่ระบบ'
+            <>
+              {t('auth.signIn.noAccount')}{' '}
+              <Link component={RouterLink} href={paths.auth.jwt.signUp} variant="subtitle2">
+                {t('auth.signIn.createAccount')}
+              </Link>
+            </>
           )
         }
         sx={{

@@ -26,7 +26,6 @@ import { Form, Field } from 'src/components/hook-form';
 
 import { useAuthContext } from '../../hooks';
 import { FormHead } from '../../components/form-head';
-import { FormDivider } from '../../components/form-divider';
 import { signUp, signInWithGoogle } from '../../context/jwt';
 import { SignUpTerms } from '../../components/sign-up-terms';
 import { getErrorMessage, getHomePathForRole } from '../../utils';
@@ -51,6 +50,7 @@ export const SignUpSchema = z.object({
 // ----------------------------------------------------------------------
 
 export function JwtSignUpView() {
+  const showCredentialForm = false;
   const router = useRouter();
   const { setSessionUser } = useAuthContext();
   const { t, currentLang } = useTranslate();
@@ -263,7 +263,7 @@ export function JwtSignUpView() {
       sx={{
         width: 1,
         color: 'text.primary',
-        '&& .MuiButton-root': { borderRadius: '4px' },
+        '&& .MuiButton-root': { borderRadius: '999px' },
       }}
     >
       <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
@@ -292,11 +292,11 @@ export function JwtSignUpView() {
         </Alert>
       )}
 
-      <Form methods={methods} onSubmit={onSubmit}>
-        {renderForm()}
-      </Form>
-
-      <FormDivider label={t('auth.signUp.divider')} sx={{ my: 2 }} />
+      {showCredentialForm && (
+        <Form methods={methods} onSubmit={onSubmit}>
+          {renderForm()}
+        </Form>
+      )}
       <Box sx={{ width: 1, maxWidth: 400, mx: 'auto' }}>
         <GoogleIdentityButton
           mode="signup"
