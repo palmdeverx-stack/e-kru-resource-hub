@@ -12,8 +12,28 @@ export async function GET(request: Request) {
     return NextResponse.json({ message: 'ไม่มีสิทธิ์ตรวจสอบสินค้า' }, { status: 403 });
   }
 
-  const requestedStatus = new URL(request.url).searchParams.get('status') ?? 'pending_review';
   const searchParams = new URL(request.url).searchParams;
+  if (searchParams.get('notification') === '1') {
+    const seenAt = Number(searchParams.get('seenAt') ?? 0);
+    let query = supabaseAdmin
+      .from('marketplace_products')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'pending_review');
+
+    if (Number.isFinite(seenAt) && seenAt > 0 && seenAt <= 8_640_000_000_000_000) {
+      query = query.gt('submitted_at', new Date(seenAt).toISOString());
+    }
+
+    const { count, error } = await query;
+    if (error) return NextResponse.json({ message: error.message }, { status: 500 });
+
+    return NextResponse.json(
+      { unreadCount: count ?? 0 },
+      { headers: { 'Cache-Control': 'private, no-store' } }
+    );
+  }
+
+  const requestedStatus = searchParams.get('status') ?? 'pending_review';
   const status = allowedStatuses.includes(requestedStatus as (typeof allowedStatuses)[number])
     ? requestedStatus
     : 'pending_review';

@@ -61,7 +61,7 @@ import { useAuthContext } from 'src/auth/hooks';
 
 const SELLER_NAV_SUBHEADER = 'ศูนย์ผู้ขาย';
 const SELLER_APPROVALS_PATH = '/dashboard/seller-approvals';
-const SELLER_APPROVALS_SEEN_AT_KEY = 'marketplace-seller-approvals-seen-at';
+const PRODUCT_APPROVALS_PATH = '/dashboard/product-approvals';
 
 const memberNavData: NavSectionProps['data'] = [
   {
@@ -160,12 +160,12 @@ const adminNavData: NavSectionProps['data'] = [
       },
       {
         title: 'อนุมัติสินค้า',
-        path: '/dashboard/product-approvals',
+        path: PRODUCT_APPROVALS_PATH,
         icon: <RiShieldCheckLine />,
       },
       {
         title: 'อนุมัติร้านค้า',
-        path: '/dashboard/seller-approvals',
+        path: SELLER_APPROVALS_PATH,
         icon: <RiUserFollowLine />,
       },
     ],
@@ -404,6 +404,43 @@ function isMarketplaceAdmin(role?: string | null) {
   return role === 'master_admin' || role === 'marketplace_admin';
 }
 
+function useApprovalNotificationCount(
+  resource: 'sellers' | 'products',
+  approvalsOpen: boolean,
+  userId?: string
+) {
+  const [seen, setSeen] = useState<{ storageKey: string; at: number }>();
+  const storageKey = `marketplace-${resource === 'sellers' ? 'seller' : 'product'}-approvals-seen-at:${userId}`;
+
+  useEffect(() => {
+    if (!userId) return;
+
+    const at = approvalsOpen ? Date.now() : Number(window.localStorage.getItem(storageKey) ?? 0);
+    if (approvalsOpen) window.localStorage.setItem(storageKey, String(at));
+    setSeen({ storageKey, at: Number.isFinite(at) ? at : 0 });
+  }, [approvalsOpen, storageKey, userId]);
+
+  const seenAt = seen?.storageKey === storageKey ? seen.at : undefined;
+  const enabled = Boolean(userId) && !approvalsOpen && seenAt !== undefined;
+  const { data } = useQuery({
+    queryKey: ['approval-notification-count', resource, userId, seenAt],
+    enabled,
+    staleTime: 0,
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+    queryFn: async ({ signal }) => {
+      const response = await fetch(
+        `/api/marketplace/admin/${resource}?notification=1&seenAt=${seenAt ?? 0}`,
+        { cache: 'reload', signal }
+      );
+      if (!response.ok) throw new Error('Failed to load approval notification count');
+      return response.json() as Promise<{ unreadCount: number }>;
+    },
+  });
+
+  return enabled ? (data?.unreadCount ?? 0) : 0;
+}
+
 export default function Layout({ children }: Props) {
   const { t } = useTranslate('navbar');
   const { user } = useAuthContext();
@@ -434,51 +471,18 @@ export default function Layout({ children }: Props) {
     referralEnabled = false,
     canUseSellerLine = false,
   } = menuFlags.data ?? {};
-  const [sellerApprovalNotificationCount, setSellerApprovalNotificationCount] = useState(0);
-  const approvalsOpen = pathname.startsWith(SELLER_APPROVALS_PATH);
-
-  useEffect(() => {
-    if (!user?.id || !isMarketplaceAdmin(user.role)) {
-      setSellerApprovalNotificationCount(0);
-      return undefined;
-    }
-
-    const storageKey = `${SELLER_APPROVALS_SEEN_AT_KEY}:${user.id}`;
-    if (approvalsOpen) {
-      window.localStorage.setItem(storageKey, String(Date.now()));
-      setSellerApprovalNotificationCount(0);
-      return undefined;
-    }
-
-    const controller = new AbortController();
-
-    const loadPendingSellerApprovals = async () => {
-      try {
-        const seenAt = Number(window.localStorage.getItem(storageKey) ?? 0);
-        const response = await fetch(
-          `/api/marketplace/admin/sellers?notification=1&seenAt=${Number.isFinite(seenAt) ? seenAt : 0}`,
-          { cache: 'no-store', signal: controller.signal }
-        );
-        if (!response.ok) return;
-        const result = (await response.json()) as { unreadCount?: number };
-        setSellerApprovalNotificationCount(Number(result.unreadCount ?? 0));
-      } catch (loadError) {
-        if ((loadError as Error).name !== 'AbortError') {
-          setSellerApprovalNotificationCount(0);
-        }
-      }
-    };
-
-    void loadPendingSellerApprovals();
-    const intervalId = window.setInterval(loadPendingSellerApprovals, 60_000);
-    window.addEventListener('focus', loadPendingSellerApprovals);
-
-    return () => {
-      controller.abort();
-      window.clearInterval(intervalId);
-      window.removeEventListener('focus', loadPendingSellerApprovals);
-    };
-  }, [approvalsOpen, user?.id, user?.role]);
+  const approvalNotificationCounts: Record<string, number> = {
+    [SELLER_APPROVALS_PATH]: useApprovalNotificationCount(
+      'sellers',
+      pathname.startsWith(SELLER_APPROVALS_PATH),
+      isMarketplaceAdmin(user?.role) ? user?.id : undefined
+    ),
+    [PRODUCT_APPROVALS_PATH]: useApprovalNotificationCount(
+      'products',
+      pathname.startsWith(PRODUCT_APPROVALS_PATH),
+      user?.role === 'master_admin' ? user.id : undefined
+    ),
+  };
 
   const roleFilteredAdminNavigation =
     user?.role === 'marketplace_admin'
@@ -499,8 +503,9 @@ export default function Layout({ children }: Props) {
             (user?.role === 'master_admin' && officialShippingEnabled) ||
             item.path !== '/dashboard/seller/shipping'
         )
-        .map((item) =>
-          item.path === SELLER_APPROVALS_PATH && sellerApprovalNotificationCount > 0
+        .map((item) => {
+          const count = approvalNotificationCounts[item.path] ?? 0;
+          return count > 0
             ? {
                 ...item,
                 info: (
@@ -521,12 +526,12 @@ export default function Layout({ children }: Props) {
                       lineHeight: 1,
                     }}
                   >
-                    {sellerApprovalNotificationCount > 99 ? '99+' : sellerApprovalNotificationCount}
+                    {count > 99 ? '99+' : count}
                   </Box>
                 ),
               }
-            : item
-        ),
+            : item;
+        }),
     }))
     .filter((section) => section.items.length > 0);
 
