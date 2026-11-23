@@ -18,6 +18,7 @@ const AREA_ROLES: Array<{ prefix: string; roles: AppRole[] }> = [
   { prefix: '/dashboard/master', roles: ['master_admin'] },
   { prefix: '/dashboard/seller-approvals', roles: ['master_admin', 'marketplace_admin'] },
   { prefix: '/dashboard/product-approvals', roles: ['master_admin'] },
+  { prefix: paths.marketplace.adminOrders, roles: ['master_admin'] },
   { prefix: '/dashboard/payment-reviews', roles: ['master_admin'] },
   { prefix: '/dashboard/receipts', roles: ['master_admin'] },
   { prefix: '/dashboard/payouts', roles: ['master_admin'] },

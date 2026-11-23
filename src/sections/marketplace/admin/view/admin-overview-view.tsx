@@ -38,6 +38,7 @@ import {
 
 import { useAuthContext } from 'src/auth/hooks';
 
+import { orderStatus } from '../order-list';
 import { formatPrice } from '../../shared/api';
 
 type AdminOverview = {
@@ -85,20 +86,6 @@ const sellerTypeLabel = {
   company: 'dashboardUi.company',
   publisher: 'dashboardUi.publisher',
   university: 'dashboardUi.university',
-};
-
-const orderStatus: Record<
-  string,
-  { label: string; color: 'default' | 'warning' | 'info' | 'success' | 'error' }
-> = {
-  pending: { label: 'dashboardUi.pending', color: 'warning' },
-  pending_payment: { label: 'dashboardUi.awaitingPayment', color: 'warning' },
-  payment_review: { label: 'dashboardUi.paymentReview', color: 'info' },
-  payment_rejected: { label: 'dashboardUi.paymentRejected', color: 'error' },
-  paid: { label: 'dashboardUi.paidLabel', color: 'success' },
-  completed: { label: 'dashboardUi.completed', color: 'success' },
-  cancelled: { label: 'dashboardUi.cancelled', color: 'default' },
-  refunded: { label: 'dashboardUi.refunded', color: 'error' },
 };
 
 export function MarketplaceAdminOverviewView() {
@@ -380,7 +367,7 @@ export function MarketplaceAdminOverviewView() {
 
           <Grid container spacing={3} sx={{ mt: 0 }}>
             <Grid size={{ xs: 12, lg: 8 }}>
-              <RecentOrders orders={overview.recentOrders} />
+              <RecentOrders orders={overview.recentOrders} canViewAll={user?.role === 'master_admin'} />
             </Grid>
             <Grid size={{ xs: 12, lg: 4 }}>
               <FinanceSummary overview={overview} />
@@ -517,7 +504,13 @@ function AttentionPanel({ overview }: { overview: AdminOverview }) {
   );
 }
 
-function RecentOrders({ orders }: { orders: AdminOverview['recentOrders'] }) {
+function RecentOrders({
+  orders,
+  canViewAll,
+}: {
+  orders: AdminOverview['recentOrders'];
+  canViewAll: boolean;
+}) {
   const { t, currentLang } = useTranslate('marketplace');
   return (
     <Card variant="outlined" sx={{ p: 3, height: 1 }}>
@@ -528,9 +521,20 @@ function RecentOrders({ orders }: { orders: AdminOverview['recentOrders'] }) {
             {t('dashboardUi.latestMarketplaceTransactions')}
           </Typography>
         </Box>
-        <Avatar variant="rounded" sx={{ color: 'info.main', bgcolor: 'info.lighter' }}>
-          <RiShoppingBag3Line />
-        </Avatar>
+        {canViewAll ? (
+          <Button
+            component={RouterLink}
+            href={paths.marketplace.adminOrders}
+            size="small"
+            endIcon={<RiArrowRightLine />}
+          >
+            {t('dashboardUi.allOrders')}
+          </Button>
+        ) : (
+          <Avatar variant="rounded" sx={{ color: 'info.main', bgcolor: 'info.lighter' }}>
+            <RiShoppingBag3Line />
+          </Avatar>
+        )}
       </Stack>
       <Stack divider={<Divider flexItem />} sx={{ mt: 2 }}>
         {orders.length ? (
@@ -556,7 +560,18 @@ function RecentOrders({ orders }: { orders: AdminOverview['recentOrders'] }) {
                       t('dashboardUi.orderNumber', { id: order.id.slice(0, 8) })}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    #{order.id.slice(0, 8).toUpperCase()} ·{' '}
+                    {canViewAll ? (
+                      <Box
+                        component={RouterLink}
+                        href={`${paths.marketplace.adminOrders}?id=${order.id}`}
+                        sx={{ color: 'primary.main' }}
+                      >
+                        #{order.id.slice(0, 8).toUpperCase()}
+                      </Box>
+                    ) : (
+                      <>#{order.id.slice(0, 8).toUpperCase()}</>
+                    )}{' '}
+                    ·{' '}
                     {new Date(order.created_at).toLocaleString(currentLang.numberFormat.code, {
                       timeZone: 'Asia/Bangkok',
                     })}

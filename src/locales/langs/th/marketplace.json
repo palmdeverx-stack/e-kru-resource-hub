@@ -371,7 +371,7 @@
     "pending": "รอดำเนินการ",
     "awaitingPayment": "รอชำระเงิน",
     "paymentReview": "รอตรวจสลิป",
-    "paymentRejected": "สลิปไม่ผ่าน",
+    "paymentRejected": "การชำระไม่ผ่าน",
     "paidLabel": "ชำระแล้ว",
     "completed": "สำเร็จ",
     "cancelled": "ยกเลิก",

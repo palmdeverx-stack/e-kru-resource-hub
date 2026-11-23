@@ -189,6 +189,11 @@ const adminNavData: NavSectionProps['data'] = [
     subheader: 'การเงิน Marketplace',
     items: [
       {
+        title: 'คำสั่งซื้อทั้งหมด',
+        path: paths.marketplace.adminOrders,
+        icon: <RiShoppingCart2Line />,
+      },
+      {
         title: 'ตรวจสอบ License',
         path: '/dashboard/licenses',
         icon: <RiKey2Line />,

@@ -86,6 +86,7 @@ export const paths = {
     systemAudit: '/dashboard/settings/system-audit',
     securityAudit: '/dashboard/settings/security-audit',
     systemUsers: '/dashboard/settings/system-users',
+    adminOrders: '/dashboard/orders',
     paymentReviews: '/dashboard/payment-reviews',
     receipts: '/dashboard/receipts',
     payouts: '/dashboard/payouts',
