@@ -48,6 +48,7 @@ function load({ full = true, duplicate = false, rpcError = false, revokeError = 
       },
     },
     'src/sections/marketplace/checkout/server/stripe': {},
+    'src/sections/marketplace/shared/payment-message': {},
     'src/sections/marketplace/checkout/server/license-subscriptions': {},
   };
   const exports = {};

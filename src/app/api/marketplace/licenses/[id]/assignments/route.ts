@@ -86,7 +86,7 @@ export async function POST(request: Request, { params }: Context) {
     teacher_id: teacherId,
     assigned_by: caller.sub,
   });
-  if (error) return NextResponse.json({ message: error.message }, { status: 500 });
+  if (error) return NextResponse.json({ message: 'บันทึกสิทธิ์ใช้งานไม่สำเร็จ กรุณาลองใหม่' }, { status: 500 });
   return NextResponse.json({ success: true, message: 'เพิ่มครูเข้า License แล้ว' });
 }
 
@@ -115,7 +115,7 @@ export async function DELETE(request: Request, { params }: Context) {
     .maybeSingle();
   if (error || !data) {
     return NextResponse.json(
-      { message: error?.message ?? 'ไม่พบครูใน License นี้' },
+      { message: error ? 'ยกเลิกสิทธิ์ใช้งานไม่สำเร็จ กรุณาลองใหม่' : 'ไม่พบครูในรายการสิทธิ์ใช้งานนี้' },
       { status: error ? 500 : 404 }
     );
   }

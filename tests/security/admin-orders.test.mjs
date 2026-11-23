@@ -22,7 +22,10 @@ function loadModule(path, mocks = {}) {
   return exports;
 }
 
-const orderList = loadModule('../../src/sections/marketplace/admin/order-list.ts');
+const paymentMessage = loadModule('../../src/sections/marketplace/shared/payment-message.ts');
+const orderList = loadModule('../../src/sections/marketplace/admin/order-list.ts', {
+  '../shared/payment-message': paymentMessage,
+});
 const orderId = '7c1cde16-91cd-4550-92f6-59ab923952f7';
 
 function setup({ role = 'master_admin', active = true, dbError = null } = {}) {
@@ -136,4 +139,67 @@ test('shows recorded rejection or cancellation reasons and handles older orders'
     }),
     'ระบบยืนยันคำสั่งซื้อฟรี'
   );
+});
+
+test('displays Thai explanations for Stripe errors saved on existing orders', () => {
+  const { getOrderOutcome } = orderList;
+  const describe = (reason) =>
+    getOrderOutcome({
+      status: 'payment_rejected',
+      payment_session: { payment_method: 'stripe', rejection_reason: reason },
+    });
+
+  assert.equal(
+    describe(
+      'The PromptPay payment attempt of this PaymentIntent has expired. You can provide payment_method_data or a new PaymentMethod to attempt to fulfill this PaymentIntent again.'
+    ),
+    'รายการชำระเงินผ่านพร้อมเพย์หมดอายุ กรุณาเริ่มชำระเงินใหม่'
+  );
+  assert.equal(
+    describe('Your card was declined.'),
+    'บัตรถูกปฏิเสธ กรุณาตรวจสอบกับธนาคารผู้ออกบัตร'
+  );
+  assert.equal(describe('Your card has insufficient funds.'), 'ยอดเงินคงเหลือไม่เพียงพอ');
+  assert.equal(
+    describe('An unexpected error occurred.'),
+    'ชำระเงินไม่สำเร็จ กรุณาตรวจสอบข้อมูลการชำระเงินแล้วลองใหม่'
+  );
+  assert.equal(
+    describe('ไม่ได้ชำระเงินภายในเวลาที่ Stripe กำหนด'),
+    'ไม่ได้ชำระเงินภายในเวลาที่ Stripe กำหนด'
+  );
+});
+
+test('buyer payment API returns a plain-language reason and keeps ownership filtering', async () => {
+  const filters = [];
+  const session = {
+    payment_method: 'stripe',
+    rejection_reason: 'The PromptPay payment attempt of this PaymentIntent has expired.',
+  };
+  const query = {
+    select: () => query,
+    eq: (key, value) => {
+      filters.push([key, value]);
+      return query;
+    },
+    maybeSingle: async () => ({ data: session, error: null }),
+  };
+  const { GET } = loadModule('../../src/app/api/marketplace/payments/[id]/route.ts', {
+    'next/server': { NextResponse: { json: (body) => body } },
+    'src/lib/auth-token': { requireAuthenticated: () => ({ sub: 'buyer' }) },
+    'src/lib/supabase-admin': { supabaseAdmin: { from: () => query } },
+    'src/sections/marketplace/checkout/server/promptpay': {},
+    'src/sections/marketplace/shared/payment-message': paymentMessage,
+  });
+
+  const result = await GET({}, { params: Promise.resolve({ id: 'payment' }) });
+  assert.deepEqual(filters, [
+    ['id', 'payment'],
+    ['buyer_id', 'buyer'],
+  ]);
+  assert.equal(
+    result.paymentSession.rejection_reason,
+    'รายการชำระเงินผ่านพร้อมเพย์หมดอายุ กรุณาเริ่มชำระเงินใหม่'
+  );
+  assert.match(session.rejection_reason, /PaymentIntent/);
 });

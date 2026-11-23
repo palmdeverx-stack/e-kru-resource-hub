@@ -637,7 +637,7 @@ export function OrderStatusChip({ status }: { status: MarketplaceOrder['status']
     return <Chip color="warning" size="small" label="รอตรวจสลิป" variant="soft" />;
   }
   if (status === 'payment_rejected') {
-    return <Chip color="error" size="small" label="สลิปไม่ผ่าน" variant="soft" />;
+    return <Chip color="error" size="small" label="ชำระเงินไม่สำเร็จ" variant="soft" />;
   }
   if (status === 'refunded') {
     return <Chip color="default" size="small" label="คืนเงินแล้ว" variant="soft" />;

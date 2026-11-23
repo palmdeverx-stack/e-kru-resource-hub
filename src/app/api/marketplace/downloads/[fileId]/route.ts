@@ -58,7 +58,7 @@ export async function GET(request: Request, { params }: Context) {
 
   if (fileError || orderError) {
     return NextResponse.json(
-      { message: fileError?.message ?? orderError?.message ?? 'ตรวจสอบสิทธิ์ดาวน์โหลดไม่สำเร็จ' },
+      { message: 'ตรวจสอบสิทธิ์ดาวน์โหลดไม่สำเร็จ กรุณาลองใหม่' },
       { status: 500 }
     );
   }
@@ -101,7 +101,7 @@ export async function GET(request: Request, { params }: Context) {
     .createSignedUrl(file.storage_path, 60, { download: file.file_name });
   if (signedError || !signedFile?.signedUrl) {
     return NextResponse.json(
-      { message: signedError?.message ?? 'ไม่สามารถสร้างลิงก์ดาวน์โหลดได้' },
+      { message: 'สร้างลิงก์ดาวน์โหลดไม่สำเร็จ กรุณาลองใหม่' },
       { status: 500 }
     );
   }
@@ -139,7 +139,7 @@ export async function GET(request: Request, { params }: Context) {
       result: 'failure',
       metadata: { order_item_id: orderItem.id, reason: 'download_tracking_failed' },
     });
-    return NextResponse.json({ message: analyticsError.message }, { status: 500 });
+    return NextResponse.json({ message: 'เริ่มดาวน์โหลดไม่สำเร็จ กรุณาลองใหม่' }, { status: 500 });
   }
 
   await writeSecurityAudit({

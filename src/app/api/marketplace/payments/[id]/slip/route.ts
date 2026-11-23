@@ -39,7 +39,7 @@ export async function POST(request: Request, { params }: Context) {
 
   if (sessionError || !session) {
     return NextResponse.json(
-      { message: sessionError?.message ?? 'ไม่พบรายการชำระเงิน' },
+      { message: sessionError ? 'โหลดรายการชำระเงินไม่สำเร็จ กรุณาลองใหม่' : 'ไม่พบรายการชำระเงิน' },
       { status: sessionError ? 500 : 404 }
     );
   }
@@ -74,7 +74,7 @@ export async function POST(request: Request, { params }: Context) {
   const { error: uploadError } = await supabaseAdmin.storage
     .from('marketplace-payment-slips')
     .upload(path, image.data, { contentType: image.contentType, upsert: false });
-  if (uploadError) return NextResponse.json({ message: uploadError.message }, { status: 500 });
+  if (uploadError) return NextResponse.json({ message: 'แนบสลิปไม่สำเร็จ กรุณาลองใหม่' }, { status: 500 });
 
   const now = new Date().toISOString();
   const { data: updated, error } = await supabaseAdmin
@@ -96,7 +96,7 @@ export async function POST(request: Request, { params }: Context) {
   if (error || !updated) {
     await supabaseAdmin.storage.from('marketplace-payment-slips').remove([path]);
     return NextResponse.json(
-      { message: error?.message ?? 'สถานะรายการเปลี่ยนไป กรุณาลองใหม่' },
+      { message: error ? 'บันทึกสลิปไม่สำเร็จ กรุณาลองใหม่' : 'สถานะรายการเปลี่ยนไป กรุณาลองใหม่' },
       { status: 409 }
     );
   }

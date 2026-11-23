@@ -174,6 +174,12 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
       setCancelling(false);
     }
   };
+  const paymentButtonLabel =
+    order.status === 'pending_payment'
+      ? 'ไปชำระเงิน'
+      : order.status === 'payment_rejected' && payment?.payment_method === 'promptpay'
+        ? 'ส่งสลิปใหม่'
+        : 'ดูสถานะการชำระเงิน';
   const needsPayment = Boolean(
     order.payment_session_id &&
     ['pending_payment', 'payment_review', 'payment_rejected'].includes(order.status)
@@ -396,11 +402,7 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                   '&:hover': { bgcolor: 'grey.100' },
                 }}
               >
-                {order.status === 'pending_payment'
-                  ? 'ไปชำระเงิน'
-                  : order.status === 'payment_rejected'
-                    ? 'ส่งหลักฐานใหม่'
-                    : 'ดูสถานะการตรวจสอบ'}
+                {paymentButtonLabel}
               </Button>
             )}
           </Stack>
@@ -984,6 +986,10 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                 }
               />
               <InfoRow label="สถานะการชำระ" value={paymentStatusLabel(payment?.status)} />
+              {payment?.rejection_reason &&
+                (order.status === 'payment_rejected' || order.status === 'cancelled') && (
+                  <Alert severity="warning">{payment.rejection_reason}</Alert>
+                )}
               {!!payment?.bank_transaction_reference && (
                 <InfoRow label="เลขอ้างอิง" value={payment.bank_transaction_reference} />
               )}
@@ -1018,11 +1024,7 @@ export function MarketplacePurchaseDetailView({ orderId }: Props) {
                   variant="contained"
                   startIcon={<RiBankCardLine />}
                 >
-                  {order.status === 'pending_payment'
-                    ? 'ไปชำระเงิน'
-                    : order.status === 'payment_rejected'
-                      ? 'ส่งหลักฐานใหม่'
-                      : 'ดูสถานะการตรวจสอบ'}
+                  {paymentButtonLabel}
                 </Button>
               )}
               {canCancelPayment && (
@@ -1403,7 +1405,7 @@ function OrderStatusChip({ status }: { status: MarketplaceOrder['status'] }) {
   }
   if (status === 'payment_rejected') {
     return (
-      <Chip color="error" label="สลิปไม่ผ่าน" variant="soft" sx={{ bgcolor: 'background.paper' }} />
+      <Chip color="error" label="ชำระเงินไม่สำเร็จ" variant="soft" sx={{ bgcolor: 'background.paper' }} />
     );
   }
   if (status === 'refunded') {
@@ -1430,7 +1432,7 @@ function OrderStatusChip({ status }: { status: MarketplaceOrder['status'] }) {
 function statusLabel(status: MarketplaceOrder['status']) {
   if (['paid', 'completed'].includes(status)) return 'ชำระแล้ว / พร้อมใช้งาน';
   if (status === 'payment_review') return 'รอตรวจสอบสลิป';
-  if (status === 'payment_rejected') return 'สลิปไม่ผ่าน';
+  if (status === 'payment_rejected') return 'ชำระเงินไม่สำเร็จ';
   if (status === 'disputed') return 'อยู่ระหว่างข้อพิพาท';
   if (status === 'refunded') return 'คืนเงินแล้ว';
   if (status === 'cancelled') return 'ยกเลิก';

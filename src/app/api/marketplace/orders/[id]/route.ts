@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { requireAuthenticated } from 'src/lib/auth-token';
 
+import { getPaymentReason } from 'src/sections/marketplace/shared/payment-message';
 import { withPublicSystemStoreFlag } from 'src/sections/marketplace/seller/server/public-seller';
 import {
   withMediaUrls,
@@ -49,7 +50,7 @@ export async function GET(request: Request, { params }: Context) {
     .maybeSingle();
   if (error || !order) {
     return NextResponse.json(
-      { message: error?.message ?? 'ไม่พบรายละเอียดการซื้อ' },
+      { message: error ? 'โหลดรายละเอียดการซื้อไม่สำเร็จ กรุณาลองใหม่' : 'ไม่พบรายละเอียดการซื้อ' },
       { status: error ? 500 : 404 }
     );
   }
@@ -128,9 +129,14 @@ export async function GET(request: Request, { params }: Context) {
     })
   );
 
+  const payment = Array.isArray(order.payment_session)
+    ? order.payment_session[0]
+    : order.payment_session;
+
   return NextResponse.json({
     order: {
       ...order,
+      payment_session: payment ? { ...payment, rejection_reason: getPaymentReason(payment) } : null,
       shipment: shippingEnabled
         ? Array.isArray(order.shipment)
           ? (order.shipment[0] ?? null)

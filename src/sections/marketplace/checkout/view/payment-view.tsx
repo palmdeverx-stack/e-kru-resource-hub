@@ -169,7 +169,10 @@ export function MarketplacePaymentView({
           </Alert>
         ) : isStripe && ['rejected', 'expired'].includes(session.status) ? (
           <Alert severity="error">
-            {session.rejection_reason || 'รายการชำระเงินออนไลน์นี้ไม่สามารถชำระต่อได้'}
+            {session.rejection_reason ||
+              (session.status === 'expired'
+                ? 'รายการชำระเงินหมดอายุ กรุณาเริ่มชำระเงินใหม่'
+                : 'ชำระเงินไม่สำเร็จ กรุณาเริ่มชำระเงินใหม่')}
           </Alert>
         ) : awaitingReview ? (
           <Alert severity="warning">
@@ -177,7 +180,7 @@ export function MarketplacePaymentView({
           </Alert>
         ) : session.status === 'rejected' ? (
           <Alert severity="error">
-            สลิปไม่ผ่านการตรวจสอบ: {session.rejection_reason} กรุณาตรวจสอบและแนบใหม่
+            {session.rejection_reason ? `สลิปไม่ผ่านการตรวจสอบ (${session.rejection_reason})` : 'สลิปไม่ผ่านการตรวจสอบ'}{' '}กรุณาตรวจสอบและแนบสลิปใหม่
           </Alert>
         ) : (
           <Alert severity="info">สแกน QR ด้วยแอปธนาคาร แล้วแนบภาพสลิปด้านล่าง</Alert>

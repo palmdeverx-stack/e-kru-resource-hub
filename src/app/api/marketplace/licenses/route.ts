@@ -36,13 +36,7 @@ export async function GET(request: Request) {
   ]);
   if (error || teacherError || invitedTeacherError) {
     return NextResponse.json(
-      {
-        message:
-          error?.message ??
-          teacherError?.message ??
-          invitedTeacherError?.message ??
-          'โหลดข้อมูล License ไม่สำเร็จ',
-      },
+      { message: 'โหลดข้อมูลสิทธิ์ใช้งานไม่สำเร็จ กรุณาลองใหม่' },
       { status: 500 }
     );
   }

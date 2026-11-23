@@ -94,7 +94,7 @@ export async function GET(request: Request) {
       }>
     >();
 
-  if (error) return NextResponse.json({ message: error.message }, { status: 500 });
+  if (error) return NextResponse.json({ message: 'โหลดรายการซื้อไม่สำเร็จ กรุณาลองใหม่' }, { status: 500 });
 
   const queryMs = performance.now() - queryStarted;
   const mediaStarted = performance.now();
@@ -220,7 +220,7 @@ export async function POST(request: Request) {
 
   if (productError || !products || products.length !== uniqueProductIds.length) {
     return NextResponse.json(
-      { message: productError?.message ?? 'สินค้าบางรายการไม่พร้อมจำหน่าย' },
+      { message: productError ? 'ตรวจสอบสินค้าไม่สำเร็จ กรุณาลองใหม่' : 'สินค้าบางรายการไม่พร้อมจำหน่าย' },
       { status: 400 }
     );
   }
@@ -251,7 +251,7 @@ export async function POST(request: Request) {
       new Date(deal.expires_at) <= new Date()
     ) {
       return NextResponse.json(
-        { message: dealError?.message ?? 'ข้อเสนอขายไม่ถูกต้อง หมดอายุ หรือไม่ใช่บัญชีที่ยอมรับ' },
+        { message: dealError ? 'ตรวจสอบข้อเสนอขายไม่สำเร็จ กรุณาลองใหม่' : 'ข้อเสนอขายไม่ถูกต้อง หมดอายุ หรือไม่ใช่บัญชีที่ยอมรับ' },
         { status: dealError ? 500 : 409 }
       );
     }
@@ -417,9 +417,9 @@ export async function POST(request: Request) {
         const quote = verifyShippingQuote(token);
         shippingQuotes.set(quote.sellerId, quote);
       });
-    } catch (error) {
+    } catch {
       return NextResponse.json(
-        { message: error instanceof Error ? error.message : 'ค่าขนส่งไม่ถูกต้อง' },
+        { message: 'ตรวจสอบค่าจัดส่งไม่สำเร็จ กรุณาคำนวณค่าจัดส่งใหม่' },
         { status: 400 }
       );
     }
@@ -517,7 +517,7 @@ export async function POST(request: Request) {
 
   if (sessionError || !paymentSession) {
     return NextResponse.json(
-      { message: sessionError?.message ?? 'ไม่สามารถเริ่มรายการชำระเงินได้' },
+      { message: 'เริ่มชำระเงินไม่สำเร็จ กรุณาลองใหม่' },
       { status: 500 }
     );
   }
@@ -575,7 +575,7 @@ export async function POST(request: Request) {
     if (orderError || !order) {
       await cleanupCheckout(paymentSession.id);
       return NextResponse.json(
-        { message: orderError?.message ?? 'ไม่สามารถสร้างคำสั่งซื้อได้' },
+        { message: 'สร้างคำสั่งซื้อไม่สำเร็จ กรุณาลองใหม่' },
         { status: 500 }
       );
     }
@@ -592,7 +592,7 @@ export async function POST(request: Request) {
     );
     if (itemError) {
       await cleanupCheckout(paymentSession.id);
-      return NextResponse.json({ message: itemError.message }, { status: 500 });
+      return NextResponse.json({ message: 'สร้างคำสั่งซื้อไม่สำเร็จ กรุณาลองใหม่' }, { status: 500 });
     }
     if (shippingQuote) {
       const sellerSnapshot: any = Array.isArray(items[0]?.seller)
@@ -651,7 +651,7 @@ export async function POST(request: Request) {
       if (shipmentError || !shipment) {
         await cleanupCheckout(paymentSession.id);
         return NextResponse.json(
-          { message: shipmentError?.message ?? 'บันทึกข้อมูลจัดส่งไม่สำเร็จ' },
+          { message: 'บันทึกข้อมูลจัดส่งไม่สำเร็จ กรุณาลองใหม่' },
           { status: 500 }
         );
       }
@@ -662,15 +662,10 @@ export async function POST(request: Request) {
             orderId: order.id,
             amount: shippingAmount,
           });
-        } catch (accountingError) {
+        } catch {
           await cleanupCheckout(paymentSession.id);
           return NextResponse.json(
-            {
-              message:
-                accountingError instanceof Error
-                  ? `บันทึกบัญชีค่าจัดส่งไม่สำเร็จ: ${accountingError.message}`
-                  : 'บันทึกบัญชีค่าจัดส่งไม่สำเร็จ',
-            },
+            { message: 'บันทึกข้อมูลจัดส่งไม่สำเร็จ กรุณาลองใหม่' },
             { status: 500 }
           );
         }
@@ -684,15 +679,10 @@ export async function POST(request: Request) {
         paymentSessionId: paymentSession.id,
         products: items,
       });
-    } catch (evidenceError) {
+    } catch {
       await cleanupCheckout(paymentSession.id);
       return NextResponse.json(
-        {
-          message:
-            evidenceError instanceof Error
-              ? `บันทึกหลักฐานคำสั่งซื้อไม่สำเร็จ: ${evidenceError.message}`
-              : 'บันทึกหลักฐานคำสั่งซื้อไม่สำเร็จ',
-        },
+        { message: 'สร้างคำสั่งซื้อไม่สำเร็จ กรุณาลองใหม่' },
         { status: 500 }
       );
     }
@@ -865,15 +855,10 @@ export async function POST(request: Request) {
         }
       }
       finalPaymentSession = updatedSession;
-    } catch (stripeError) {
+    } catch {
       await cleanupCheckout(paymentSession.id);
       return NextResponse.json(
-        {
-          message:
-            stripeError instanceof Error
-              ? `สร้างรายการชำระเงินออนไลน์ไม่สำเร็จ: ${stripeError.message}`
-              : 'สร้างรายการชำระเงินออนไลน์ไม่สำเร็จ',
-        },
+        { message: 'เริ่มชำระเงินออนไลน์ไม่สำเร็จ กรุณาลองใหม่' },
         { status: 502 }
       );
     }

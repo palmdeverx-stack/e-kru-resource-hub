@@ -1,3 +1,5 @@
+import { getPaymentReason } from '../shared/payment-message';
+
 type OrderStatusDisplay = {
   label: string;
   color: 'default' | 'warning' | 'info' | 'success' | 'error';
@@ -38,7 +40,7 @@ export function getOrderOutcome(order: AdminOrder) {
   switch (order.status) {
     case 'cancelled':
     case 'payment_rejected':
-      return payment?.rejection_reason?.trim() || 'ไม่มีบันทึกเหตุผลสำหรับคำสั่งซื้อนี้';
+      return getPaymentReason(payment) ?? 'ไม่มีบันทึกเหตุผลสำหรับคำสั่งซื้อนี้';
     case 'paid':
     case 'completed':
       if (payment?.status === 'verified') {

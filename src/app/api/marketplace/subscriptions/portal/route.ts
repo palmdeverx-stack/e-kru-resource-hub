@@ -56,14 +56,9 @@ export async function POST(request: Request) {
       return_url: `${origin}/dashboard/my-apps`,
     });
     return NextResponse.json({ url: portal.url });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
-      {
-        message:
-          error instanceof Error
-            ? `เปิดหน้าจัดการบัตรไม่สำเร็จ: ${error.message}`
-            : 'เปิดหน้าจัดการบัตรไม่สำเร็จ',
-      },
+      { message: 'เปิดหน้าจัดการวิธีชำระเงินไม่สำเร็จ กรุณาลองใหม่' },
       { status: 500 }
     );
   }

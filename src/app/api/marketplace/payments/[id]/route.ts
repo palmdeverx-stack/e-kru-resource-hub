@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { requireAuthenticated } from 'src/lib/auth-token';
 
+import { getPaymentReason } from 'src/sections/marketplace/shared/payment-message';
 import { createPromptPayPayload } from 'src/sections/marketplace/checkout/server/promptpay';
 
 type Context = { params: Promise<{ id: string }> };
@@ -23,7 +24,7 @@ export async function GET(request: Request, { params }: Context) {
 
   if (error || !session) {
     return NextResponse.json(
-      { message: error?.message ?? 'ไม่พบรายการชำระเงิน' },
+      { message: error ? 'โหลดรายการชำระเงินไม่สำเร็จ กรุณาลองใหม่' : 'ไม่พบรายการชำระเงิน' },
       { status: error ? 500 : 404 }
     );
   }
@@ -49,6 +50,6 @@ export async function GET(request: Request, { params }: Context) {
   }
 
   return NextResponse.json({
-    paymentSession: { ...session, promptpayPayload, slipUrl },
+    paymentSession: { ...session, rejection_reason: getPaymentReason(session), promptpayPayload, slipUrl },
   });
 }

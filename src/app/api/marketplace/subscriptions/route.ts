@@ -17,7 +17,7 @@ export async function GET(request: Request) {
     )
     .eq('buyer_id', caller.sub)
     .order('created_at', { ascending: false });
-  if (error) return NextResponse.json({ message: error.message }, { status: 500 });
+  if (error) return NextResponse.json({ message: 'โหลดข้อมูลการต่ออายุไม่สำเร็จ กรุณาลองใหม่' }, { status: 500 });
   return NextResponse.json({ subscriptions: data ?? [] });
 }
 
@@ -39,24 +39,32 @@ export async function PATCH(request: Request) {
     .eq('buyer_id', caller.sub)
     .maybeSingle();
   if (!local?.stripe_subscription_id || local.status === 'canceled') {
-    return NextResponse.json({ message: 'Subscription นี้ไม่สามารถเปลี่ยนแปลงได้' }, { status: 409 });
+    return NextResponse.json({ message: 'รายการต่ออายุนี้ไม่สามารถเปลี่ยนแปลงได้' }, { status: 409 });
   }
   try {
     await assertStripeReady();
     const current = await getStripe().subscriptions.retrieve(local.stripe_subscription_id);
     if (current.livemode !== (getStripeConfiguration().mode === 'live')) {
-      return NextResponse.json({ message: 'Subscription นี้ไม่ใช่โหมด Stripe ปัจจุบัน' }, { status: 409 });
+      return NextResponse.json({ message: 'ไม่สามารถจัดการรายการต่ออายุนี้ได้ กรุณาติดต่อฝ่ายช่วยเหลือ' }, { status: 409 });
     }
   } catch (error) {
     const missing = error && typeof error === 'object' && 'code' in error && error.code === 'resource_missing';
     return NextResponse.json(
-      { message: missing ? 'Subscription นี้อยู่ในบัญชีหรือโหมด Stripe เดิม' : 'ตรวจสอบบัญชี Stripe ไม่สำเร็จ กรุณาลองใหม่' },
+      { message: missing ? 'ไม่สามารถจัดการรายการต่ออายุนี้ได้ กรุณาติดต่อฝ่ายช่วยเหลือ' : 'ตรวจสอบข้อมูลการต่ออายุไม่สำเร็จ กรุณาลองใหม่' },
       { status: missing ? 409 : 503 }
     );
   }
-  const subscription = await getStripe().subscriptions.update(local.stripe_subscription_id, {
-    cancel_at_period_end: action === 'cancel',
-  });
+  let subscription;
+  try {
+    subscription = await getStripe().subscriptions.update(local.stripe_subscription_id, {
+      cancel_at_period_end: action === 'cancel',
+    });
+  } catch {
+    return NextResponse.json(
+      { message: 'เปลี่ยนการตั้งค่าต่ออายุไม่สำเร็จ กรุณาลองใหม่' },
+      { status: 502 }
+    );
+  }
   const period = subscriptionPeriod(subscription);
   const { data, error } = await supabaseAdmin
     .from('marketplace_license_subscriptions')
@@ -71,6 +79,6 @@ export async function PATCH(request: Request) {
       'id,product_id,billing_cycle,amount,currency,status,current_period_start,current_period_end,cancel_at_period_end,canceled_at'
     )
     .single();
-  if (error) return NextResponse.json({ message: error.message }, { status: 500 });
+  if (error) return NextResponse.json({ message: 'บันทึกสถานะการต่ออายุไม่สำเร็จ กรุณาลองใหม่' }, { status: 500 });
   return NextResponse.json({ subscription: data });
 }

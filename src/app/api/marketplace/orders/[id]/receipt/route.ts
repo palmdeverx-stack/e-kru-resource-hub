@@ -113,7 +113,7 @@ export async function GET(request: Request, { params }: Context) {
 
   if (orderError || !order?.payment_session_id) {
     return NextResponse.json(
-      { message: orderError?.message ?? 'ไม่พบคำสั่งซื้อหรือใบเสร็จรับเงิน' },
+      { message: orderError ? 'โหลดใบเสร็จไม่สำเร็จ กรุณาลองใหม่' : 'ไม่พบคำสั่งซื้อหรือใบเสร็จรับเงิน' },
       { status: orderError ? 500 : 404 }
     );
   }
@@ -129,7 +129,7 @@ export async function GET(request: Request, { params }: Context) {
 
   if (receiptError || !receipt) {
     return NextResponse.json(
-      { message: receiptError?.message ?? 'ระบบยังไม่ได้ออกใบเสร็จรับเงินสำหรับรายการนี้' },
+      { message: receiptError ? 'โหลดใบเสร็จไม่สำเร็จ กรุณาลองใหม่' : 'ระบบยังไม่ได้ออกใบเสร็จรับเงินสำหรับรายการนี้' },
       { status: receiptError ? 500 : 404 }
     );
   }
@@ -217,7 +217,7 @@ export async function POST(request: Request, { params }: Context) {
 
   if (orderError || !order?.payment_session_id) {
     return NextResponse.json(
-      { message: orderError?.message ?? 'ไม่พบคำสั่งซื้อหรือข้อมูลการชำระเงิน' },
+      { message: orderError ? 'โหลดคำสั่งซื้อไม่สำเร็จ กรุณาลองใหม่' : 'ไม่พบคำสั่งซื้อหรือข้อมูลการชำระเงิน' },
       { status: orderError ? 500 : 404 }
     );
   }
@@ -256,7 +256,7 @@ export async function POST(request: Request, { params }: Context) {
       .single();
     if (updateError || !updatedReceipt) {
       return NextResponse.json(
-        { message: updateError?.message ?? 'ไม่สามารถแก้ไขข้อมูลผู้รับใบเสร็จได้' },
+        { message: 'แก้ไขข้อมูลผู้รับใบเสร็จไม่สำเร็จ กรุณาลองใหม่' },
         { status: 500 }
       );
     }
@@ -277,7 +277,7 @@ export async function POST(request: Request, { params }: Context) {
   );
   if (paymentError || !payment || payment.status !== 'verified' || !paidOrders.length) {
     return NextResponse.json(
-      { message: paymentError?.message ?? 'ยังไม่สามารถยืนยันข้อมูลการชำระเงินได้' },
+      { message: 'ยังไม่สามารถยืนยันข้อมูลการชำระเงินได้' },
       { status: paymentError ? 500 : 409 }
     );
   }
@@ -285,14 +285,9 @@ export async function POST(request: Request, { params }: Context) {
   let provider;
   try {
     provider = await getProviderSnapshot();
-  } catch (providerError) {
+  } catch {
     return NextResponse.json(
-      {
-        message:
-          providerError instanceof Error
-            ? providerError.message
-            : 'ไม่สามารถโหลดข้อมูลผู้ออกใบเสร็จได้',
-      },
+      { message: 'โหลดข้อมูลสำหรับออกใบเสร็จไม่สำเร็จ กรุณาลองใหม่' },
       { status: 500 }
     );
   }
@@ -313,7 +308,7 @@ export async function POST(request: Request, { params }: Context) {
   );
   if (numberError || !receiptNumber) {
     return NextResponse.json(
-      { message: numberError?.message ?? 'ไม่สามารถสร้างเลขที่ใบเสร็จได้' },
+      { message: 'ออกใบเสร็จไม่สำเร็จ กรุณาลองใหม่' },
       { status: 500 }
     );
   }
@@ -389,7 +384,7 @@ export async function POST(request: Request, { params }: Context) {
       if (concurrentReceipt) return NextResponse.json({ receipt: concurrentReceipt });
     }
     return NextResponse.json(
-      { message: receiptError?.message ?? 'ไม่สามารถออกใบเสร็จรับเงินได้' },
+      { message: 'ออกใบเสร็จไม่สำเร็จ กรุณาลองใหม่' },
       { status: 500 }
     );
   }

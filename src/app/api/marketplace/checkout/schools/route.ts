@@ -10,9 +10,9 @@ export async function GET(request: Request) {
 
   try {
     return NextResponse.json({ schools: await getEligibleLicenseSchools(caller) });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
-      { message: error instanceof Error ? error.message : 'โหลดโรงเรียนไม่สำเร็จ' },
+      { message: 'โหลดรายชื่อโรงเรียนไม่สำเร็จ กรุณาลองใหม่' },
       { status: 500 }
     );
   }

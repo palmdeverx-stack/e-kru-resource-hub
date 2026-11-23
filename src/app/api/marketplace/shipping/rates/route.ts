@@ -80,7 +80,7 @@ export async function POST(request: Request) {
     products.some((item) => item.resource_type !== 'physical')
   ) {
     return NextResponse.json(
-      { message: error?.message ?? 'สินค้าจัดส่งไม่พร้อมจำหน่าย' },
+      { message: error ? 'ตรวจสอบสินค้าสำหรับจัดส่งไม่สำเร็จ กรุณาลองใหม่' : 'สินค้าจัดส่งไม่พร้อมจำหน่าย' },
       { status: 400 }
     );
   }
@@ -142,14 +142,9 @@ export async function POST(request: Request) {
         parcel,
         environment: shippingConfig.environment,
       });
-    } catch (providerError) {
+    } catch {
       return NextResponse.json(
-        {
-          message:
-            providerError instanceof Error
-              ? `SHIPPOP คำนวณค่าขนส่งไม่สำเร็จ: ${providerError.message}`
-              : 'SHIPPOP คำนวณค่าขนส่งไม่สำเร็จ',
-        },
+        { message: 'คำนวณค่าจัดส่งไม่สำเร็จ กรุณาลองใหม่' },
         { status: 502 }
       );
     }

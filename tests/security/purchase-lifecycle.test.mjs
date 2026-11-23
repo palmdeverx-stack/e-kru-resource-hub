@@ -140,6 +140,7 @@ function setup() {
   const stripe = new Stripe('sk_test_isolated_no_network_calls');
   const secret = 'whsec_isolated_test_only';
   const webhook = load('src/app/api/stripe/webhook/route.ts', { ...common,
+    'src/sections/marketplace/shared/payment-message': load('src/sections/marketplace/shared/payment-message.ts', {}),
     'src/sections/marketplace/checkout/server/stripe': {
       getStripe: () => stripe, getStripeWebhookSecret: () => secret,
       assertStripeEventMode: event => { assert.equal(event.livemode, false); },

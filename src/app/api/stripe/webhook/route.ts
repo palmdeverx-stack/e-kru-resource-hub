@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { createNotifications } from 'src/lib/notifications';
 
+import { getPaymentReason } from 'src/sections/marketplace/shared/payment-message';
 import { handleStripeDispute } from 'src/sections/marketplace/checkout/server/dispute-lifecycle';
 import { finalizeMarketplacePayment } from 'src/sections/marketplace/checkout/server/finalize-payment';
 import { revokeLicensesForPaymentSession } from 'src/sections/marketplace/checkout/server/license-lifecycle';
@@ -256,7 +257,7 @@ async function markPaymentIntentFailed(intent: Stripe.PaymentIntent) {
       schoolId: null,
       type: 'marketplace_stripe_rejected',
       title: 'การชำระเงินออนไลน์ไม่สำเร็จ',
-      body: reason,
+      body: getPaymentReason({ payment_method: 'stripe', rejection_reason: reason }) ?? undefined,
       link: `/checkout/payment/${paymentSessionId}`,
     },
   ]);
