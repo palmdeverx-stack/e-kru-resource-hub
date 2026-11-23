@@ -18,14 +18,15 @@ function fixture({ role = 'master_admin', suspended = false, verified = true, up
       auth: { getUser: async () => ({ data: { user: authUser } }), admin: { updateUserById: async () => ({}) } },
       from: table => {
         let patch;
-        let selectedRole;
+        let selectedRoles = [];
         const accounts = [...linkedRoles.map((linkedRole) => ({ ...user, id: 'other', role: linkedRole })), user];
-        const query = { select: () => query, eq: (field, value) => { if (field === 'role') selectedRole = value; return query; },
+        const query = { select: () => query, eq: () => query,
+          in: (_field, values) => { selectedRoles = values; return query; },
           limit: async (count) => ({ data: accounts.slice(0, count) }),
           update: data => { patch = data; return query; },
           maybeSingle: async () => {
             if (table === 'app_users') {
-              const matching = accounts.filter(account => account.role === selectedRole);
+              const matching = accounts.filter(account => selectedRoles.includes(account.role));
               return matching.length === 1 ? { data: matching[0] } : { data: null };
             }
             return { data: table === 'schools' ? { is_active: true } : linkedRoles.length ? { ...user, role: 'marketplace_user' } : null };
@@ -82,7 +83,20 @@ test('shared Google identity resolves the server-designated master admin and req
   assert.equal(auth.signed.length, 0);
 });
 
-for (const [linkedRoles, authRole] of [[['teacher'], undefined], [['master_admin'], 'master_admin']]) {
+test('super admin metadata resolves the linked master admin and still requires PIN', async () => {
+  const auth = fixture({ linkedRoles: ['teacher'], authRole: 'super_admin' });
+  const response = await auth.run();
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).requiresPin, true);
+  assert.deepEqual(auth.pins, ['admin']);
+  assert.equal(auth.signed.length, 0);
+});
+
+for (const [linkedRoles, authRole] of [
+  [['teacher'], undefined],
+  [['master_admin'], 'master_admin'],
+  [['marketplace_admin'], 'super_admin'],
+]) {
   test(`ambiguous Google identity fails closed for role ${authRole}`, async () => {
     const auth = fixture({ linkedRoles, authRole });
     assert.equal((await auth.run()).status, 409);

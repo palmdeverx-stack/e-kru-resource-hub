@@ -158,13 +158,14 @@ async function handleGoogleSignIn(request: Request) {
     // app_metadata is managed by the server. Resolve only a unique role match
     // within the verified identity and never fall back to a Marketplace account.
     const role = authUser.app_metadata?.role;
+    const matchingRoles = role === 'super_admin' ? ['master_admin', 'marketplace_admin'] : [role];
     const matchingAccount =
       typeof role === 'string' &&
       (await supabaseAdmin
         .from('app_users')
         .select('*')
         .eq('auth_user_id', authUser.id)
-        .eq('role', role)
+        .in('role', matchingRoles)
         .maybeSingle());
     if (!matchingAccount || matchingAccount.error || !matchingAccount.data) {
       return NextResponse.json(
