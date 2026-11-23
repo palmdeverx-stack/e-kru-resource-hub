@@ -21,6 +21,8 @@ export const adminOrdersPageSize = 25;
 
 export type AdminOrder = {
   id: string;
+  buyer_name: string | null;
+  buyer_reference: string;
   status: string;
   created_at: string;
   paid_at: string | null;

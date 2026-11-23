@@ -37,7 +37,7 @@ export async function GET(request: Request) {
   let query = supabaseAdmin
     .from('marketplace_orders')
     .select(
-      'id, status, created_at, paid_at, total, currency, seller:marketplace_sellers(display_name), payment_session:marketplace_payment_sessions(status, payment_method, rejection_reason), items:marketplace_order_items(id, title, quantity)',
+      'id, buyer_id, status, created_at, paid_at, total, currency, seller:marketplace_sellers(display_name), payment_session:marketplace_payment_sessions(status, payment_method, rejection_reason), items:marketplace_order_items(id, title, quantity)',
       { count: 'exact' }
     )
     .order('created_at', { ascending: false })
@@ -52,8 +52,49 @@ export async function GET(request: Request) {
     return NextResponse.json({ message: 'โหลดคำสั่งซื้อไม่สำเร็จ' }, { status: 500 });
   }
 
+  const orders = data ?? [];
+  const buyerIds = [...new Set(orders.map((order) => order.buyer_id))];
+  const buyerNames = new Map<string, string>();
+  if (buyerIds.length) {
+    const [marketplaceUsers, appUsers] = await Promise.all([
+      supabaseAdmin
+        .from('marketplace_users')
+        .select('id, display_name, first_name, last_name, username')
+        .in('id', buyerIds),
+      supabaseAdmin
+        .from('app_users')
+        .select('id, first_name, last_name, username')
+        .in('id', buyerIds),
+    ]);
+    if (marketplaceUsers.error || appUsers.error) {
+      return NextResponse.json(
+        { message: 'โหลดชื่อผู้ซื้อไม่สำเร็จ กรุณาลองใหม่' },
+        { status: 500 }
+      );
+    }
+    for (const user of appUsers.data ?? []) {
+      const name =
+        `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim() || user.username?.trim();
+      if (name) buyerNames.set(user.id, name);
+    }
+    for (const user of marketplaceUsers.data ?? []) {
+      const name =
+        user.display_name?.trim() ||
+        `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim() ||
+        user.username?.trim();
+      if (name) buyerNames.set(user.id, name);
+    }
+  }
+
   return NextResponse.json(
-    { orders: data ?? [], total: count ?? 0 },
+    {
+      orders: orders.map(({ buyer_id, ...order }) => ({
+        ...order,
+        buyer_name: buyerNames.get(buyer_id) ?? null,
+        buyer_reference: buyer_id.slice(0, 8).toUpperCase(),
+      })),
+      total: count ?? 0,
+    },
     { headers: { 'Cache-Control': 'private, no-store' } }
   );
 }

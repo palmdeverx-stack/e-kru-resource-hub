@@ -116,10 +116,11 @@ export function MarketplaceAdminOrderListView({ initialOrderId }: { initialOrder
             {!error && data && (
               <>
                 <TableContainer>
-                  <Table aria-label="คำสั่งซื้อทั้งหมด" sx={{ minWidth: 840 }}>
+                  <Table aria-label="คำสั่งซื้อทั้งหมด" sx={{ minWidth: 980 }}>
                     <TableHead>
                       <TableRow>
                         <TableCell>คำสั่งซื้อ / วันที่</TableCell>
+                        <TableCell>ผู้ซื้อ</TableCell>
                         <TableCell>ร้านค้า / สินค้า</TableCell>
                         <TableCell align="right">ยอดรวม</TableCell>
                         <TableCell>สถานะ</TableCell>
@@ -139,6 +140,14 @@ export function MarketplaceAdminOrderListView({ initialOrderId }: { initialOrder
                               </Typography>
                               <Typography variant="caption" color="text.secondary">
                                 {dateTime.format(new Date(order.created_at))}
+                              </Typography>
+                            </TableCell>
+                            <TableCell sx={{ overflowWrap: 'anywhere' }}>
+                              <Typography variant="subtitle2">
+                                {order.buyer_name ?? 'ไม่พบชื่อผู้ซื้อ'}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                #{order.buyer_reference}
                               </Typography>
                             </TableCell>
                             <TableCell>

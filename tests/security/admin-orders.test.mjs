@@ -28,9 +28,14 @@ const orderList = loadModule('../../src/sections/marketplace/admin/order-list.ts
 });
 const orderId = '7c1cde16-91cd-4550-92f6-59ab923952f7';
 
-function setup({ role = 'master_admin', active = true, dbError = null } = {}) {
+function setup({
+  role = 'master_admin',
+  active = true,
+  dbError = null,
+  buyerError = null,
+  rows = [{ id: orderId, status: 'cancelled', buyer_id: 'marketplace-buyer' }],
+} = {}) {
   const calls = [];
-  const rows = [{ id: orderId, status: 'cancelled' }];
   const query = {
     then: (resolve) => resolve({ data: rows, count: 26, error: dbError }),
   };
@@ -53,7 +58,23 @@ function setup({ role = 'master_admin', active = true, dbError = null } = {}) {
       supabaseAdmin: {
         from: (table) => {
           calls.push(['from', table]);
-          return query;
+          if (table === 'marketplace_orders') return query;
+          return {
+            select: (columns) => ({
+              in: async (key, ids) => {
+                calls.push(['buyer lookup', table, columns, key, ...ids]);
+                return table === 'marketplace_users'
+                  ? {
+                      data: [{ id: 'marketplace-buyer', display_name: 'ครูออม' }],
+                      error: buyerError,
+                    }
+                  : {
+                      data: [{ id: 'app-user-123', first_name: 'สมใจ', last_name: 'ใจดี' }],
+                      error: null,
+                    };
+              },
+            }),
+          };
         },
       },
     },
@@ -61,7 +82,6 @@ function setup({ role = 'master_admin', active = true, dbError = null } = {}) {
   });
   return {
     calls,
-    rows,
     get: (queryString = '') => GET({ url: `https://example.test/api/orders${queryString}` }),
   };
 }
@@ -86,12 +106,14 @@ test('returns bounded results and applies status and order ID filters', async ()
   const api = setup();
   const response = await api.get(`?page=1&status=cancelled&id=${orderId}`);
   assert.equal(response.status, 200);
-  assert.equal(response.body.orders, api.rows);
+  assert.equal(response.body.orders[0].id, orderId);
+  assert.equal(response.body.orders[0].buyer_name, 'ครูออม');
+  assert.equal(response.body.orders[0].buyer_id, undefined);
   assert.equal(response.body.total, 26);
   assert.equal(response.headers['Cache-Control'], 'private, no-store');
   assert.deepEqual(api.calls[0], ['from', 'marketplace_orders']);
   assert.deepEqual(
-    api.calls.slice(2).map(([method, key, value]) => [method, key, value?.ascending ?? value]),
+    api.calls.slice(2, 7).map(([method, key, value]) => [method, key, value?.ascending ?? value]),
     [
       ['order', 'created_at', false],
       ['order', 'id', false],
@@ -102,11 +124,42 @@ test('returns bounded results and applies status and order ID filters', async ()
   );
 });
 
+test('looks up both account types once and retains a reference for missing buyers', async () => {
+  const api = setup({
+    rows: ['marketplace-buyer', 'app-user-123', 'missing-user', 'app-user-123'].map(
+      (buyer_id, id) => ({
+        id,
+        buyer_id,
+      })
+    ),
+  });
+  const { body } = await api.get();
+  assert.equal(body.orders[1].buyer_name, 'สมใจ ใจดี');
+  assert.equal(body.orders[2].buyer_name, null);
+  assert.equal(body.orders[2].buyer_reference, 'MISSING-');
+  const lookups = api.calls.filter(([method]) => method === 'buyer lookup');
+  assert.deepEqual(
+    lookups.map((lookup) => lookup.slice(1, 2)),
+    [['marketplace_users'], ['app_users']]
+  );
+  for (const lookup of lookups) {
+    assert.deepEqual(Array.from(lookup.slice(4)), [
+      'marketplace-buyer',
+      'app-user-123',
+      'missing-user',
+    ]);
+  }
+});
+
 test('returns a generic error when the query fails', async () => {
   const api = setup({ dbError: { message: 'internal database details' } });
   const response = await api.get();
   assert.equal(response.status, 500);
   assert.equal(response.body.message, 'โหลดคำสั่งซื้อไม่สำเร็จ');
+  const buyerApi = setup({ buyerError: { message: 'internal database details' } });
+  const buyerResponse = await buyerApi.get();
+  assert.equal(buyerResponse.status, 500);
+  assert.equal(buyerResponse.body.message, 'โหลดชื่อผู้ซื้อไม่สำเร็จ กรุณาลองใหม่');
 });
 
 test('shows recorded rejection or cancellation reasons and handles older orders', () => {
