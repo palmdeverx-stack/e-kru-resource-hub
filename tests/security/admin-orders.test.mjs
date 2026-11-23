@@ -33,13 +33,14 @@ function setup({
   active = true,
   dbError = null,
   buyerError = null,
+  searchResult = null,
   rows = [{ id: orderId, status: 'cancelled', buyer_id: 'marketplace-buyer' }],
 } = {}) {
   const calls = [];
   const query = {
     then: (resolve) => resolve({ data: rows, count: 26, error: dbError }),
   };
-  for (const method of ['select', 'order', 'range', 'eq']) {
+  for (const method of ['select', 'order', 'range', 'eq', 'in']) {
     query[method] = (...args) => {
       calls.push([method, ...args]);
       return query;
@@ -56,6 +57,10 @@ function setup({
     },
     'src/lib/supabase-admin': {
       supabaseAdmin: {
+        rpc: async (name, args) => {
+          calls.push([name, args]);
+          return { data: searchResult, error: null };
+        },
         from: (table) => {
           calls.push(['from', table]);
           if (table === 'marketplace_orders') return query;
@@ -122,6 +127,27 @@ test('returns bounded results and applies status and order ID filters', async ()
       ['eq', 'id', orderId],
     ]
   );
+});
+
+test('uses filtered search pagination before reading order details', async () => {
+  const api = setup({ searchResult: { ids: [orderId], total: 51 } });
+  const response = await api.get(`?page=1&status=cancelled&search=${encodeURIComponent('ครูออม')}`);
+  assert.equal(response.status, 200);
+  assert.equal(response.body.total, 51);
+  assert.equal(api.calls[0][0], 'search_marketplace_admin_orders');
+  assert.deepEqual(
+    { ...api.calls[0][1] },
+    {
+      p_search: 'ครูออม',
+      p_status: 'cancelled',
+      p_order_id: null,
+      p_offset: 25,
+    }
+  );
+  assert.ok(
+    api.calls.some(([method, key, ids]) => method === 'in' && key === 'id' && ids[0] === orderId)
+  );
+  assert.ok(!api.calls.some(([method]) => method === 'range'));
 });
 
 test('looks up both account types once and retains a reference for missing buyers', async () => {
@@ -255,4 +281,96 @@ test('buyer payment API returns a plain-language reason and keeps ownership filt
     'รายการชำระเงินผ่านพร้อมเพย์หมดอายุ กรุณาเริ่มชำระเงินใหม่'
   );
   assert.match(session.rejection_reason, /PaymentIntent/);
+});
+
+test('Super Admin detail reports payment, refund and each item’s current delivery evidence', async () => {
+  const order = {
+    id: orderId,
+    status: 'paid',
+    created_at: '2026-11-20T08:00:00Z',
+    paid_at: '2026-11-20T09:00:00Z',
+    payment_session_id: 'payment',
+    payment: { payment_method: 'promptpay', submitted_at: '2026-11-20T08:30:00Z' },
+    shipment: { status: 'shipping', booked_at: '2026-11-20T10:00:00Z' },
+    items: [
+      { id: 'missing', title: 'สิทธิ์ยังไม่เปิด', product: { resource_type: 'feature_unlock' } },
+      {
+        id: 'license',
+        title: 'สิทธิ์โรงเรียน',
+        school: { status: 'active', starts_at: '2026-11-20T09:00:00Z' },
+      },
+      { id: 'digital', title: 'ใบงาน', product: { files: [{ scan_status: 'safe' }] } },
+      { id: 'scan', title: 'ไฟล์ใหม่', product: { files: [{ scan_status: 'pending_scan' }] } },
+      { id: 'physical', title: 'หนังสือ', product: { resource_type: 'physical' } },
+    ],
+  };
+  const tables = {
+    marketplace_orders: order,
+    security_audit_logs: [
+      {
+        action: 'marketplace.payment_reject',
+        actor_username: 'reviewer',
+        metadata: { reason: 'ยอดไม่ตรง' },
+        created_at: '2026-11-20T08:40:00Z',
+      },
+    ],
+    marketplace_stripe_refund_totals: [
+      { refunded_amount: 100, charge_amount: 200, updated_at: '2026-11-20T11:00:00Z' },
+    ],
+  };
+  let active = false;
+  const reads = [];
+  const { GET } = loadModule('../../src/app/api/marketplace/admin/orders/[id]/route.ts', {
+    zod: { z },
+    'next/server': {
+      NextResponse: { json: (body, options = {}) => ({ status: 200, ...options, body }) },
+    },
+    'src/lib/auth-token': {
+      requireRole: () => ({ sub: 'admin' }),
+      isActiveTokenAccount: async () => active,
+    },
+    'src/lib/supabase-admin': {
+      supabaseAdmin: {
+        from(table) {
+          reads.push(table);
+          const result = { data: tables[table], error: null };
+          const query = { maybeSingle: async () => result, then: (resolve) => resolve(result) };
+          for (const method of ['select', 'eq', 'gt', 'in', 'order', 'limit'])
+            query[method] = () => query;
+          return query;
+        },
+      },
+    },
+    'src/sections/marketplace/shared/payment-message': paymentMessage,
+  });
+  const context = { params: Promise.resolve({ id: orderId }) };
+  assert.equal((await GET({}, context)).status, 403);
+  assert.deepEqual(reads, []);
+  active = true;
+  assert.equal((await GET({}, { params: Promise.resolve({ id: 'invalid' }) })).status, 400);
+  assert.deepEqual(reads, []);
+  const response = await GET({}, context);
+  assert.equal(response.status, 200);
+  assert.deepEqual(
+    Array.from(response.body.events, (event) => event.label),
+    [
+      'สร้างคำสั่งซื้อ',
+      'แนบสลิป',
+      'สลิปไม่ผ่านการตรวจสอบ',
+      'ยืนยันการชำระเงิน',
+      'จองขนส่งแล้ว',
+      'คืนเงินบางส่วนของรายการชำระ',
+    ]
+  );
+  assert.equal(response.body.events[2].detail, 'โดย reviewer · ยอดไม่ตรง');
+  assert.deepEqual(
+    Array.from(response.body.delivery, (item) => item.status),
+    [
+      'ชำระแล้ว แต่ไม่พบสิทธิ์ที่เปิดใช้งาน',
+      'เปิดสิทธิ์ให้โรงเรียนแล้ว',
+      'มีไฟล์ให้ดาวน์โหลด',
+      'ไฟล์อยู่ระหว่างตรวจสอบ',
+      'กำลังจัดส่ง',
+    ]
+  );
 });

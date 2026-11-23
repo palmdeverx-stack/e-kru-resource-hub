@@ -30,6 +30,7 @@ import { apiFetch } from 'src/lib/api-fetch';
 import { useAuthContext } from 'src/auth/hooks';
 
 import { formatPrice } from '../../shared/api';
+import { OrderDetailsDialog } from './order-details-dialog';
 import { orderStatus, getOrderOutcome, adminOrdersPageSize } from '../order-list';
 
 const dateTime = new Intl.DateTimeFormat('th-TH', {
@@ -44,15 +45,18 @@ export function MarketplaceAdminOrderListView({ initialOrderId }: { initialOrder
   const [page, setPage] = useState(0);
   const [status, setStatus] = useState('');
   const [orderId, setOrderId] = useState(initialOrderId);
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
+  const [selectedOrder, setSelectedOrder] = useState<AdminOrder | null>(null);
   const isMasterAdmin = user?.role === 'master_admin';
 
   const { data, error, isFetching, refetch } = useQuery<{ orders: AdminOrder[]; total: number }>({
-    queryKey: ['marketplace-admin-orders', user?.id, user?.role, page, status, orderId],
+    queryKey: ['marketplace-admin-orders', user?.id, user?.role, page, status, orderId, search],
     enabled: Boolean(user?.id) && isMasterAdmin,
     retry: false,
     staleTime: 0,
     queryFn: async ({ signal }) => {
-      const params = new URLSearchParams({ page: String(page), status, id: orderId });
+      const params = new URLSearchParams({ page: String(page), status, id: orderId, search });
       const response = await apiFetch(`/api/marketplace/admin/orders?${params}`, {
         cache: 'no-store',
         signal,
@@ -78,6 +82,41 @@ export function MarketplaceAdminOrderListView({ initialOrderId }: { initialOrder
         {isMasterAdmin && (
           <Card variant="outlined">
             <Stack direction="row" alignItems="center" flexWrap="wrap" gap={2} sx={{ p: 2 }}>
+              <Stack
+                component="form"
+                direction="row"
+                spacing={1}
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  setOrderId('');
+                  setSearch(searchInput.trim());
+                  setPage(0);
+                }}
+                sx={{ flex: '1 1 320px' }}
+              >
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="เลขคำสั่งซื้อหรือชื่อผู้ซื้อ"
+                  value={searchInput}
+                  onChange={(event) => setSearchInput(event.target.value)}
+                  slotProps={{ htmlInput: { maxLength: 100 } }}
+                />
+                <Button type="submit" variant="contained">
+                  ค้นหา
+                </Button>
+                {search && (
+                  <Button
+                    onClick={() => {
+                      setSearchInput('');
+                      setSearch('');
+                      setPage(0);
+                    }}
+                  >
+                    ล้าง
+                  </Button>
+                )}
+              </Stack>
               <TextField
                 select
                 size="small"
@@ -135,9 +174,15 @@ export function MarketplaceAdminOrderListView({ initialOrderId }: { initialOrder
                         return (
                           <TableRow key={order.id}>
                             <TableCell>
-                              <Typography variant="subtitle2" title={order.id}>
+                              <Button
+                                size="small"
+                                title={order.id}
+                                onClick={() => setSelectedOrder(order)}
+                                aria-label={`ดูรายละเอียดคำสั่งซื้อ #${order.id.slice(0, 8).toUpperCase()}`}
+                                sx={{ display: 'block', minWidth: 0, p: 0 }}
+                              >
                                 #{order.id.slice(0, 8).toUpperCase()}
-                              </Typography>
+                              </Button>
                               <Typography variant="caption" color="text.secondary">
                                 {dateTime.format(new Date(order.created_at))}
                               </Typography>
@@ -216,6 +261,13 @@ export function MarketplaceAdminOrderListView({ initialOrderId }: { initialOrder
           </Card>
         )}
       </Stack>
+      {isMasterAdmin && user?.id && selectedOrder && (
+        <OrderDetailsDialog
+          order={selectedOrder}
+          userId={user.id}
+          onClose={() => setSelectedOrder(null)}
+        />
+      )}
     </Container>
   );
 }

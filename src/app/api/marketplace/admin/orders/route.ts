@@ -14,6 +14,7 @@ const filtersSchema = z.object({
     .max(Math.floor(2_147_483_647 / adminOrdersPageSize) - 1),
   status: z.string().refine((status) => status === '' || Object.hasOwn(orderStatus, status)),
   id: z.union([z.uuid(), z.literal('')]),
+  search: z.string().trim().max(100),
 });
 
 export async function GET(request: Request) {
@@ -27,13 +28,37 @@ export async function GET(request: Request) {
     page: params.get('page') ?? '0',
     status: params.get('status') ?? '',
     id: params.get('id') ?? '',
+    search: params.get('search') ?? '',
   });
   if (!filters.success) {
     return NextResponse.json({ message: 'ตัวกรองคำสั่งซื้อไม่ถูกต้อง' }, { status: 400 });
   }
 
-  const { page, status, id } = filters.data;
+  const { page, status, id, search } = filters.data;
   const offset = page * adminOrdersPageSize;
+  let searchResult: { ids: string[]; total: number } | undefined;
+  if (search) {
+    const { data, error } = await supabaseAdmin.rpc('search_marketplace_admin_orders', {
+      p_search: search,
+      p_status: status || null,
+      p_order_id: id || null,
+      p_offset: offset,
+    });
+    if (error || !data) {
+      return NextResponse.json(
+        { message: 'ค้นหาคำสั่งซื้อไม่สำเร็จ กรุณาลองใหม่' },
+        { status: 500 }
+      );
+    }
+    searchResult = data;
+    if (searchResult && !searchResult.ids.length) {
+      return NextResponse.json(
+        { orders: [], total: searchResult.total },
+        { headers: { 'Cache-Control': 'private, no-store' } }
+      );
+    }
+  }
+
   let query = supabaseAdmin
     .from('marketplace_orders')
     .select(
@@ -41,8 +66,11 @@ export async function GET(request: Request) {
       { count: 'exact' }
     )
     .order('created_at', { ascending: false })
-    .order('id', { ascending: false })
-    .range(offset, offset + adminOrdersPageSize - 1);
+    .order('id', { ascending: false });
+
+  query = searchResult
+    ? query.in('id', searchResult.ids)
+    : query.range(offset, offset + adminOrdersPageSize - 1);
 
   if (status) query = query.eq('status', status);
   if (id) query = query.eq('id', id);
@@ -93,7 +121,7 @@ export async function GET(request: Request) {
         buyer_name: buyerNames.get(buyer_id) ?? null,
         buyer_reference: buyer_id.slice(0, 8).toUpperCase(),
       })),
-      total: count ?? 0,
+      total: searchResult?.total ?? count ?? 0,
     },
     { headers: { 'Cache-Control': 'private, no-store' } }
   );

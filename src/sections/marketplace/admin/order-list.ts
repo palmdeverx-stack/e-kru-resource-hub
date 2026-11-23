@@ -67,3 +67,9 @@ export function getOrderOutcome(order: AdminOrder) {
       return '—';
   }
 }
+
+export type AdminOrderDetails = {
+  paymentMethod: string | null;
+  events: { label: string; at: string | null; detail?: string }[];
+  delivery: { id: string; title: string; status: string }[];
+};
