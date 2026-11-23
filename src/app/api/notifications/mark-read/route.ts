@@ -4,6 +4,8 @@ import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { rejectCrossSiteMutation } from 'src/lib/request-security';
 
+import { filterPersonalNotifications } from '../scope';
+
 // ----------------------------------------------------------------------
 
 export async function POST(request: Request) {
@@ -12,6 +14,7 @@ export async function POST(request: Request) {
 
   const caller = requireRole(request, [
     'master_admin',
+    'marketplace_admin',
     'school_admin',
     'teacher',
     'student',
@@ -23,22 +26,17 @@ export async function POST(request: Request) {
   }
 
   const { ids } = (await request.json().catch(() => ({}))) as { ids?: string[] };
-  const marketplaceOnly = new URL(request.url).searchParams.get('scope') === 'marketplace';
-
   let query = supabaseAdmin
     .from('notifications')
     .update({ read_at: new Date().toISOString() })
     .eq('user_id', caller.sub)
     .is('read_at', null);
 
-  if (marketplaceOnly) {
-    query = query.like('type', 'marketplace_%');
-  }
   if (Array.isArray(ids) && ids.length) {
     query = query.in('id', ids);
   }
 
-  const { error } = await query;
+  const { error } = await filterPersonalNotifications(query, request);
 
   if (error) {
     return NextResponse.json({ message: error.message }, { status: 500 });

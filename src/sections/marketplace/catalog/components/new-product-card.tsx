@@ -74,13 +74,9 @@ export function MarketplaceNewProductCard({
         bgcolor: 'background.paper',
         border: '1px solid',
         borderColor: 'divider',
-        boxShadow: '0 12px 36px rgba(15, 23, 42, 0.06)',
-        transition: 'transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease',
-        '&:hover': {
-          transform: 'translateY(-7px)',
-          borderColor: 'primary.light',
-          boxShadow: '0 18px 36px rgba(21, 101, 245, 0.16)',
-        },
+        boxShadow: 'none',
+        transition: 'border-color 220ms ease',
+        '&:hover, &:focus-within': { borderColor: 'primary.light' },
       }}
     >
       <Box

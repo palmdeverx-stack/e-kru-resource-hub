@@ -13,6 +13,7 @@ import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Select from '@mui/material/Select';
 import Divider from '@mui/material/Divider';
+import { alpha } from '@mui/material/styles';
 import MenuItem from '@mui/material/MenuItem';
 import Skeleton from '@mui/material/Skeleton';
 import Container from '@mui/material/Container';
@@ -220,6 +221,7 @@ export function MarketplaceCatalogView() {
     staleTime: 60_000,
   });
   const newProducts = latestPage?.products ?? [];
+  const hasSingleNewProduct = !newProductsLoading && newProducts.length === 1;
   const {
     data: catalogPages,
     isPending: loading,
@@ -902,21 +904,14 @@ export function MarketplaceCatalogView() {
             overflow: 'hidden',
             borderRadius: { xs: 3, md: 4 },
             border: '1px solid',
-            borderColor: 'primary.lighter',
-            background:
-              'linear-gradient(145deg, rgba(231,240,255,0.88) 0%, rgba(255,255,255,0.98) 52%, rgba(232,250,245,0.82) 100%)',
-            '&::before': {
-              top: -120,
-              right: -80,
-              width: 280,
-              height: 280,
-              content: '""',
-              opacity: 0.55,
-              position: 'absolute',
-              borderRadius: '50%',
-              background: 'radial-gradient(circle, rgba(21,101,245,0.18), transparent 68%)',
-              pointerEvents: 'none',
-            },
+            borderColor: (theme) => alpha(theme.palette.primary.main, 0.16),
+            bgcolor: (theme) => alpha(theme.palette.primary.main, 0.08),
+            ...(hasSingleNewProduct && {
+              display: { md: 'grid' },
+              gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 400px)',
+              alignItems: 'center',
+              columnGap: 6,
+            }),
           }}
         >
           <Stack
@@ -924,7 +919,7 @@ export function MarketplaceCatalogView() {
             justifyContent="space-between"
             alignItems={{ xs: 'flex-start', sm: 'center' }}
             spacing={2}
-            sx={{ mb: { xs: 2.5, md: 3.5 }, position: 'relative' }}
+            sx={{ mb: { xs: 2.5, md: hasSingleNewProduct ? 0 : 3 } }}
           >
             <Stack direction="row" spacing={1.75} alignItems="center">
               <Box
@@ -940,14 +935,12 @@ export function MarketplaceCatalogView() {
                   boxShadow: '0 10px 28px rgba(21,101,245,0.13)',
                 }}
               >
-                <RiTimeLine size={25} />
+                <RiTimeLine size={25} aria-hidden />
               </Box>
               <Box>
-                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-                  <Typography id="new-products-title" variant="h3">
-                    {t('catalog.newProducts.heading')}
-                  </Typography>
-                </Stack>
+                <Typography id="new-products-title" component="h2" variant="h3">
+                  {t('catalog.newProducts.heading')}
+                </Typography>
                 <Typography color="text.secondary" sx={{ mt: 0.5 }}>
                   {t('catalog.newProducts.description')}
                 </Typography>
@@ -955,7 +948,17 @@ export function MarketplaceCatalogView() {
             </Stack>
 
             {newProducts.length > 1 && (
-              <Stack direction="row" spacing={1}>
+              <Stack
+                direction="row"
+                spacing={1}
+                sx={{
+                  display: {
+                    xs: 'flex',
+                    sm: newProducts.length > 2 ? 'flex' : 'none',
+                    md: newProducts.length > 3 ? 'flex' : 'none',
+                  },
+                }}
+              >
                 <IconButton
                   aria-label={t('catalog.newProducts.previous')}
                   onClick={() => scrollNewProducts(-1)}
@@ -994,8 +997,8 @@ export function MarketplaceCatalogView() {
             <Box
               ref={newProductsScrollRef}
               sx={{
-                pt: 2,
-                pb: 5.5,
+                minWidth: 0,
+                py: hasSingleNewProduct ? 0 : 1,
                 gap: 2,
                 display: 'grid',
                 overflowX: 'auto',
@@ -1003,8 +1006,8 @@ export function MarketplaceCatalogView() {
                 gridAutoFlow: 'column',
                 gridAutoColumns: {
                   xs: '100%',
-                  sm: 'calc((100% - 16px) / 2)',
-                  md: 'calc((100% - 32px) / 3)',
+                  sm: hasSingleNewProduct ? '100%' : 'calc((100% - 16px) / 2)',
+                  md: newProducts.length > 2 ? 'calc((100% - 32px) / 3)' : undefined,
                 },
                 scrollbarWidth: 'none',
                 '&::-webkit-scrollbar': { display: 'none' },

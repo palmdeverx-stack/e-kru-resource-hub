@@ -20,8 +20,8 @@ import Rating from '@mui/material/Rating';
 import Skeleton from '@mui/material/Skeleton';
 import Container from '@mui/material/Container';
 import Accordion from '@mui/material/Accordion';
-import { useTheme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
+import { alpha, useTheme } from '@mui/material/styles';
 import AccordionSummary from '@mui/material/AccordionSummary';
 import AccordionDetails from '@mui/material/AccordionDetails';
 
@@ -80,6 +80,8 @@ type LandingCategory = {
   previewImages: string[];
   translationKey?: string;
 };
+
+const OFFICIAL_PRODUCT_LIMIT = 3;
 
 const fallbackCategories: LandingCategory[] = [
   {
@@ -379,10 +381,14 @@ export function MarketplaceLandingView({ initialStats }: { initialStats?: Public
     staleTime: 5 * 60_000,
   });
   const { data: officialProducts = [], isPending: officialProductsLoading } = useQuery({
-    queryKey: ['landing', 'official-products'],
-    queryFn: async () => (await getProducts({ official: true, page: 1, limit: 4 })).products,
+    queryKey: ['landing', 'official-products', OFFICIAL_PRODUCT_LIMIT],
+    queryFn: async () =>
+      (await getProducts({ official: true, page: 1, limit: OFFICIAL_PRODUCT_LIMIT })).products,
     staleTime: 60_000,
   });
+  const officialProductCount = officialProducts.length;
+  const hasFewOfficialProducts = !officialProductsLoading && officialProductCount <= 2;
+
   const {
     data: newSellerProducts = [],
     isPending: newSellerProductsLoading,
@@ -763,23 +769,51 @@ export function MarketplaceLandingView({ initialStats }: { initialStats?: Public
       </Box>
 
       {(officialProductsLoading || officialProducts.length > 0) && (
-        <Box sx={{ py: { xs: 5, md: 7 }, bgcolor: 'background.neutral' }}>
+        <Box
+          component="section"
+          aria-labelledby="official-products-title"
+          sx={{ py: { xs: 5, md: 7 } }}
+        >
           <Container maxWidth="lg">
-            <Stack spacing={{ xs: 3, md: 4 }}>
+            <Stack
+              spacing={{ xs: 2.5, md: 3 }}
+              sx={{
+                p: { xs: 2, sm: 3, md: 4 },
+                borderRadius: 3,
+                border: '1px solid',
+                borderColor: alpha(theme.palette.primary.main, 0.16),
+                bgcolor: alpha(theme.palette.primary.main, 0.08),
+                ...(hasFewOfficialProducts && {
+                  display: { md: 'grid' },
+                  gridTemplateColumns:
+                    officialProductCount === 1 ? 'minmax(0, 1fr) minmax(0, 400px)' : '1fr 2fr',
+                  alignItems: { md: 'center' },
+                }),
+              }}
+              useFlexGap
+            >
               <Stack
-                direction={{ xs: 'column', sm: 'row' }}
+                direction={{
+                  xs: 'column',
+                  sm: 'row',
+                  md: hasFewOfficialProducts ? 'column' : 'row',
+                }}
                 spacing={2}
-                alignItems={{ xs: 'flex-start', sm: 'flex-end' }}
+                alignItems={{
+                  xs: 'flex-start',
+                  sm: 'center',
+                  md: hasFewOfficialProducts ? 'flex-start' : 'center',
+                }}
                 justifyContent="space-between"
               >
                 <Box>
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <RiShieldStarFill size={25} color={theme.palette.primary.main} aria-hidden />
-                    <Typography variant="overline" color={theme.palette.primary.main}>
-                      OFFICIAL E-KRU PRODUCTS
-                    </Typography>
-                  </Stack>
-                  <Typography variant="h3" sx={{ mt: 0.75 }}>
+                  <RiShieldStarFill size={25} color={theme.palette.primary.main} aria-hidden />
+                  <Typography
+                    id="official-products-title"
+                    component="h2"
+                    variant="h3"
+                    sx={{ mt: 0.75 }}
+                  >
                     {t('official.title')}
                   </Typography>
                   <Typography color="text.secondary" sx={{ mt: 1.25 }}>
@@ -789,6 +823,7 @@ export function MarketplaceLandingView({ initialStats }: { initialStats?: Public
                 <Button
                   component={RouterLink}
                   href={paths.marketplace.officialProducts}
+                  variant="outlined"
                   endIcon={<RiArrowRightLine />}
                   sx={{ flexShrink: 0 }}
                 >
@@ -796,10 +831,10 @@ export function MarketplaceLandingView({ initialStats }: { initialStats?: Public
                 </Button>
               </Stack>
 
-              <Grid container spacing={2.5}>
+              <Grid container spacing={2.5} sx={{ minWidth: 0 }}>
                 {officialProductsLoading
-                  ? Array.from({ length: 4 }).map((_, index) => (
-                      <Grid key={index} size={{ xs: 12, sm: 6, md: 3 }}>
+                  ? Array.from({ length: OFFICIAL_PRODUCT_LIMIT }).map((_, index) => (
+                      <Grid key={index} size={{ xs: 12, sm: 6, md: 12 / OFFICIAL_PRODUCT_LIMIT }}>
                         <Card variant="outlined" sx={{ p: 1.5, borderRadius: 2.5 }}>
                           <Skeleton variant="rounded" sx={{ aspectRatio: '4 / 3' }} />
                           <Skeleton width="55%" sx={{ mt: 2 }} />
@@ -810,7 +845,14 @@ export function MarketplaceLandingView({ initialStats }: { initialStats?: Public
                       </Grid>
                     ))
                   : officialProducts.map((product, index) => (
-                      <Grid key={product.id} size={{ xs: 12, sm: 6, md: 3 }}>
+                      <Grid
+                        key={product.id}
+                        size={{
+                          xs: 12,
+                          sm: officialProductCount === 1 ? 12 : 6,
+                          md: 12 / officialProductCount,
+                        }}
+                      >
                         <MarketplaceProductCard product={product} colorIndex={index} />
                       </Grid>
                     ))}

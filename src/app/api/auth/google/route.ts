@@ -140,14 +140,40 @@ async function handleGoogleSignIn(request: Request) {
     return NextResponse.json({ message: 'Session นี้ไม่ได้มาจาก Google' }, { status: 400 });
   }
 
-  const [{ data: appUserByAuth }, { data: marketplaceUserByAuth }] = await Promise.all([
-    supabaseAdmin.from('app_users').select('*').eq('auth_user_id', authUser.id).maybeSingle(),
+  const [appAccounts, marketplaceAccount] = await Promise.all([
+    supabaseAdmin.from('app_users').select('*').eq('auth_user_id', authUser.id).limit(2),
     supabaseAdmin
       .from('marketplace_users')
       .select('*')
       .eq('auth_user_id', authUser.id)
       .maybeSingle(),
   ]);
+  if (appAccounts.error || marketplaceAccount.error) {
+    return NextResponse.json({ message: 'ตรวจสอบบัญชีที่เชื่อมกับ Google ไม่สำเร็จ' }, { status: 500 });
+  }
+
+  const marketplaceUserByAuth = marketplaceAccount.data;
+  let appUserByAuth = appAccounts.data[0];
+  if (appAccounts.data.length > 1) {
+    // app_metadata is managed by the server. Resolve only a unique role match
+    // within the verified identity and never fall back to a Marketplace account.
+    const role = authUser.app_metadata?.role;
+    const matchingAccount =
+      typeof role === 'string' &&
+      (await supabaseAdmin
+        .from('app_users')
+        .select('*')
+        .eq('auth_user_id', authUser.id)
+        .eq('role', role)
+        .maybeSingle());
+    if (!matchingAccount || matchingAccount.error || !matchingAccount.data) {
+      return NextResponse.json(
+        { message: 'พบบัญชี E-KRU หลายรายการที่เชื่อมกับ Google กรุณาติดต่อผู้ดูแลระบบ' },
+        { status: 409 }
+      );
+    }
+    appUserByAuth = matchingAccount.data;
+  }
 
   if (appUserByAuth) {
     const access = await validateSchoolUser(appUserByAuth);

@@ -4,12 +4,12 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 
-function fixture({ role = 'master_admin', suspended = false, verified = true, updateError = false, name = 'Google Admin', familyName = 'Admin' } = {}) {
+function fixture({ role = 'master_admin', suspended = false, verified = true, updateError = false, name = 'Google Admin', familyName = 'Admin', linkedRoles = [], authRole } = {}) {
   const writes = []; const pins = []; const signed = [];
   const user = { id: 'admin', auth_user_id: 'google-id', role, school_id: 'school', first_name: 'Old', last_name: 'Name', is_active: true, is_suspended: suspended };
   const authUser = {
     id: 'google-id', email: 'admin@example.test', email_confirmed_at: verified ? 'now' : null,
-    app_metadata: { provider: 'google' }, user_metadata: { full_name: 'Wrong source' },
+    app_metadata: { provider: 'google', role: authRole }, user_metadata: { full_name: 'Wrong source', role },
     identities: [{ provider: 'google', identity_data: { full_name: name, given_name: name.split(' ')[0], family_name: familyName, picture: 'https://example.test/avatar.png' } }],
   };
   const mocks = {
@@ -18,8 +18,18 @@ function fixture({ role = 'master_admin', suspended = false, verified = true, up
       auth: { getUser: async () => ({ data: { user: authUser } }), admin: { updateUserById: async () => ({}) } },
       from: table => {
         let patch;
-        const query = { select: () => query, eq: () => query, update: data => { patch = data; return query; },
-          maybeSingle: async () => ({ data: table === 'app_users' ? user : table === 'schools' ? { is_active: true } : null }),
+        let selectedRole;
+        const accounts = [...linkedRoles.map((linkedRole) => ({ ...user, id: 'other', role: linkedRole })), user];
+        const query = { select: () => query, eq: (field, value) => { if (field === 'role') selectedRole = value; return query; },
+          limit: async (count) => ({ data: accounts.slice(0, count) }),
+          update: data => { patch = data; return query; },
+          maybeSingle: async () => {
+            if (table === 'app_users') {
+              const matching = accounts.filter(account => account.role === selectedRole);
+              return matching.length === 1 ? { data: matching[0] } : { data: null };
+            }
+            return { data: table === 'schools' ? { is_active: true } : linkedRoles.length ? { ...user, role: 'marketplace_user' } : null };
+          },
           then: resolve => { if (patch) writes.push(patch); resolve({ error: updateError ? { message: 'failed' } : null }); },
         }; return query;
       },
@@ -62,3 +72,20 @@ for (const options of [{ suspended: true }, { verified: false }]) {
 test('profile write failure does not issue an authenticated session', async () => {
   const f = fixture({ updateError: true, name: 'Palmer Dever' }); assert.equal((await f.run()).status, 500); assert.equal(f.signed.length, 0); assert.equal(f.pins.length, 0);
 });
+
+test('shared Google identity resolves the server-designated master admin and requires PIN', async () => {
+  const auth = fixture({ linkedRoles: ['teacher'], authRole: 'master_admin' });
+  const response = await auth.run();
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).requiresPin, true);
+  assert.deepEqual(auth.pins, ['admin']);
+  assert.equal(auth.signed.length, 0);
+});
+
+for (const [linkedRoles, authRole] of [[['teacher'], undefined], [['master_admin'], 'master_admin']]) {
+  test(`ambiguous Google identity fails closed for role ${authRole}`, async () => {
+    const auth = fixture({ linkedRoles, authRole });
+    assert.equal((await auth.run()).status, 409);
+    assert.equal(auth.pins.length + auth.signed.length + auth.writes.length, 0);
+  });
+}

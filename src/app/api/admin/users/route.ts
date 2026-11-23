@@ -3,12 +3,8 @@ import { NextResponse } from 'next/server';
 import { requireRole } from 'src/lib/auth-token';
 import { supabaseAdmin } from 'src/lib/supabase-admin';
 import { parseGuardianBody } from 'src/lib/student-guardian';
-import { decryptCredential } from 'src/lib/credential-cipher';
 import { createManagedUser } from 'src/lib/create-managed-user';
-import {
-  getDepartmentGrantedPermissions,
-  getEffectiveDepartmentPermissions,
-} from 'src/lib/department-permission-access';
+import { getDepartmentGrantedPermissions } from 'src/lib/department-permission-access';
 
 // ----------------------------------------------------------------------
 
@@ -22,15 +18,9 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const role = searchParams.get('role');
 
-  // View-level (department-granted) decides who can browse the list at all;
-  // effective (personally-delegated) decides who sees decrypted passwords.
   const viewPermissions =
     caller.role === 'teacher' && caller.schoolId
       ? await getDepartmentGrantedPermissions(caller.sub, caller.schoolId)
-      : [];
-  const managePermissions =
-    caller.role === 'teacher' && caller.schoolId
-      ? await getEffectiveDepartmentPermissions(caller.sub, caller.schoolId)
       : [];
 
   // Teachers may only look up students (e.g. to enroll them into a classroom) —
@@ -49,7 +39,7 @@ export async function GET(request: Request) {
   let query = supabaseAdmin
     .from('app_users')
     .select(
-      'id, username, email, first_name, last_name, avatar_url, role, school_id, school:schools!app_users_school_id_fkey(name), created_at, must_change_password, student_status, student_code, national_id, name_prefix, first_name_en, last_name_en, nickname, gender, birth_date, nationality, ethnicity, religion, is_active, password_ciphertext, import_confirmed_at, staff_type, employment_status, employment_start_date, appointment_date, contract_end_date, position_title, academic_rank, is_school_director, line_linked_at, line_display_name'
+      'id, username, email, first_name, last_name, avatar_url, role, school_id, school:schools!app_users_school_id_fkey(name), created_at, must_change_password, student_status, student_code, national_id, name_prefix, first_name_en, last_name_en, nickname, gender, birth_date, nationality, ethnicity, religion, is_active, import_confirmed_at, staff_type, employment_status, employment_start_date, appointment_date, contract_end_date, position_title, academic_rank, is_school_director, line_linked_at, line_display_name'
     )
     .order('created_at', { ascending: false });
 
@@ -99,7 +89,7 @@ export async function GET(request: Request) {
     }
   }
 
-  const users = data.map(({ password_ciphertext: passwordCiphertext, ...user }) => ({
+  const users = data.map((user) => ({
     ...user,
     ...(user.role === 'student' && {
       guardian_count: guardianSummary.get(user.id)?.guardianCount ?? 0,
@@ -107,14 +97,9 @@ export async function GET(request: Request) {
       line_notifications_enabled_count:
         guardianSummary.get(user.id)?.notificationsEnabledCount ?? 0,
     }),
-    ...((caller.role === 'school_admin' ||
-      (user.role === 'teacher' && managePermissions.includes('staff.manage')) ||
-      (user.role === 'student' && managePermissions.includes('students.manage'))) && {
-      login_password: decryptCredential(passwordCiphertext ?? null),
-    }),
   }));
 
-  return NextResponse.json({ users });
+  return NextResponse.json({ users }, { headers: { 'Cache-Control': 'private, no-store' } });
 }
 
 export async function POST(request: Request) {
