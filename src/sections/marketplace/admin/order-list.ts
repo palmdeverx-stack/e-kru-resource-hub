@@ -70,6 +70,7 @@ export function getOrderOutcome(order: AdminOrder) {
 
 export type AdminOrderDetails = {
   paymentMethod: string | null;
+  refundBlockedByDownload: boolean;
   events: { label: string; at: string | null; detail?: string }[];
   delivery: { id: string; title: string; status: string }[];
 };

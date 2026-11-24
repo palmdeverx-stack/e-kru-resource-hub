@@ -68,7 +68,8 @@ export async function GET(request: Request, { params }: Context) {
   if (error) return loadError();
   if (!order) return NextResponse.json({ message: 'ไม่พบคำสั่งซื้อ' }, { status: 404 });
 
-  const [audit, refunds] = await Promise.all([
+  const orderItemIds = (order.items ?? []).map((item) => item.id);
+  const [audit, refunds, download] = await Promise.all([
     order.payment_session_id
       ? supabaseAdmin
           .from('security_audit_logs')
@@ -89,8 +90,17 @@ export async function GET(request: Request, { params }: Context) {
           .order('updated_at', { ascending: false })
           .limit(25)
       : null,
+    orderItemIds.length
+      ? supabaseAdmin
+          .from('marketplace_product_downloads')
+          .select('downloaded_at')
+          .in('order_item_id', orderItemIds)
+          .order('downloaded_at', { ascending: true })
+          .limit(1)
+          .maybeSingle()
+      : null,
   ]);
-  if (audit?.error || refunds?.error) return loadError();
+  if (audit?.error || refunds?.error || download?.error) return loadError();
 
   // These relationships are many-to-one or unique per order/item. The client has no generated schema.
   const one = <T>(value: T | T[] | null): T | null =>
@@ -189,7 +199,12 @@ export async function GET(request: Request, { params }: Context) {
   });
 
   return NextResponse.json(
-    { paymentMethod: method ?? null, events, delivery } satisfies AdminOrderDetails,
+    {
+      paymentMethod: method ?? null,
+      refundBlockedByDownload: Boolean(download?.data),
+      events,
+      delivery,
+    } satisfies AdminOrderDetails,
     {
       headers: { 'Cache-Control': 'private, no-store' },
     }

@@ -314,6 +314,7 @@ test('Super Admin detail reports payment, refund and each item’s current deliv
         created_at: '2026-11-20T08:40:00Z',
       },
     ],
+    marketplace_product_downloads: null,
     marketplace_stripe_refund_totals: [
       { refunded_amount: 100, charge_amount: 200, updated_at: '2026-11-20T11:00:00Z' },
     ],
@@ -349,8 +350,12 @@ test('Super Admin detail reports payment, refund and each item’s current deliv
   active = true;
   assert.equal((await GET({}, { params: Promise.resolve({ id: 'invalid' }) })).status, 400);
   assert.deepEqual(reads, []);
+  const beforeDownload = await GET({}, context);
+  assert.equal(beforeDownload.body.refundBlockedByDownload, false);
+  tables.marketplace_product_downloads = { downloaded_at: '2026-11-20T09:30:00Z' };
   const response = await GET({}, context);
   assert.equal(response.status, 200);
+  assert.equal(response.body.refundBlockedByDownload, true);
   assert.deepEqual(
     Array.from(response.body.events, (event) => event.label),
     [

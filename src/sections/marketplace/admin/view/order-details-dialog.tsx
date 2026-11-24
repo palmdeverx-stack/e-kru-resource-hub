@@ -67,6 +67,11 @@ export function OrderDetailsDialog({
                 </Typography>
               )}
             </div>
+            {data.refundBlockedByDownload && (
+              <Alert severity="warning">
+                งดคืนเงินตามนโยบาย เนื่องจากผู้ซื้อได้รับลิงก์ดาวน์โหลดไฟล์ที่ซื้อแล้ว
+              </Alert>
+            )}
             <div>
               <Typography variant="h6" component="h2">
                 ประวัติเหตุการณ์ที่บันทึกไว้

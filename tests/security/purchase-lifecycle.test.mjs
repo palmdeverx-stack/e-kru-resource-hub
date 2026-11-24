@@ -236,10 +236,12 @@ test('failed license fulfillment is recovered on webhook retry without charging 
   assert.equal(flow.rows('marketplace_ledger_entries').length, 2);
 });
 
-test('refunded orders and mismatched product files cannot generate download links', async () => {
+test('closed or disputed orders and mismatched files cannot generate download links', async () => {
   const flow = setup(); await flow.register(); flow.seedCheckout(); await flow.pay();
-  flow.rows('marketplace_orders')[0].status = 'refunded';
-  assert.equal((await flow.getFile()).status, 403);
+  for (const status of ['refunded', 'cancelled', 'disputed']) {
+    flow.rows('marketplace_orders')[0].status = status;
+    assert.equal((await flow.getFile()).status, 403);
+  }
   flow.rows('marketplace_orders')[0].status = 'paid';
   flow.rows('marketplace_product_files')[0].product_id = 'other-product';
   assert.equal((await flow.getFile()).status, 403);

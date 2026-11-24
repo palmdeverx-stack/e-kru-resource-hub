@@ -206,13 +206,13 @@ async function refundStripePayment(charge: Stripe.Charge) {
   // Retry fulfillment even when accounting is already recorded, so a failure
   // between the two operations can recover. Partial refunds keep purchased access.
   if (refund.full_refund) {
-    await revokeLicensesForPaymentSession(session.id, 'refunded', 'Stripe คืนเงินให้ผู้ซื้อ');
     const { error: orderUpdateError } = await supabaseAdmin
       .from('marketplace_orders')
       .update({ status: 'refunded', updated_at: new Date().toISOString() })
       .eq('payment_session_id', session.id)
       .in('status', ['paid', 'completed', 'disputed']);
     if (orderUpdateError) throw orderUpdateError;
+    await revokeLicensesForPaymentSession(session.id, 'refunded', 'Stripe คืนเงินให้ผู้ซื้อ');
   }
   if (!refund.already_processed)
     await createNotifications([

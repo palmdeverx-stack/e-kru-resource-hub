@@ -109,8 +109,8 @@ test('accounting failure prevents successful refund fulfillment and propagates f
   assert.equal(api.calls.revoked, 0);
   assert.equal(api.calls.notices, 0);
 });
-test('failed license revocation propagates so a duplicate event can recover', async () => {
+test('full refund closes order downloads even when license revocation needs a retry', async () => {
   const api = load({ revokeError: true });
   await assert.rejects(api.run(), /license unavailable/);
-  assert.equal(api.calls.orderUpdates, 0);
+  assert.equal(api.calls.orderUpdates, 1);
 });
