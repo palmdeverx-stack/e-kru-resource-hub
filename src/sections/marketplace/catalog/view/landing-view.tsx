@@ -5,6 +5,7 @@ import type { MarketplaceLandingBanner } from '../../shared/landing-banner-types
 
 import Image from 'next/image';
 import { useMemo } from 'react';
+import { shuffle } from 'es-toolkit';
 import Autoplay from 'embla-carousel-autoplay';
 import { useQuery } from '@tanstack/react-query';
 
@@ -82,6 +83,9 @@ type LandingCategory = {
 };
 
 const OFFICIAL_PRODUCT_LIMIT = 3;
+const NEW_SELLER_PRODUCTS_PER_ROW = 4;
+const NEW_SELLER_PRODUCT_LIMIT = NEW_SELLER_PRODUCTS_PER_ROW * 2;
+const NEW_SELLER_PRODUCT_POOL_SIZE = 24;
 
 const fallbackCategories: LandingCategory[] = [
   {
@@ -387,6 +391,7 @@ export function MarketplaceLandingView({ initialStats }: { initialStats?: Public
     staleTime: 60_000,
   });
   const officialProductCount = officialProducts.length;
+  const hasSingleOfficialProduct = officialProductCount === 1;
   const hasFewOfficialProducts = !officialProductsLoading && officialProductCount <= 2;
 
   const {
@@ -394,9 +399,15 @@ export function MarketplaceLandingView({ initialStats }: { initialStats?: Public
     isPending: newSellerProductsLoading,
     isError: newSellerProductsError,
   } = useQuery({
-    queryKey: ['landing', 'new-seller-products'],
-    queryFn: async ({ signal }) =>
-      (await getProducts({ excludeOfficial: true, cards: true, page: 1, limit: 4 }, { signal })).products,
+    queryKey: ['landing', 'new-seller-products', NEW_SELLER_PRODUCT_POOL_SIZE],
+    queryFn: async ({ signal }) => {
+      const { products } = await getProducts(
+        { excludeOfficial: true, cards: true, page: 1, limit: NEW_SELLER_PRODUCT_POOL_SIZE },
+        { signal }
+      );
+
+      return shuffle(products).slice(0, NEW_SELLER_PRODUCT_LIMIT);
+    },
     staleTime: 60_000,
   });
   const { data: bestSellingProducts = [], isPending: bestSellingProductsLoading } = useQuery({
@@ -785,9 +796,11 @@ export function MarketplaceLandingView({ initialStats }: { initialStats?: Public
                 bgcolor: alpha(theme.palette.primary.main, 0.08),
                 ...(hasFewOfficialProducts && {
                   display: { md: 'grid' },
-                  gridTemplateColumns:
-                    officialProductCount === 1 ? 'minmax(0, 1fr) minmax(0, 400px)' : '1fr 2fr',
-                  alignItems: { md: 'center' },
+                  gridTemplateColumns: hasSingleOfficialProduct ? 'minmax(0, 1fr) 300px' : '1fr 2fr',
+                  alignItems: { md: 'start' },
+                }),
+                ...(hasSingleOfficialProduct && {
+                  p: { xs: 2, sm: 3 },
                 }),
               }}
               useFlexGap
@@ -795,28 +808,70 @@ export function MarketplaceLandingView({ initialStats }: { initialStats?: Public
               <Stack
                 direction={{
                   xs: 'column',
-                  sm: 'row',
+                  sm: hasSingleOfficialProduct ? 'column' : 'row',
                   md: hasFewOfficialProducts ? 'column' : 'row',
                 }}
                 spacing={2}
-                alignItems={{
-                  xs: 'flex-start',
-                  sm: 'center',
-                  md: hasFewOfficialProducts ? 'flex-start' : 'center',
-                }}
-                justifyContent="space-between"
+                alignItems={
+                  hasSingleOfficialProduct
+                    ? 'center'
+                    : {
+                        xs: 'flex-start',
+                        sm: 'center',
+                        md: hasFewOfficialProducts ? 'flex-start' : 'center',
+                      }
+                }
+                justifyContent={hasSingleOfficialProduct ? 'flex-start' : 'space-between'}
+                useFlexGap
               >
-                <Box>
-                  <RiShieldStarFill size={25} color={theme.palette.primary.main} aria-hidden />
-                  <Typography
-                    id="official-products-title"
-                    component="h2"
-                    variant="h3"
-                    sx={{ mt: 0.75 }}
+                {hasSingleOfficialProduct && (
+                  <Box
+                    sx={{
+                      width: { xs: 144, md: 232 },
+                      aspectRatio: '1312 / 1199',
+                      position: 'relative',
+                      alignSelf: 'center',
+                    }}
                   >
-                    {t('official.title')}
-                  </Typography>
-                  <Typography color="text.secondary" sx={{ mt: 1.25 }}>
+                    <Image
+                      src="/assets/mascot/kumi_cute.png"
+                      alt=""
+                      fill
+                      sizes="(min-width: 900px) 232px, 144px"
+                      style={{ objectFit: 'contain' }}
+                    />
+                  </Box>
+                )}
+                <Box sx={{ textAlign: hasSingleOfficialProduct ? 'center' : 'start' }}>
+                  <Stack
+                    direction="row"
+                    spacing={1.5}
+                    alignItems="center"
+                    justifyContent={hasSingleOfficialProduct ? 'center' : 'flex-start'}
+                  >
+                    <Box
+                      sx={{
+                        mt: 0.25,
+                        width: 36,
+                        height: 36,
+                        flexShrink: 0,
+                        display: 'grid',
+                        placeItems: 'center',
+                        borderRadius: 1.25,
+                        color: 'primary.main',
+                        bgcolor: alpha(theme.palette.primary.main, 0.1),
+                      }}
+                    >
+                      <RiShieldStarFill size={22} aria-hidden />
+                    </Box>
+                    <Typography id="official-products-title" component="h2" variant="h3">
+                      {t('official.title')}
+                    </Typography>
+                  </Stack>
+                  <Typography
+                    color="text.secondary"
+                    sx={{ mt: 0.75, ps: hasSingleOfficialProduct ? 0 : 6 }}
+                  >
                     {t('official.description')}
                   </Typography>
                 </Box>
@@ -831,7 +886,14 @@ export function MarketplaceLandingView({ initialStats }: { initialStats?: Public
                 </Button>
               </Stack>
 
-              <Grid container spacing={2.5} sx={{ minWidth: 0 }}>
+              <Grid
+                container
+                spacing={2.5}
+                sx={{
+                  minWidth: 0,
+                  ...(hasSingleOfficialProduct && { width: 1, maxWidth: 300, mx: 'auto' }),
+                }}
+              >
                 {officialProductsLoading
                   ? Array.from({ length: OFFICIAL_PRODUCT_LIMIT }).map((_, index) => (
                       <Grid key={index} size={{ xs: 12, sm: 6, md: 12 / OFFICIAL_PRODUCT_LIMIT }}>
@@ -849,7 +911,7 @@ export function MarketplaceLandingView({ initialStats }: { initialStats?: Public
                         key={product.id}
                         size={{
                           xs: 12,
-                          sm: officialProductCount === 1 ? 12 : 6,
+                          sm: hasSingleOfficialProduct ? 12 : 6,
                           md: 12 / officialProductCount,
                         }}
                       >
@@ -899,25 +961,33 @@ export function MarketplaceLandingView({ initialStats }: { initialStats?: Public
             ) : !newSellerProductsLoading && newSellerProducts.length === 0 ? (
               <Alert severity="info">{t('newSellerMedia.empty')}</Alert>
             ) : (
-            <Grid container spacing={2.5}>
-              {newSellerProductsLoading
-                ? Array.from({ length: 4 }).map((_, index) => (
-                    <Grid key={index} size={{ xs: 12, sm: 6, md: 3 }}>
-                      <Card variant="outlined" sx={{ p: 1.5, borderRadius: 2.5 }}>
-                        <Skeleton variant="rounded" sx={{ aspectRatio: '4 / 3' }} />
-                        <Skeleton width="55%" sx={{ mt: 2 }} />
-                        <Skeleton height={28} />
-                        <Skeleton width="75%" />
-                        <Skeleton variant="rounded" height={44} sx={{ mt: 2 }} />
-                      </Card>
-                    </Grid>
-                  ))
-                : newSellerProducts.map((product, index) => (
-                    <Grid key={product.id} size={{ xs: 12, sm: 6, md: 3 }}>
-                      <MarketplaceProductCard product={product} colorIndex={index} />
-                    </Grid>
-                  ))}
-            </Grid>
+              <Grid
+                container
+                spacing={2.5}
+                sx={{
+                  [`& > :nth-child(n+${NEW_SELLER_PRODUCTS_PER_ROW + 1})`]: {
+                    display: { xs: 'none', md: 'block' },
+                  },
+                }}
+              >
+                {newSellerProductsLoading
+                  ? Array.from({ length: NEW_SELLER_PRODUCT_LIMIT }).map((_, index) => (
+                      <Grid key={index} size={{ xs: 12, sm: 6, md: 3 }}>
+                        <Card variant="outlined" sx={{ p: 1.5, borderRadius: 2.5 }}>
+                          <Skeleton variant="rounded" sx={{ aspectRatio: '4 / 3' }} />
+                          <Skeleton width="55%" sx={{ mt: 2 }} />
+                          <Skeleton height={28} />
+                          <Skeleton width="75%" />
+                          <Skeleton variant="rounded" height={44} sx={{ mt: 2 }} />
+                        </Card>
+                      </Grid>
+                    ))
+                  : newSellerProducts.map((product, index) => (
+                      <Grid key={product.id} size={{ xs: 12, sm: 6, md: 3 }}>
+                        <MarketplaceProductCard product={product} colorIndex={index} />
+                      </Grid>
+                    ))}
+              </Grid>
             )}
           </Stack>
         </Container>

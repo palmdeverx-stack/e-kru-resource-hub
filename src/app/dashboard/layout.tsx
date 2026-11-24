@@ -28,6 +28,7 @@ import {
   RiHome5Line,
   RiFlowChart,
   RiTruckLine,
+  RiImageLine,
   RiRocketLine,
   RiIdCardLine,
   RiSearchLine,
@@ -375,11 +376,17 @@ const adminNavData: NavSectionProps['data'] = [
             title: 'ประกาศ',
             path: '/dashboard/master/popup-announcements',
           },
-          {
-            title: 'แบนเนอร์หน้าหลัก',
-            path: '/dashboard/master/landing-banners',
-          },
         ],
+      },
+    ],
+  },
+  {
+    subheader: 'โฆษณา',
+    items: [
+      {
+        title: 'แบนเนอร์หน้าหลัก',
+        path: paths.marketplace.landingBanners,
+        icon: <RiImageLine />,
       },
     ],
   },
