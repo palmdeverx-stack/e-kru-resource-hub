@@ -229,7 +229,7 @@ export function JwtSignInView() {
           maxSize={40}
           autoFocus
           validateChar={(character) => /^\d$/.test(character)}
-          slotProps={{ textField: { inputMode: 'numeric' } }}
+          slotProps={{ textField: { slotProps: { htmlInput: { inputMode: 'numeric' } } } }}
         />
       )}
 
